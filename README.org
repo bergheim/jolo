@@ -1,0 +1,103 @@
+#+TITLE: Emacs GUI Container
+#+DESCRIPTION: A containerized Emacs GUI environment using Alpine Linux
+
+* Overview
+
+A containerized Emacs GUI environment using Alpine Linux with native compilation support and Wayland compatibility.
+
+* Features
+
+- *Emacs PGTK* with native compilation support
+- *Wayland and X11* compatibility 
+- *Pre-configured development tools*: ripgrep, fd, git
+- *Spell checking*: aspell, hunspell with English dictionaries
+- *GPG integration* with pinentry support
+- *Modern fonts*: JetBrains Mono Nerd Font, Noto Emoji, DejaVu
+- *Lightweight*: Based on Alpine Linux 3.22.1
+
+* Quick Start
+
+** Building the Container
+
+#+begin_src bash
+podman build -t emacs-gui .
+# or
+docker build -t emacs-gui .
+#+end_src
+
+** Running with Podman example
+
+(change tsb for whatever your user is)
+
+#+begin_src bash
+podman run -it --rm \
+    --name emacs-gui --userns keep-id \
+    -e WAYLAND_DISPLAY \
+    -e EMACS_CONTAINER=1 \
+    -v $XDG_RUNTIME_DIR:/tmp/runtime-1000:ro \
+    -v ~/.config/emacs:/home/tsb/.config/emacs:Z \
+    -v ~/.cache/neodoom:/home/tsb/.cache/neodoom:Z \
+    --device /dev/dri \
+    --security-opt label=disable \
+    emacs-gui
+
+#+end_src
+
+** Running with Docker + xorg
+
+(change tsb for whatever your user is and at the moment use the =feature/xorg= branch)
+
+#+begin_src bash
+docker run -it --rm \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -v ~/.config/emacs:/home/tsb/.config/emacs \
+  -v ~/your-projects:/home/tsb/projects \
+  emacs-gui
+#+end_src
+
+* Configuration
+
+** Environment Variables
+
+- ~EMACS_CONTAINER=1~ - Set automatically to indicate container environment
+- Mount your Emacs configuration to ~/home/tsb/.config/emacs~
+
+** GPG Configuration
+
+GPG is pre-configured with ~allow-loopback-pinentry~ for container compatibility. Your GPG keys can be mounted if needed.
+
+** Custom User ID
+
+To match your host user ID:
+
+#+begin_src bash
+podman build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .
+#+end_src
+
+* Included Packages
+
+| Category     | Packages                                              |
+|--------------+-------------------------------------------------------|
+| Core         | emacs-pgtk-nativecomp, dbus, wayland-libs           |
+| Development  | build-base, git, ripgrep, fd, curl, wget            |
+| Fonts        | font-jetbrains-mono-nerd, ttf-dejavu, font-noto-emoji |
+| Spell Check  | aspell-en, hunspell-en                               |
+| Security     | gnupg, pinentry                                      |
+| Themes       | adwaita-icon-theme, breeze-cursors                   |
+
+* Troubleshooting
+
+** Display Issues
+- Ensure ~$WAYLAND_DISPLAY~ or ~$DISPLAY~ is properly set
+- Verify XDG_RUNTIME_DIR socket mounting for Wayland
+
+** Font Issues
+- Container includes common fonts; mount additional fonts if needed:
+  #+begin_src bash
+  -v ~/.local/share/fonts:/home/tsb/.local/share/fonts:ro
+  #+end_src
+
+** Performance
+- Native compilation cache persists in your mounted ~.config/emacs~ directory
+- First run may be slower as packages compile
