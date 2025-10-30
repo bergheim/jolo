@@ -26,9 +26,12 @@ RUN apk update && apk add --no-cache \
     hunspell \
     hunspell-en \
     mesa-dri-gallium \
+    nodejs \
+    npm \
     pinentry \
     pinentry-tty \
     pkgconf \
+    python3 \
     ripgrep \
     ttf-dejavu \
     wayland-libs-client \
