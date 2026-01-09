@@ -53,6 +53,21 @@ RUN apk update && apk add --no-cache \
     zoxide \
     zsh
 
+# install go
+RUN wget https://go.dev/dl/go1.23.5.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.23.5.linux-amd64.tar.gz && \
+    rm go1.23.5.linux-amd64.tar.gz && \
+    # install global language servers from npm
+    npm install -g \
+    typescript-language-server \
+    typescript \
+    vscode-langservers-extracted \
+    bash-language-server \
+    yaml-language-server \
+    dockerfile-language-server-nodejs \
+    pyright \
+    @ansible/ansible-language-server
+
 # it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
 # Build with say podman build --build-arg USERNAME=$(whoami) -t emacs-gui .
 ARG USERNAME=tsb
@@ -67,22 +82,6 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Install latest Go
-RUN wget https://go.dev/dl/go1.23.5.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.23.5.linux-amd64.tar.gz && \
-    rm go1.23.5.linux-amd64.tar.gz
-
-# Install language servers via npm
-RUN npm install -g \
-    typescript-language-server \
-    typescript \
-    vscode-langservers-extracted \
-    bash-language-server \
-    yaml-language-server \
-    dockerfile-language-server-nodejs \
-    pyright \
-    @ansible/ansible-language-server
-
 USER $USERNAME
 ENV HOME /home/$USERNAME
 WORKDIR $HOME
@@ -91,28 +90,24 @@ ENV PATH="/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin/:$PATH"
 
 # Install gopls
 RUN go install golang.org/x/tools/gopls@latest && \
-    echo 'export PATH="$HOME/go/bin:$PATH"' >> $HOME/.zshrc
-
-# Install bun
-RUN curl -fsSL https://bun.sh/install | bash && \
-    echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc
-
-# Create ~/.config/emacs (will be mounted) and ensure ~/.gnupg dir exists with perms
-RUN mkdir -p $HOME/.config/emacs && \
+    echo 'export PATH="$HOME/go/bin:$PATH"' >> $HOME/.zshrc && \
+    # bun..
+    curl -fsSL https://bun.sh/install | bash && \
+    echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc && \
+    # Create ~/.config/emacs (will be mounted) and ensure ~/.gnupg dir exists with perms
+    mkdir -p $HOME/.config/emacs && \
     mkdir -p $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
-    chmod 700 $HOME/.gnupg
-
-# YOLO
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc && \
+    chmod 700 $HOME/.gnupg && \
+    # YOLO
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc && \
     curl -fsSL https://claude.ai/install.sh | bash
-
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
 
 # ENTRYPOINT script for GUI launch
-COPY --chown=$USERNAME:$USERNAME entrypoint.sh .zshrc $HOME/
+COPY --chown=$USERNAME:$USERNAME entrypoint.sh $HOME/
 RUN chmod +x $HOME/entrypoint.sh
 
 ENTRYPOINT ["sh", "-c", "exec \"$HOME/entrypoint.sh\" \"$@\"", "--"]
