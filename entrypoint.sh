@@ -42,5 +42,10 @@ export NO_AT_BRIDGE=1
 # export G_MESSAGES_DEBUG=""
 # export XCURSOR_PATH=${XCURSOR_PATH}:~/.local/share/icons
 # export XCURSOR_THEME=cursor_theme_name
-# Run Emacs GUI
-exec emacs
+
+if [ "$START_EMACS" = "true" ]; then
+    exec emacs --fg-daemon
+else
+    # auto-reattach to existing, else create
+    tmux attach-session -t dev || tmux new-session -s dev
+fi
