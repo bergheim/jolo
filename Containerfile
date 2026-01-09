@@ -11,12 +11,14 @@ RUN apk update && apk add --no-cache \
     aspell-en \
     breeze-cursors \
     build-base \
+    cargo \
     coreutils \
     curl \
     dbus \
     emacs-pgtk-nativecomp \
     enchant2 \
     enchant2-dev \
+    eza \
     fd \
     fontconfig \
     font-jetbrains-mono-nerd \
@@ -27,18 +29,19 @@ RUN apk update && apk add --no-cache \
     hunspell-en \
     jq \
     mesa-dri-gallium \
+    mise \
+    ncurses-terminfo \
+    ncurses-terminfo-base \
     nodejs \
     npm \
-    mise \
     pinentry \
     pinentry-tty \
     pkgconf \
-    python3 \
     py3-lsp-server \
+    python3 \
     ripgrep \
     rust \
     rust-analyzer \
-    cargo \
     sudo \
     tmux \
     ttf-dejavu \
@@ -47,6 +50,7 @@ RUN apk update && apk add --no-cache \
     wget \
     yadm \
     yq \
+    zoxide \
     zsh
 
 # it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
