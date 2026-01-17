@@ -10,8 +10,11 @@ RUN apk update && apk add --no-cache \
     aspell \
     aspell-en \
     breeze-cursors \
+    autoconf \
+    automake \
     build-base \
     cargo \
+    cmake \
     coreutils \
     curl \
     dbus \
@@ -23,6 +26,7 @@ RUN apk update && apk add --no-cache \
     fontconfig \
     font-jetbrains-mono-nerd \
     font-noto-emoji \
+    github-cli \
     git \
     gnupg \
     hunspell \
@@ -43,6 +47,7 @@ RUN apk update && apk add --no-cache \
     ripgrep \
     rust \
     rust-analyzer \
+    sqlite \
     sudo \
     tmux \
     ttf-dejavu \
