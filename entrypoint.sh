@@ -23,6 +23,17 @@ mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 # Export GPG_TTY for gpg-agent/pinentry communication
 export GPG_TTY=$(tty 2>/dev/null || echo "/dev/console")
 
+# Use forwarded GPG socket if available, otherwise local
+if [ -S "/run/user/1000/gnupg/S.gpg-agent" ]; then
+    echo "Using forwarded GPG agent"
+    # Link to expected location
+    ln -sf /run/user/1000/gnupg/S.gpg-agent "$HOME/.gnupg/S.gpg-agent" 2>/dev/null || true
+else
+    echo "No forwarded GPG agent, starting local (won't sign)"
+    gpgconf --kill gpg-agent || true
+    gpgconf --launch gpg-agent
+fi
+
 # Start session bus for Emacs GUI (needed for DBus features)
 # if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
 #     dbus-daemon --session --fork --address="unix:path=$XDG_RUNTIME_DIR/bus" || true
