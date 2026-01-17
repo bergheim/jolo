@@ -1,29 +1,28 @@
 # TODO
 
-## Zero-Config GPG Signing - VERIFIED WORKING
+## Zero-Config GPG Signing - FIXED
 
 **Goal:** GPG signing should work immediately in devcontainers with no manual setup.
 
-### Implementation
-- [x] `entrypoint.sh` - GPG setup inlined (symlinks socket + imports public key)
-- [x] `Containerfile` - copies entrypoint.sh into image
-- [x] `.devcontainer/devcontainer.json` - mounts host GPG socket directory
-- [x] `yolo.py` - templates updated with dynamic paths
+### Solution
+Mount only what's needed (no private keys exposed):
+1. `pubring.kbx` (read-only) - public keyring so GPG knows what keys exist
+2. `trustdb.gpg` (read-only) - trust database
+3. `gnupg` socket directory - agent socket for signing operations
 
-### Portability Fixes
-- [x] Replaced hardcoded `/home/tsb/` with `${localEnv:USER}` in devcontainer.json
-- [x] Replaced hardcoded `/tmp/runtime-1000/` with `/tmp/container-runtime/`
-- [x] yolo.py substitutes `CONTAINER_USER` placeholder with actual username
-- [x] Removed hardcoded user from `.devcontainer/Dockerfile`
+The entrypoint.sh symlinks the socket to `~/.gnupg/S.gpg-agent`. Private keys stay on the host; the agent handles signing.
+
+### Portability Fixes - DONE
+- [x] yolo.py template uses `${localEnv:USER}` for all target paths
+- [x] yolo.py template uses `${localEnv:HOME}` for all source paths
+- [x] All three GPG mounts included in template (pubring.kbx, trustdb.gpg, socket dir)
 
 ### Verification
 ```bash
-gpg --list-keys
+gpg --list-secret-keys  # Should show your key
 git commit --allow-empty -m "Test signed commit"
 git log -1 --show-signature
 ```
-
-GPG socket should be at: `~/.gnupg/S.gpg-agent -> /tmp/container-runtime/gnupg/S.gpg-agent`
 
 ## Code Quality Fixes - DONE
 
