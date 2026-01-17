@@ -40,6 +40,8 @@ podman run -it --rm \
     -v "$HOME/.cache/emacs-lyra:/home/$USERNAME/.cache/emacs:Z" \
     -v "$HOME/.local/share/yadm:/home/$USERNAME/.local/share/yadm:Z" \
     -v "$HOME/llm:/home/$USERNAME/llm:Z" \
+    -v "$HOME/.gnupg/pubring.kbx:/home/$USERNAME/.gnupg/pubring.kbx:ro,Z" \
+    -v "$HOME/.gnupg/trustdb.gpg:/home/$USERNAME/.gnupg/trustdb.gpg:ro,Z" \
     --device /dev/dri \
     --security-opt label=disable \
     $ENV_ARGS \

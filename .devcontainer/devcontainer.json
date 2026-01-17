@@ -13,7 +13,10 @@
         "source=${localEnv:HOME}/.config/tmux,target=/home/tsb/.config/tmux,type=bind,readonly",
         "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/runtime-1000/${localEnv:WAYLAND_DISPLAY},type=bind",
         "source=${localEnv:HOME}/.config/emacs,target=/home/tsb/.config/emacs,type=bind",
-        "source=${localEnv:HOME}/.cache/emacs,target=/home/tsb/.cache/emacs,type=bind"
+        "source=${localEnv:HOME}/.cache/emacs,target=/home/tsb/.cache/emacs,type=bind",
+        "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/tsb/.gnupg/pubring.kbx,type=bind,readonly",
+        "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/tsb/.gnupg/trustdb.gpg,type=bind,readonly",
+        "source=${localEnv:XDG_RUNTIME_DIR}/gnupg,target=/tmp/runtime-1000/gnupg,type=bind"
     ],
     "containerEnv": {
         "TERM": "xterm-256color",
