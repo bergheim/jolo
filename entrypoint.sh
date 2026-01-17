@@ -41,12 +41,11 @@ else
 fi
 
 # Start session bus for Emacs GUI (needed for DBus features)
-# if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-#     dbus-daemon --session --fork --address="unix:path=$XDG_RUNTIME_DIR/bus" || true
-#     export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-# fi
-
-export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    mkdir -p "$XDG_RUNTIME_DIR"
+    dbus-daemon --session --fork --address="unix:path=$XDG_RUNTIME_DIR/bus" 2>/dev/null || true
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+fi
 
 export NO_AT_BRIDGE=1
 

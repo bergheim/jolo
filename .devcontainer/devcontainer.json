@@ -13,8 +13,7 @@
         "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
         "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind",
         "source=${localEnv:HOME}/.config/emacs,target=/home/${localEnv:USER}/.config/emacs,type=bind",
-        "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
-        "source=${localEnv:XDG_RUNTIME_DIR}/gnupg,target=/tmp/container-runtime/gnupg,type=bind"
+        "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind"
     ],
     "containerEnv": {
         "TERM": "xterm-256color",
@@ -23,5 +22,6 @@
         "XDG_RUNTIME_DIR": "/tmp/container-runtime",
         "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
         "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
-    }
+    },
+    "remoteUser": "${localEnv:USER}"
 }

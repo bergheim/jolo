@@ -97,22 +97,20 @@ ENV PATH="/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin/:$PATH"
 # Install gopls
 RUN go install golang.org/x/tools/gopls@latest && \
     echo 'export PATH="$HOME/go/bin:$PATH"' >> $HOME/.zshrc.container && \
-    # bun..
+    # bun
     curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
-    # Create ~/.config/emacs (will be mounted) and ensure ~/.gnupg dir exists with perms
+    # Create ~/.config/emacs (will be mounted)
     mkdir -p $HOME/.config/emacs && \
+    # GPG setup with loopback pinentry for signing
     mkdir -p $HOME/.gnupg && \
-    echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
     chmod 700 $HOME/.gnupg && \
-    # YOLO
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
-    curl -fsSL https://claude.ai/install.sh | bash && \
-    echo 'alias claude="claude --dangerously-skip-permissions"' > $HOME/.zshrc.container && \
-    mkdir -p $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
     echo "pinentry-program /usr/bin/pinentry-tty" >> $HOME/.gnupg/gpg-agent.conf && \
-    chmod 700 $HOME/.gnupg
+    # Claude CLI (YOLO mode)
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
+    curl -fsSL https://claude.ai/install.sh | bash && \
+    echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1

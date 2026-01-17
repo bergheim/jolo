@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+.env.*
+*.local
+private.el
+
+# API keys and credentials
+.claude.json
+credentials.json
+*.key
+*.pem
+
+# Build artifacts
+*.tar.gz
+*.img
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cache directories
+__pycache__/
+*.pyc
+node_modules/
