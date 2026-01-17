@@ -100,7 +100,6 @@ DEVCONTAINER_JSON_TEMPLATE = """{
     "build": {
         "dockerfile": "Dockerfile"
     },
-    "postStartCommand": "pkill gpg-agent 2>/dev/null; ln -sf $XDG_RUNTIME_DIR/gnupg/S.gpg-agent ~/.gnupg/S.gpg-agent 2>/dev/null || true",
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
         "source=${localEnv:HOME}/.claude,target=/home/${localEnv:USER}/.claude,type=bind",
@@ -114,7 +113,7 @@ DEVCONTAINER_JSON_TEMPLATE = """{
         "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
         "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
         "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
-        "source=${localEnv:XDG_RUNTIME_DIR}/gnupg,target=/tmp/container-runtime/gnupg,type=bind"
+        "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind"
     ],
     "containerEnv": {
         "TERM": "xterm-256color",
