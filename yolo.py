@@ -809,12 +809,46 @@ def remove_worktree(git_root: Path, worktree_path: Path) -> bool:
     return result.returncode == 0
 
 
+def run_prune_global_mode() -> None:
+    """Run --prune --all mode: clean up all stopped devcontainers globally."""
+    all_containers = list_all_devcontainers()
+    stopped_containers = [(name, folder) for name, folder, state in all_containers if state != "running"]
+
+    if not stopped_containers:
+        print("No stopped containers to prune.")
+        return
+
+    print("Stopped containers:")
+    for name, folder in stopped_containers:
+        print(f"  {name:<24} {folder}")
+    print()
+
+    # Prompt for confirmation
+    try:
+        response = input("Remove these? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+
+    if response.lower() != "y":
+        print("Cancelled.")
+        return
+
+    for name, _ in stopped_containers:
+        if remove_container(name):
+            print(f"Removed: {name}")
+        else:
+            print(f"Failed to remove: {name}", file=sys.stderr)
+
+
 def run_prune_mode(args: argparse.Namespace) -> None:
     """Run --prune mode: clean up stopped containers and stale worktrees."""
     git_root = find_git_root()
 
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    # Prune all stopped containers if --all flag or not in a git repo
+    if args.all or git_root is None:
+        run_prune_global_mode()
+        return
 
     # Find stopped containers
     stopped_containers = find_stopped_containers_for_project(git_root)
@@ -951,16 +985,12 @@ def run_attach_mode(args: argparse.Namespace) -> None:
 
 def run_list_mode(args: argparse.Namespace) -> None:
     """Run --list mode: show containers and worktrees for current project."""
-    if args.all:
-        run_list_global_mode()
-        return
-
     git_root = find_git_root()
 
-    if git_root is None:
-        sys.exit(
-            "Error: Not in a git repository. Use --list --all to see all containers."
-        )
+    # Show all containers if --all flag or not in a git repo
+    if args.all or git_root is None:
+        run_list_global_mode()
+        return
 
     project_name = git_root.name
 
