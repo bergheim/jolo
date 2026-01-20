@@ -53,6 +53,7 @@ RUN apk update && apk add --no-cache \
     ttf-dejavu \
     wayland-libs-client \
     wayland-libs-cursor \
+    wl-clipboard \
     wget \
     yadm \
     yq \
@@ -72,7 +73,8 @@ RUN wget https://go.dev/dl/go1.23.5.linux-amd64.tar.gz && \
     yaml-language-server \
     dockerfile-language-server-nodejs \
     pyright \
-    @ansible/ansible-language-server
+    @ansible/ansible-language-server \
+    @zed-industries/claude-code-acp
 
 # it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
 # Build with say podman build --build-arg USERNAME=$(whoami) -t emacs-gui .
@@ -110,7 +112,10 @@ RUN go install golang.org/x/tools/gopls@latest && \
     # Claude CLI (YOLO mode)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
     curl -fsSL https://claude.ai/install.sh | bash && \
-    echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container
+    echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
+    # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
+    echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
+    echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
