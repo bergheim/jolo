@@ -177,6 +177,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--init",
+        action="store_true",
+        help="Initialize git + devcontainer in current directory",
+    )
+
+    parser.add_argument(
         "--new", action="store_true", help="Remove existing container before starting"
     )
 
@@ -208,6 +214,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--prune",
         action="store_true",
         help="Clean up stopped containers and stale worktrees for project",
+    )
+
+    parser.add_argument(
+        "--destroy",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Stop and remove all containers for project (before rm -rf)",
     )
 
     parser.add_argument(
@@ -408,6 +423,13 @@ def validate_create_mode(name: str) -> None:
     target_dir = Path.cwd() / name
     if target_dir.exists():
         sys.exit(f"Error: Directory already exists: {target_dir}")
+
+
+def validate_init_mode() -> None:
+    """Validate that --init mode is NOT being run inside a git repo."""
+    git_root = find_git_root()
+    if git_root is not None:
+        sys.exit("Error: Already in a git repository. Use yolo without --init.")
 
 
 def add_worktree_git_mount(devcontainer_json_path: Path, main_git_dir: Path) -> None:
@@ -705,10 +727,17 @@ def run_stop_mode(args: argparse.Namespace) -> None:
             sys.exit(1)
 
 
-def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str]]:
-    """Find stopped containers for a project.
+def find_containers_for_project(
+    git_root: Path, state_filter: str | None = None
+) -> list[tuple[str, str, str]]:
+    """Find containers for a project.
 
-    Returns list of tuples: (container_name, workspace_folder)
+    Args:
+        git_root: The git repository root path
+        state_filter: If set, only return containers in this state (e.g., "running")
+                      If None, return all containers
+
+    Returns list of tuples: (container_name, workspace_folder, state)
     """
     runtime = get_container_runtime()
     if runtime is None:
@@ -719,19 +748,28 @@ def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str]]
     # Get all containers (including stopped) with devcontainer label
     all_containers = list_all_devcontainers()
 
-    # Filter to stopped containers that match this project
-    stopped = []
+    # Filter to containers that match this project
+    matched = []
     for name, folder, state in all_containers:
-        if state != "running":
-            # Check if folder is under this project or its worktrees
-            folder_path = Path(folder)
-            if (
-                folder_path == git_root
-                or folder_path.parent.name == f"{project_name}-worktrees"
-            ):
-                stopped.append((name, folder))
+        # Check if folder is under this project or its worktrees
+        folder_path = Path(folder)
+        if (
+            folder_path == git_root
+            or folder_path.parent.name == f"{project_name}-worktrees"
+        ):
+            if state_filter is None or state == state_filter:
+                matched.append((name, folder, state))
 
-    return stopped
+    return matched
+
+
+def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str]]:
+    """Find stopped containers for a project.
+
+    Returns list of tuples: (container_name, workspace_folder)
+    """
+    containers = find_containers_for_project(git_root)
+    return [(name, folder) for name, folder, state in containers if state != "running"]
 
 
 def find_stale_worktrees(git_root: Path) -> list[tuple[Path, str]]:
@@ -825,6 +863,76 @@ def run_prune_mode(args: argparse.Namespace) -> None:
             print(f"Removed worktree: {wt_path.name}")
         else:
             print(f"Failed to remove worktree: {wt_path.name}", file=sys.stderr)
+
+
+def run_destroy_mode(args: argparse.Namespace) -> None:
+    """Run --destroy mode: stop and remove all containers for project."""
+    # If path argument provided, use it; otherwise detect from cwd
+    if args.destroy:
+        target_path = Path(args.destroy).resolve()
+        if not target_path.exists():
+            sys.exit(f"Error: Path does not exist: {target_path}")
+        git_root = find_git_root(target_path)
+        if git_root is None:
+            sys.exit(f"Error: Not a git repository: {target_path}")
+    else:
+        git_root = find_git_root()
+        if git_root is None:
+            sys.exit("Error: Not in a git repository.")
+
+    runtime = get_container_runtime()
+    if runtime is None:
+        sys.exit("Error: No container runtime found (docker or podman required)")
+
+    # Find all containers for this project
+    containers = find_containers_for_project(git_root)
+
+    if not containers:
+        print("No containers found for this project.")
+        return
+
+    # Show what will be destroyed
+    print(f"Project: {git_root.name}")
+    print()
+    print("Containers to destroy:")
+    for name, folder, state in containers:
+        print(f"  {name:<24} {state:<10} {folder}")
+    print()
+
+    # Prompt for confirmation
+    try:
+        response = input("Stop and remove these containers? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+
+    if response.lower() != "y":
+        print("Cancelled.")
+        return
+
+    # Stop running containers first
+    for name, folder, state in containers:
+        if state == "running":
+            cmd = [runtime, "stop", name]
+            verbose_cmd(cmd)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"Stopped: {name}")
+            else:
+                print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
+
+    # Remove all containers
+    for name, folder, state in containers:
+        if remove_container(name):
+            print(f"Removed: {name}")
+        else:
+            print(f"Failed to remove: {name}", file=sys.stderr)
+
+    print()
+    print(f"Done. You can now: rm -rf {git_root}")
+    worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
+    if worktrees_dir.exists():
+        print(f"              and: rm -rf {worktrees_dir}")
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:
@@ -1081,6 +1189,53 @@ def run_create_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(project_path)
 
 
+def run_init_mode(args: argparse.Namespace) -> None:
+    """Run --init mode: initialize git + devcontainer in current directory."""
+    validate_init_mode()
+
+    project_path = Path.cwd()
+    project_name = project_path.name
+
+    # Load config
+    config = load_config()
+
+    # Initialize git repo
+    cmd = ["git", "init"]
+    verbose_cmd(cmd)
+    result = subprocess.run(cmd, cwd=project_path)
+    if result.returncode != 0:
+        sys.exit("Error: Failed to initialize git repository")
+
+    # Scaffold .devcontainer
+    scaffold_devcontainer(project_name, project_path, config=config)
+
+    # Initial commit with .devcontainer
+    cmd = ["git", "add", ".devcontainer"]
+    verbose_cmd(cmd)
+    subprocess.run(cmd, cwd=project_path)
+
+    cmd = ["git", "commit", "-m", "Initial commit with devcontainer setup"]
+    verbose_cmd(cmd)
+    subprocess.run(cmd, cwd=project_path)
+
+    print(f"Initialized: {project_path}")
+
+    # Set up secrets in environment
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+
+    # Start devcontainer (always remove existing for fresh project)
+    if not devcontainer_up(project_path, remove_existing=True):
+        sys.exit("Error: Failed to start devcontainer")
+
+    if args.detach:
+        print(f"Container started: {project_name}")
+        return
+
+    # Attach to tmux
+    devcontainer_exec_tmux(project_path)
+
+
 def run_sync_mode(args: argparse.Namespace) -> None:
     """Run --sync mode: regenerate .devcontainer from template."""
     git_root = find_git_root()
@@ -1128,6 +1283,10 @@ def main(argv: list[str] | None = None) -> None:
         run_prune_mode(args)
         return
 
+    if args.destroy is not None:
+        run_destroy_mode(args)
+        return
+
     # Check guards (skip tmux guard if detaching)
     if not args.detach:
         check_tmux_guard()
@@ -1135,6 +1294,8 @@ def main(argv: list[str] | None = None) -> None:
     # Dispatch to appropriate mode
     if args.attach:
         run_attach_mode(args)
+    elif args.init:
+        run_init_mode(args)
     elif args.create:
         run_create_mode(args)
     elif args.tree is not None:
