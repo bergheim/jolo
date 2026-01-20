@@ -15,6 +15,13 @@ import sys
 import tomllib
 from pathlib import Path
 
+try:
+    import argcomplete
+
+    HAVE_ARGCOMPLETE = True
+except ImportError:
+    HAVE_ARGCOMPLETE = False
+
 # Word lists for random name generation
 ADJECTIVES = [
     "brave",
@@ -245,6 +252,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print commands being executed"
     )
+
+    if HAVE_ARGCOMPLETE:
+        argcomplete.autocomplete(parser)
 
     return parser.parse_args(argv)
 
