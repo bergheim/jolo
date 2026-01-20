@@ -33,6 +33,7 @@ mkdir -p "$HOME/.cache/emacs-lyra"
 
 podman run -it --rm \
     --name emacs-gui --userns keep-id \
+    -p 4000-5000:4000-5000 \
     -e WAYLAND_DISPLAY \
     -e EMACS_CONTAINER=1 \
     -v "$XDG_RUNTIME_DIR:/tmp/runtime-$USER_ID:ro" \
