@@ -41,6 +41,11 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
 - `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise defaults to tmux
 
+**Networking:**
+- Ports 4000-5000 are forwarded from the container to the host
+- Use these for dev servers (web apps, APIs, etc.) - they're accessible from the Tailscale network
+- Example: run `npm run dev -- --port 4000` and access from another machine via `http://<tailscale-ip>:4000`
+
 ## Installed Tools
 
 Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server

@@ -26,9 +26,12 @@
         "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
         "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
     },
+    // Ports 4000-5000 reserved for dev servers (web apps, APIs, etc.)
+    // These are accessible from Tailscale network when forwarded
     "portsAttributes": {
         "4000-5000": {
-            "onAutoForward": "notify"
+            "onAutoForward": "notify",
+            "label": "Dev Server"
         }
     }
 }
