@@ -94,37 +94,53 @@ def load_config(global_config_dir: Path | None = None) -> dict:
     return config
 
 
-# Templates
-DEVCONTAINER_JSON_TEMPLATE = """{
-    "name": "PROJECT_NAME",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
-    "mounts": [
-        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-        "source=${localEnv:HOME}/.claude,target=/home/${localEnv:USER}/.claude,type=bind",
-        "source=${localEnv:HOME}/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
-        "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
-        "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
-        "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
-        "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
-        "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind",
-        "source=${localEnv:HOME}/.config/emacs,target=/home/${localEnv:USER}/.config/emacs,type=bind",
-        "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
-        "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
-        "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
-        "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
-        "source=${localEnv:HOME}/.config/gh,target=/home/${localEnv:USER}/.config/gh,type=bind,readonly"
-    ],
-    "containerEnv": {
-        "TERM": "xterm-256color",
-        "DISPLAY": "${localEnv:DISPLAY}",
-        "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
-        "XDG_RUNTIME_DIR": "/tmp/container-runtime",
-        "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
-        "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
+# Base mounts that are always included
+BASE_MOUNTS = [
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+    "source=${localEnv:HOME}/.claude,target=/home/${localEnv:USER}/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
+    "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
+    "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/emacs,target=/home/${localEnv:USER}/.config/emacs,type=bind",
+    "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
+    "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
+    "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
+    "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
+    "source=${localEnv:HOME}/.config/gh,target=/home/${localEnv:USER}/.config/gh,type=bind,readonly",
+]
+
+# Wayland mount - only included when WAYLAND_DISPLAY is set
+WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"
+
+
+def build_devcontainer_json(project_name: str) -> str:
+    """Build devcontainer.json content dynamically.
+
+    Conditionally includes Wayland mount only if WAYLAND_DISPLAY is set.
+    """
+    mounts = BASE_MOUNTS.copy()
+
+    # Only add Wayland mount if WAYLAND_DISPLAY is set
+    if os.environ.get("WAYLAND_DISPLAY"):
+        mounts.append(WAYLAND_MOUNT)
+
+    config = {
+        "name": project_name,
+        "build": {"dockerfile": "Dockerfile"},
+        "mounts": mounts,
+        "containerEnv": {
+            "TERM": "xterm-256color",
+            "DISPLAY": "${localEnv:DISPLAY}",
+            "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+            "XDG_RUNTIME_DIR": "/tmp/container-runtime",
+            "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
+            "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+        },
     }
-}"""
+
+    return json.dumps(config, indent=4)
 
 DOCKERFILE_TEMPLATE = """FROM BASE_IMAGE
 
@@ -276,8 +292,8 @@ def scaffold_devcontainer(
     # Get current username for Dockerfile
     username = os.environ.get("USER", "dev")
 
-    # Write devcontainer.json with substituted project name
-    json_content = DEVCONTAINER_JSON_TEMPLATE.replace("PROJECT_NAME", project_name)
+    # Write devcontainer.json (dynamically built based on environment)
+    json_content = build_devcontainer_json(project_name)
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
@@ -307,8 +323,8 @@ def sync_devcontainer(
     # Get current username for Dockerfile
     username = os.environ.get("USER", "dev")
 
-    # Write devcontainer.json with substituted project name
-    json_content = DEVCONTAINER_JSON_TEMPLATE.replace("PROJECT_NAME", project_name)
+    # Write devcontainer.json (dynamically built based on environment)
+    json_content = build_devcontainer_json(project_name)
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
