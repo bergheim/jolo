@@ -41,6 +41,7 @@ RUN apk update && apk add --no-cache \
     npm \
     pinentry \
     pinentry-tty \
+    podman \
     pkgconf \
     py3-lsp-server \
     python3 \
@@ -89,6 +90,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     echo "$USERNAME:$USER_PASSWORD" | chpasswd && \
     echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Smart emacsclient wrapper (must be before USER switch)
+COPY e /usr/local/bin/e
+RUN chmod +x /usr/local/bin/e
 
 USER $USERNAME
 ENV HOME /home/$USERNAME
