@@ -113,7 +113,8 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
     "source=${localEnv:HOME}/.config/emacs,target=/home/${localEnv:USER}/.config/emacs,type=bind,readonly",
-    "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
+    # Emacs cache: mount to temp location, copy on first start (needs to be writable)
+    "source=${localEnv:HOME}/.cache/emacs,target=/tmp/host-emacs-cache,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
@@ -147,6 +148,8 @@ def build_devcontainer_json(project_name: str) -> str:
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
         },
+        # Copy emacs cache from host on first start (needs to be writable for native-comp)
+        "postStartCommand": "[ -d ~/.cache/emacs ] || cp -r /tmp/host-emacs-cache ~/.cache/emacs",
     }
 
     return json.dumps(config, indent=4)
@@ -312,7 +315,6 @@ def scaffold_devcontainer(
     devcontainer_dir = target_dir / ".devcontainer"
 
     if devcontainer_dir.exists():
-        print(f"Warning: Using existing .devcontainer/", file=sys.stderr)
         return False
 
     devcontainer_dir.mkdir(parents=True)

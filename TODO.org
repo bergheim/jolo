@@ -127,31 +127,21 @@ You *want* sudo to work - installing packages, modifying system files in the con
 ** DONE: Shell History
 
 *** Current State
-=.histfile= persisted in project directory.
+=.histfile= persisted in =.devcontainer/= (per-project, gitignored).
 
-- [X] Added to .gitignore
-- [X] Won't be committed accidentally
+- [X] Per-project history (no cross-contamination)
+- [X] In .devcontainer/ which is gitignored
 
-** OPTIONAL: Emacs Configuration
+** FIXED: Emacs Configuration
 
 *** Current State
 - =start-emacs.sh= uses a sandbox (yadm worktree) - SAFE
-- =yolo.py= mounts real config writable
-
-*** This One Is Actually Configurable
-If you're using yolo.py for CLI/tmux work (not Emacs), you could:
-- Mount emacs config readonly
-- Or not mount it at all
-
-This is the one place where there's a reasonable security/usability tradeoff.
-
-*** Potential Risk
-If emacs config is writable and you also use Emacs *outside* the container, malicious elisp could persist.
+- =yolo.py= mounts config readonly, cache copied on first start - SAFE
 
 *** Status
-- [X] Made emacs config readonly in yolo.py
-- [ ] Consider: separate cache dir for container (lower priority)
-- Only matters if you use Emacs both inside and outside container
+- [X] Config mounted readonly
+- [X] Cache: mounted readonly to temp, copied to writable location on first start
+- Warm cache (fast startup) + isolated (changes don't affect host)
 
 * Summary
 
@@ -174,8 +164,9 @@ If emacs config is writable and you also use Emacs *outside* the container, mali
 Already secure - uses sandbox for Emacs config.
 
 ** For yolo.py / devcontainer users
-- [X] Current setup is fine for directed use (you're watching)
-- [ ] Optional: make ~/.config/emacs readonly if you don't edit Emacs config in container
+- [X] Current setup is secure for directed use
+- [X] ~/.claude limited to credentials+settings (readonly)
+- [X] ~/.config/emacs is readonly
 
 ** For truly unattended autonomous runs
 This is a different threat model. If you're letting the agent run for hours unsupervised:
