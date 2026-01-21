@@ -1313,7 +1313,9 @@ def main(argv: list[str] | None = None) -> None:
     # These modes don't need tmux guard (no container attachment)
     if args.sync:
         run_sync_mode(args)
-        return
+        # Continue to start container if --new was also specified
+        if not args.new:
+            return
 
     if args.list:
         run_list_mode(args)
