@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(printf:*)",
+      "Bash(git add:*)",
+      "Bash(git status:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git push)",
+      "Bash(git -C /workspaces/emacs-container log --oneline --graph -20)",
+      "Bash(find:*)",
+      "Bash(git -C /workspaces/emacs-container status)",
+      "Bash(git -C /workspaces/emacs-container diff HEAD Containerfile)",
+      "Bash(git -C /workspaces/emacs-container diff)",
+      "Bash(git -C /workspaces/emacs-container log --oneline -5)",
+      "Bash(git -C /workspaces/emacs-container add:*)",
+      "Bash(git -C /workspaces/emacs-container commit -m \"$\\(cat <<''EOF''\nAdd port forwarding and improve start-emacs.sh robustness\n\n- Forward ports 4000-5000 for dev servers accessible via Tailscale\n- Add pre-flight checks for ~/.config/emacs existence and git status\n- Suppress errors on first-run cleanup commands \\(worktree prune/remove\\)\n- Document networking in CLAUDE.md with usage example\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}
