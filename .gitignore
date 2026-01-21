@@ -2,6 +2,8 @@
 .devcontainer/
 .histfile
 
+reference/
+
 # Environment and secrets
 .env
 .env.*
