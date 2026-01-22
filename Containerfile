@@ -28,6 +28,7 @@ RUN apk update && apk add --no-cache \
     font-noto-emoji \
     github-cli \
     git \
+    go \
     gnupg \
     hunspell \
     hunspell-en \
@@ -61,12 +62,8 @@ RUN apk update && apk add --no-cache \
     zoxide \
     zsh
 
-# install go
-RUN wget https://go.dev/dl/go1.23.5.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.23.5.linux-amd64.tar.gz && \
-    rm go1.23.5.linux-amd64.tar.gz && \
+RUN npm install -g \
     # install global language servers from npm
-    npm install -g \
     typescript-language-server \
     typescript \
     vscode-langservers-extracted \
@@ -108,8 +105,10 @@ RUN go install golang.org/x/tools/gopls@latest && \
     # bun
     curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
-    # Create ~/.config/emacs (will be mounted)
+    # Create directories for mounts
     mkdir -p $HOME/.config/emacs && \
+    mkdir -p $HOME/.claude && \
+    mkdir -p $HOME/.gemini && \
     # GPG setup with loopback pinentry for signing
     mkdir -p $HOME/.gnupg && \
     chmod 700 $HOME/.gnupg && \
