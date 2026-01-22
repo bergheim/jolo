@@ -60,12 +60,26 @@ CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim
 Install: `ln -s $(pwd)/yolo.py ~/.local/bin/yolo`
 
 ```bash
+# Basic usage
 yolo                      # start devcontainer in current project
 yolo --tree feature-x     # create worktree + devcontainer
 yolo --create newproject  # scaffold new project
 yolo --list               # show containers/worktrees
 yolo --stop               # stop container
-yolo --sync --new         # regenerate config and rebuild
+
+# AI prompt mode (starts agent in detached tmux)
+yolo -p "add user auth"           # run AI with prompt
+yolo --tree feat -p "add OAuth"   # worktree + prompt
+yolo --create app -p "scaffold"   # new project + prompt
+yolo --agent gemini -p "..."      # use different agent (default: claude)
+
+# Other options
+yolo --tree feat --from develop   # branch worktree from specific ref
+yolo --attach                     # attach to running container
+yolo -d                           # start detached (no tmux attach)
+yolo --sync --new                 # regenerate config and rebuild
+yolo --prune                      # cleanup stopped containers/stale worktrees
+yolo --destroy                    # nuclear: stop + rm all containers for project
 ```
 
 **Security model:**
