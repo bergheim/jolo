@@ -32,7 +32,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 - `Containerfile` - Alpine-based image with Emacs PGTK, language servers, and dev tools
 - `entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
-- `yolo.py` - Devcontainer CLI for project-based development with git worktree support
+- `jolo.py` - Devcontainer CLI for project-based development with git worktree support
 - `e` - Smart Emacs launcher (GUI or terminal based on environment)
 
 **Sandbox mechanism (start-emacs.sh):**
@@ -55,31 +55,31 @@ Runtimes: Go, Rust, Python, Node.js, Bun
 
 CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim
 
-## yolo.py - Devcontainer Launcher
+## jolo.py - Devcontainer Launcher
 
-Install: `ln -s $(pwd)/yolo.py ~/.local/bin/yolo`
+Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
 
 ```bash
 # Basic usage
-yolo                      # start devcontainer in current project
-yolo --tree feature-x     # create worktree + devcontainer
-yolo --create newproject  # scaffold new project
-yolo --list               # show containers/worktrees
-yolo --stop               # stop container
+jolo                      # start devcontainer in current project
+jolo --tree feature-x     # create worktree + devcontainer
+jolo --create newproject  # scaffold new project
+jolo --list               # show containers/worktrees
+jolo --stop               # stop container
 
 # AI prompt mode (starts agent in detached tmux)
-yolo -p "add user auth"           # run AI with prompt
-yolo --tree feat -p "add OAuth"   # worktree + prompt
-yolo --create app -p "scaffold"   # new project + prompt
-yolo --agent gemini -p "..."      # use different agent (default: claude)
+jolo -p "add user auth"           # run AI with prompt
+jolo --tree feat -p "add OAuth"   # worktree + prompt
+jolo --create app -p "scaffold"   # new project + prompt
+jolo --agent gemini -p "..."      # use different agent (default: claude)
 
 # Other options
-yolo --tree feat --from develop   # branch worktree from specific ref
-yolo --attach                     # attach to running container
-yolo -d                           # start detached (no tmux attach)
-yolo --sync --new                 # regenerate config and rebuild
-yolo --prune                      # cleanup stopped containers/stale worktrees
-yolo --destroy                    # nuclear: stop + rm all containers for project
+jolo --tree feat --from develop   # branch worktree from specific ref
+jolo --attach                     # attach to running container
+jolo -d                           # start detached (no tmux attach)
+jolo --sync --new                 # regenerate config and rebuild
+jolo --prune                      # cleanup stopped containers/stale worktrees
+jolo --destroy                    # nuclear: stop + rm all containers for project
 ```
 
 **Security model:**

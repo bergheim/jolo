@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""yolo - Devcontainer + Git Worktree Launcher.
+"""jolo - Devcontainer + Git Worktree Launcher.
 
 A CLI tool that bootstraps devcontainer environments with git worktree support.
-Target location: ~/.local/bin/yolo
+Target location: ~/.local/bin/jolo
+
+Pronounced "yolo" in Norwegian. Close enough.
 """
 
 import argparse
@@ -77,13 +79,13 @@ def load_config(global_config_dir: Path | None = None) -> dict:
 
     Config is loaded in order (later overrides earlier):
     1. Default config
-    2. Global config: ~/.config/yolo/config.toml
-    3. Project config: .yolo.toml in current directory
+    2. Global config: ~/.config/jolo/config.toml
+    3. Project config: .jolo.toml in current directory
     """
     config = DEFAULT_CONFIG.copy()
 
     if global_config_dir is None:
-        global_config_dir = Path.home() / ".config" / "yolo"
+        global_config_dir = Path.home() / ".config" / "jolo"
 
     # Load global config
     global_config_file = global_config_dir / "config.toml"
@@ -93,7 +95,7 @@ def load_config(global_config_dir: Path | None = None) -> dict:
             config.update(global_cfg)
 
     # Load project config
-    project_config_file = Path.cwd() / ".yolo.toml"
+    project_config_file = Path.cwd() / ".jolo.toml"
     if project_config_file.exists():
         with open(project_config_file, "rb") as f:
             project_cfg = tomllib.load(f)
@@ -173,7 +175,7 @@ USER CONTAINER_USER
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        prog="yolo",
+        prog="jolo",
         description="Devcontainer + Git Worktree Launcher",
         epilog="Run with no arguments to start devcontainer in current git project.",
     )
@@ -554,7 +556,7 @@ def validate_init_mode() -> None:
     """Validate that --init mode is NOT being run inside a git repo."""
     git_root = find_git_root()
     if git_root is not None:
-        sys.exit("Error: Already in a git repository. Use yolo without --init.")
+        sys.exit("Error: Already in a git repository. Use jolo without --init.")
 
 
 def add_worktree_git_mount(devcontainer_json_path: Path, main_git_dir: Path) -> None:
@@ -1158,7 +1160,7 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: Not in a git repository.")
 
     if not is_container_running(git_root):
-        sys.exit("Error: Container is not running. Use yolo to start it.")
+        sys.exit("Error: Container is not running. Use jolo to start it.")
 
     # Attach to tmux
     devcontainer_exec_tmux(git_root)

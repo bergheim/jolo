@@ -35,20 +35,20 @@ podman build --build-arg USERNAME=$(whoami) \
 
 ** Running
 
-*** Using yolo.py (recommended for projects)
+*** Using jolo.py (recommended for projects)
 
 #+begin_src bash
 # Install
-ln -s $(pwd)/yolo.py ~/.local/bin/yolo
+ln -s $(pwd)/jolo.py ~/.local/bin/jolo
 
 # Start devcontainer in any git project
-cd ~/myproject && yolo
+cd ~/myproject && jolo
 
 # Create worktree with isolated container
-yolo --tree feature-x
+jolo --tree feature-x
 
 # Create new project
-yolo --create newproject
+jolo --create newproject
 #+end_src
 
 *** Using start-emacs.sh (standalone Emacs)
@@ -67,7 +67,7 @@ The wrapper script handles Wayland setup, volume mounts, and creates a sandboxed
 |-----------------+-------------------------------------------------------------|
 | Containerfile   | Alpine-based image with Emacs PGTK, language servers, tools |
 | entrypoint.sh   | Container startup: display detection, GPG setup, tmux/emacs |
-| yolo.py         | Devcontainer CLI with git worktree support                  |
+| jolo.py         | Devcontainer CLI with git worktree support                  |
 | start-emacs.sh  | Host-side launcher with yadm worktree sandbox               |
 | e               | Smart Emacs launcher (GUI or terminal based on environment) |
 

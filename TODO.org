@@ -140,7 +140,7 @@ You *want* sudo to work - installing packages, modifying system files in the con
 
 *** Current State
 - =start-emacs.sh= uses a sandbox (yadm worktree) - SAFE
-- =yolo.py= mounts both config and cache readonly - SAFE
+- =jolo.py= mounts both config and cache readonly - SAFE
 
 *** Status
 - [X] Config mounted readonly
@@ -167,7 +167,7 @@ You *want* sudo to work - installing packages, modifying system files in the con
 ** For start-emacs.sh users
 Already secure - uses sandbox for Emacs config.
 
-** For yolo.py / devcontainer users
+** For jolo.py / devcontainer users
 - [X] Current setup is secure for directed use
 - [X] ~/.claude limited to credentials+settings (readonly)
 - [X] ~/.config/emacs is readonly
@@ -210,8 +210,8 @@ User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.
 ~/.cache/emacs/tree-sitter  <- host ~/.cache/emacs/tree-sitter (readonly)
 #+end_src
 
-** DONE Implementation in yolo.py
-- [X] Revert the complex symlink approach currently in yolo.py
+** DONE Implementation in jolo.py
+- [X] Revert the complex symlink approach currently in jolo.py
 - [X] Add function to copy ~/.config/emacs to .devcontainer/.emacs-config/
 - [X] Update BASE_MOUNTS:
   - .devcontainer/.emacs-config -> ~/.config/emacs (writable)
