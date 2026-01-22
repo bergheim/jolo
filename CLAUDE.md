@@ -69,7 +69,8 @@ yolo --sync --new         # regenerate config and rebuild
 ```
 
 **Security model:**
-- `~/.claude/.credentials.json` and `settings.json` mounted readonly (auth works, no setup)
+- Claude credentials copied (not mounted) to `.devcontainer/.claude-cache/` at launch
+- Container cannot write back to host's `~/.claude` directory
 - Claude history/state is ephemeral per-project (no cross-project contamination)
 - `~/.config/emacs` mounted readonly
 - Shell history persisted per-project in `.devcontainer/.histfile`
