@@ -114,8 +114,11 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
     "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
-    "source=${localEnv:HOME}/.config/emacs,target=/home/${localEnv:USER}/.config/emacs,type=bind,readonly",
-    "source=${localEnv:HOME}/.cache/emacs,target=/home/${localEnv:USER}/.cache/emacs,type=bind,readonly",
+    # Emacs: config copied for isolation, packages mounted readonly from ~/.cache/emacs
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs-config,target=/home/${localEnv:USER}/.config/emacs,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs-cache,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
+    "source=${localEnv:HOME}/.cache/emacs/elpaca,target=/home/${localEnv:USER}/.cache/emacs/elpaca,type=bind,readonly",
+    "source=${localEnv:HOME}/.cache/emacs/tree-sitter,target=/home/${localEnv:USER}/.cache/emacs/tree-sitter,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
@@ -297,6 +300,32 @@ def generate_random_name() -> str:
     adj = random.choice(ADJECTIVES)
     noun = random.choice(NOUNS)
     return f"{adj}-{noun}"
+
+
+def setup_emacs_config(workspace_dir: Path) -> None:
+    """Set up Emacs config by copying to .devcontainer/.emacs-config/.
+
+    Copies ~/.config/emacs to .devcontainer/.emacs-config/ so the container
+    has an isolated, writable copy of the config. Package directories
+    (straight, eln-cache, tree-sitter) are mounted readonly from
+    ~/.cache/emacs/ via BASE_MOUNTS.
+    """
+    home = Path.home()
+    emacs_src = home / ".config" / "emacs"
+    emacs_dst = workspace_dir / ".devcontainer" / ".emacs-config"
+    cache_dst = workspace_dir / ".devcontainer" / ".emacs-cache"
+
+    # Skip if source doesn't exist
+    if not emacs_src.exists():
+        return
+
+    # Create cache dir (fresh each time is fine)
+    cache_dst.mkdir(parents=True, exist_ok=True)
+
+    # Copy entire config directory
+    if emacs_dst.exists():
+        shutil.rmtree(emacs_dst)
+    shutil.copytree(emacs_src, emacs_dst, symlinks=True)
 
 
 def setup_credential_cache(workspace_dir: Path) -> None:
@@ -1142,6 +1171,9 @@ def run_default_mode(args: argparse.Namespace) -> None:
     # Copy AI credentials for container isolation
     setup_credential_cache(git_root)
 
+    # Set up Emacs config (copy config files, symlink packages)
+    setup_emacs_config(git_root)
+
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(git_root):
         if not devcontainer_up(git_root, remove_existing=args.new):
@@ -1253,6 +1285,9 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     # Copy AI credentials for container isolation
     setup_credential_cache(worktree_path)
 
+    # Set up Emacs config (copy config files, symlink packages)
+    setup_emacs_config(worktree_path)
+
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(worktree_path):
         if not devcontainer_up(worktree_path, remove_existing=args.new):
@@ -1310,6 +1345,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
 
+    # Set up Emacs config (copy config files, symlink packages)
+    setup_emacs_config(project_path)
+
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
@@ -1359,6 +1397,9 @@ def run_init_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
+
+    # Set up Emacs config (copy config files, symlink packages)
+    setup_emacs_config(project_path)
 
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
