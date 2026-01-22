@@ -104,9 +104,8 @@ def load_config(global_config_dir: Path | None = None) -> dict:
 # Base mounts that are always included
 BASE_MOUNTS = [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-    # "source=${localEnv:HOME}/.gemini/settings.yml,target=/home/${localEnv:USER}/.gemini/settings.yml,type=bind,readonly",
-    # "source=${localEnv:HOME}/.gemini/google_accounts.json,target=/home/${localEnv:USER}/.gemini/google_accounts.json,type=bind,readonly",
-    # "source=${localEnv:HOME}/.gemini/oauth_creds.json,target=/home/${localEnv:USER}/.gemini/oauth_creds.json,type=bind,readonly",
+    # Gemini: copy-based isolation (credentials copied to .devcontainer/.gemini-cache/)
+    "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     # Claude: copy-based isolation (credentials copied to .devcontainer/.claude-cache/)
     "source=${localWorkspaceFolder}/.devcontainer/.claude-cache,target=/home/${localEnv:USER}/.claude,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
@@ -300,39 +299,47 @@ def generate_random_name() -> str:
     return f"{adj}-{noun}"
 
 
-def setup_claude_cache(workspace_dir: Path) -> None:
-    """Copy Claude credentials to workspace for container isolation.
+def setup_credential_cache(workspace_dir: Path) -> None:
+    """Copy AI credentials to workspace for container isolation.
 
-    Copies only the necessary files from ~/.claude to .devcontainer/.claude-cache/
-    so the container has working auth but can't write back to host's ~/.claude.
+    Copies only the necessary files from ~/.claude and ~/.gemini to
+    .devcontainer/.claude-cache/ and .devcontainer/.gemini-cache/
+    so the container has working auth but can't write back to host directories.
     """
     home = Path.home()
-    cache_dir = workspace_dir / ".devcontainer" / ".claude-cache"
 
-    # Create cache directory (remove old one if exists to ensure fresh copy)
-    if cache_dir.exists():
-        shutil.rmtree(cache_dir)
-    cache_dir.mkdir(parents=True)
+    # Claude credentials
+    claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
+    if claude_cache.exists():
+        shutil.rmtree(claude_cache)
+    claude_cache.mkdir(parents=True)
 
-    # Files to copy from ~/.claude/
     claude_dir = home / ".claude"
-    files_to_copy = [".credentials.json", "settings.json"]
-
-    for filename in files_to_copy:
+    for filename in [".credentials.json", "settings.json"]:
         src = claude_dir / filename
         if src.exists():
-            shutil.copy2(src, cache_dir / filename)
+            shutil.copy2(src, claude_cache / filename)
 
-    # Copy statsig directory if it exists
     statsig_src = claude_dir / "statsig"
     if statsig_src.exists():
-        shutil.copytree(statsig_src, cache_dir / "statsig")
+        shutil.copytree(statsig_src, claude_cache / "statsig")
 
-    # Copy ~/.claude.json to .devcontainer/
     claude_json_src = home / ".claude.json"
     claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"
     if claude_json_src.exists():
         shutil.copy2(claude_json_src, claude_json_dst)
+
+    # Gemini credentials
+    gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
+    if gemini_cache.exists():
+        shutil.rmtree(gemini_cache)
+    gemini_cache.mkdir(parents=True)
+
+    gemini_dir = home / ".gemini"
+    for filename in ["settings.json", "google_accounts.json", "oauth_creds.json"]:
+        src = gemini_dir / filename
+        if src.exists():
+            shutil.copy2(src, gemini_cache / filename)
 
 
 def scaffold_devcontainer(
@@ -1132,8 +1139,8 @@ def run_default_mode(args: argparse.Namespace) -> None:
     secrets = get_secrets(config)
     os.environ.update(secrets)
 
-    # Copy Claude credentials for container isolation
-    setup_claude_cache(git_root)
+    # Copy AI credentials for container isolation
+    setup_credential_cache(git_root)
 
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(git_root):
@@ -1243,8 +1250,8 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     secrets = get_secrets(config)
     os.environ.update(secrets)
 
-    # Copy Claude credentials for container isolation
-    setup_claude_cache(worktree_path)
+    # Copy AI credentials for container isolation
+    setup_credential_cache(worktree_path)
 
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(worktree_path):
@@ -1300,8 +1307,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
     secrets = get_secrets(config)
     os.environ.update(secrets)
 
-    # Copy Claude credentials for container isolation
-    setup_claude_cache(project_path)
+    # Copy AI credentials for container isolation
+    setup_credential_cache(project_path)
 
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
@@ -1350,8 +1357,8 @@ def run_init_mode(args: argparse.Namespace) -> None:
     secrets = get_secrets(config)
     os.environ.update(secrets)
 
-    # Copy Claude credentials for container isolation
-    setup_claude_cache(project_path)
+    # Copy AI credentials for container isolation
+    setup_credential_cache(project_path)
 
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
