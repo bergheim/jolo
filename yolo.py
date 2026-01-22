@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import random
+import shlex
 import shutil
 import subprocess
 import sys
@@ -258,6 +259,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--prompt",
+        "-p",
+        metavar="PROMPT",
+        help="Start AI agent with this prompt (implies --detach)",
+    )
+
+    parser.add_argument(
+        "--agent",
+        default="claude",
+        metavar="CMD",
+        help="AI agent command to use with --prompt (default: claude)",
+    )
+
+    parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print commands being executed"
     )
 
@@ -302,6 +317,20 @@ def generate_random_name() -> str:
     return f"{adj}-{noun}"
 
 
+def clear_directory_contents(path: Path) -> None:
+    """Remove all contents of a directory without removing the directory itself.
+
+    This preserves the directory inode, which is important for bind mounts.
+    """
+    if not path.exists():
+        return
+    for item in path.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+
 def setup_emacs_config(workspace_dir: Path) -> None:
     """Set up Emacs config by copying to .devcontainer/.emacs-config/.
 
@@ -322,10 +351,12 @@ def setup_emacs_config(workspace_dir: Path) -> None:
     # Create cache dir (fresh each time is fine)
     cache_dst.mkdir(parents=True, exist_ok=True)
 
-    # Copy entire config directory
+    # Copy entire config directory, preserving the directory itself for bind mounts
     if emacs_dst.exists():
-        shutil.rmtree(emacs_dst)
-    shutil.copytree(emacs_src, emacs_dst, symlinks=True)
+        clear_directory_contents(emacs_dst)
+        shutil.copytree(emacs_src, emacs_dst, symlinks=True, dirs_exist_ok=True)
+    else:
+        shutil.copytree(emacs_src, emacs_dst, symlinks=True)
 
 
 def setup_credential_cache(workspace_dir: Path) -> None:
@@ -334,14 +365,18 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     Copies only the necessary files from ~/.claude and ~/.gemini to
     .devcontainer/.claude-cache/ and .devcontainer/.gemini-cache/
     so the container has working auth but can't write back to host directories.
+
+    Note: We clear contents rather than rmtree to preserve directory inodes,
+    which keeps bind mounts working in running containers.
     """
     home = Path.home()
 
     # Claude credentials
     claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
     if claude_cache.exists():
-        shutil.rmtree(claude_cache)
-    claude_cache.mkdir(parents=True)
+        clear_directory_contents(claude_cache)
+    else:
+        claude_cache.mkdir(parents=True)
 
     claude_dir = home / ".claude"
     for filename in [".credentials.json", "settings.json"]:
@@ -350,8 +385,11 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             shutil.copy2(src, claude_cache / filename)
 
     statsig_src = claude_dir / "statsig"
+    statsig_dst = claude_cache / "statsig"
     if statsig_src.exists():
-        shutil.copytree(statsig_src, claude_cache / "statsig")
+        if statsig_dst.exists():
+            shutil.rmtree(statsig_dst)
+        shutil.copytree(statsig_src, statsig_dst)
 
     claude_json_src = home / ".claude.json"
     claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"
@@ -361,8 +399,9 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
     if gemini_cache.exists():
-        shutil.rmtree(gemini_cache)
-    gemini_cache.mkdir(parents=True)
+        clear_directory_contents(gemini_cache)
+    else:
+        gemini_cache.mkdir(parents=True)
 
     gemini_dir = home / ".gemini"
     for filename in ["settings.json", "google_accounts.json", "oauth_creds.json"]:
@@ -574,6 +613,29 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
         "sh",
         "-c",
         "tmux attach-session -t dev || tmux new-session -s dev",
+    ]
+
+    verbose_cmd(cmd)
+    subprocess.run(cmd, cwd=workspace_dir)
+
+
+def devcontainer_exec_prompt(workspace_dir: Path, agent: str, prompt: str) -> None:
+    """Start AI agent with a prompt in a detached tmux session."""
+    quoted_prompt = shlex.quote(prompt)
+    # Claude needs --dangerously-skip-permissions since shell aliases aren't loaded
+    if agent == "claude":
+        agent_cmd = "claude --dangerously-skip-permissions"
+    else:
+        agent_cmd = agent
+    tmux_cmd = f"tmux new-session -d -s dev {agent_cmd} {quoted_prompt}"
+    cmd = [
+        "devcontainer",
+        "exec",
+        "--workspace-folder",
+        str(workspace_dir),
+        "sh",
+        "-c",
+        tmux_cmd,
     ]
 
     verbose_cmd(cmd)
@@ -1179,6 +1241,11 @@ def run_default_mode(args: argparse.Namespace) -> None:
         if not devcontainer_up(git_root, remove_existing=args.new):
             sys.exit("Error: Failed to start devcontainer")
 
+    if args.prompt:
+        devcontainer_exec_prompt(git_root, args.agent, args.prompt)
+        print(f"Started {args.agent} in: {project_name}")
+        return
+
     if args.detach:
         print(f"Container started: {project_name}")
         return
@@ -1293,6 +1360,11 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         if not devcontainer_up(worktree_path, remove_existing=args.new):
             sys.exit("Error: Failed to start devcontainer")
 
+    if args.prompt:
+        devcontainer_exec_prompt(worktree_path, args.agent, args.prompt)
+        print(f"Started {args.agent} in: {worktree_path.name}")
+        return
+
     if args.detach:
         print(f"Container started: {worktree_path.name}")
         return
@@ -1352,6 +1424,11 @@ def run_create_mode(args: argparse.Namespace) -> None:
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
 
+    if args.prompt:
+        devcontainer_exec_prompt(project_path, args.agent, args.prompt)
+        print(f"Started {args.agent} in: {project_name}")
+        return
+
     if args.detach:
         print(f"Container started: {project_name}")
         return
@@ -1404,6 +1481,11 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
+
+    if args.prompt:
+        devcontainer_exec_prompt(project_path, args.agent, args.prompt)
+        print(f"Started {args.agent} in: {project_name}")
+        return
 
     if args.detach:
         print(f"Container started: {project_name}")
@@ -1466,8 +1548,8 @@ def main(argv: list[str] | None = None) -> None:
         run_destroy_mode(args)
         return
 
-    # Check guards (skip tmux guard if detaching)
-    if not args.detach:
+    # Check guards (skip tmux guard if detaching or using prompt)
+    if not args.detach and not args.prompt:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
