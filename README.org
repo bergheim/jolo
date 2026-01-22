@@ -1,103 +1,130 @@
 #+TITLE: Emacs GUI Container
-#+DESCRIPTION: A containerized Emacs GUI environment using Alpine Linux
+#+DESCRIPTION: A containerized Emacs GUI environment for AI-assisted development
 
 * Overview
 
-A containerized Emacs GUI environment using Alpine Linux with native compilation support and Wayland compatibility.
+A containerized Emacs GUI environment on Alpine Linux, designed as a devcontainer for AI-assisted development. Includes Claude Code CLI pre-configured in YOLO mode.
 
 * Features
 
 - *Emacs PGTK* with native compilation support
-- *Wayland and X11* compatibility 
-- *Pre-configured development tools*: ripgrep, fd, git
+- *Wayland and X11* compatibility
+- *Claude Code CLI* pre-installed with YOLO mode alias
+- *Language servers*: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server
+- *Runtimes*: Go, Rust, Python, Node.js, Bun
+- *CLI tools*: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim
 - *Spell checking*: aspell, hunspell with English dictionaries
-- *GPG integration* with pinentry support
+- *GPG integration* with agent socket forwarding (zero-config signing)
 - *Modern fonts*: JetBrains Mono Nerd Font, Noto Emoji, DejaVu
-- *Lightweight*: Based on Alpine Linux 3.22.1
+- *Lightweight*: Based on Alpine Linux
 
 * Quick Start
 
 ** Building the Container
 
 #+begin_src bash
+# Build with default user (tsb)
 podman build -t emacs-gui .
-# or
-docker build -t emacs-gui .
+
+# Build matching your host user (recommended)
+podman build --build-arg USERNAME=$(whoami) \
+             --build-arg USER_ID=$(id -u) \
+             --build-arg GROUP_ID=$(id -g) \
+             -t emacs-gui .
 #+end_src
 
-** Running with Podman example
+** Running
 
-(change tsb for whatever your user is)
+*** Using yolo.py (recommended for projects)
 
 #+begin_src bash
-podman run -it --rm \
-    --name emacs-gui --userns keep-id \
-    -e WAYLAND_DISPLAY \
-    -e EMACS_CONTAINER=1 \
-    -v $XDG_RUNTIME_DIR:/tmp/runtime-1000:ro \
-    -v ~/.config/emacs:/home/tsb/.config/emacs:Z \
-    -v ~/.cache/neodoom:/home/tsb/.cache/neodoom:Z \
-    --device /dev/dri \
-    --security-opt label=disable \
-    emacs-gui
+# Install
+ln -s $(pwd)/yolo.py ~/.local/bin/yolo
 
+# Start devcontainer in any git project
+cd ~/myproject && yolo
+
+# Create worktree with isolated container
+yolo --tree feature-x
+
+# Create new project
+yolo --create newproject
 #+end_src
 
-** Running with Docker + xorg
+*** Using start-emacs.sh (standalone Emacs)
 
-(change tsb for whatever your user is and at the moment use the =feature/xorg= branch)
+The wrapper script handles Wayland setup, volume mounts, and creates a sandboxed copy of your Emacs config via yadm worktree:
 
 #+begin_src bash
-docker run -it --rm \
-  -e DISPLAY=$DISPLAY \
-  -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
-  -v ~/.config/emacs:/home/tsb/.config/emacs \
-  -v ~/your-projects:/home/tsb/projects \
-  emacs-gui
+./start-emacs.sh
 #+end_src
 
-* Configuration
+* Architecture
+
+** Key Files
+
+| File            | Purpose                                                     |
+|-----------------+-------------------------------------------------------------|
+| Containerfile   | Alpine-based image with Emacs PGTK, language servers, tools |
+| entrypoint.sh   | Container startup: display detection, GPG setup, tmux/emacs |
+| yolo.py         | Devcontainer CLI with git worktree support                  |
+| start-emacs.sh  | Host-side launcher with yadm worktree sandbox               |
+| e               | Smart Emacs launcher (GUI or terminal based on environment) |
 
 ** Environment Variables
 
-- ~EMACS_CONTAINER=1~ - Set automatically to indicate container environment
-- Mount your Emacs configuration to ~/home/tsb/.config/emacs~
+- ~EMACS_CONTAINER=1~ - Set inside container; use in Emacs config to skip certain packages
+- ~START_EMACS=true~ - If set, entrypoint launches Emacs daemon; otherwise tmux
 
-** GPG Configuration
+** Networking
 
-GPG is pre-configured with ~allow-loopback-pinentry~ for container compatibility. Your GPG keys can be mounted if needed.
-
-** Custom User ID
-
-To match your host user ID:
+Ports 4000-5000 are forwarded from container to host. Use for dev servers:
 
 #+begin_src bash
-podman build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .
+npm run dev -- --port 4000
+# Access from network via http://<host-ip>:4000
 #+end_src
 
-* Included Packages
+** Sandbox Mechanism (start-emacs.sh)
 
-| Category     | Packages                                              |
-|--------------+-------------------------------------------------------|
-| Core         | emacs-pgtk-nativecomp, dbus, wayland-libs           |
-| Development  | build-base, git, ripgrep, fd, curl, wget            |
-| Fonts        | font-jetbrains-mono-nerd, ttf-dejavu, font-noto-emoji |
-| Spell Check  | aspell-en, hunspell-en                               |
-| Security     | gnupg, pinentry                                      |
-| Themes       | adwaita-icon-theme, breeze-cursors                   |
+Creates a yadm worktree at =~/.cache/aimacs-lyra= on branch =lyra-experiments=. This gives Claude a copy of your Emacs config to modify freely without affecting your real dotfiles. The =private.el= secrets file is deleted from the worktree.
+
+* Configuration
+
+** GPG Signing (Zero Config)
+
+GPG signing works immediately with no manual setup:
+
+- Public keyring mounted read-only
+- Trust database mounted read-only
+- Agent socket forwarded from host
+
+Private keys stay on host; the agent handles signing.
+
+** GitHub CLI
+
+The =gh= command works via mounted =~/.config/gh= (read-only).
 
 * Troubleshooting
 
 ** Display Issues
+
 - Ensure ~$WAYLAND_DISPLAY~ or ~$DISPLAY~ is properly set
 - Verify XDG_RUNTIME_DIR socket mounting for Wayland
 
 ** Font Issues
-- Container includes common fonts; mount additional fonts if needed:
-  #+begin_src bash
-  -v ~/.local/share/fonts:/home/tsb/.local/share/fonts:ro
-  #+end_src
+
+Container includes common fonts; mount additional fonts if needed:
+
+#+begin_src bash
+-v ~/.local/share/fonts:/home/$USER/.local/share/fonts:ro
+#+end_src
 
 ** Performance
-- Native compilation cache persists in your mounted ~.config/emacs~ directory
+
+- Native compilation cache persists in your mounted =.config/emacs= directory
 - First run may be slower as packages compile
+
+* License
+
+See [[file:LICENSE][LICENSE]] file.

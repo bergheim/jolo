@@ -1,0 +1,226 @@
+#+TITLE: Security Analysis for Autonomous Agent Execution
+#+DESCRIPTION: Practical security assessment - what actually matters vs security theater
+
+* Overview
+
+This document analyzes security for running Claude Code in YOLO mode inside containers. The goal: *maximum usability while understanding real risks*.
+
+Guiding principle: If removing access breaks the tool's usefulness, it's not a security improvement - it's just making the tool worse.
+
+* Risk Assessment
+
+** SAFE: GPG Agent Socket
+
+*** Current State
+Only the agent socket is mounted, not the private keys:
+#+begin_src
+pubring.kbx (readonly)    - public keys only
+trustdb.gpg (readonly)    - trust database
+S.gpg-agent socket        - communication with host agent
+#+end_src
+
+*** Status: Already Secure
+Private keys *never enter the container*. Agent can request signatures but cannot extract key material. This is the correct design.
+
+Signing commits as the user is *intended behavior* - the user is directing the work.
+
+- [X] No action needed
+
+** FIXED: Claude Configuration (~/.claude)
+
+*** Current State
+Selective mounts (readonly):
+#+begin_src
+~/.claude/.credentials.json (readonly) - auth tokens
+~/.claude/settings.json (readonly)     - user preferences
+~/.claude/statsig/ (readonly)          - feature flags (subscription, theme)
+#+end_src
+
+Excluded (cross-project isolation):
+- =projects/= - per-project memory/instructions
+- =history.jsonl= - global command history
+- =todos/= - todo lists from other projects
+
+*** Security Benefit
+- No cross-project instruction injection
+- No global history/memory leakage
+- Feature flags work (subscription, theme)
+- Auth just works (no setup needed)
+
+- [X] Fixed - selective readonly mounts
+
+** INHERENT: API Keys in Environment
+
+*** Current State
+#+begin_src
+ANTHROPIC_API_KEY, OPENAI_API_KEY
+#+end_src
+
+*** Why This Can't Be "Fixed"
+No key = no Claude. This is the service, not a container config issue.
+
+- [X] Required for tool to function
+
+** INHERENT: GitHub CLI Configuration
+
+*** Current State
+#+begin_src
+source=${localEnv:HOME}/.config/gh (readonly)
+#+end_src
+
+*** Why This Is Needed
+You want to use =gh= commands - that's why it's mounted. The agent doing =gh pr create= is the feature, not a bug.
+
+Already readonly - agent can't modify the config.
+
+- [X] Required for intended workflow
+
+** INHERENT: Network Access
+
+*** Current State
+Full network access, ports 4000-5000 forwarded.
+
+*** Why This Is Needed
+- Git push/pull
+- API calls to Claude
+- Package installation (npm, pip, go get)
+- Web dev servers
+
+Disabling network makes the tool nearly useless.
+
+- [X] Required for tool to function
+
+** INHERENT: Git Configuration
+
+*** Current State
+#+begin_src
+source=${localEnv:HOME}/.gitconfig (readonly)
+#+end_src
+
+*** Status: Already Secure
+Readonly. Needed for git to work (name, email, signing key).
+
+- [X] Already readonly, required for git
+
+** INHERENT: Workspace Access
+
+*** Current State
+Full read/write to project directory.
+
+*** This IS The Point
+The entire purpose is editing code. Can't sandbox this without making the tool useless.
+
+Review changes with =git diff= before committing - that's the workflow.
+
+- [X] Required - this is the core function
+
+** SAFE: Sudo with Known Password
+
+*** Current State
+#+begin_src dockerfile
+ARG USER_PASSWORD=dev123
+#+end_src
+
+*** Why This Isn't A Real Risk
+With rootless Podman: root inside container ≠ root on host.
+
+You *want* sudo to work - installing packages, modifying system files in the container. Agent having sudo inside the container is fine.
+
+- [X] Not a host security risk with rootless containers
+
+** DONE: Shell History
+
+*** Current State
+=.histfile= persisted in =.devcontainer/= (per-project, gitignored).
+
+- [X] Per-project history (no cross-contamination)
+- [X] In .devcontainer/ which is gitignored
+
+** FIXED: Emacs Configuration
+
+*** Current State
+- =start-emacs.sh= uses a sandbox (yadm worktree) - SAFE
+- =yolo.py= mounts both config and cache readonly - SAFE
+
+*** Status
+- [X] Config mounted readonly
+- [X] Cache mounted readonly
+- Changes don't affect host
+
+* Summary
+
+| Resource          | Status   | Reason                                    |
+|-------------------+----------+-------------------------------------------|
+| GPG Socket        | SAFE     | Private keys never exposed                |
+| ~/.claude         | FIXED    | Selective readonly (no projects/history)  |
+| API Keys          | INHERENT | Required to use the service               |
+| GitHub CLI        | INHERENT | You want gh commands to work              |
+| Network           | INHERENT | Required for everything                   |
+| Git Config        | SAFE     | Already readonly                          |
+| Workspace         | INHERENT | This is the entire point                  |
+| Sudo              | SAFE     | Rootless container, not a host risk       |
+| Shell History     | DONE     | Per-project in .devcontainer/             |
+| Emacs Config      | FIXED    | Config and cache both readonly            |
+
+* Actual Recommendations
+
+** For start-emacs.sh users
+Already secure - uses sandbox for Emacs config.
+
+** For yolo.py / devcontainer users
+- [X] Current setup is secure for directed use
+- [X] ~/.claude limited to credentials+settings (readonly)
+- [X] ~/.config/emacs is readonly
+
+** For truly unattended autonomous runs
+This is a different threat model. If you're letting the agent run for hours unsupervised:
+- Review all changes before pushing
+- Consider running in a VM instead of container
+- But honestly, if you don't trust it unsupervised, don't run it unsupervised
+
+* What Would Actually Be Dangerous (that we're NOT doing)
+
+For reference, things that would be real security problems:
+- Mounting =~/.ssh= (private keys) - we don't do this
+- Mounting =~/.gnupg/private-keys-v1.d= - we don't do this
+- Mounting =~/.password-store= - we don't do this
+- Running as root with =--privileged= - we don't do this
+- Mounting host root filesystem - we don't do this
+
+The current setup avoids actual dangerous patterns.
+
+* NEXT: Emacs config isolation improvements
+
+** Status (2024-01)
+User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.cache/emacs:
+- eln-cache -> ~/.cache/emacs/eln-cache/
+- tree-sitter -> ~/.cache/emacs/tree-sitter/
+
+** Plan agreed upon
+1. Copy ~/.config/emacs to .devcontainer/.emacs-config/ (writable, isolated)
+2. Mount package dirs from ~/.cache/emacs readonly:
+   - ~/.cache/emacs/elpaca
+   - ~/.cache/emacs/tree-sitter
+3. Container gets writable ~/.cache/emacs/ for transient stuff
+
+** Mount structure in devcontainer
+#+begin_src
+~/.config/emacs (container) <- .devcontainer/.emacs-config/ (copied, writable)
+~/.cache/emacs/elpaca       <- host ~/.cache/emacs/elpaca (readonly)
+~/.cache/emacs/tree-sitter  <- host ~/.cache/emacs/tree-sitter (readonly)
+#+end_src
+
+** DONE Implementation in yolo.py
+- [X] Revert the complex symlink approach currently in yolo.py
+- [X] Add function to copy ~/.config/emacs to .devcontainer/.emacs-config/
+- [X] Update BASE_MOUNTS:
+  - .devcontainer/.emacs-config -> ~/.config/emacs (writable)
+  - host ~/.cache/emacs/elpaca -> container ~/.cache/emacs/elpaca (readonly)
+  - host ~/.cache/emacs/tree-sitter -> container ~/.cache/emacs/tree-sitter (readonly)
+- [X] Remove the old emacs mounts
+- [X] Update CLAUDE.md
+
+** Why this approach
+- Config is isolated: AI changes don't leak to host
+- Packages mounted readonly: fast startup, no reinstall, AI can't mess with them
+- Small copy size (~2MB vs 1GB+)
