@@ -136,12 +136,12 @@ You *want* sudo to work - installing packages, modifying system files in the con
 
 *** Current State
 - =start-emacs.sh= uses a sandbox (yadm worktree) - SAFE
-- =yolo.py= mounts config readonly, cache copied on first start - SAFE
+- =yolo.py= mounts both config and cache readonly - SAFE
 
 *** Status
 - [X] Config mounted readonly
-- [X] Cache: mounted readonly to temp, copied to writable location on first start
-- Warm cache (fast startup) + isolated (changes don't affect host)
+- [X] Cache mounted readonly
+- Changes don't affect host
 
 * Summary
 
@@ -156,7 +156,7 @@ You *want* sudo to work - installing packages, modifying system files in the con
 | Workspace         | INHERENT | This is the entire point                  |
 | Sudo              | SAFE     | Rootless container, not a host risk       |
 | Shell History     | DONE     | Per-project in .devcontainer/             |
-| Emacs Config      | FIXED    | Now readonly                              |
+| Emacs Config      | FIXED    | Config and cache both readonly            |
 
 * Actual Recommendations
 

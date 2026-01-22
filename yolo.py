@@ -981,10 +981,37 @@ def run_destroy_mode(args: argparse.Namespace) -> None:
             print(f"Failed to remove: {name}", file=sys.stderr)
 
     print()
-    print(f"Done. You can now: rm -rf {git_root}")
+    print("Containers removed.")
+    print()
+
+    # Ask about directory removal
     worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
+    dirs_to_remove = [git_root]
     if worktrees_dir.exists():
-        print(f"              and: rm -rf {worktrees_dir}")
+        dirs_to_remove.append(worktrees_dir)
+
+    print("Directories:")
+    for d in dirs_to_remove:
+        print(f"  {d}")
+    print()
+
+    try:
+        response = input("Also remove these directories? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        print(f"Directories preserved. To remove later: rm -rf {git_root}")
+        return
+
+    if response.lower() != "y":
+        print(f"Directories preserved. To remove later: rm -rf {git_root}")
+        return
+
+    for d in dirs_to_remove:
+        try:
+            shutil.rmtree(d)
+            print(f"Removed: {d}")
+        except Exception as e:
+            print(f"Failed to remove {d}: {e}", file=sys.stderr)
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:
