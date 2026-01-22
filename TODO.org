@@ -29,21 +29,25 @@ Signing commits as the user is *intended behavior* - the user is directing the w
 ** FIXED: Claude Configuration (~/.claude)
 
 *** Current State
-Only credentials and settings mounted (readonly):
+Selective mounts (readonly):
 #+begin_src
 ~/.claude/.credentials.json (readonly) - auth tokens
 ~/.claude/settings.json (readonly)     - user preferences
+~/.claude/statsig/ (readonly)          - feature flags (subscription, theme)
 #+end_src
 
-Everything else (history, projects, state) is ephemeral per-container.
+Excluded (cross-project isolation):
+- =projects/= - per-project memory/instructions
+- =history.jsonl= - global command history
+- =todos/= - todo lists from other projects
 
 *** Security Benefit
-- No persistent instruction injection via =projects/=
-- No cross-project history contamination
-- Settings can't be modified by agent
+- No cross-project instruction injection
+- No global history/memory leakage
+- Feature flags work (subscription, theme)
 - Auth just works (no setup needed)
 
-- [X] Fixed - minimal readonly mounts only
+- [X] Fixed - selective readonly mounts
 
 ** INHERENT: API Keys in Environment
 
@@ -148,7 +152,7 @@ You *want* sudo to work - installing packages, modifying system files in the con
 | Resource          | Status   | Reason                                    |
 |-------------------+----------+-------------------------------------------|
 | GPG Socket        | SAFE     | Private keys never exposed                |
-| ~/.claude         | FIXED    | Only credentials+settings readonly        |
+| ~/.claude         | FIXED    | Selective readonly (no projects/history)  |
 | API Keys          | INHERENT | Required to use the service               |
 | GitHub CLI        | INHERENT | You want gh commands to work              |
 | Network           | INHERENT | Required for everything                   |

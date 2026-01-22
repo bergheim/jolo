@@ -104,9 +104,10 @@ def load_config(global_config_dir: Path | None = None) -> dict:
 # Base mounts that are always included
 BASE_MOUNTS = [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-    # Claude: only credentials and settings (readonly), rest is ephemeral per-project
+    # Claude: selective mounts (excludes projects/, history, todos - cross-project isolation)
     "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/${localEnv:USER}/.claude/.credentials.json,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/${localEnv:USER}/.claude/settings.json,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/statsig,target=/home/${localEnv:USER}/.claude/statsig,type=bind,readonly",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.histfile,target=/home/${localEnv:USER}/.histfile,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
