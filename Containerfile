@@ -75,7 +75,8 @@ RUN wget https://go.dev/dl/go1.23.5.linux-amd64.tar.gz && \
     dockerfile-language-server-nodejs \
     pyright \
     @ansible/ansible-language-server \
-    @zed-industries/claude-code-acp
+    @zed-industries/claude-code-acp \
+    @google/gemini-cli
 
 # it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
 # Build with say podman build --build-arg USERNAME=$(whoami) -t emacs-gui .

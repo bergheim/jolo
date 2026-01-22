@@ -104,6 +104,7 @@ def load_config(global_config_dir: Path | None = None) -> dict:
 # Base mounts that are always included
 BASE_MOUNTS = [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+    "source=${localEnv:HOME}/.gemini/,target=/home/${localEnv:USER}/.gemini,type=bind,readonly",
     # Claude: selective mounts (excludes projects/, history, todos - cross-project isolation)
     "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/${localEnv:USER}/.claude/.credentials.json,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/${localEnv:USER}/.claude/settings.json,type=bind,readonly",
