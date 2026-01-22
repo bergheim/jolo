@@ -74,5 +74,13 @@ yolo --sync --new         # regenerate config and rebuild
   - Gemini: `.gemini-cache/`
 - Container cannot write back to host credential directories
 - Claude history/state is ephemeral per-project (no cross-project contamination)
-- `~/.config/emacs` mounted readonly
+- Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/
 - Shell history persisted per-project in `.devcontainer/.histfile`
+
+**Emacs config isolation:**
+- Config (~/.config/emacs) copied to `.devcontainer/.emacs-config/` - writable
+- Package dirs mounted readonly from host ~/.cache/emacs/:
+  - elpaca/ (package manager repos/builds)
+  - tree-sitter/ (grammar files)
+- Cache dir (`.devcontainer/.emacs-cache/`) is fresh per-container
+- Changes to config stay in project, don't affect host

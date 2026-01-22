@@ -188,3 +188,39 @@ For reference, things that would be real security problems:
 - Mounting host root filesystem - we don't do this
 
 The current setup avoids actual dangerous patterns.
+
+* NEXT: Emacs config isolation improvements
+
+** Status (2024-01)
+User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.cache/emacs:
+- eln-cache -> ~/.cache/emacs/eln-cache/
+- tree-sitter -> ~/.cache/emacs/tree-sitter/
+
+** Plan agreed upon
+1. Copy ~/.config/emacs to .devcontainer/.emacs-config/ (writable, isolated)
+2. Mount package dirs from ~/.cache/emacs readonly:
+   - ~/.cache/emacs/elpaca
+   - ~/.cache/emacs/tree-sitter
+3. Container gets writable ~/.cache/emacs/ for transient stuff
+
+** Mount structure in devcontainer
+#+begin_src
+~/.config/emacs (container) <- .devcontainer/.emacs-config/ (copied, writable)
+~/.cache/emacs/elpaca       <- host ~/.cache/emacs/elpaca (readonly)
+~/.cache/emacs/tree-sitter  <- host ~/.cache/emacs/tree-sitter (readonly)
+#+end_src
+
+** DONE Implementation in yolo.py
+- [X] Revert the complex symlink approach currently in yolo.py
+- [X] Add function to copy ~/.config/emacs to .devcontainer/.emacs-config/
+- [X] Update BASE_MOUNTS:
+  - .devcontainer/.emacs-config -> ~/.config/emacs (writable)
+  - host ~/.cache/emacs/elpaca -> container ~/.cache/emacs/elpaca (readonly)
+  - host ~/.cache/emacs/tree-sitter -> container ~/.cache/emacs/tree-sitter (readonly)
+- [X] Remove the old emacs mounts
+- [X] Update CLAUDE.md
+
+** Why this approach
+- Config is isolated: AI changes don't leak to host
+- Packages mounted readonly: fast startup, no reinstall, AI can't mess with them
+- Small copy size (~2MB vs 1GB+)
