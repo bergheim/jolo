@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for yolo CLI tool - TDD style."""
+"""Tests for jolo CLI tool - TDD style."""
 
 import os
 import sys
@@ -10,9 +10,9 @@ from unittest import mock
 
 # Import will fail until we create the module
 try:
-    import yolo
+    import jolo
 except ImportError:
-    yolo = None
+    jolo = None
 
 
 class TestArgumentParsing(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestArgumentParsing(unittest.TestCase):
 
     def test_no_args_returns_default_mode(self):
         """No arguments should result in default mode."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertIsNone(args.tree)
         self.assertIsNone(args.create)
         self.assertFalse(args.new)
@@ -28,48 +28,48 @@ class TestArgumentParsing(unittest.TestCase):
     def test_help_flag(self):
         """--help should exit with usage info."""
         with self.assertRaises(SystemExit) as cm:
-            yolo.parse_args(['--help'])
+            jolo.parse_args(['--help'])
         self.assertEqual(cm.exception.code, 0)
 
     def test_tree_with_name(self):
         """--tree NAME should set tree to NAME."""
-        args = yolo.parse_args(['--tree', 'feature-x'])
+        args = jolo.parse_args(['--tree', 'feature-x'])
         self.assertEqual(args.tree, 'feature-x')
 
     def test_tree_without_name(self):
         """--tree without name should set tree to empty string (generate random)."""
-        args = yolo.parse_args(['--tree'])
+        args = jolo.parse_args(['--tree'])
         self.assertEqual(args.tree, '')
 
     def test_create_with_name(self):
         """--create NAME should set create to NAME."""
-        args = yolo.parse_args(['--create', 'myproject'])
+        args = jolo.parse_args(['--create', 'myproject'])
         self.assertEqual(args.create, 'myproject')
 
     def test_create_requires_name(self):
         """--create without NAME should fail."""
         with self.assertRaises(SystemExit):
-            yolo.parse_args(['--create'])
+            jolo.parse_args(['--create'])
 
     def test_new_flag(self):
         """--new should set new to True."""
-        args = yolo.parse_args(['--new'])
+        args = jolo.parse_args(['--new'])
         self.assertTrue(args.new)
 
     def test_new_with_tree(self):
         """--new can combine with --tree."""
-        args = yolo.parse_args(['--new', '--tree', 'test'])
+        args = jolo.parse_args(['--new', '--tree', 'test'])
         self.assertTrue(args.new)
         self.assertEqual(args.tree, 'test')
 
     def test_sync_flag(self):
         """--sync should set sync to True."""
-        args = yolo.parse_args(['--sync'])
+        args = jolo.parse_args(['--sync'])
         self.assertTrue(args.sync)
 
     def test_sync_default_false(self):
         """--sync should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.sync)
 
 
@@ -80,7 +80,7 @@ class TestGuards(unittest.TestCase):
         """Should error when TMUX env var is set."""
         with mock.patch.dict(os.environ, {'TMUX': '/tmp/tmux-1000/default,12345,0'}):
             with self.assertRaises(SystemExit) as cm:
-                yolo.check_tmux_guard()
+                jolo.check_tmux_guard()
             self.assertIn('tmux', str(cm.exception.code).lower())
 
     def test_tmux_guard_passes_when_not_in_tmux(self):
@@ -89,7 +89,7 @@ class TestGuards(unittest.TestCase):
         env.pop('TMUX', None)
         with mock.patch.dict(os.environ, env, clear=True):
             # Should not raise
-            yolo.check_tmux_guard()
+            jolo.check_tmux_guard()
 
 
 class TestGitDetection(unittest.TestCase):
@@ -110,7 +110,7 @@ class TestGitDetection(unittest.TestCase):
         git_dir.mkdir()
         os.chdir(self.tmpdir)
 
-        result = yolo.find_git_root()
+        result = jolo.find_git_root()
         self.assertEqual(result, Path(self.tmpdir))
 
     def test_find_git_root_in_subdirectory(self):
@@ -121,14 +121,14 @@ class TestGitDetection(unittest.TestCase):
         subdir.mkdir(parents=True)
         os.chdir(subdir)
 
-        result = yolo.find_git_root()
+        result = jolo.find_git_root()
         self.assertEqual(result, Path(self.tmpdir))
 
     def test_find_git_root_returns_none_outside_repo(self):
         """Should return None when not in a git repo."""
         os.chdir(self.tmpdir)
 
-        result = yolo.find_git_root()
+        result = jolo.find_git_root()
         self.assertIsNone(result)
 
 
@@ -137,20 +137,20 @@ class TestRandomNameGeneration(unittest.TestCase):
 
     def test_generate_random_name_format(self):
         """Should generate adjective-noun format."""
-        name = yolo.generate_random_name()
+        name = jolo.generate_random_name()
         parts = name.split('-')
         self.assertEqual(len(parts), 2)
 
     def test_generate_random_name_uses_wordlists(self):
         """Generated name should use defined word lists."""
-        name = yolo.generate_random_name()
+        name = jolo.generate_random_name()
         adj, noun = name.split('-')
-        self.assertIn(adj, yolo.ADJECTIVES)
-        self.assertIn(noun, yolo.NOUNS)
+        self.assertIn(adj, jolo.ADJECTIVES)
+        self.assertIn(noun, jolo.NOUNS)
 
     def test_generate_random_name_is_random(self):
         """Should generate different names (probabilistically)."""
-        names = {yolo.generate_random_name() for _ in range(20)}
+        names = {jolo.generate_random_name() for _ in range(20)}
         # With 10 adjectives and 10 nouns, getting same name 20 times is unlikely
         self.assertGreater(len(names), 1)
 
@@ -170,7 +170,7 @@ class TestTemplateSystem(unittest.TestCase):
     def test_scaffold_devcontainer_creates_directory(self):
         """Should create .devcontainer directory."""
         os.chdir(self.tmpdir)
-        yolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer('testproject')
 
         devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
         self.assertTrue(devcontainer_dir.exists())
@@ -179,7 +179,7 @@ class TestTemplateSystem(unittest.TestCase):
     def test_scaffold_devcontainer_creates_json(self):
         """Should create devcontainer.json with project name."""
         os.chdir(self.tmpdir)
-        yolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer('testproject')
 
         json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
         self.assertTrue(json_file.exists())
@@ -189,7 +189,7 @@ class TestTemplateSystem(unittest.TestCase):
     def test_scaffold_devcontainer_creates_dockerfile(self):
         """Should create Dockerfile with default base image."""
         os.chdir(self.tmpdir)
-        yolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer('testproject')
 
         dockerfile = Path(self.tmpdir) / '.devcontainer' / 'Dockerfile'
         self.assertTrue(dockerfile.exists())
@@ -200,7 +200,7 @@ class TestTemplateSystem(unittest.TestCase):
         """Should use base_image from config."""
         os.chdir(self.tmpdir)
         config = {'base_image': 'custom/myimage:v3'}
-        yolo.scaffold_devcontainer('testproject', config=config)
+        jolo.scaffold_devcontainer('testproject', config=config)
 
         dockerfile = Path(self.tmpdir) / '.devcontainer' / 'Dockerfile'
         content = dockerfile.read_text()
@@ -215,7 +215,7 @@ class TestTemplateSystem(unittest.TestCase):
         (devcontainer_dir / 'devcontainer.json').write_text('existing')
 
         # Should not raise, should return False (not created)
-        result = yolo.scaffold_devcontainer('testproject')
+        result = jolo.scaffold_devcontainer('testproject')
         self.assertFalse(result)
 
         # Original file should be preserved
@@ -234,7 +234,7 @@ class TestSecretsManagement(unittest.TestCase):
         }
         with mock.patch.dict(os.environ, env, clear=True):
             with mock.patch('shutil.which', return_value=None):
-                secrets = yolo.get_secrets()
+                secrets = jolo.get_secrets()
 
         self.assertEqual(secrets['ANTHROPIC_API_KEY'], 'sk-ant-test123')
         self.assertEqual(secrets['OPENAI_API_KEY'], 'sk-openai-test456')
@@ -252,7 +252,7 @@ class TestSecretsManagement(unittest.TestCase):
 
         with mock.patch('shutil.which', return_value='/usr/bin/pass'):
             with mock.patch('subprocess.run', side_effect=mock_run):
-                secrets = yolo.get_secrets()
+                secrets = jolo.get_secrets()
 
         self.assertEqual(secrets['ANTHROPIC_API_KEY'], 'sk-ant-from-pass')
         self.assertEqual(secrets['OPENAI_API_KEY'], 'sk-openai-from-pass')
@@ -263,17 +263,17 @@ class TestContainerNaming(unittest.TestCase):
 
     def test_container_name_from_project(self):
         """Should derive container name from project directory."""
-        name = yolo.get_container_name('/home/user/myproject', None)
+        name = jolo.get_container_name('/home/user/myproject', None)
         self.assertEqual(name, 'myproject')
 
     def test_container_name_with_worktree(self):
         """Should include worktree name in container name."""
-        name = yolo.get_container_name('/home/user/myproject', 'feature-x')
+        name = jolo.get_container_name('/home/user/myproject', 'feature-x')
         self.assertEqual(name, 'myproject-feature-x')
 
     def test_container_name_lowercase(self):
         """Should convert to lowercase."""
-        name = yolo.get_container_name('/home/user/MyProject', None)
+        name = jolo.get_container_name('/home/user/MyProject', None)
         self.assertEqual(name, 'myproject')
 
 
@@ -282,12 +282,12 @@ class TestWorktreePaths(unittest.TestCase):
 
     def test_worktree_path_computation(self):
         """Should compute worktree path as ../PROJECT-worktrees/NAME."""
-        path = yolo.get_worktree_path('/dev/myapp', 'feature-x')
+        path = jolo.get_worktree_path('/dev/myapp', 'feature-x')
         self.assertEqual(path, Path('/dev/myapp-worktrees/feature-x'))
 
     def test_worktree_path_with_trailing_slash(self):
         """Should handle trailing slash in project path."""
-        path = yolo.get_worktree_path('/dev/myapp/', 'feature-x')
+        path = jolo.get_worktree_path('/dev/myapp/', 'feature-x')
         self.assertEqual(path, Path('/dev/myapp-worktrees/feature-x'))
 
 
@@ -308,7 +308,7 @@ class TestModeValidation(unittest.TestCase):
         os.chdir(self.tmpdir)  # Not a git repo
 
         with self.assertRaises(SystemExit) as cm:
-            yolo.validate_tree_mode()
+            jolo.validate_tree_mode()
         self.assertIn('git', str(cm.exception.code).lower())
 
     def test_create_mode_forbids_git_repo(self):
@@ -318,7 +318,7 @@ class TestModeValidation(unittest.TestCase):
         os.chdir(self.tmpdir)
 
         with self.assertRaises(SystemExit) as cm:
-            yolo.validate_create_mode('newproject')
+            jolo.validate_create_mode('newproject')
         self.assertIn('git', str(cm.exception.code).lower())
 
     def test_create_mode_forbids_existing_directory(self):
@@ -328,7 +328,7 @@ class TestModeValidation(unittest.TestCase):
         existing.mkdir()
 
         with self.assertRaises(SystemExit) as cm:
-            yolo.validate_create_mode('existing')
+            jolo.validate_create_mode('existing')
         self.assertIn('exists', str(cm.exception.code).lower())
 
 
@@ -344,7 +344,7 @@ class TestWorktreeExists(unittest.TestCase):
             worktree_path.mkdir()
             (worktree_path / '.devcontainer').mkdir()
 
-            result = yolo.get_or_create_worktree(
+            result = jolo.get_or_create_worktree(
                 git_root=Path(tmpdir),
                 worktree_name='existing-worktree',
                 worktree_path=worktree_path
@@ -383,7 +383,7 @@ class TestWorktreeDevcontainer(unittest.TestCase):
 
         # Add git mount
         main_git_dir = Path('/home/user/project/.git')
-        yolo.add_worktree_git_mount(json_file, main_git_dir)
+        jolo.add_worktree_git_mount(json_file, main_git_dir)
 
         # Verify mount was added
         updated = json.loads(json_file.read_text())
@@ -406,7 +406,7 @@ class TestWorktreeDevcontainer(unittest.TestCase):
         json_file.write_text(json.dumps(original))
 
         main_git_dir = Path('/home/user/project/.git')
-        yolo.add_worktree_git_mount(json_file, main_git_dir)
+        jolo.add_worktree_git_mount(json_file, main_git_dir)
 
         updated = json.loads(json_file.read_text())
         self.assertIn('mounts', updated)
@@ -437,7 +437,7 @@ class TestSyncDevcontainer(unittest.TestCase):
 
         # Sync with new config
         config = {'base_image': 'new/image:v2'}
-        yolo.sync_devcontainer('myproject', config=config)
+        jolo.sync_devcontainer('myproject', config=config)
 
         # Verify new content
         dockerfile = (devcontainer_dir / 'Dockerfile').read_text()
@@ -452,7 +452,7 @@ class TestSyncDevcontainer(unittest.TestCase):
         os.chdir(self.tmpdir)
 
         config = {'base_image': 'test/image:v1'}
-        yolo.sync_devcontainer('newproject', config=config)
+        jolo.sync_devcontainer('newproject', config=config)
 
         devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
         self.assertTrue(devcontainer_dir.exists())
@@ -475,56 +475,56 @@ class TestConfigLoading(unittest.TestCase):
     def test_load_config_returns_defaults_when_no_files(self):
         """Should return default config when no config files exist."""
         os.chdir(self.tmpdir)
-        config = yolo.load_config(global_config_dir=Path(self.tmpdir) / 'noexist')
+        config = jolo.load_config(global_config_dir=Path(self.tmpdir) / 'noexist')
 
         self.assertEqual(config['base_image'], 'localhost/emacs-gui:latest')
         self.assertEqual(config['pass_path_anthropic'], 'api/llm/anthropic')
         self.assertEqual(config['pass_path_openai'], 'api/llm/openai')
 
     def test_load_global_config(self):
-        """Should load global config from ~/.config/yolo/config.toml."""
-        config_dir = Path(self.tmpdir) / '.config' / 'yolo'
+        """Should load global config from ~/.config/jolo/config.toml."""
+        config_dir = Path(self.tmpdir) / '.config' / 'jolo'
         config_dir.mkdir(parents=True)
         (config_dir / 'config.toml').write_text('base_image = "custom/image:v1"\n')
 
-        config = yolo.load_config(global_config_dir=config_dir)
+        config = jolo.load_config(global_config_dir=config_dir)
 
         self.assertEqual(config['base_image'], 'custom/image:v1')
 
     def test_load_project_config(self):
-        """Should load project config from .yolo.toml."""
+        """Should load project config from .jolo.toml."""
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, '.yolo.toml').write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, '.jolo.toml').write_text('base_image = "project/image:v2"\n')
 
-        config = yolo.load_config(global_config_dir=Path(self.tmpdir) / 'noexist')
+        config = jolo.load_config(global_config_dir=Path(self.tmpdir) / 'noexist')
 
         self.assertEqual(config['base_image'], 'project/image:v2')
 
     def test_project_config_overrides_global(self):
         """Project config should override global config."""
-        config_dir = Path(self.tmpdir) / '.config' / 'yolo'
+        config_dir = Path(self.tmpdir) / '.config' / 'jolo'
         config_dir.mkdir(parents=True)
         (config_dir / 'config.toml').write_text('base_image = "global/image:v1"\n')
 
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, '.yolo.toml').write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, '.jolo.toml').write_text('base_image = "project/image:v2"\n')
 
-        config = yolo.load_config(global_config_dir=config_dir)
+        config = jolo.load_config(global_config_dir=config_dir)
 
         self.assertEqual(config['base_image'], 'project/image:v2')
 
     def test_config_partial_override(self):
         """Project config should only override specified keys."""
-        config_dir = Path(self.tmpdir) / '.config' / 'yolo'
+        config_dir = Path(self.tmpdir) / '.config' / 'jolo'
         config_dir.mkdir(parents=True)
         (config_dir / 'config.toml').write_text(
             'base_image = "global/image:v1"\npass_path_anthropic = "custom/path"\n'
         )
 
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, '.yolo.toml').write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, '.jolo.toml').write_text('base_image = "project/image:v2"\n')
 
-        config = yolo.load_config(global_config_dir=config_dir)
+        config = jolo.load_config(global_config_dir=config_dir)
 
         self.assertEqual(config['base_image'], 'project/image:v2')
         self.assertEqual(config['pass_path_anthropic'], 'custom/path')
@@ -535,27 +535,27 @@ class TestListMode(unittest.TestCase):
 
     def test_list_flag(self):
         """--list should set list to True."""
-        args = yolo.parse_args(['--list'])
+        args = jolo.parse_args(['--list'])
         self.assertTrue(args.list)
 
     def test_list_default_false(self):
         """--list should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.list)
 
     def test_all_flag(self):
         """--all should set all to True."""
-        args = yolo.parse_args(['--list', '--all'])
+        args = jolo.parse_args(['--list', '--all'])
         self.assertTrue(args.all)
 
     def test_all_short_flag(self):
         """-a should set all to True."""
-        args = yolo.parse_args(['--list', '-a'])
+        args = jolo.parse_args(['--list', '-a'])
         self.assertTrue(args.all)
 
     def test_all_default_false(self):
         """--all should default to False."""
-        args = yolo.parse_args(['--list'])
+        args = jolo.parse_args(['--list'])
         self.assertFalse(args.all)
 
 
@@ -574,7 +574,7 @@ class TestListWorktrees(unittest.TestCase):
     def test_list_worktrees_empty_on_non_git(self):
         """Should return empty list for non-git directory."""
         os.chdir(self.tmpdir)
-        result = yolo.list_worktrees(Path(self.tmpdir))
+        result = jolo.list_worktrees(Path(self.tmpdir))
         self.assertEqual(result, [])
 
     def test_list_worktrees_returns_main_repo(self):
@@ -589,7 +589,7 @@ class TestListWorktrees(unittest.TestCase):
         subprocess.run(['git', 'add', '.'], cwd=self.tmpdir, capture_output=True)
         subprocess.run(['git', 'commit', '-m', 'Initial'], cwd=self.tmpdir, capture_output=True)
 
-        result = yolo.list_worktrees(Path(self.tmpdir))
+        result = jolo.list_worktrees(Path(self.tmpdir))
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0][0], Path(self.tmpdir))
@@ -601,7 +601,7 @@ class TestListWorktrees(unittest.TestCase):
         subprocess.run(['git', 'init'], cwd=self.tmpdir, capture_output=True)
 
         git_root = Path(self.tmpdir)
-        result = yolo.find_project_workspaces(git_root)
+        result = jolo.find_project_workspaces(git_root)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0][0], git_root)
@@ -615,27 +615,27 @@ class TestContainerRuntime(unittest.TestCase):
         """Should detect docker if available."""
         with mock.patch('shutil.which') as mock_which:
             mock_which.side_effect = lambda x: '/usr/bin/docker' if x == 'docker' else None
-            result = yolo.get_container_runtime()
+            result = jolo.get_container_runtime()
             self.assertEqual(result, 'docker')
 
     def test_get_container_runtime_finds_podman(self):
         """Should detect podman if docker not available."""
         with mock.patch('shutil.which') as mock_which:
             mock_which.side_effect = lambda x: '/usr/bin/podman' if x == 'podman' else None
-            result = yolo.get_container_runtime()
+            result = jolo.get_container_runtime()
             self.assertEqual(result, 'podman')
 
     def test_get_container_runtime_prefers_docker(self):
         """Should prefer docker over podman."""
         with mock.patch('shutil.which') as mock_which:
             mock_which.return_value = '/usr/bin/something'
-            result = yolo.get_container_runtime()
+            result = jolo.get_container_runtime()
             self.assertEqual(result, 'docker')
 
     def test_get_container_runtime_returns_none(self):
         """Should return None if no runtime available."""
         with mock.patch('shutil.which', return_value=None):
-            result = yolo.get_container_runtime()
+            result = jolo.get_container_runtime()
             self.assertIsNone(result)
 
 
@@ -644,17 +644,17 @@ class TestListAllDevcontainers(unittest.TestCase):
 
     def test_list_all_returns_empty_without_runtime(self):
         """Should return empty list if no container runtime."""
-        with mock.patch('yolo.get_container_runtime', return_value=None):
-            result = yolo.list_all_devcontainers()
+        with mock.patch('jolo.get_container_runtime', return_value=None):
+            result = jolo.list_all_devcontainers()
             self.assertEqual(result, [])
 
     def test_list_all_parses_docker_output(self):
         """Should parse docker ps output correctly."""
         mock_output = "mycontainer\t/home/user/project\trunning\n"
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
             with mock.patch('subprocess.run') as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0, stdout=mock_output)
-                result = yolo.list_all_devcontainers()
+                result = jolo.list_all_devcontainers()
                 self.assertEqual(len(result), 1)
                 self.assertEqual(result[0], ('mycontainer', '/home/user/project', 'running'))
 
@@ -664,12 +664,12 @@ class TestStopMode(unittest.TestCase):
 
     def test_stop_flag(self):
         """--stop should set stop to True."""
-        args = yolo.parse_args(['--stop'])
+        args = jolo.parse_args(['--stop'])
         self.assertTrue(args.stop)
 
     def test_stop_default_false(self):
         """--stop should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.stop)
 
 
@@ -678,24 +678,24 @@ class TestGetContainerForWorkspace(unittest.TestCase):
 
     def test_returns_none_without_runtime(self):
         """Should return None if no container runtime."""
-        with mock.patch('yolo.get_container_runtime', return_value=None):
-            result = yolo.get_container_for_workspace(Path('/some/path'))
+        with mock.patch('jolo.get_container_runtime', return_value=None):
+            result = jolo.get_container_for_workspace(Path('/some/path'))
             self.assertIsNone(result)
 
     def test_returns_container_name(self):
         """Should return container name from docker output."""
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
             with mock.patch('subprocess.run') as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0, stdout='my-container\n')
-                result = yolo.get_container_for_workspace(Path('/home/user/project'))
+                result = jolo.get_container_for_workspace(Path('/home/user/project'))
                 self.assertEqual(result, 'my-container')
 
     def test_returns_none_when_no_container(self):
         """Should return None when no container found."""
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
             with mock.patch('subprocess.run') as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0, stdout='')
-                result = yolo.get_container_for_workspace(Path('/home/user/project'))
+                result = jolo.get_container_for_workspace(Path('/home/user/project'))
                 self.assertIsNone(result)
 
 
@@ -704,24 +704,24 @@ class TestStopContainer(unittest.TestCase):
 
     def test_stop_returns_false_without_runtime(self):
         """Should return False if no container runtime."""
-        with mock.patch('yolo.get_container_runtime', return_value=None):
-            result = yolo.stop_container(Path('/some/path'))
+        with mock.patch('jolo.get_container_runtime', return_value=None):
+            result = jolo.stop_container(Path('/some/path'))
             self.assertFalse(result)
 
     def test_stop_returns_false_when_no_container(self):
         """Should return False when no container found."""
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
-            with mock.patch('yolo.get_container_for_workspace', return_value=None):
-                result = yolo.stop_container(Path('/some/path'))
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
+            with mock.patch('jolo.get_container_for_workspace', return_value=None):
+                result = jolo.stop_container(Path('/some/path'))
                 self.assertFalse(result)
 
     def test_stop_returns_true_on_success(self):
         """Should return True when container stopped successfully."""
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
-            with mock.patch('yolo.get_container_for_workspace', return_value='my-container'):
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
+            with mock.patch('jolo.get_container_for_workspace', return_value='my-container'):
                 with mock.patch('subprocess.run') as mock_run:
                     mock_run.return_value = mock.Mock(returncode=0)
-                    result = yolo.stop_container(Path('/some/path'))
+                    result = jolo.stop_container(Path('/some/path'))
                     self.assertTrue(result)
 
 
@@ -730,12 +730,12 @@ class TestPruneMode(unittest.TestCase):
 
     def test_prune_flag(self):
         """--prune should set prune to True."""
-        args = yolo.parse_args(['--prune'])
+        args = jolo.parse_args(['--prune'])
         self.assertTrue(args.prune)
 
     def test_prune_default_false(self):
         """--prune should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.prune)
 
 
@@ -762,7 +762,7 @@ class TestFindStaleWorktrees(unittest.TestCase):
         subprocess.run(['git', 'add', '.'], cwd=self.tmpdir, capture_output=True)
         subprocess.run(['git', 'commit', '-m', 'Initial'], cwd=self.tmpdir, capture_output=True)
 
-        result = yolo.find_stale_worktrees(Path(self.tmpdir))
+        result = jolo.find_stale_worktrees(Path(self.tmpdir))
         self.assertEqual(result, [])
 
 
@@ -771,16 +771,16 @@ class TestRemoveContainer(unittest.TestCase):
 
     def test_remove_returns_false_without_runtime(self):
         """Should return False if no container runtime."""
-        with mock.patch('yolo.get_container_runtime', return_value=None):
-            result = yolo.remove_container('my-container')
+        with mock.patch('jolo.get_container_runtime', return_value=None):
+            result = jolo.remove_container('my-container')
             self.assertFalse(result)
 
     def test_remove_returns_true_on_success(self):
         """Should return True when container removed successfully."""
-        with mock.patch('yolo.get_container_runtime', return_value='docker'):
+        with mock.patch('jolo.get_container_runtime', return_value='docker'):
             with mock.patch('subprocess.run') as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0)
-                result = yolo.remove_container('my-container')
+                result = jolo.remove_container('my-container')
                 self.assertTrue(result)
 
 
@@ -791,7 +791,7 @@ class TestRemoveWorktree(unittest.TestCase):
         """Should call git worktree remove."""
         with mock.patch('subprocess.run') as mock_run:
             mock_run.return_value = mock.Mock(returncode=0)
-            result = yolo.remove_worktree(Path('/project'), Path('/project-worktrees/foo'))
+            result = jolo.remove_worktree(Path('/project'), Path('/project-worktrees/foo'))
             self.assertTrue(result)
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
@@ -804,12 +804,12 @@ class TestAttachMode(unittest.TestCase):
 
     def test_attach_flag(self):
         """--attach should set attach to True."""
-        args = yolo.parse_args(['--attach'])
+        args = jolo.parse_args(['--attach'])
         self.assertTrue(args.attach)
 
     def test_attach_default_false(self):
         """--attach should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.attach)
 
 
@@ -818,22 +818,22 @@ class TestDetachMode(unittest.TestCase):
 
     def test_detach_flag(self):
         """--detach should set detach to True."""
-        args = yolo.parse_args(['--detach'])
+        args = jolo.parse_args(['--detach'])
         self.assertTrue(args.detach)
 
     def test_detach_short_flag(self):
         """-d should set detach to True."""
-        args = yolo.parse_args(['-d'])
+        args = jolo.parse_args(['-d'])
         self.assertTrue(args.detach)
 
     def test_detach_default_false(self):
         """--detach should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.detach)
 
     def test_detach_with_tree(self):
         """--detach can combine with --tree."""
-        args = yolo.parse_args(['--detach', '--tree', 'test'])
+        args = jolo.parse_args(['--detach', '--tree', 'test'])
         self.assertTrue(args.detach)
         self.assertEqual(args.tree, 'test')
 
@@ -843,17 +843,17 @@ class TestFromBranch(unittest.TestCase):
 
     def test_from_flag(self):
         """--from should set from_branch."""
-        args = yolo.parse_args(['--tree', 'test', '--from', 'main'])
+        args = jolo.parse_args(['--tree', 'test', '--from', 'main'])
         self.assertEqual(args.from_branch, 'main')
 
     def test_from_default_none(self):
         """--from should default to None."""
-        args = yolo.parse_args(['--tree', 'test'])
+        args = jolo.parse_args(['--tree', 'test'])
         self.assertIsNone(args.from_branch)
 
     def test_from_with_tree(self):
         """--from can combine with --tree."""
-        args = yolo.parse_args(['--tree', 'feature', '--from', 'develop'])
+        args = jolo.parse_args(['--tree', 'feature', '--from', 'develop'])
         self.assertEqual(args.tree, 'feature')
         self.assertEqual(args.from_branch, 'develop')
 
@@ -880,12 +880,12 @@ class TestBranchExists(unittest.TestCase):
 
     def test_branch_exists_for_existing_branch(self):
         """Should return True for existing branch."""
-        result = yolo.branch_exists(Path(self.tmpdir), 'master')
+        result = jolo.branch_exists(Path(self.tmpdir), 'master')
         self.assertTrue(result)
 
     def test_branch_exists_for_nonexistent_branch(self):
         """Should return False for nonexistent branch."""
-        result = yolo.branch_exists(Path(self.tmpdir), 'nonexistent')
+        result = jolo.branch_exists(Path(self.tmpdir), 'nonexistent')
         self.assertFalse(result)
 
 
@@ -894,17 +894,17 @@ class TestVerboseMode(unittest.TestCase):
 
     def test_verbose_flag(self):
         """--verbose should set verbose to True."""
-        args = yolo.parse_args(['--verbose'])
+        args = jolo.parse_args(['--verbose'])
         self.assertTrue(args.verbose)
 
     def test_verbose_short_flag(self):
         """-v should set verbose to True."""
-        args = yolo.parse_args(['-v'])
+        args = jolo.parse_args(['-v'])
         self.assertTrue(args.verbose)
 
     def test_verbose_default_false(self):
         """--verbose should default to False."""
-        args = yolo.parse_args([])
+        args = jolo.parse_args([])
         self.assertFalse(args.verbose)
 
 
