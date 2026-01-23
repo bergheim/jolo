@@ -66,6 +66,7 @@ RUN npm install -g \
     # install global language servers from npm
     typescript-language-server \
     typescript \
+    pnpm \
     vscode-langservers-extracted \
     bash-language-server \
     yaml-language-server \
