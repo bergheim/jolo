@@ -29,6 +29,7 @@ RUN apk update && apk add --no-cache \
     github-cli \
     git \
     go \
+    gopls \
     gnupg \
     hunspell \
     hunspell-en \
@@ -99,10 +100,7 @@ WORKDIR $HOME
 ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
 ENV PATH="$HOME/.npm-global/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
-# Install gopls
-RUN go install golang.org/x/tools/gopls@latest && \
-    # bun
-    curl -fsSL https://bun.sh/install | bash && \
+RUN curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
     # Create directories for mounts
     mkdir -p $HOME/.config/emacs && \
