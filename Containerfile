@@ -63,7 +63,6 @@ RUN apk update && apk add --no-cache \
     zsh
 
 RUN npm install -g \
-    # install global language servers from npm
     typescript-language-server \
     typescript \
     pnpm \
@@ -72,9 +71,7 @@ RUN npm install -g \
     yaml-language-server \
     dockerfile-language-server-nodejs \
     pyright \
-    @ansible/ansible-language-server \
-    @zed-industries/claude-code-acp \
-    @google/gemini-cli
+    @ansible/ansible-language-server
 
 # it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
 # Build with say podman build --build-arg USERNAME=$(whoami) -t emacs-gui .
@@ -98,11 +95,12 @@ USER $USERNAME
 ENV HOME /home/$USERNAME
 WORKDIR $HOME
 
-ENV PATH="/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin/:$PATH"
+# Local npm prefix for user-managed tools (AI CLIs, etc.)
+ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
+ENV PATH="$HOME/.npm-global/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
 # Install gopls
 RUN go install golang.org/x/tools/gopls@latest && \
-    echo 'export PATH="$HOME/go/bin:$PATH"' >> $HOME/.zshrc.container && \
     # bun
     curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
@@ -110,6 +108,7 @@ RUN go install golang.org/x/tools/gopls@latest && \
     mkdir -p $HOME/.config/emacs && \
     mkdir -p $HOME/.claude && \
     mkdir -p $HOME/.gemini && \
+    mkdir -p $HOME/.local/bin && \
     # GPG setup with loopback pinentry for signing
     mkdir -p $HOME/.gnupg && \
     chmod 700 $HOME/.gnupg && \
@@ -118,6 +117,8 @@ RUN go install golang.org/x/tools/gopls@latest && \
     # Claude CLI (YOLO mode)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
     curl -fsSL https://claude.ai/install.sh | bash && \
+    # AI tools (installed to ~/.npm-global via NPM_CONFIG_PREFIX)
+    npm i -g @google/gemini-cli && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
