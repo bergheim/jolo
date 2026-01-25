@@ -118,6 +118,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # AI tools (installed to ~/.npm-global via NPM_CONFIG_PREFIX)
     npm i -g @google/gemini-cli && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
+    echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf
