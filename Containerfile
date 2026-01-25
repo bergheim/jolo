@@ -96,9 +96,10 @@ USER $USERNAME
 ENV HOME /home/$USERNAME
 WORKDIR $HOME
 
-# Local npm prefix for user-managed tools (AI CLIs, etc.)
+# Local package managers for user-managed tools (AI CLIs, etc.)
 ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
-ENV PATH="$HOME/.npm-global/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
+ENV PNPM_HOME=$HOME/.local/share/pnpm
+ENV PATH="$PNPM_HOME:$NPM_CONFIG_PREFIX/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
 RUN curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
@@ -115,8 +116,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # Claude CLI (YOLO mode)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
     curl -fsSL https://claude.ai/install.sh | bash && \
-    # AI tools (installed to ~/.npm-global via NPM_CONFIG_PREFIX)
-    npm i -g @google/gemini-cli && \
+    # AI tools (installed to $PNPM_HOME via pnpm)
+    pnpm add -g @google/gemini-cli @openai/codex && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
