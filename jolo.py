@@ -250,6 +250,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--shell",
+        action="store_true",
+        help="Exec into container with zsh (no tmux)",
+    )
+
+    parser.add_argument(
+        "--run",
+        metavar="CMD",
+        help="Exec command directly in container (no tmux)",
+    )
+
+    parser.add_argument(
         "--detach", "-d", action="store_true", help="Start container without attaching"
     )
 
@@ -615,6 +627,22 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
         "sh",
         "-c",
         "tmux attach-session -t dev || tmux new-session -s dev",
+    ]
+
+    verbose_cmd(cmd)
+    subprocess.run(cmd, cwd=workspace_dir)
+
+
+def devcontainer_exec_command(workspace_dir: Path, command: str) -> None:
+    """Execute a command directly in container (no tmux)."""
+    cmd = [
+        "devcontainer",
+        "exec",
+        "--workspace-folder",
+        str(workspace_dir),
+        "sh",
+        "-c",
+        command,
     ]
 
     verbose_cmd(cmd)
@@ -1162,6 +1190,15 @@ def run_attach_mode(args: argparse.Namespace) -> None:
     if not is_container_running(git_root):
         sys.exit("Error: Container is not running. Use jolo to start it.")
 
+    # Direct exec modes (no tmux)
+    if args.shell:
+        devcontainer_exec_command(git_root, "zsh")
+        return
+
+    if args.run:
+        devcontainer_exec_command(git_root, args.run)
+        return
+
     # Attach to tmux
     devcontainer_exec_tmux(git_root)
 
@@ -1250,6 +1287,15 @@ def run_default_mode(args: argparse.Namespace) -> None:
 
     if args.detach:
         print(f"Container started: {project_name}")
+        return
+
+    # Direct exec modes (no tmux)
+    if args.shell:
+        devcontainer_exec_command(git_root, "zsh")
+        return
+
+    if args.run:
+        devcontainer_exec_command(git_root, args.run)
         return
 
     # Attach to tmux
@@ -1371,6 +1417,15 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         print(f"Container started: {worktree_path.name}")
         return
 
+    # Direct exec modes (no tmux)
+    if args.shell:
+        devcontainer_exec_command(worktree_path, "zsh")
+        return
+
+    if args.run:
+        devcontainer_exec_command(worktree_path, args.run)
+        return
+
     # Attach to tmux
     devcontainer_exec_tmux(worktree_path)
 
@@ -1435,6 +1490,15 @@ def run_create_mode(args: argparse.Namespace) -> None:
         print(f"Container started: {project_name}")
         return
 
+    # Direct exec modes (no tmux)
+    if args.shell:
+        devcontainer_exec_command(project_path, "zsh")
+        return
+
+    if args.run:
+        devcontainer_exec_command(project_path, args.run)
+        return
+
     # Attach to tmux
     devcontainer_exec_tmux(project_path)
 
@@ -1491,6 +1555,15 @@ def run_init_mode(args: argparse.Namespace) -> None:
 
     if args.detach:
         print(f"Container started: {project_name}")
+        return
+
+    # Direct exec modes (no tmux)
+    if args.shell:
+        devcontainer_exec_command(project_path, "zsh")
+        return
+
+    if args.run:
+        devcontainer_exec_command(project_path, args.run)
         return
 
     # Attach to tmux
@@ -1550,8 +1623,8 @@ def main(argv: list[str] | None = None) -> None:
         run_destroy_mode(args)
         return
 
-    # Check guards (skip tmux guard if detaching or using prompt)
-    if not args.detach and not args.prompt:
+    # Check guards (skip tmux guard if detaching, using prompt, shell, or run)
+    if not args.detach and not args.prompt and not args.shell and not args.run:
         check_tmux_guard()
 
     # Dispatch to appropriate mode

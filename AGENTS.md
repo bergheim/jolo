@@ -83,6 +83,9 @@ jolo --agent gemini -p "..."      # use different agent (default: claude)
 jolo --tree feat --from develop   # branch worktree from specific ref
 jolo --attach                     # attach to running container
 jolo -d                           # start detached (no tmux attach)
+jolo --shell                      # exec zsh directly (no tmux)
+jolo --run claude                 # exec command directly (no tmux)
+jolo --run "npm test"             # run arbitrary command
 jolo --init                       # initialize git + devcontainer in current dir
 jolo --sync                       # regenerate .devcontainer from template
 jolo --new                        # remove existing container before starting
