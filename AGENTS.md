@@ -41,6 +41,8 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 **Environment:**
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
 - `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise defaults to tmux
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
+- `NPM_CONFIG_PREFIX`, `PNPM_HOME` - User-local package manager paths (no sudo needed)
 
 **Networking:**
 - Ports 4000-5000 are forwarded from the container to the host
@@ -51,9 +53,13 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 
 Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server
 
-Runtimes: Go, Rust, Python, Node.js, Bun
+Runtimes: Go, Rust, Python, Node.js, Bun, pnpm, mise (version manager)
 
-CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim
+CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim (aliased as `vi`)
+
+AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli)
+
+Spell-checking: aspell, hunspell, enchant2
 
 ## jolo.py - Devcontainer Launcher
 
@@ -77,9 +83,15 @@ jolo --agent gemini -p "..."      # use different agent (default: claude)
 jolo --tree feat --from develop   # branch worktree from specific ref
 jolo --attach                     # attach to running container
 jolo -d                           # start detached (no tmux attach)
+jolo --init                       # initialize git + devcontainer in current dir
+jolo --sync                       # regenerate .devcontainer from template
+jolo --new                        # remove existing container before starting
 jolo --sync --new                 # regenerate config and rebuild
 jolo --prune                      # cleanup stopped containers/stale worktrees
 jolo --destroy                    # nuclear: stop + rm all containers for project
+jolo --list --all                 # show all containers globally
+jolo --stop --all                 # stop all containers for project
+jolo -v                           # verbose mode (print commands)
 ```
 
 **Security model:**
