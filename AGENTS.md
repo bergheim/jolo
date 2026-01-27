@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a containerized Emacs GUI environment on Alpine Linux, designed as a devcontainer for AI-assisted development. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
 
+## Project Defaults
+
+**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always configure it to use a port between 4000-5000. These ports are forwarded from the container to the host and accessible via the Tailscale network. Default to port 4000 unless there's a reason to use another.
+
 ## Build Commands
 
 ```bash
