@@ -146,6 +146,7 @@ def build_devcontainer_json(project_name: str) -> str:
     config = {
         "name": project_name,
         "build": {"dockerfile": "Dockerfile"},
+        "runArgs": ["--hostname", project_name],
         "mounts": mounts,
         "containerEnv": {
             "TERM": "xterm-256color",
@@ -164,9 +165,7 @@ DOCKERFILE_TEMPLATE = """FROM BASE_IMAGE
 
 USER root
 RUN apk add --no-cache nodejs npm
-LABEL devcontainer.metadata='[{"remoteUser":"CONTAINER_USER","workspaceFolder":"/workspace"}]'
-
-WORKDIR /workspace
+LABEL devcontainer.metadata='[{"remoteUser":"CONTAINER_USER"}]'
 
 USER CONTAINER_USER
 """
