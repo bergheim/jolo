@@ -2459,5 +2459,71 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             self.assertTrue(filepath.exists(), f"Expected {filename} to exist")
 
 
+class TestDestroyYesFlag(unittest.TestCase):
+    """Tests for --destroy --yes flag."""
+
+    def test_yes_flag_exists(self):
+        """--yes flag should be recognized by argparser."""
+        args = jolo.parse_args(["--destroy", "--yes"])
+        self.assertTrue(args.yes)
+
+    def test_yes_flag_default_false(self):
+        """--yes flag should default to False."""
+        args = jolo.parse_args(["--destroy"])
+        self.assertFalse(args.yes)
+
+    @mock.patch("jolo.find_git_root")
+    @mock.patch("jolo.get_container_runtime")
+    @mock.patch("jolo.find_containers_for_project")
+    @mock.patch("jolo.subprocess.run")
+    @mock.patch("jolo.remove_container")
+    def test_yes_skips_confirmation(
+        self,
+        mock_remove,
+        mock_run,
+        mock_find_containers,
+        mock_runtime,
+        mock_git_root,
+    ):
+        """With --yes, should not prompt for confirmation."""
+        mock_git_root.return_value = Path("/fake/project")
+        mock_runtime.return_value = "podman"
+        mock_find_containers.return_value = [
+            ("test-container", "/fake/project", "running")
+        ]
+        mock_run.return_value = mock.MagicMock(returncode=0)
+        mock_remove.return_value = True
+
+        args = jolo.parse_args(["--destroy", "--yes"])
+
+        with mock.patch("builtins.input") as mock_input:
+            jolo.run_destroy_mode(args)
+            mock_input.assert_not_called()
+
+        mock_remove.assert_called_once()
+
+    @mock.patch("jolo.find_git_root")
+    @mock.patch("jolo.get_container_runtime")
+    @mock.patch("jolo.find_containers_for_project")
+    def test_no_yes_prompts_confirmation(
+        self,
+        mock_find_containers,
+        mock_runtime,
+        mock_git_root,
+    ):
+        """Without --yes, should prompt for confirmation."""
+        mock_git_root.return_value = Path("/fake/project")
+        mock_runtime.return_value = "podman"
+        mock_find_containers.return_value = [
+            ("test-container", "/fake/project", "stopped")
+        ]
+
+        args = jolo.parse_args(["--destroy"])
+
+        with mock.patch("builtins.input", return_value="n") as mock_input:
+            jolo.run_destroy_mode(args)
+            mock_input.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

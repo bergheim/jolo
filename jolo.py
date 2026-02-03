@@ -924,6 +924,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts (use with --destroy)",
+    )
+
+    parser.add_argument(
         "--attach",
         action="store_true",
         help="Attach to running container (error if not running)",
@@ -1929,16 +1936,17 @@ def run_destroy_mode(args: argparse.Namespace) -> None:
         print(f"  {name:<24} {state:<10} {folder}")
     print()
 
-    # Prompt for confirmation
-    try:
-        response = input("Stop and remove these containers? [y/N] ")
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return
+    # Prompt for confirmation unless --yes
+    if not args.yes:
+        try:
+            response = input("Stop and remove these containers? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
 
-    if response.lower() != "y":
-        print("Cancelled.")
-        return
+        if response.lower() != "y":
+            print("Cancelled.")
+            return
 
     # Stop running containers first
     for name, folder, state in containers:
@@ -1973,16 +1981,17 @@ def run_destroy_mode(args: argparse.Namespace) -> None:
         print(f"  {d}")
     print()
 
-    try:
-        response = input("Also remove these directories? [y/N] ")
-    except (EOFError, KeyboardInterrupt):
-        print()
-        print(f"Directories preserved. To remove later: rm -rf {git_root}")
-        return
+    if not args.yes:
+        try:
+            response = input("Also remove these directories? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            print(f"Directories preserved. To remove later: rm -rf {git_root}")
+            return
 
-    if response.lower() != "y":
-        print(f"Directories preserved. To remove later: rm -rf {git_root}")
-        return
+        if response.lower() != "y":
+            print(f"Directories preserved. To remove later: rm -rf {git_root}")
+            return
 
     for d in dirs_to_remove:
         try:
