@@ -25,14 +25,6 @@ try:
 except ImportError:
     HAVE_ARGCOMPLETE = False
 
-try:
-    from pick import pick
-
-    HAVE_PICK = True
-except ImportError:
-    pick = None  # type: ignore
-    HAVE_PICK = False
-
 # Word lists for random name generation
 ADJECTIVES = [
     "brave",
@@ -516,57 +508,58 @@ def verbose_print(msg: str) -> None:
         print(f"[verbose] {msg}", file=sys.stderr)
 
 
+def _select_languages_gum() -> list[str]:
+    """Use gum for interactive selection (if available)."""
+    result = subprocess.run(
+        ["gum", "choose", "--no-limit", "--header", "Select project languages:"]
+        + LANGUAGE_OPTIONS,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    selected = result.stdout.strip().splitlines()
+    return [LANGUAGE_CODE_MAP[opt] for opt in selected if opt in LANGUAGE_CODE_MAP]
+
+
+def _select_languages_fallback() -> list[str]:
+    """Fallback numbered input when gum isn't available."""
+    print("Select project languages (comma-separated numbers, e.g. 1,3):")
+    for i, opt in enumerate(LANGUAGE_OPTIONS, 1):
+        print(f"  {i}. {opt}")
+    print()
+    try:
+        response = input("> ").strip()
+    except (KeyboardInterrupt, EOFError):
+        return []
+    if not response:
+        return []
+    selected = []
+    for part in response.split(","):
+        part = part.strip()
+        if part.isdigit():
+            idx = int(part) - 1
+            if 0 <= idx < len(LANGUAGE_OPTIONS):
+                selected.append(LANGUAGE_CODE_MAP[LANGUAGE_OPTIONS[idx]])
+    return selected
+
+
 def select_languages_interactive() -> list[str]:
     """Show interactive multi-select picker for project languages.
 
-    Uses the `pick` library for a nice terminal UI. Falls back to simple
-    numbered input if pick is not available.
+    Uses gum choose if available, falls back to numbered input.
 
     Returns:
         List of selected language codes (lowercase), e.g. ['python', 'typescript'].
         First selected = primary language. Returns empty list if user cancels.
     """
-    if HAVE_PICK:
+    if shutil.which("gum"):
         try:
-            title = "Select project languages (SPACE to toggle, ENTER to confirm):"
-            selected = pick(
-                LANGUAGE_OPTIONS,
-                title,
-                multiselect=True,
-                min_selection_count=0,
-            )
-            # pick returns list of (option, index) tuples
-            return [LANGUAGE_CODE_MAP[option] for option, _ in selected]
+            return _select_languages_gum()
         except KeyboardInterrupt:
             return []
     else:
-        # Fallback: simple numbered input
-        print("Select project languages (comma-separated numbers):")
-        for i, option in enumerate(LANGUAGE_OPTIONS, 1):
-            print(f"  {i}. {option}")
-        print()
-
-        try:
-            response = input("Enter numbers (e.g., 1,3): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return []
-
-        if not response:
-            return []
-
-        selected = []
-        for part in response.split(","):
-            part = part.strip()
-            try:
-                idx = int(part)
-                if 1 <= idx <= len(LANGUAGE_OPTIONS):
-                    option = LANGUAGE_OPTIONS[idx - 1]
-                    selected.append(LANGUAGE_CODE_MAP[option])
-            except ValueError:
-                continue  # Skip invalid numbers
-
-        return selected
+        return _select_languages_fallback()
 
 
 def parse_lang_arg(value: str) -> list[str]:

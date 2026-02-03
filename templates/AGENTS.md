@@ -79,6 +79,37 @@ repos:
 - markdownlint for Markdown files
 - codespell for typo detection
 
+## Browser Automation
+
+Use this table - don't ask which tool to use.
+
+| Task | Tool | Command |
+|------|------|---------|
+| Screenshot | playwright | `npx playwright screenshot URL file.png` |
+| PDF | playwright | `npx playwright pdf URL file.pdf` |
+| Check page content | agent-browser | `agent-browser navigate URL --describe` |
+| Click/fill/interact | agent-browser | `agent-browser click "Text"` / `fill "Field" "value"` |
+| Console logs | webctl | `webctl start --mode unattended && webctl console` |
+| Network requests | webctl | `webctl start --mode unattended && webctl network` |
+
+**Quick patterns:**
+```bash
+# Screenshot
+npx playwright screenshot https://example.com shot.png
+
+# See what's on page
+agent-browser navigate "https://example.com" --describe
+
+# Fill form
+agent-browser navigate "https://example.com/login" && \
+agent-browser fill "Email" "user@example.com" && \
+agent-browser fill "Password" "secret" && \
+agent-browser click "Sign In"
+
+# Debug JS errors
+webctl start --mode unattended && webctl navigate "https://example.com" && webctl console
+```
+
 ## Project Setup Checklist
 
 1. Initialize git: `git init`

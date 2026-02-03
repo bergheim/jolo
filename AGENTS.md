@@ -2,9 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Note:** This is a META-PROJECT for building the AI development container environment.
+> It is NOT meant for general development. For projects created with `jolo --create`,
+> see `templates/AGENTS.md` which gets copied to new projects.
+
 ## Project Overview
 
-This is a containerized Emacs GUI environment on Alpine Linux, designed as a devcontainer for AI-assisted development. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+This repo builds and maintains the containerized Emacs GUI environment on Wolfi Linux (glibc-based), designed as a devcontainer for AI-assisted development. Wolfi provides glibc compatibility enabling Playwright browser automation. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+
+**What this repo produces:**
+- Container image (`emacs-gui`) with all dev tools pre-installed
+- `jolo.py` CLI for launching devcontainers with git worktree support
+- Templates for new projects (`templates/`)
 
 ## Project Defaults
 
@@ -48,7 +57,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 ## Architecture
 
 **Key files:**
-- `Containerfile` - Alpine-based image with Emacs PGTK, language servers, and dev tools
+- `Containerfile` - Wolfi-based image with Emacs, language servers, and dev tools
 - `entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
 - `jolo.py` - Devcontainer CLI for project-based development with git worktree support
@@ -82,190 +91,122 @@ Spell-checking: aspell, hunspell, enchant2
 
 Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
-Browser automation: playwright, agent-browser, webctl
+Browser automation: playwright, agent-browser
 
 ## Browser Automation Tool Guide
 
-Three browser tools are available, each with different strengths. Choose based on your task.
+Three tools available. Use this table - don't ask the user which tool to use.
 
-### Quick Reference: Task to Tool
+### Task → Tool (just use this)
 
-| Task | Best Tool | Why |
-|------|-----------|-----|
-| Take a screenshot | Playwright | Native screenshot support, reliable |
-| Click a button/link | agent-browser | ARIA snapshot finds elements reliably |
-| Fill out a form | agent-browser | Handles multi-step interactions well |
-| Verify page content exists | WebCtl | Filtered output, fast verification |
-| Extract specific text | WebCtl | Precise ARIA selectors |
-| Debug visual layout | Playwright | Screenshots show actual rendering |
-| Navigate complex SPA | agent-browser | Waits for dynamic content automatically |
-| Scrape data from table | WebCtl | Structured output from ARIA tree |
-| Test responsive design | Playwright | Viewport control + screenshots |
-| Limited context window | agent-browser | 93% less context than raw HTML |
-| Login flow automation | agent-browser | Stateful session, handles redirects |
-| PDF generation | Playwright | Native PDF export |
+| Task | Tool | Command |
+|------|------|---------|
+| Take screenshot | playwright | `npx playwright screenshot URL file.png` |
+| Generate PDF | playwright | `npx playwright pdf URL file.pdf` |
+| Full page screenshot | playwright | `npx playwright screenshot --full-page URL file.png` |
+| Check what's on page | agent-browser | `agent-browser navigate URL --describe` |
+| Click button/link | agent-browser | `agent-browser click "Button Text"` |
+| Fill form field | agent-browser | `agent-browser fill "Field Label" "value"` |
+| Read page content | agent-browser | `agent-browser snapshot` |
+| Check console logs | webctl | `webctl start --mode unattended && webctl console` |
+| Monitor network | webctl | `webctl start --mode unattended && webctl network` |
+| Long multi-step session | webctl | `webctl start --mode unattended` then commands |
+| Quick one-off action | agent-browser | Single command, no daemon |
 
-### Playwright CLI
+### playwright
 
-**Best for:** Screenshots, PDFs, visual testing, viewport manipulation, low-level control.
-
-Playwright provides full browser automation with pixel-perfect screenshots. Use when you need visual output or precise control over browser state.
+Screenshots, PDFs, visual output. Stateless - each command is independent.
 
 ```bash
-# Take a screenshot
-npx playwright screenshot https://example.com screenshot.png
-
-# Screenshot with specific viewport
-npx playwright screenshot --viewport-size=1280,720 https://example.com output.png
-
-# Full page screenshot (captures scrollable content)
+npx playwright screenshot https://example.com shot.png
+npx playwright screenshot --viewport-size=1280,720 https://example.com shot.png
 npx playwright screenshot --full-page https://example.com full.png
-
-# Generate PDF
-npx playwright pdf https://example.com output.pdf
-
-# Wait for specific element before screenshot
-npx playwright screenshot --wait-for-selector=".loaded" https://example.com output.png
-
-# Execute JavaScript and capture result
-npx playwright evaluate "document.title" https://example.com
+npx playwright pdf https://example.com doc.pdf
+npx playwright screenshot --wait-for-selector=".loaded" https://example.com shot.png
 ```
 
-**When to choose Playwright:**
-- Need visual proof of page state (screenshots)
-- Debugging CSS/layout issues
-- Generating PDFs from web pages
-- Need to test specific viewport sizes
-- Require JavaScript evaluation
-- Building test artifacts for CI
+### agent-browser
 
-### agent-browser (Vercel)
-
-**Best for:** Interactive automation, form filling, clicking, navigation - especially when context window is limited.
-
-agent-browser uses ARIA snapshots instead of raw HTML, reducing context by ~93%. It understands the page semantically and handles dynamic content well.
+Interactive automation with 93% less context than raw HTML. Uses ARIA snapshots.
 
 ```bash
-# Navigate and describe page
+# Navigate and see what's there
 agent-browser navigate "https://example.com" --describe
 
-# Click an element (by visible text or ARIA label)
+# Interact
 agent-browser click "Sign In"
-
-# Fill a form field
 agent-browser fill "Email" "user@example.com"
-
-# Type into focused element
 agent-browser type "search query"
-
-# Press keyboard keys
 agent-browser press "Enter"
+agent-browser scroll down
 
-# Get page snapshot (ARIA tree - compact representation)
+# Get page content (compact ARIA tree)
 agent-browser snapshot
 
-# Scroll the page
-agent-browser scroll down
-agent-browser scroll to "Footer"
-
-# Wait for element
+# Wait for something
 agent-browser wait "Success message"
 
-# Chain commands for complex flows
-agent-browser navigate "https://app.example.com/login" && \
-agent-browser fill "Username" "admin" && \
-agent-browser fill "Password" "secret" && \
-agent-browser click "Log In" && \
+# Chain for flows
+agent-browser navigate "https://app.com/login" && \
+agent-browser fill "Email" "$EMAIL" && \
+agent-browser fill "Password" "$PASS" && \
+agent-browser click "Sign In" && \
 agent-browser wait "Dashboard"
 ```
 
-**When to choose agent-browser:**
-- Automating multi-step workflows (login, checkout, etc.)
-- Working with SPAs/dynamic content
-- Context window is limited (ARIA snapshots are compact)
-- Need to interact with elements by their accessible name
-- Form filling and submission
-- Don't need visual output, just need actions to succeed
+### webctl
 
-### WebCtl
-
-**Best for:** Reading page content, verifying specific elements exist, extracting structured data.
-
-WebCtl provides filtered, structured output using ARIA selectors. Good for verification and data extraction without full automation overhead.
+Daemon-based. Start once, run many commands. Has console/network access.
 
 ```bash
-# Get page content (filtered, readable)
-webctl get https://example.com
+# Start daemon (required first, --mode unattended for headless)
+webctl start --mode unattended
 
-# Get specific element by ARIA selector
-webctl get https://example.com --selector="button[name='Submit']"
+# Navigate
+webctl navigate "https://example.com"
 
-# Get all links
-webctl get https://example.com --selector="link"
+# Get page content
+webctl snapshot
+webctl snapshot --interactive-only  # just interactive elements
 
-# Get form inputs
-webctl get https://example.com --selector="textbox"
+# Interact
+webctl click "role=button name='Submit'"
+webctl fill "role=textbox name='Email'" "user@example.com"
 
-# Get headings for page structure
-webctl get https://example.com --selector="heading"
+# Debug info
+webctl console        # browser console logs
+webctl network        # network requests
 
-# Output as JSON for parsing
-webctl get https://example.com --json
-
-# Check if element exists (useful for assertions)
-webctl get https://example.com --selector="alert" --exists
-```
-
-**When to choose WebCtl:**
-- Verifying specific content exists on page
-- Extracting text from known elements
-- Getting page structure (headings, links, forms)
-- Need machine-readable output (JSON)
-- Quick content checks without full browser session
-- Scraping accessible data from static pages
-
-### Decision Flowchart
-
-```
-Need visual output (screenshot/PDF)?
-  YES -> Playwright
-  NO  -> Continue
-
-Need to interact (click/fill/navigate)?
-  YES -> Is context window limited?
-         YES -> agent-browser (93% less context)
-         NO  -> agent-browser (better element finding)
-  NO  -> Continue
-
-Need to verify/extract content?
-  YES -> WebCtl (filtered, structured output)
-  NO  -> Start with agent-browser snapshot to understand page
+# Stop when done
+webctl stop --daemon
 ```
 
 ### Common Patterns
 
-**Verify a deployment is live:**
+**Check if site is up:**
 ```bash
-webctl get https://myapp.com --selector="heading" --exists
+agent-browser navigate "https://myapp.com" --describe
 ```
 
-**Take screenshot of logged-in state:**
+**Screenshot after login:**
 ```bash
 agent-browser navigate "https://app.com/login" && \
 agent-browser fill "Email" "$EMAIL" && \
 agent-browser fill "Password" "$PASS" && \
 agent-browser click "Sign In" && \
 agent-browser wait "Dashboard"
-# Then use playwright for screenshot of current state
-npx playwright screenshot --save-storage=auth.json https://app.com/dashboard dash.png
+npx playwright screenshot https://app.com/dashboard dash.png
 ```
 
-**Extract all links from a page:**
+**Debug JavaScript errors:**
 ```bash
-webctl get https://docs.example.com --selector="link" --json | jq '.[].href'
+webctl start --mode unattended
+webctl navigate "https://myapp.com"
+webctl console  # see any JS errors
+webctl stop --daemon
 ```
 
-**Fill and submit a contact form:**
+**Fill and submit form:**
 ```bash
 agent-browser navigate "https://example.com/contact" && \
 agent-browser fill "Name" "Test User" && \
