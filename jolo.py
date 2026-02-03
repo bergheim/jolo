@@ -585,7 +585,7 @@ def copy_template_files(target_dir: Path) -> None:
 
     Prints a warning if templates/ directory doesn't exist but continues.
     """
-    templates_dir = Path(__file__).parent / "templates"
+    templates_dir = Path(__file__).resolve().parent / "templates"
 
     if not templates_dir.exists():
         print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
