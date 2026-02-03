@@ -8,7 +8,22 @@ This is a containerized Emacs GUI environment on Alpine Linux, designed as a dev
 
 ## Project Defaults
 
-**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always configure it to use a port between 4000-5000. These ports are forwarded from the container to the host and accessible via the Tailscale network. Default to port 4000 unless there's a reason to use another.
+**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. This defaults to 4000 but is set dynamically in spawn mode to avoid conflicts.
+
+```bash
+# In your dev server config, always use $PORT
+npm run dev -- --port $PORT
+python -m http.server $PORT
+flask run --port $PORT
+```
+
+In spawn mode (`jolo --spawn N`), each worktree gets a unique port:
+- worktree-1: PORT=4000
+- worktree-2: PORT=4001
+- worktree-3: PORT=4002
+- etc.
+
+Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network.
 
 ## Build Commands
 
@@ -82,6 +97,12 @@ jolo -p "add user auth"           # run AI with prompt
 jolo --tree feat -p "add OAuth"   # worktree + prompt
 jolo --create app -p "scaffold"   # new project + prompt
 jolo --agent gemini -p "..."      # use different agent (default: claude)
+
+# Spawn mode (multiple parallel agents)
+jolo --spawn 5 -p "implement X"          # 5 random-named worktrees
+jolo --spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
+# Agents round-robin through configured list (claude, gemini, codex)
+# Each gets unique PORT (4000, 4001, 4002, ...)
 
 # Other options
 jolo --tree feat --from develop   # branch worktree from specific ref

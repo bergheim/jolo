@@ -908,6 +908,111 @@ class TestVerboseMode(unittest.TestCase):
         self.assertFalse(args.verbose)
 
 
+class TestSpawnArgParsing(unittest.TestCase):
+    """Test --spawn argument parsing."""
+
+    def test_spawn_flag(self):
+        """--spawn should accept integer."""
+        args = jolo.parse_args(['--spawn', '5'])
+        self.assertEqual(args.spawn, 5)
+
+    def test_spawn_default_none(self):
+        """--spawn should default to None."""
+        args = jolo.parse_args([])
+        self.assertIsNone(args.spawn)
+
+    def test_spawn_with_prefix(self):
+        """--spawn can be combined with --prefix."""
+        args = jolo.parse_args(['--spawn', '3', '--prefix', 'feat'])
+        self.assertEqual(args.spawn, 3)
+        self.assertEqual(args.prefix, 'feat')
+
+    def test_spawn_with_prompt(self):
+        """--spawn can be combined with --prompt."""
+        args = jolo.parse_args(['--spawn', '5', '-p', 'do stuff'])
+        self.assertEqual(args.spawn, 5)
+        self.assertEqual(args.prompt, 'do stuff')
+
+    def test_prefix_default_none(self):
+        """--prefix should default to None."""
+        args = jolo.parse_args([])
+        self.assertIsNone(args.prefix)
+
+
+class TestAgentHelpers(unittest.TestCase):
+    """Test agent configuration helpers."""
+
+    def test_get_agent_command_default(self):
+        """Should return first agent's command by default."""
+        config = {
+            'agents': ['claude', 'gemini'],
+            'agent_commands': {
+                'claude': 'claude --dangerously-skip-permissions',
+                'gemini': 'gemini',
+            }
+        }
+        result = jolo.get_agent_command(config)
+        self.assertEqual(result, 'claude --dangerously-skip-permissions')
+
+    def test_get_agent_command_specific(self):
+        """Should return specific agent's command."""
+        config = {
+            'agents': ['claude', 'gemini'],
+            'agent_commands': {
+                'claude': 'claude --dangerously-skip-permissions',
+                'gemini': 'gemini',
+            }
+        }
+        result = jolo.get_agent_command(config, agent_name='gemini')
+        self.assertEqual(result, 'gemini')
+
+    def test_get_agent_command_round_robin(self):
+        """Should round-robin through agents by index."""
+        config = {
+            'agents': ['claude', 'gemini', 'codex'],
+            'agent_commands': {
+                'claude': 'claude-cmd',
+                'gemini': 'gemini-cmd',
+                'codex': 'codex-cmd',
+            }
+        }
+        self.assertEqual(jolo.get_agent_command(config, index=0), 'claude-cmd')
+        self.assertEqual(jolo.get_agent_command(config, index=1), 'gemini-cmd')
+        self.assertEqual(jolo.get_agent_command(config, index=2), 'codex-cmd')
+        self.assertEqual(jolo.get_agent_command(config, index=3), 'claude-cmd')  # wraps
+
+    def test_get_agent_name_round_robin(self):
+        """Should return agent name by index."""
+        config = {'agents': ['claude', 'gemini', 'codex']}
+        self.assertEqual(jolo.get_agent_name(config, index=0), 'claude')
+        self.assertEqual(jolo.get_agent_name(config, index=1), 'gemini')
+        self.assertEqual(jolo.get_agent_name(config, index=4), 'gemini')  # 4 % 3 = 1
+
+    def test_get_agent_command_fallback(self):
+        """Should fall back to agent name if no command configured."""
+        config = {'agents': ['unknown'], 'agent_commands': {}}
+        result = jolo.get_agent_command(config, agent_name='unknown')
+        self.assertEqual(result, 'unknown')
+
+
+class TestPortAllocation(unittest.TestCase):
+    """Test PORT environment variable in devcontainer.json."""
+
+    def test_default_port_in_json(self):
+        """Default port should be 4000."""
+        import json
+        result = jolo.build_devcontainer_json('test')
+        config = json.loads(result)
+        self.assertEqual(config['containerEnv']['PORT'], '4000')
+
+    def test_custom_port_in_json(self):
+        """Custom port should be set."""
+        import json
+        result = jolo.build_devcontainer_json('test', port=4005)
+        config = json.loads(result)
+        self.assertEqual(config['containerEnv']['PORT'], '4005')
+
+
 class TestMountArgParsing(unittest.TestCase):
     """Test --mount argument parsing."""
 

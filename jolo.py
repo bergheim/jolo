@@ -56,6 +56,13 @@ DEFAULT_CONFIG = {
     "base_image": "localhost/emacs-gui:latest",
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
+    "agents": ["claude", "gemini", "codex"],
+    "agent_commands": {
+        "claude": "claude --dangerously-skip-permissions",
+        "gemini": "gemini",
+        "codex": "codex",
+    },
+    "base_port": 4000,
 }
 
 # Global verbose flag
@@ -66,6 +73,49 @@ def verbose_print(msg: str) -> None:
     """Print message if verbose mode is enabled."""
     if VERBOSE:
         print(f"[verbose] {msg}", file=sys.stderr)
+
+
+def get_agent_command(config: dict, agent_name: str | None = None, index: int = 0) -> str:
+    """Get the command to run an agent.
+
+    Args:
+        config: Configuration dict
+        agent_name: Specific agent name, or None for round-robin based on index
+        index: Index for round-robin selection (used when agent_name is None)
+
+    Returns:
+        The command string to run the agent
+    """
+    agents = config.get("agents", ["claude"])
+    agent_commands = config.get("agent_commands", {})
+
+    if agent_name:
+        # Specific agent requested
+        name = agent_name
+    else:
+        # Round-robin through available agents
+        name = agents[index % len(agents)]
+
+    # Get command, fall back to just the agent name
+    return agent_commands.get(name, name)
+
+
+def get_agent_name(config: dict, agent_name: str | None = None, index: int = 0) -> str:
+    """Get the agent name for a given index.
+
+    Args:
+        config: Configuration dict
+        agent_name: Specific agent name, or None for round-robin based on index
+        index: Index for round-robin selection
+
+    Returns:
+        The agent name
+    """
+    if agent_name:
+        return agent_name
+
+    agents = config.get("agents", ["claude"])
+    return agents[index % len(agents)]
 
 
 def parse_mount(arg: str, project_name: str) -> dict:
@@ -200,10 +250,14 @@ BASE_MOUNTS = [
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"
 
 
-def build_devcontainer_json(project_name: str) -> str:
+def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
     """Build devcontainer.json content dynamically.
 
     Conditionally includes Wayland mount only if WAYLAND_DISPLAY is set.
+
+    Args:
+        project_name: Name of the project/container
+        port: Port number for dev servers (default 4000)
     """
     mounts = BASE_MOUNTS.copy()
 
@@ -223,6 +277,7 @@ def build_devcontainer_json(project_name: str) -> str:
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+            "PORT": str(port),
         },
     }
 
@@ -355,6 +410,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print commands being executed"
+    )
+
+    parser.add_argument(
+        "--spawn",
+        type=int,
+        metavar="N",
+        help="Create N worktrees in parallel, each with its own container and agent",
+    )
+
+    parser.add_argument(
+        "--prefix",
+        metavar="NAME",
+        help="Prefix for worktree names in spawn mode (e.g., --prefix feat creates feat-1, feat-2, ...)",
     )
 
     parser.add_argument(
@@ -510,7 +578,10 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
 
 def scaffold_devcontainer(
-    project_name: str, target_dir: Path | None = None, config: dict | None = None
+    project_name: str,
+    target_dir: Path | None = None,
+    config: dict | None = None,
+    port: int = 4000,
 ) -> bool:
     """Create .devcontainer directory with templates.
 
@@ -532,7 +603,7 @@ def scaffold_devcontainer(
     username = os.environ.get("USER", "dev")
 
     # Write devcontainer.json (dynamically built based on environment)
-    json_content = build_devcontainer_json(project_name)
+    json_content = build_devcontainer_json(project_name, port=port)
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
@@ -544,7 +615,10 @@ def scaffold_devcontainer(
 
 
 def sync_devcontainer(
-    project_name: str, target_dir: Path | None = None, config: dict | None = None
+    project_name: str,
+    target_dir: Path | None = None,
+    config: dict | None = None,
+    port: int = 4000,
 ) -> None:
     """Regenerate .devcontainer from template, overwriting existing files.
 
@@ -563,7 +637,7 @@ def sync_devcontainer(
     username = os.environ.get("USER", "dev")
 
     # Write devcontainer.json (dynamically built based on environment)
-    json_content = build_devcontainer_json(project_name)
+    json_content = build_devcontainer_json(project_name, port=port)
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
@@ -1758,6 +1832,204 @@ def run_init_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(project_path)
 
 
+def run_spawn_mode(args: argparse.Namespace) -> None:
+    """Run --spawn mode: create N worktrees with containers and agents."""
+    git_root = validate_tree_mode()
+
+    n = args.spawn
+    if n < 1:
+        sys.exit("Error: --spawn requires a positive integer")
+
+    # Load config
+    config = load_config()
+    base_port = config.get("base_port", 4000)
+
+    # Generate worktree names (number prefix for sorting + uniqueness)
+    worktree_names = []
+    used_names = set()
+    for i in range(n):
+        idx = i + 1
+        if args.prefix:
+            name = f"{idx}-{args.prefix}"
+        else:
+            # Generate unique random name with number prefix
+            for _ in range(100):  # Max attempts
+                random_part = generate_random_name()
+                if random_part not in used_names:
+                    break
+            else:
+                random_part = f"spawn-{idx}"
+            used_names.add(random_part)
+            name = f"{idx}-{random_part}"
+        worktree_names.append(name)
+
+    print(f"Spawning {n} worktrees: {', '.join(worktree_names)}")
+
+    # Create worktrees and scaffold devcontainers
+    worktree_paths = []
+    for i, name in enumerate(worktree_names):
+        worktree_path = get_worktree_path(str(git_root), name)
+        port = base_port + i
+
+        # Create or get existing worktree
+        worktree_path = get_or_create_worktree(
+            git_root,
+            name,
+            worktree_path,
+            config=config,
+            from_branch=args.from_branch,
+        )
+
+        # Update devcontainer.json with correct port
+        devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
+        if devcontainer_json.exists():
+            content = json.loads(devcontainer_json.read_text())
+            if "containerEnv" not in content:
+                content["containerEnv"] = {}
+            content["containerEnv"]["PORT"] = str(port)
+            devcontainer_json.write_text(json.dumps(content, indent=4))
+
+        # Add user-specified mounts
+        if args.mount:
+            parsed_mounts = [parse_mount(m, name) for m in args.mount]
+            add_user_mounts(devcontainer_json, parsed_mounts)
+
+        # Copy user-specified files
+        if args.copy:
+            parsed_copies = [parse_copy(c, name) for c in args.copy]
+            copy_user_files(parsed_copies, worktree_path)
+
+        # Set up credentials and emacs config
+        setup_credential_cache(worktree_path)
+        setup_emacs_config(worktree_path)
+
+        # Ensure histfile exists (otherwise mount creates a directory)
+        histfile = worktree_path / ".devcontainer" / ".histfile"
+        histfile.touch(exist_ok=True)
+
+        worktree_paths.append(worktree_path)
+
+    # Set up secrets in environment
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+
+    # Start containers in parallel
+    print(f"Starting {n} containers...")
+    processes = []
+    for path in worktree_paths:
+        cmd = ["devcontainer", "up", "--workspace-folder", str(path)]
+        if args.new:
+            cmd.append("--remove-existing-container")
+        verbose_cmd(cmd)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        processes.append((path, proc))
+
+    # Wait for all containers to start
+    failed = []
+    for path, proc in processes:
+        stdout, stderr = proc.communicate()
+        if proc.returncode != 0:
+            failed.append(path.name)
+            print(f"  Failed: {path.name}", file=sys.stderr)
+            if stderr:
+                print(f"    {stderr.decode().strip()}", file=sys.stderr)
+        else:
+            print(f"  Started: {path.name}")
+
+    if failed:
+        print(f"Warning: {len(failed)} container(s) failed to start: {', '.join(failed)}")
+
+    # If no prompt, just report status
+    if not args.prompt:
+        print(f"\n{len(worktree_paths) - len(failed)} containers running.")
+        print("Use --prompt to start agents, or attach manually.")
+        return
+
+    # Launch agents in tmux multi-pane
+    spawn_tmux_multipane(
+        worktree_paths=[p for p in worktree_paths if p.name not in failed],
+        worktree_names=[n for n in worktree_names if n not in failed],
+        prompt=args.prompt,
+        config=config,
+        agent_override=args.agent if args.agent != "claude" else None,
+    )
+
+
+def spawn_tmux_multipane(
+    worktree_paths: list[Path],
+    worktree_names: list[str],
+    prompt: str,
+    config: dict,
+    agent_override: str | None = None,
+) -> None:
+    """Create tmux session with one pane per agent.
+
+    Args:
+        worktree_paths: List of worktree paths
+        worktree_names: List of worktree names
+        prompt: The prompt to give each agent
+        config: Configuration dict
+        agent_override: If set, use this agent for all; otherwise round-robin
+    """
+    session_name = "spawn"
+    n = len(worktree_paths)
+
+    if n == 0:
+        print("No containers to attach to.")
+        return
+
+    # Kill existing session if present
+    subprocess.run(
+        ["tmux", "kill-session", "-t", session_name],
+        capture_output=True,
+    )
+
+    # Create new session with first pane
+    first_path = worktree_paths[0]
+    first_agent_cmd = get_agent_command(config, agent_override, index=0)
+    first_agent_name = get_agent_name(config, agent_override, index=0)
+
+    quoted_prompt = shlex.quote(prompt)
+    exec_cmd = f"devcontainer exec --workspace-folder {first_path} {first_agent_cmd} {quoted_prompt}"
+
+    subprocess.run([
+        "tmux", "new-session", "-d", "-s", session_name, "-n", worktree_names[0],
+    ])
+
+    # Send command to first pane
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{session_name}:0", exec_cmd, "Enter"
+    ])
+
+    # Create additional panes
+    for i in range(1, n):
+        path = worktree_paths[i]
+        name = worktree_names[i]
+        agent_cmd = get_agent_command(config, agent_override, index=i)
+
+        exec_cmd = f"devcontainer exec --workspace-folder {path} {agent_cmd} {quoted_prompt}"
+
+        # Split window and send command
+        subprocess.run([
+            "tmux", "split-window", "-t", session_name, "-h"
+        ])
+        subprocess.run([
+            "tmux", "send-keys", "-t", session_name, exec_cmd, "Enter"
+        ])
+
+        # Rebalance layout
+        subprocess.run([
+            "tmux", "select-layout", "-t", session_name, "tiled"
+        ])
+
+    print(f"\nStarted {n} agents in tmux session '{session_name}'")
+    print(f"Agents: {', '.join(get_agent_name(config, agent_override, i) for i in range(n))}")
+    print(f"Attaching to tmux session...")
+
+    # Attach to session
+    subprocess.run(["tmux", "attach", "-t", session_name])
+
+
 def run_sync_mode(args: argparse.Namespace) -> None:
     """Run --sync mode: regenerate .devcontainer from template."""
     git_root = find_git_root()
@@ -1818,6 +2090,8 @@ def main(argv: list[str] | None = None) -> None:
     # Dispatch to appropriate mode
     if args.attach:
         run_attach_mode(args)
+    elif args.spawn:
+        run_spawn_mode(args)
     elif args.init:
         run_init_mode(args)
     elif args.create:
