@@ -81,27 +81,33 @@ repos:
 
 ## Browser Automation
 
-Available tools for web testing and automation:
+Use this table - don't ask which tool to use.
 
-| Tool | Use Case |
-|------|----------|
-| `npx playwright screenshot <url> file.png` | Screenshots, PDFs |
-| `npx playwright pdf <url> file.pdf` | Generate PDF from page |
-| `agent-browser navigate <url> --describe` | Interactive automation, ARIA snapshots |
-| `agent-browser click "Button Text"` | Click elements by text/label |
-| `agent-browser fill "Field" "value"` | Fill form fields |
-| `agent-browser snapshot` | Get compact ARIA tree (93% less context) |
+| Task | Tool | Command |
+|------|------|---------|
+| Screenshot | playwright | `npx playwright screenshot URL file.png` |
+| PDF | playwright | `npx playwright pdf URL file.pdf` |
+| Check page content | agent-browser | `agent-browser navigate URL --describe` |
+| Click/fill/interact | agent-browser | `agent-browser click "Text"` / `fill "Field" "value"` |
+| Console logs | webctl | `webctl start && webctl console` |
+| Network requests | webctl | `webctl network` |
 
 **Quick patterns:**
 ```bash
-# Screenshot a page
+# Screenshot
 npx playwright screenshot https://example.com shot.png
 
-# Fill and submit a form
+# See what's on page
+agent-browser navigate "https://example.com" --describe
+
+# Fill form
 agent-browser navigate "https://example.com/login" && \
 agent-browser fill "Email" "user@example.com" && \
 agent-browser fill "Password" "secret" && \
 agent-browser click "Sign In"
+
+# Debug JS errors
+webctl start && webctl navigate "https://example.com" && webctl console
 ```
 
 ## Project Setup Checklist

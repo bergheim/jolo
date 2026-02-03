@@ -95,147 +95,118 @@ Browser automation: playwright, agent-browser
 
 ## Browser Automation Tool Guide
 
-Two browser tools are available for web automation. Choose based on your task.
+Three tools available. Use this table - don't ask the user which tool to use.
 
-### Quick Reference: Task to Tool
+### Task → Tool (just use this)
 
-| Task | Best Tool | Why |
-|------|-----------|-----|
-| Take a screenshot | Playwright | Native screenshot support, reliable |
-| Click a button/link | agent-browser | ARIA snapshot finds elements reliably |
-| Fill out a form | agent-browser | Handles multi-step interactions well |
-| Verify page content exists | agent-browser | ARIA snapshot shows content |
-| Extract specific text | agent-browser | ARIA snapshot with selectors |
-| Debug visual layout | Playwright | Screenshots show actual rendering |
-| Navigate complex SPA | agent-browser | Waits for dynamic content automatically |
-| Scrape data from table | agent-browser | ARIA snapshot shows structure |
-| Test responsive design | Playwright | Viewport control + screenshots |
-| Limited context window | agent-browser | 93% less context than raw HTML |
-| Login flow automation | agent-browser | Stateful session, handles redirects |
-| PDF generation | Playwright | Native PDF export |
+| Task | Tool | Command |
+|------|------|---------|
+| Take screenshot | playwright | `npx playwright screenshot URL file.png` |
+| Generate PDF | playwright | `npx playwright pdf URL file.pdf` |
+| Full page screenshot | playwright | `npx playwright screenshot --full-page URL file.png` |
+| Check what's on page | agent-browser | `agent-browser navigate URL --describe` |
+| Click button/link | agent-browser | `agent-browser click "Button Text"` |
+| Fill form field | agent-browser | `agent-browser fill "Field Label" "value"` |
+| Read page content | agent-browser | `agent-browser snapshot` |
+| Check console logs | webctl | `webctl console` |
+| Monitor network | webctl | `webctl network` |
+| Long multi-step session | webctl | `webctl start` then commands |
+| Quick one-off action | agent-browser | Single command, no daemon |
 
-### Playwright CLI
+### playwright
 
-**Best for:** Screenshots, PDFs, visual testing, viewport manipulation, low-level control.
-
-Playwright provides full browser automation with pixel-perfect screenshots. Use when you need visual output or precise control over browser state.
+Screenshots, PDFs, visual output. Stateless - each command is independent.
 
 ```bash
-# Take a screenshot
-npx playwright screenshot https://example.com screenshot.png
-
-# Screenshot with specific viewport
-npx playwright screenshot --viewport-size=1280,720 https://example.com output.png
-
-# Full page screenshot (captures scrollable content)
+npx playwright screenshot https://example.com shot.png
+npx playwright screenshot --viewport-size=1280,720 https://example.com shot.png
 npx playwright screenshot --full-page https://example.com full.png
-
-# Generate PDF
-npx playwright pdf https://example.com output.pdf
-
-# Wait for specific element before screenshot
-npx playwright screenshot --wait-for-selector=".loaded" https://example.com output.png
-
-# Execute JavaScript and capture result
-npx playwright evaluate "document.title" https://example.com
+npx playwright pdf https://example.com doc.pdf
+npx playwright screenshot --wait-for-selector=".loaded" https://example.com shot.png
 ```
 
-**When to choose Playwright:**
-- Need visual proof of page state (screenshots)
-- Debugging CSS/layout issues
-- Generating PDFs from web pages
-- Need to test specific viewport sizes
-- Require JavaScript evaluation
-- Building test artifacts for CI
+### agent-browser
 
-### agent-browser (Vercel)
-
-**Best for:** Interactive automation, form filling, clicking, navigation - especially when context window is limited.
-
-agent-browser uses ARIA snapshots instead of raw HTML, reducing context by ~93%. It understands the page semantically and handles dynamic content well.
+Interactive automation with 93% less context than raw HTML. Uses ARIA snapshots.
 
 ```bash
-# Navigate and describe page
+# Navigate and see what's there
 agent-browser navigate "https://example.com" --describe
 
-# Click an element (by visible text or ARIA label)
+# Interact
 agent-browser click "Sign In"
-
-# Fill a form field
 agent-browser fill "Email" "user@example.com"
-
-# Type into focused element
 agent-browser type "search query"
-
-# Press keyboard keys
 agent-browser press "Enter"
+agent-browser scroll down
 
-# Get page snapshot (ARIA tree - compact representation)
+# Get page content (compact ARIA tree)
 agent-browser snapshot
 
-# Scroll the page
-agent-browser scroll down
-agent-browser scroll to "Footer"
-
-# Wait for element
+# Wait for something
 agent-browser wait "Success message"
 
-# Chain commands for complex flows
-agent-browser navigate "https://app.example.com/login" && \
-agent-browser fill "Username" "admin" && \
-agent-browser fill "Password" "secret" && \
-agent-browser click "Log In" && \
+# Chain for flows
+agent-browser navigate "https://app.com/login" && \
+agent-browser fill "Email" "$EMAIL" && \
+agent-browser fill "Password" "$PASS" && \
+agent-browser click "Sign In" && \
 agent-browser wait "Dashboard"
 ```
 
-**When to choose agent-browser:**
-- Automating multi-step workflows (login, checkout, etc.)
-- Working with SPAs/dynamic content
-- Context window is limited (ARIA snapshots are compact)
-- Need to interact with elements by their accessible name
-- Form filling and submission
-- Don't need visual output, just need actions to succeed
+### webctl
 
-### Decision Flowchart
+Daemon-based. Start once, run many commands. Has console/network access.
 
-```
-Need visual output (screenshot/PDF)?
-  YES -> Playwright
-  NO  -> Continue
+```bash
+# Start daemon (required first)
+webctl start
 
-Need to interact (click/fill/navigate)?
-  YES -> agent-browser (ARIA snapshots, 93% less context)
-  NO  -> Continue
+# Navigate
+webctl navigate "https://example.com"
 
-Need to verify/extract content?
-  YES -> agent-browser snapshot (compact ARIA tree)
-  NO  -> Start with agent-browser snapshot to understand page
+# Get page content
+webctl snapshot
+webctl snapshot --interactive-only  # just interactive elements
+
+# Interact
+webctl click "role=button name='Submit'"
+webctl fill "role=textbox name='Email'" "user@example.com"
+
+# Debug info
+webctl console        # browser console logs
+webctl network        # network requests
+
+# Stop when done
+webctl stop --daemon
 ```
 
 ### Common Patterns
 
-**Verify a deployment is live:**
+**Check if site is up:**
 ```bash
 agent-browser navigate "https://myapp.com" --describe
 ```
 
-**Take screenshot of logged-in state:**
+**Screenshot after login:**
 ```bash
 agent-browser navigate "https://app.com/login" && \
 agent-browser fill "Email" "$EMAIL" && \
 agent-browser fill "Password" "$PASS" && \
 agent-browser click "Sign In" && \
 agent-browser wait "Dashboard"
-# Then use playwright for screenshot of current state
-npx playwright screenshot --save-storage=auth.json https://app.com/dashboard dash.png
+npx playwright screenshot https://app.com/dashboard dash.png
 ```
 
-**Extract page structure:**
+**Debug JavaScript errors:**
 ```bash
-agent-browser navigate "https://docs.example.com" && agent-browser snapshot
+webctl start
+webctl navigate "https://myapp.com"
+webctl console  # see any JS errors
+webctl stop --daemon
 ```
 
-**Fill and submit a contact form:**
+**Fill and submit form:**
 ```bash
 agent-browser navigate "https://example.com/contact" && \
 agent-browser fill "Name" "Test User" && \
