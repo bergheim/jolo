@@ -8,6 +8,7 @@ Pronounced "yolo" in Norwegian. Close enough.
 """
 
 import argparse
+import curses
 import json
 import os
 import random
@@ -24,14 +25,6 @@ try:
     HAVE_ARGCOMPLETE = True
 except ImportError:
     HAVE_ARGCOMPLETE = False
-
-try:
-    from pick import pick
-
-    HAVE_PICK = True
-except ImportError:
-    pick = None  # type: ignore
-    HAVE_PICK = False
 
 # Word lists for random name generation
 ADJECTIVES = [
@@ -516,57 +509,78 @@ def verbose_print(msg: str) -> None:
         print(f"[verbose] {msg}", file=sys.stderr)
 
 
+def _curses_multiselect(stdscr, options: list[str], title: str) -> list[int]:
+    """Curses-based multi-select picker.
+
+    Args:
+        stdscr: Curses window object
+        options: List of option strings to display
+        title: Title to show above options
+
+    Returns:
+        List of selected indices, or empty list if cancelled
+    """
+    curses.curs_set(0)  # Hide cursor
+    curses.use_default_colors()
+    stdscr.clear()
+
+    current = 0
+    selected: set[int] = set()
+
+    while True:
+        stdscr.clear()
+        stdscr.addstr(0, 0, title)
+        stdscr.addstr(1, 0, "(j/k or arrows to move, SPACE to toggle, ENTER to confirm, q to cancel)")
+        stdscr.addstr(2, 0, "")
+
+        for i, option in enumerate(options):
+            marker = "[x]" if i in selected else "[ ]"
+            prefix = ">" if i == current else " "
+            line = f"{prefix} {marker} {option}"
+            if i == current:
+                stdscr.addstr(3 + i, 0, line, curses.A_REVERSE)
+            else:
+                stdscr.addstr(3 + i, 0, line)
+
+        stdscr.refresh()
+        key = stdscr.getch()
+
+        if key in (ord('k'), curses.KEY_UP):
+            current = (current - 1) % len(options)
+        elif key in (ord('j'), curses.KEY_DOWN):
+            current = (current + 1) % len(options)
+        elif key == ord(' '):
+            if current in selected:
+                selected.discard(current)
+            else:
+                selected.add(current)
+        elif key in (ord('\n'), curses.KEY_ENTER, 10, 13):
+            return sorted(selected)
+        elif key in (ord('q'), 27):  # q or ESC
+            return []
+
+    return []
+
+
 def select_languages_interactive() -> list[str]:
     """Show interactive multi-select picker for project languages.
 
-    Uses the `pick` library for a nice terminal UI. Falls back to simple
-    numbered input if pick is not available.
+    Uses curses for a terminal UI with j/k navigation and space to toggle.
 
     Returns:
         List of selected language codes (lowercase), e.g. ['python', 'typescript'].
         First selected = primary language. Returns empty list if user cancels.
     """
-    if HAVE_PICK:
-        try:
-            title = "Select project languages (SPACE to toggle, ENTER to confirm):"
-            selected = pick(
-                LANGUAGE_OPTIONS,
-                title,
-                multiselect=True,
-                min_selection_count=0,
-            )
-            # pick returns list of (option, index) tuples
-            return [LANGUAGE_CODE_MAP[option] for option, _ in selected]
-        except KeyboardInterrupt:
-            return []
-    else:
-        # Fallback: simple numbered input
-        print("Select project languages (comma-separated numbers):")
-        for i, option in enumerate(LANGUAGE_OPTIONS, 1):
-            print(f"  {i}. {option}")
-        print()
+    title = "Select project languages:"
 
-        try:
-            response = input("Enter numbers (e.g., 1,3): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return []
+    try:
+        selected_indices = curses.wrapper(
+            _curses_multiselect, LANGUAGE_OPTIONS, title
+        )
+    except KeyboardInterrupt:
+        return []
 
-        if not response:
-            return []
-
-        selected = []
-        for part in response.split(","):
-            part = part.strip()
-            try:
-                idx = int(part)
-                if 1 <= idx <= len(LANGUAGE_OPTIONS):
-                    option = LANGUAGE_OPTIONS[idx - 1]
-                    selected.append(LANGUAGE_CODE_MAP[option])
-            except ValueError:
-                continue  # Skip invalid numbers
-
-        return selected
+    return [LANGUAGE_CODE_MAP[LANGUAGE_OPTIONS[i]] for i in selected_indices]
 
 
 def parse_lang_arg(value: str) -> list[str]:
