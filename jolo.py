@@ -1349,7 +1349,7 @@ def get_or_create_worktree(
         pass
     elif src_devcontainer.exists():
         # Copy from main repo (not committed, just local)
-        shutil.copytree(src_devcontainer, dst_devcontainer)
+        shutil.copytree(src_devcontainer, dst_devcontainer, symlinks=True)
     else:
         # Scaffold new .devcontainer
         container_name = get_container_name(str(git_root), worktree_name)

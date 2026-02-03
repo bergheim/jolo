@@ -224,3 +224,148 @@ User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.
 - Config is isolated: AI changes don't leak to host
 - Packages mounted readonly: fast startup, no reinstall, AI can't mess with them
 - Small copy size (~2MB vs 1GB+)
+
+* TODO Add --mount and --copy options to jolo.py [0/5]
+
+** TODO Add argument parsing for --mount and --copy
+- [ ] Add =--mount= argument (action=append for multiple)
+- [ ] Add =--copy= argument (action=append for multiple)
+- [ ] Both default to empty list =[]= when not provided
+- [ ] Test: single --mount, multiple --mount
+- [ ] Test: single --copy, multiple --copy
+- [ ] Test: --mount and --copy combined
+
+** TODO Implement parse_mount() function
+Parse mount argument string into structured data.
+
+*** Syntax
+- =source:target= - relative target, read-write
+- =source:target:ro= - relative target, read-only
+- =source:/absolute/target= - absolute target
+- =source:/absolute/target:ro= - absolute target, read-only
+
+*** Logic
+- Expand =~= in source path to home directory
+- If target starts with =/=, use as-is (absolute)
+- If target is relative, prepend =/workspaces/<project>/=
+- Default to read-write unless =:ro= suffix
+- Return dict: ={source, target, readonly}=
+
+*** Tests
+- [ ] Relative target resolves to workspace
+- [ ] Absolute target used as-is
+- [ ] =:ro= suffix sets readonly=True
+- [ ] Default readonly=False
+- [ ] Tilde expansion in source
+
+** TODO Implement parse_copy() function
+Parse copy argument string into structured data.
+
+*** Syntax
+- =source:target= - copy to target path
+- =source= - copy to workspace with original basename
+
+*** Logic
+- Expand =~= in source path
+- If no target specified, use basename of source
+- If target is relative, resolve relative to workspace
+- If target is absolute, use as-is (but note: only workspace-relative will work)
+- Return dict: ={source, target}=
+
+*** Tests
+- [ ] With target: resolves correctly
+- [ ] Without target: uses basename
+- [ ] Relative target resolves to workspace
+- [ ] Absolute target used as-is
+- [ ] Tilde expansion in source
+
+** TODO Integrate mounts into devcontainer.json generation
+- [ ] Create =add_user_mounts()= function (read-modify-write pattern)
+- [ ] Format mounts as devcontainer syntax: =source=...,target=...,type=bind[,readonly]=
+- [ ] Similar pattern to existing =add_worktree_git_mount()=
+
+*** Persistence behavior
+- Mounts added to devcontainer.json persist across restarts
+- =--sync= regenerates from BASE_MOUNTS only (clears custom mounts)
+- User can manually edit devcontainer.json
+
+*** Tests
+- [ ] Mount added to mounts array in JSON
+- [ ] Readonly mount includes =readonly= in mount string
+- [ ] Multiple mounts all added
+- [ ] Verify correct devcontainer mount format
+
+** TODO Implement file copying for --copy
+- [ ] Copy files before =devcontainer_up()= is called
+- [ ] Handle missing source file (error with clear message)
+- [ ] Create parent directories if needed
+- [ ] Copied files persist in workspace
+
+*** Integration points
+- =run_default_mode()=
+- =run_tree_mode()=
+- =run_create_mode()=
+- =run_init_mode()=
+
+*** Tests
+- [ ] File copied to correct location
+- [ ] Parent directories created
+- [ ] Error on missing source
+- [ ] Multiple copies work
+
+** Design decisions
+
+*** Per-invocation vs persistent
+- Mounts: persist in devcontainer.json until --sync
+- Copies: persist in workspace until deleted
+
+*** Mount syntax mirrors devcontainer
+#+begin_example
+jolo --mount ~/data:data        # /workspaces/<proj>/data (rw)
+jolo --mount ~/data:data:ro     # /workspaces/<proj>/data (ro)
+jolo --mount ~/data:/mnt/data   # /mnt/data (rw)
+#+end_example
+
+*** Copy syntax similar to mount
+#+begin_example
+jolo --copy ~/config.json:config/app.json   # /workspaces/<proj>/config/app.json
+jolo --copy ~/config.json                   # /workspaces/<proj>/config.json
+#+end_example
+
+*** Absolute paths for copy
+Copies to absolute paths outside workspace won't work with current approach
+(copy happens before container start, workspace is what gets mounted).
+Practical restriction: --copy targets should be workspace-relative.
+
+** Test additions for test_jolo.py
+
+*** TestMountArgParsing
+- test_mount_flag_single
+- test_mount_flag_multiple
+- test_mount_default_empty
+
+*** TestMountParsing
+- test_parse_mount_relative_target
+- test_parse_mount_absolute_target
+- test_parse_mount_readonly
+- test_parse_mount_expands_tilde
+- test_parse_mount_default_readwrite
+
+*** TestCopyArgParsing
+- test_copy_flag_single
+- test_copy_flag_multiple
+- test_copy_default_empty
+
+*** TestCopyParsing
+- test_parse_copy_with_target
+- test_parse_copy_basename_only
+- test_parse_copy_absolute_target
+- test_parse_copy_expands_tilde
+
+*** TestMountAndCopyTogether
+- test_mount_and_copy_combined
+
+*** TestMountIntegration
+- test_add_user_mounts_to_devcontainer_json
+- test_mount_readonly_format
+- test_multiple_mounts_in_json
