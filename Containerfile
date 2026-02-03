@@ -136,6 +136,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # Configure webctl to use system chromium headlessly
     mkdir -p $HOME/.config/webctl && \
     echo '{"idle_timeout":900,"auto_start":true,"default_session":"default","default_mode":"unattended","domain_policy":{"enabled":false,"policy":{"mode":"deny","allow":[],"deny":[]}},"a11y_include_bbox":false,"a11y_include_path_hint":true,"screenshot_on_error":false,"screenshot_error_dir":null,"browser_executable_path":"/usr/bin/chromium","use_global_playwright":true,"proxy_server":null,"proxy_username":null,"proxy_password":null,"proxy_bypass":null}' > $HOME/.config/webctl/config.json && \
+    # Playwright needs its own chromium for CLI (npx playwright screenshot/pdf)
+    npx playwright install chromium && \
     # Go tools
     go install golang.org/x/tools/gopls@latest && \
     # mise (version manager)
