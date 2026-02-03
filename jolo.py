@@ -611,10 +611,10 @@ def get_project_init_commands(language: str, project_name: str) -> list[list[str
     commands: list[list[str]] = []
 
     if language == "python":
-        commands.append(["uv", "init"])
+        commands.append(["uv", "init", "--no-readme"])  # non-interactive
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
-        commands.append(["bun", "init"])
+        commands.append(["bun", "init", "-y"])  # non-interactive, accept defaults
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":
@@ -2286,9 +2286,10 @@ def run_create_mode(args: argparse.Namespace) -> None:
         languages = args.lang
     else:
         languages = select_languages_interactive()
-        # Default to 'other' if user cancels or selects nothing
+        # Abort if user cancels (Ctrl+C or no selection)
         if not languages:
-            languages = ['other']
+            print("No languages selected, aborting.", file=sys.stderr)
+            sys.exit(1)
 
     # Primary language is the first in the list
     primary_language = languages[0] if languages else 'other'

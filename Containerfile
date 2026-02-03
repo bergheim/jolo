@@ -135,8 +135,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
-    # Linting tools (Python-based)
-    pip install --user pre-commit ruff ansible-lint && \
+    # Linting tools (Python-based) + pick for interactive CLI selectors
+    pip install --user pre-commit ruff ansible-lint pick && \
     # Browser automation (agent-agnostic)
     pip install --user webctl && \
     npx playwright install chromium && \
