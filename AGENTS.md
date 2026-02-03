@@ -80,37 +80,70 @@ AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@goog
 
 Spell-checking: aspell, hunspell, enchant2
 
-Linting: ruff, pre-commit
+Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
 ## Code Quality Best Practices
 
-**Always use a linter with git pre-commit hooks** when working in a programming environment. This ensures code quality is verified before commits, catching issues early.
+**Always set up pre-commit hooks** when scaffolding or working on a project. This catches issues before commits. The specific hooks depend on the project type.
 
-For Python projects, the container includes ruff and pre-commit. To set up:
+### When to add hooks (decision heuristics)
 
-```bash
-# Initialize pre-commit hooks (run once per project)
-pre-commit install
-```
-
-A `.pre-commit-config.yaml` file should be in the project root. Example configuration:
-
+**Every project** gets basic hygiene hooks:
 ```yaml
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
 ```
 
-When scaffolding new projects, always include:
-1. A `.pre-commit-config.yaml` with appropriate linters for the language
-2. A `pyproject.toml` (Python) or equivalent config for linter rules
-3. Run `pre-commit install` to activate the hooks
+**Code projects** - add language-specific linters based on files present:
 
-This is especially important in AI-assisted development where code may be generated quickly - the linter catches issues before they're committed.
+| Files | Linter | Hook repo |
+|-------|--------|-----------|
+| `*.py` | ruff | `https://github.com/astral-sh/ruff-pre-commit` |
+| `*.go` | golangci-lint | `https://github.com/golangci/golangci-lint` |
+| `*.rs` | clippy/rustfmt | `https://github.com/doublify/pre-commit-rust` |
+| `*.ts/*.js` | biome | `https://github.com/biomejs/biome` |
+| `*.sh` | shellcheck | `https://github.com/shellcheck-py/shellcheck-py` |
+| `Dockerfile` | hadolint | `https://github.com/hadolint/hadolint` |
+| `*.yaml/*.yml` | yamllint | `https://github.com/adrienverge/yamllint` |
+| `playbook*.yml` | ansible-lint | `https://github.com/ansible/ansible-lint` |
+
+**Prose projects** (docs, blogs, wikis) - add writing-focused tools:
+```yaml
+repos:
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint-fix
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+```
+
+**Mixed projects** - combine both code and prose hooks as needed.
+
+### Setup
+
+```bash
+# Initialize hooks (run once per project)
+pre-commit install
+
+# Run on all files (useful after adding new hooks)
+pre-commit run --all-files
+```
+
+When scaffolding new projects:
+1. Detect project type from files or user intent
+2. Create `.pre-commit-config.yaml` with appropriate hooks
+3. Add language-specific config (`pyproject.toml`, `biome.json`, etc.) if needed
+4. Run `pre-commit install`
+
+This is especially important in AI-assisted development where code is generated quickly - linters catch issues before they're committed.
 
 ## jolo.py - Devcontainer Launcher
 

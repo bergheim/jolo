@@ -29,6 +29,7 @@ RUN apk update && apk add --no-cache \
     github-cli \
     git \
     go \
+    golangci-lint \
     gopls \
     gnupg \
     hunspell \
@@ -51,6 +52,7 @@ RUN apk update && apk add --no-cache \
     ripgrep \
     rust \
     rust-analyzer \
+    shellcheck \
     sqlite \
     sudo \
     tmux \
@@ -60,11 +62,13 @@ RUN apk update && apk add --no-cache \
     wl-clipboard \
     wget \
     yadm \
+    yamllint \
     yq \
     zoxide \
     zsh
 
 RUN npm install -g \
+    @biomejs/biome \
     typescript-language-server \
     typescript \
     pnpm \
@@ -92,6 +96,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 # Smart emacsclient wrapper (must be before USER switch)
 COPY e /usr/local/bin/e
 RUN chmod +x /usr/local/bin/e
+
+# hadolint (Dockerfile linter) - not in Alpine repos
+RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
+    chmod +x /usr/local/bin/hadolint
 
 USER $USERNAME
 ENV HOME /home/$USERNAME
@@ -125,8 +133,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
-    # Linting tools
-    pip install --user pre-commit ruff
+    # Linting tools (Python-based)
+    pip install --user pre-commit ruff ansible-lint
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
