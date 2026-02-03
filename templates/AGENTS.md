@@ -89,8 +89,8 @@ Use this table - don't ask which tool to use.
 | PDF | playwright | `npx playwright pdf URL file.pdf` |
 | Check page content | agent-browser | `agent-browser navigate URL --describe` |
 | Click/fill/interact | agent-browser | `agent-browser click "Text"` / `fill "Field" "value"` |
-| Console logs | webctl | `webctl start && webctl console` |
-| Network requests | webctl | `webctl network` |
+| Console logs | webctl | `webctl start --mode unattended && webctl console` |
+| Network requests | webctl | `webctl start --mode unattended && webctl network` |
 
 **Quick patterns:**
 ```bash
@@ -107,7 +107,7 @@ agent-browser fill "Password" "secret" && \
 agent-browser click "Sign In"
 
 # Debug JS errors
-webctl start && webctl navigate "https://example.com" && webctl console
+webctl start --mode unattended && webctl navigate "https://example.com" && webctl console
 ```
 
 ## Project Setup Checklist
