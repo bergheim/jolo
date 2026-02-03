@@ -1756,18 +1756,20 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         self.assertIn('def test_', content)
         self.assertIn('assert', content)
 
-    # TypeScript (vitest) tests
+    # TypeScript (bun test) tests
     def test_typescript_config_file(self):
-        """TypeScript should use vitest.config.ts for config."""
+        """TypeScript has no config file needed (bun has built-in testing)."""
         result = jolo.get_test_framework_config('typescript')
-        self.assertEqual(result['config_file'], 'vitest.config.ts')
+        self.assertTrue(
+            result['config_file'] is None or result['config_file'] == '',
+            f"Expected None or empty, got: {result['config_file']}"
+        )
 
-    def test_typescript_config_content_vitest(self):
-        """TypeScript config should include vitest configuration."""
+    def test_typescript_config_content_bun(self):
+        """TypeScript config should mention bun built-in testing."""
         result = jolo.get_test_framework_config('typescript')
         content = result['config_content']
-        self.assertIn('vitest', content.lower())
-        self.assertIn('defineConfig', content)
+        self.assertIn('bun', content.lower())
 
     def test_typescript_example_test_file(self):
         """TypeScript should create src/example.test.ts."""
@@ -1775,9 +1777,10 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         self.assertEqual(result['example_test_file'], 'src/example.test.ts')
 
     def test_typescript_example_test_content(self):
-        """TypeScript example test should use vitest syntax."""
+        """TypeScript example test should use bun:test syntax."""
         result = jolo.get_test_framework_config('typescript')
         content = result['example_test_content']
+        self.assertIn('bun:test', content)
         self.assertIn('describe', content)
         self.assertIn('it(', content)
         self.assertIn('expect', content)
@@ -1895,18 +1898,16 @@ class TestGetCoverageConfig(unittest.TestCase):
         self.assertEqual(cmd, 'pytest --cov=src --cov-report=term-missing')
 
     def test_typescript_config_addition(self):
-        """TypeScript should return vitest coverage config."""
+        """TypeScript should return None for config_addition (bun built-in coverage)."""
         result = jolo.get_coverage_config('typescript')
         config = result['config_addition']
-        self.assertIsNotNone(config)
-        # Should contain vitest coverage configuration
-        self.assertIn('coverage', config)
+        self.assertIsNone(config)
 
     def test_typescript_run_command(self):
-        """TypeScript should return vitest --coverage command."""
+        """TypeScript should return bun test --coverage command."""
         result = jolo.get_coverage_config('typescript')
         cmd = result['run_command']
-        self.assertEqual(cmd, 'vitest --coverage')
+        self.assertEqual(cmd, 'bun test --coverage')
 
     def test_go_config_addition_is_none(self):
         """Go should return None for config_addition (built-in coverage)."""
@@ -2385,7 +2386,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             self.assertIn('pytest', content.lower())
 
     def test_create_writes_test_framework_config_for_typescript(self):
-        """--create with typescript should write vitest config."""
+        """--create with typescript should create example test with bun:test."""
         args = jolo.parse_args(['--create', 'testproj', '--lang', 'typescript', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
@@ -2393,11 +2394,11 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             jolo.run_create_mode(args)
 
         project_path = Path(self.tmpdir) / 'testproj'
-        vitest_config = project_path / 'vitest.config.ts'
+        example_test = project_path / 'src' / 'example.test.ts'
 
-        self.assertTrue(vitest_config.exists())
-        content = vitest_config.read_text()
-        self.assertIn('vitest', content)
+        self.assertTrue(example_test.exists())
+        content = example_test.read_text()
+        self.assertIn('bun:test', content)
 
     def test_create_writes_type_checker_config_for_typescript(self):
         """--create with typescript should write tsconfig.json."""

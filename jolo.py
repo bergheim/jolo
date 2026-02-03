@@ -334,16 +334,10 @@ addopts = "--cov=src --cov-report=term-missing"
         }
 
     elif language == "typescript":
-        config_addition = """\
-// Add to vitest.config.ts:
-// coverage: {
-//   provider: 'v8',
-//   reporter: ['text', 'json', 'html'],
-// }
-"""
+        # Bun has built-in coverage support
         return {
-            "config_addition": config_addition,
-            "run_command": "vitest --coverage",
+            "config_addition": None,
+            "run_command": "bun test --coverage",
         }
 
     elif language == "go":
@@ -418,19 +412,9 @@ def test_string_operations():
         }
 
     elif language == "typescript":
-        config_content = """\
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['**/*.{test,spec}.{ts,tsx}'],
-  },
-});
-"""
+        # Bun has built-in test runner, no config file needed
         example_test_content = """\
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 
 describe('Example tests', () => {
   it('should pass a basic test', () => {
@@ -448,8 +432,8 @@ describe('Example tests', () => {
 });
 """
         return {
-            "config_file": "vitest.config.ts",
-            "config_content": config_content,
+            "config_file": None,
+            "config_content": "# Bun has built-in testing. Run tests with: bun test",
             "example_test_file": "src/example.test.ts",
             "example_test_content": example_test_content,
         }
@@ -2331,6 +2315,13 @@ def run_create_mode(args: argparse.Namespace) -> None:
         else:
             config_file.write_text(test_config["config_content"])
         verbose_print(f"Wrote test framework config: {test_config['config_file']}")
+
+    # Write example test file for primary language
+    if test_config.get("example_test_file") and test_config.get("example_test_content"):
+        example_test_path = project_path / test_config["example_test_file"]
+        example_test_path.parent.mkdir(parents=True, exist_ok=True)
+        example_test_path.write_text(test_config["example_test_content"])
+        verbose_print(f"Wrote example test: {test_config['example_test_file']}")
 
     # Write type checker config for primary language
     type_config = get_type_checker_config(primary_language)
