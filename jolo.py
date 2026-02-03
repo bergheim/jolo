@@ -614,7 +614,7 @@ def get_project_init_commands(language: str, project_name: str) -> list[list[str
         commands.append(["uv", "init", "--no-readme"])  # non-interactive
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
-        commands.append(["bun", "init", "-y"])  # non-interactive, accept defaults
+        commands.append(["bun", "init"])  # interactive project template picker
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":
