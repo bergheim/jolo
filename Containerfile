@@ -4,12 +4,17 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 # Package names may differ from Alpine - this is a best-effort port
 
 RUN apk update && apk add --no-cache \
+    autoconf \
+    automake \
     bash \
     build-base \
+    chromium \
     cmake \
     coreutils \
     curl \
+    dbus \
     emacs \
+    eza \
     fd \
     fontconfig \
     fzf \
@@ -17,19 +22,33 @@ RUN apk update && apk add --no-cache \
     glibc-locale-en \
     gnupg \
     go \
+    golangci-lint \
+    gopls \
+    hunspell \
     jq \
+    mesa \
+    mise \
+    ncurses \
     neovim \
     nodejs \
     npm \
     openssh-client \
+    pinentry \
+    pkgconf \
+    podman \
     python3 \
     ripgrep \
     rust \
+    rust-analyzer \
     sqlite \
     sudo \
     tmux \
     wget \
+    wl-clipboard \
+    yadm \
+    yamllint \
     yq \
+    zoxide \
     zsh
 
 # Packages not in Wolfi - install via other means
