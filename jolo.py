@@ -25,6 +25,14 @@ try:
 except ImportError:
     HAVE_ARGCOMPLETE = False
 
+try:
+    from pick import pick
+
+    HAVE_PICK = True
+except ImportError:
+    pick = None  # type: ignore
+    HAVE_PICK = False
+
 # Word lists for random name generation
 ADJECTIVES = [
     "brave",
@@ -71,11 +79,510 @@ VERBOSE = False
 # Valid languages for --lang flag
 VALID_LANGUAGES = frozenset(["python", "go", "typescript", "rust", "shell", "prose", "other"])
 
+# Language options for interactive selector (display names)
+LANGUAGE_OPTIONS = ["Python", "Go", "TypeScript", "Rust", "Shell", "Prose/Docs", "Other"]
+
+# Mapping from display names to language codes
+LANGUAGE_CODE_MAP = {
+    "Python": "python",
+    "Go": "go",
+    "TypeScript": "typescript",
+    "Rust": "rust",
+    "Shell": "shell",
+    "Prose/Docs": "prose",
+    "Other": "other",
+}
+
+# Pre-commit hook configurations by language
+PRECOMMIT_HOOKS = {
+    "python": {
+        "repo": "https://github.com/astral-sh/ruff-pre-commit",
+        "rev": "v0.8.6",
+        "hooks": [
+            {"id": "ruff", "args": ["--fix"]},
+            {"id": "ruff-format"},
+        ],
+    },
+    "go": {
+        "repo": "https://github.com/golangci/golangci-lint",
+        "rev": "v1.62.0",
+        "hooks": [
+            {"id": "golangci-lint"},
+        ],
+    },
+    "typescript": {
+        "repo": "https://github.com/biomejs/pre-commit",
+        "rev": "v0.6.0",
+        "hooks": [
+            {"id": "biome-check", "additional_dependencies": ["@biomejs/biome@1.9.0"]},
+        ],
+    },
+    "rust": {
+        "repo": "https://github.com/doublify/pre-commit-rust",
+        "rev": "v1.0",
+        "hooks": [
+            {"id": "fmt"},
+            {"id": "cargo-check"},
+        ],
+    },
+    "shell": {
+        "repo": "https://github.com/shellcheck-py/shellcheck-py",
+        "rev": "v0.10.0.1",
+        "hooks": [
+            {"id": "shellcheck"},
+        ],
+    },
+    "prose": [
+        {
+            "repo": "https://github.com/igorshubovych/markdownlint-cli",
+            "rev": "v0.43.0",
+            "hooks": [
+                {"id": "markdownlint"},
+            ],
+        },
+        {
+            "repo": "https://github.com/codespell-project/codespell",
+            "rev": "v2.3.0",
+            "hooks": [
+                {"id": "codespell"},
+            ],
+        },
+    ],
+}
+
+
+def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
+    """Format a single hook as YAML.
+
+    Args:
+        hook: Hook configuration dict with 'id' and optional other keys
+        indent: Indentation string for the hook
+
+    Returns:
+        YAML-formatted hook string
+    """
+    lines = [f"{indent}- id: {hook['id']}"]
+    if "args" in hook:
+        args_str = ", ".join(hook["args"])
+        lines.append(f"{indent}  args: [{args_str}]")
+    if "additional_dependencies" in hook:
+        deps = hook["additional_dependencies"]
+        deps_str = ", ".join(f'"{d}"' for d in deps)
+        lines.append(f"{indent}  additional_dependencies: [{deps_str}]")
+    return "\n".join(lines)
+
+
+def _format_repo_yaml(repo_config: dict) -> str:
+    """Format a single repo configuration as YAML.
+
+    Args:
+        repo_config: Repo configuration dict with 'repo', 'rev', and 'hooks'
+
+    Returns:
+        YAML-formatted repo string
+    """
+    lines = [
+        f"  - repo: {repo_config['repo']}",
+        f"    rev: {repo_config['rev']}",
+        "    hooks:",
+    ]
+    for hook in repo_config["hooks"]:
+        lines.append(_format_hook_yaml(hook))
+    return "\n".join(lines)
+
+
+def generate_precommit_config(languages: list[str]) -> str:
+    """Generate .pre-commit-config.yaml content based on selected languages.
+
+    Args:
+        languages: List of language codes (e.g., ['python', 'typescript'])
+
+    Returns:
+        Valid YAML string for .pre-commit-config.yaml
+    """
+    # Start with base hooks that are always included
+    repos = [
+        {
+            "repo": "https://github.com/pre-commit/pre-commit-hooks",
+            "rev": "v5.0.0",
+            "hooks": [
+                {"id": "trailing-whitespace"},
+                {"id": "end-of-file-fixer"},
+                {"id": "check-added-large-files"},
+            ],
+        },
+        {
+            "repo": "https://github.com/gitleaks/gitleaks",
+            "rev": "v8.24.2",
+            "hooks": [
+                {"id": "gitleaks"},
+            ],
+        },
+    ]
+
+    # Track which repos we've already added (to avoid duplicates)
+    added_repos = set()
+
+    # Add language-specific hooks
+    for lang in languages:
+        if lang not in PRECOMMIT_HOOKS:
+            continue
+
+        hook_config = PRECOMMIT_HOOKS[lang]
+
+        # Handle languages with multiple repos (like prose)
+        if isinstance(hook_config, list):
+            for config in hook_config:
+                if config["repo"] not in added_repos:
+                    repos.append(config)
+                    added_repos.add(config["repo"])
+        else:
+            if hook_config["repo"] not in added_repos:
+                repos.append(hook_config)
+                added_repos.add(hook_config["repo"])
+
+    # Generate YAML output
+    lines = ["repos:"]
+    for repo in repos:
+        lines.append(_format_repo_yaml(repo))
+
+    return "\n".join(lines) + "\n"
+
+
+def get_precommit_install_command() -> list[str]:
+    """Get the command to install pre-commit hooks.
+
+    Returns:
+        List of command parts: ['pre-commit', 'install']
+    """
+    return ['pre-commit', 'install']
+
+
+def get_type_checker_config(language: str) -> dict | None:
+    """Get type checker configuration for a language.
+
+    Returns configuration for setting up type checking based on language.
+    For languages with built-in type checking (Go, Rust), returns None.
+
+    Args:
+        language: The programming language (python, typescript, go, rust, etc.)
+
+    Returns:
+        dict with 'config_file' and 'config_content' keys, or None if no
+        external type checker config is needed.
+    """
+    if language == "python":
+        # ty (by Astral, the ruff folks) configuration
+        config_content = """\
+[tool.ty]
+# ty type checker configuration
+# See: https://github.com/astral-sh/ty
+"""
+        return {
+            "config_file": "pyproject.toml",
+            "config_content": config_content,
+        }
+
+    elif language == "typescript":
+        # tsconfig.json with strict mode
+        tsconfig = {
+            "compilerOptions": {
+                "strict": True,
+                "noEmit": True,
+                "target": "ES2022",
+                "module": "NodeNext",
+                "moduleResolution": "NodeNext",
+                "esModuleInterop": True,
+                "skipLibCheck": True,
+                "forceConsistentCasingInFileNames": True,
+            },
+            "include": ["**/*.ts", "**/*.tsx"],
+            "exclude": ["node_modules", "dist"],
+        }
+        return {
+            "config_file": "tsconfig.json",
+            "config_content": json.dumps(tsconfig, indent=2),
+        }
+
+    # Go and Rust have built-in type checking, no external config needed
+    # Shell, prose, other have no type checking
+    return None
+
+
+def get_coverage_config(language: str) -> dict:
+    """Get code coverage configuration for a language.
+
+    Returns configuration for setting up code coverage based on language.
+    For languages without standard coverage tooling, returns None values.
+
+    Args:
+        language: The programming language (python, typescript, go, rust, etc.)
+
+    Returns:
+        dict with keys:
+            - 'config_addition': Config to add to project config file, or None
+            - 'run_command': Command to run coverage, or None
+    """
+    if language == "python":
+        config_addition = """\
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing"
+"""
+        return {
+            "config_addition": config_addition,
+            "run_command": "pytest --cov=src --cov-report=term-missing",
+        }
+
+    elif language == "typescript":
+        config_addition = """\
+// Add to vitest.config.ts:
+// coverage: {
+//   provider: 'v8',
+//   reporter: ['text', 'json', 'html'],
+// }
+"""
+        return {
+            "config_addition": config_addition,
+            "run_command": "vitest --coverage",
+        }
+
+    elif language == "go":
+        # Go has built-in coverage support
+        return {
+            "config_addition": None,
+            "run_command": "go test -cover ./...",
+        }
+
+    elif language == "rust":
+        # Rust uses cargo-llvm-cov for coverage
+        return {
+            "config_addition": None,
+            "run_command": "cargo llvm-cov",
+        }
+
+    # Shell, prose, other, and unknown languages have no standard coverage
+    return {
+        "config_addition": None,
+        "run_command": None,
+    }
+
+
+def get_test_framework_config(language: str) -> dict:
+    """Get test framework configuration for a language.
+
+    Returns configuration for setting up test frameworks based on language.
+    For languages with built-in testing (Go, Rust), config_file is None.
+
+    Args:
+        language: The programming language (python, typescript, go, rust, etc.)
+
+    Returns:
+        dict with keys:
+            - 'config_file': File name for test config, or None for built-in testing
+            - 'config_content': Content to write/append to config file
+            - 'example_test_file': Path to example test file
+            - 'example_test_content': Content for example test file
+    """
+    if language == "python":
+        config_content = """\
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+"""
+        example_test_content = '''\
+"""Example test module demonstrating pytest usage."""
+
+
+def test_example_passes():
+    """Example test that should pass."""
+    assert True
+
+
+def test_addition():
+    """Test basic arithmetic."""
+    assert 1 + 1 == 2
+
+
+def test_string_operations():
+    """Test string operations."""
+    result = "hello".upper()
+    assert result == "HELLO"
+'''
+        return {
+            "config_file": "pyproject.toml",
+            "config_content": config_content,
+            "example_test_file": "tests/test_example.py",
+            "example_test_content": example_test_content,
+        }
+
+    elif language == "typescript":
+        config_content = """\
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.{test,spec}.{ts,tsx}'],
+  },
+});
+"""
+        example_test_content = """\
+import { describe, it, expect } from 'vitest';
+
+describe('Example tests', () => {
+  it('should pass a basic test', () => {
+    expect(true).toBe(true);
+  });
+
+  it('should perform arithmetic correctly', () => {
+    expect(1 + 1).toBe(2);
+  });
+
+  it('should handle string operations', () => {
+    const result = 'hello'.toUpperCase();
+    expect(result).toBe('HELLO');
+  });
+});
+"""
+        return {
+            "config_file": "vitest.config.ts",
+            "config_content": config_content,
+            "example_test_file": "src/example.test.ts",
+            "example_test_content": example_test_content,
+        }
+
+    elif language == "go":
+        # Go has built-in testing, no config file needed
+        example_test_content = """\
+package main
+
+import (
+\t"testing"
+
+\t"github.com/stretchr/testify/assert"
+)
+
+func TestExample(t *testing.T) {
+\t// Basic assertion
+\tassert.True(t, true, "This should always pass")
+}
+
+func TestAddition(t *testing.T) {
+\tresult := 1 + 1
+\tassert.Equal(t, 2, result, "1 + 1 should equal 2")
+}
+
+func TestStringOperations(t *testing.T) {
+\tresult := "hello"
+\tassert.Equal(t, "hello", result)
+}
+"""
+        return {
+            "config_file": None,
+            "config_content": "# Go uses built-in testing. Run tests with: go test ./...",
+            "example_test_file": "example_test.go",
+            "example_test_content": example_test_content,
+        }
+
+    elif language == "rust":
+        # Rust has built-in testing, no config file needed
+        example_test_content = """\
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_example_passes() {
+        assert!(true, "This should always pass");
+    }
+
+    #[test]
+    fn test_addition() {
+        let result = 1 + 1;
+        assert_eq!(result, 2, "1 + 1 should equal 2");
+    }
+
+    #[test]
+    fn test_string_operations() {
+        let result = "hello".to_uppercase();
+        assert_eq!(result, "HELLO");
+    }
+}
+"""
+        return {
+            "config_file": None,
+            "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
+            "example_test_file": "src/lib.rs",
+            "example_test_content": example_test_content,
+        }
+
+    # Shell, prose, other, and unknown languages have no standard test framework
+    return {
+        "config_file": None,
+        "config_content": "",
+        "example_test_file": None,
+        "example_test_content": "",
+    }
+
 
 def verbose_print(msg: str) -> None:
     """Print message if verbose mode is enabled."""
     if VERBOSE:
         print(f"[verbose] {msg}", file=sys.stderr)
+
+
+def select_languages_interactive() -> list[str]:
+    """Show interactive multi-select picker for project languages.
+
+    Uses the `pick` library for a nice terminal UI. Falls back to simple
+    numbered input if pick is not available.
+
+    Returns:
+        List of selected language codes (lowercase), e.g. ['python', 'typescript'].
+        First selected = primary language. Returns empty list if user cancels.
+    """
+    if HAVE_PICK:
+        try:
+            title = "Select project languages (SPACE to toggle, ENTER to confirm):"
+            selected = pick(
+                LANGUAGE_OPTIONS,
+                title,
+                multiselect=True,
+                min_selection_count=0,
+            )
+            # pick returns list of (option, index) tuples
+            return [LANGUAGE_CODE_MAP[option] for option, _ in selected]
+        except KeyboardInterrupt:
+            return []
+    else:
+        # Fallback: simple numbered input
+        print("Select project languages (comma-separated numbers):")
+        for i, option in enumerate(LANGUAGE_OPTIONS, 1):
+            print(f"  {i}. {option}")
+        print()
+
+        try:
+            response = input("Enter numbers (e.g., 1,3): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return []
+
+        if not response:
+            return []
+
+        selected = []
+        for part in response.split(","):
+            part = part.strip()
+            try:
+                idx = int(part)
+                if 1 <= idx <= len(LANGUAGE_OPTIONS):
+                    option = LANGUAGE_OPTIONS[idx - 1]
+                    selected.append(LANGUAGE_CODE_MAP[option])
+            except ValueError:
+                continue  # Skip invalid numbers
+
+        return selected
 
 
 def parse_lang_arg(value: str) -> list[str]:
@@ -102,6 +609,51 @@ def parse_lang_arg(value: str) -> list[str]:
             f"Valid options: {valid_list}"
         )
     return languages
+
+
+def get_project_init_commands(language: str, project_name: str) -> list[list[str]]:
+    """Get initialization commands for a project based on language.
+
+    Returns a list of command lists to execute inside the container.
+    Each inner list is a command + arguments.
+
+    Args:
+        language: The programming language (python, typescript, go, rust, shell, prose, other)
+        project_name: The name of the project (used in go mod init, cargo new, etc.)
+
+    Returns:
+        List of command lists, e.g. [['uv', 'init'], ['mkdir', '-p', 'tests']]
+    """
+    commands: list[list[str]] = []
+
+    if language == "python":
+        commands.append(["uv", "init"])
+        commands.append(["mkdir", "-p", "tests"])
+    elif language == "typescript":
+        commands.append(["bun", "init"])
+    elif language == "go":
+        commands.append(["go", "mod", "init", project_name])
+    elif language == "rust":
+        commands.append(["cargo", "new", ".", "--name", project_name])
+    elif language == "shell":
+        commands.append(["mkdir", "-p", "src"])
+    elif language == "prose":
+        commands.append(["mkdir", "-p", "docs"])
+    else:
+        # Default fallback for 'other' or unknown languages
+        commands.append(["mkdir", "-p", "src"])
+
+    return commands
+
+
+def get_precommit_install_command() -> list[str]:
+    """Get the command to install pre-commit hooks.
+
+    Returns:
+        A list of strings representing the command to run pre-commit install.
+        This will be executed via devcontainer exec in the wiring phase.
+    """
+    return ["pre-commit", "install"]
 
 
 def get_agent_command(config: dict, agent_name: str | None = None, index: int = 0) -> str:
@@ -618,8 +1170,11 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
-    Copies AGENTS.md, CLAUDE.md, GEMINI.md, and .pre-commit-config.yaml
+    Copies AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore, and .editorconfig
     from the templates/ directory relative to jolo.py.
+
+    Note: .pre-commit-config.yaml is generated dynamically based on language selection,
+    not copied from templates.
 
     Prints a warning if templates/ directory doesn't exist but continues.
     """
@@ -629,7 +1184,7 @@ def copy_template_files(target_dir: Path) -> None:
         print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
         return
 
-    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".pre-commit-config.yaml"]
+    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".gitignore", ".editorconfig"]
 
     for filename in template_files:
         src = templates_dir / filename
@@ -1742,11 +2297,52 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Load config
     config = load_config()
 
+    # Get languages from --lang or interactive selector
+    if args.lang:
+        languages = args.lang
+    else:
+        languages = select_languages_interactive()
+        # Default to 'other' if user cancels or selects nothing
+        if not languages:
+            languages = ['other']
+
+    # Primary language is the first in the list
+    primary_language = languages[0] if languages else 'other'
+
     # Create project directory
     project_path.mkdir()
 
-    # Copy template files (AGENTS.md, CLAUDE.md, etc.)
+    # Copy template files (AGENTS.md, CLAUDE.md, .gitignore, .editorconfig, etc.)
     copy_template_files(project_path)
+
+    # Generate and write .pre-commit-config.yaml based on selected languages
+    precommit_content = generate_precommit_config(languages)
+    (project_path / ".pre-commit-config.yaml").write_text(precommit_content)
+    verbose_print(f"Generated .pre-commit-config.yaml for languages: {', '.join(languages)}")
+
+    # Write test framework config for primary language
+    test_config = get_test_framework_config(primary_language)
+    if test_config.get("config_file"):
+        config_file = project_path / test_config["config_file"]
+        if config_file.exists():
+            # Append to existing file
+            existing = config_file.read_text()
+            config_file.write_text(existing + "\n" + test_config["config_content"])
+        else:
+            config_file.write_text(test_config["config_content"])
+        verbose_print(f"Wrote test framework config: {test_config['config_file']}")
+
+    # Write type checker config for primary language
+    type_config = get_type_checker_config(primary_language)
+    if type_config:
+        config_file = project_path / type_config["config_file"]
+        if config_file.exists():
+            # Append to existing file (e.g., pyproject.toml)
+            existing = config_file.read_text()
+            config_file.write_text(existing + "\n" + type_config["config_content"])
+        else:
+            config_file.write_text(type_config["config_content"])
+        verbose_print(f"Wrote type checker config: {type_config['config_file']}")
 
     # Initialize git repo
     cmd = ["git", "init"]
@@ -1796,6 +2392,13 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
+
+    # Run project init commands for primary language inside the container
+    init_commands = get_project_init_commands(primary_language, project_name)
+    for cmd_parts in init_commands:
+        cmd_str = " ".join(cmd_parts)
+        verbose_print(f"Running in container: {cmd_str}")
+        devcontainer_exec_command(project_path, cmd_str)
 
     if args.prompt:
         devcontainer_exec_prompt(project_path, args.agent, args.prompt)
