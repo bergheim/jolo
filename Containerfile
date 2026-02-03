@@ -134,7 +134,9 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
     # Linting tools (Python-based)
-    pip install --user pre-commit ruff ansible-lint
+    pip install --user pre-commit ruff ansible-lint && \
+    # uv - fast Python package manager (10-100x faster than pip)
+    curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
