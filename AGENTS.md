@@ -82,6 +82,199 @@ Spell-checking: aspell, hunspell, enchant2
 
 Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
+Browser automation: playwright, agent-browser, webctl
+
+## Browser Automation Tool Guide
+
+Three browser tools are available, each with different strengths. Choose based on your task.
+
+### Quick Reference: Task to Tool
+
+| Task | Best Tool | Why |
+|------|-----------|-----|
+| Take a screenshot | Playwright | Native screenshot support, reliable |
+| Click a button/link | agent-browser | ARIA snapshot finds elements reliably |
+| Fill out a form | agent-browser | Handles multi-step interactions well |
+| Verify page content exists | WebCtl | Filtered output, fast verification |
+| Extract specific text | WebCtl | Precise ARIA selectors |
+| Debug visual layout | Playwright | Screenshots show actual rendering |
+| Navigate complex SPA | agent-browser | Waits for dynamic content automatically |
+| Scrape data from table | WebCtl | Structured output from ARIA tree |
+| Test responsive design | Playwright | Viewport control + screenshots |
+| Limited context window | agent-browser | 93% less context than raw HTML |
+| Login flow automation | agent-browser | Stateful session, handles redirects |
+| PDF generation | Playwright | Native PDF export |
+
+### Playwright CLI
+
+**Best for:** Screenshots, PDFs, visual testing, viewport manipulation, low-level control.
+
+Playwright provides full browser automation with pixel-perfect screenshots. Use when you need visual output or precise control over browser state.
+
+```bash
+# Take a screenshot
+npx playwright screenshot https://example.com screenshot.png
+
+# Screenshot with specific viewport
+npx playwright screenshot --viewport-size=1280,720 https://example.com output.png
+
+# Full page screenshot (captures scrollable content)
+npx playwright screenshot --full-page https://example.com full.png
+
+# Generate PDF
+npx playwright pdf https://example.com output.pdf
+
+# Wait for specific element before screenshot
+npx playwright screenshot --wait-for-selector=".loaded" https://example.com output.png
+
+# Execute JavaScript and capture result
+npx playwright evaluate "document.title" https://example.com
+```
+
+**When to choose Playwright:**
+- Need visual proof of page state (screenshots)
+- Debugging CSS/layout issues
+- Generating PDFs from web pages
+- Need to test specific viewport sizes
+- Require JavaScript evaluation
+- Building test artifacts for CI
+
+### agent-browser (Vercel)
+
+**Best for:** Interactive automation, form filling, clicking, navigation - especially when context window is limited.
+
+agent-browser uses ARIA snapshots instead of raw HTML, reducing context by ~93%. It understands the page semantically and handles dynamic content well.
+
+```bash
+# Navigate and describe page
+agent-browser navigate "https://example.com" --describe
+
+# Click an element (by visible text or ARIA label)
+agent-browser click "Sign In"
+
+# Fill a form field
+agent-browser fill "Email" "user@example.com"
+
+# Type into focused element
+agent-browser type "search query"
+
+# Press keyboard keys
+agent-browser press "Enter"
+
+# Get page snapshot (ARIA tree - compact representation)
+agent-browser snapshot
+
+# Scroll the page
+agent-browser scroll down
+agent-browser scroll to "Footer"
+
+# Wait for element
+agent-browser wait "Success message"
+
+# Chain commands for complex flows
+agent-browser navigate "https://app.example.com/login" && \
+agent-browser fill "Username" "admin" && \
+agent-browser fill "Password" "secret" && \
+agent-browser click "Log In" && \
+agent-browser wait "Dashboard"
+```
+
+**When to choose agent-browser:**
+- Automating multi-step workflows (login, checkout, etc.)
+- Working with SPAs/dynamic content
+- Context window is limited (ARIA snapshots are compact)
+- Need to interact with elements by their accessible name
+- Form filling and submission
+- Don't need visual output, just need actions to succeed
+
+### WebCtl
+
+**Best for:** Reading page content, verifying specific elements exist, extracting structured data.
+
+WebCtl provides filtered, structured output using ARIA selectors. Good for verification and data extraction without full automation overhead.
+
+```bash
+# Get page content (filtered, readable)
+webctl get https://example.com
+
+# Get specific element by ARIA selector
+webctl get https://example.com --selector="button[name='Submit']"
+
+# Get all links
+webctl get https://example.com --selector="link"
+
+# Get form inputs
+webctl get https://example.com --selector="textbox"
+
+# Get headings for page structure
+webctl get https://example.com --selector="heading"
+
+# Output as JSON for parsing
+webctl get https://example.com --json
+
+# Check if element exists (useful for assertions)
+webctl get https://example.com --selector="alert" --exists
+```
+
+**When to choose WebCtl:**
+- Verifying specific content exists on page
+- Extracting text from known elements
+- Getting page structure (headings, links, forms)
+- Need machine-readable output (JSON)
+- Quick content checks without full browser session
+- Scraping accessible data from static pages
+
+### Decision Flowchart
+
+```
+Need visual output (screenshot/PDF)?
+  YES -> Playwright
+  NO  -> Continue
+
+Need to interact (click/fill/navigate)?
+  YES -> Is context window limited?
+         YES -> agent-browser (93% less context)
+         NO  -> agent-browser (better element finding)
+  NO  -> Continue
+
+Need to verify/extract content?
+  YES -> WebCtl (filtered, structured output)
+  NO  -> Start with agent-browser snapshot to understand page
+```
+
+### Common Patterns
+
+**Verify a deployment is live:**
+```bash
+webctl get https://myapp.com --selector="heading" --exists
+```
+
+**Take screenshot of logged-in state:**
+```bash
+agent-browser navigate "https://app.com/login" && \
+agent-browser fill "Email" "$EMAIL" && \
+agent-browser fill "Password" "$PASS" && \
+agent-browser click "Sign In" && \
+agent-browser wait "Dashboard"
+# Then use playwright for screenshot of current state
+npx playwright screenshot --save-storage=auth.json https://app.com/dashboard dash.png
+```
+
+**Extract all links from a page:**
+```bash
+webctl get https://docs.example.com --selector="link" --json | jq '.[].href'
+```
+
+**Fill and submit a contact form:**
+```bash
+agent-browser navigate "https://example.com/contact" && \
+agent-browser fill "Name" "Test User" && \
+agent-browser fill "Email" "test@example.com" && \
+agent-browser fill "Message" "Hello, this is a test." && \
+agent-browser click "Send Message" && \
+agent-browser wait "Thank you"
+```
+
 ## Code Quality Best Practices
 
 **Always set up pre-commit hooks** when scaffolding or working on a project. This catches issues before commits. The specific hooks depend on the project type.
