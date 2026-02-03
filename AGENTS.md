@@ -108,9 +108,9 @@ Three tools available. Use this table - don't ask the user which tool to use.
 | Click button/link | agent-browser | `agent-browser click "Button Text"` |
 | Fill form field | agent-browser | `agent-browser fill "Field Label" "value"` |
 | Read page content | agent-browser | `agent-browser snapshot` |
-| Check console logs | webctl | `webctl start --mode unattended && webctl console` |
-| Monitor network | webctl | `webctl start --mode unattended && webctl network` |
-| Long multi-step session | webctl | `webctl start --mode unattended` then commands |
+| Check console logs | webctl | `webctl start && webctl console` |
+| Monitor network | webctl | `webctl start && webctl network` |
+| Long multi-step session | webctl | `webctl start` then commands |
 | Quick one-off action | agent-browser | Single command, no daemon |
 
 ### playwright
@@ -159,8 +159,8 @@ agent-browser wait "Dashboard"
 Daemon-based. Start once, run many commands. Has console/network access.
 
 ```bash
-# Start daemon (required first, must use unattended for headless)
-webctl start --mode unattended
+# Start daemon (required first)
+webctl start
 
 # Navigate
 webctl navigate "https://example.com"
@@ -200,7 +200,7 @@ npx playwright screenshot https://app.com/dashboard dash.png
 
 **Debug JavaScript errors:**
 ```bash
-webctl start --mode unattended
+webctl start
 webctl navigate "https://myapp.com"
 webctl console  # see any JS errors
 webctl stop --daemon
