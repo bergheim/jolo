@@ -19,15 +19,14 @@ RUN apk update && apk add --no-cache \
     fontconfig \
     fzf \
     git \
+    glibc \
     glibc-locale-en \
     gnupg \
     go \
-    golangci-lint \
-    gopls \
+    gstreamer \
     hunspell \
     jq \
     mesa \
-    mise \
     ncurses \
     neovim \
     nodejs \
@@ -45,23 +44,20 @@ RUN apk update && apk add --no-cache \
     tmux \
     wget \
     wl-clipboard \
-    yadm \
     yamllint \
     yq \
     zoxide \
     zsh
 
 # Packages not in Wolfi - install via other means
-# - github-cli: install from GitHub releases
-# - gum: install from GitHub releases
-# - shellcheck: install from GitHub releases
-# - cargo: comes with rust (rustup)
 RUN wget -qO- https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.tar.gz | tar xz -C /tmp && \
     mv /tmp/gh_2.67.0_linux_amd64/bin/gh /usr/local/bin/ && \
     wget -qO- https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz | tar xz -C /tmp && \
     mv /tmp/gum_0.14.5_Linux_x86_64/gum /usr/local/bin/ && \
     wget -qO- https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz | tar xJ -C /tmp && \
-    mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/
+    mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/ && \
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin && \
+    wget -qO /usr/local/bin/yadm https://github.com/yadm-dev/yadm/raw/master/yadm && chmod +x /usr/local/bin/yadm
 
 # npm global packages (language servers, browser automation, etc.)
 RUN npm install -g \
@@ -136,8 +132,16 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     $HOME/.local/bin/uv tool install ruff && \
     $HOME/.local/bin/uv tool install ansible-lint && \
     $HOME/.local/bin/uv tool install ty && \
-    # Browser automation (glibc = playwright just works!)
-    npx playwright install chromium
+    $HOME/.local/bin/uv tool install webctl && \
+    # Configure webctl to use system chromium headlessly
+    $HOME/.local/bin/webctl config set use_global_playwright true && \
+    $HOME/.local/bin/webctl config set browser_executable_path /usr/bin/chromium && \
+    $HOME/.local/bin/webctl config set default_mode unattended && \
+    # Go tools
+    go install golang.org/x/tools/gopls@latest && \
+    # mise (version manager)
+    curl https://mise.run | sh && \
+    echo 'eval "$(~/.local/bin/mise activate zsh)"' >> $HOME/.zshrc.container
 
 ENV EMACS_CONTAINER=1
 
