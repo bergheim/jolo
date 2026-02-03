@@ -135,16 +135,17 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
-    # Linting tools (Python-based) + pick for interactive CLI selectors
-    pip install --user pre-commit ruff ansible-lint pick && \
-    # Browser automation (agent-agnostic)
-    pip install --user webctl && \
-    npx playwright install chromium && \
-    agent-browser install && \
-    # uv - fast Python package manager (10-100x faster than pip)
+    # uv - fast Python package manager (no system pip, uv only!)
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    # ty - fast Python type checker (10-60x faster than mypy, from Astral)
-    $HOME/.local/bin/uv tool install ty
+    # Python tools via uv (isolated environments, no externally-managed-environment errors)
+    $HOME/.local/bin/uv tool install pre-commit && \
+    $HOME/.local/bin/uv tool install ruff && \
+    $HOME/.local/bin/uv tool install ansible-lint && \
+    $HOME/.local/bin/uv tool install webctl && \
+    $HOME/.local/bin/uv tool install ty && \
+    # Browser automation (agent-agnostic)
+    npx playwright install chromium && \
+    agent-browser install
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
