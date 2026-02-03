@@ -136,7 +136,9 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # Linting tools (Python-based)
     pip install --user pre-commit ruff ansible-lint && \
     # uv - fast Python package manager (10-100x faster than pip)
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    # ty - fast Python type checker (10-60x faster than mypy, from Astral)
+    $HOME/.local/bin/uv tool install ty
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
