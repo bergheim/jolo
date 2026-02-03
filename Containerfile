@@ -46,6 +46,7 @@ RUN apk update && apk add --no-cache \
     podman \
     pkgconf \
     py3-lsp-server \
+    py3-pip \
     python3 \
     ripgrep \
     rust \
@@ -123,7 +124,9 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
     # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
-    echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf
+    echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
+    # Linting tools
+    pip install --user pre-commit ruff
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1

@@ -80,6 +80,38 @@ AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@goog
 
 Spell-checking: aspell, hunspell, enchant2
 
+Linting: ruff, pre-commit
+
+## Code Quality Best Practices
+
+**Always use a linter with git pre-commit hooks** when working in a programming environment. This ensures code quality is verified before commits, catching issues early.
+
+For Python projects, the container includes ruff and pre-commit. To set up:
+
+```bash
+# Initialize pre-commit hooks (run once per project)
+pre-commit install
+```
+
+A `.pre-commit-config.yaml` file should be in the project root. Example configuration:
+
+```yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+```
+
+When scaffolding new projects, always include:
+1. A `.pre-commit-config.yaml` with appropriate linters for the language
+2. A `pyproject.toml` (Python) or equivalent config for linter rules
+3. Run `pre-commit install` to activate the hooks
+
+This is especially important in AI-assisted development where code may be generated quickly - the linter catches issues before they're committed.
+
 ## jolo.py - Devcontainer Launcher
 
 Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
