@@ -2,9 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Note:** This is a META-PROJECT for building the AI development container environment.
+> It is NOT meant for general development. For projects created with `jolo --create`,
+> see `templates/AGENTS.md` which gets copied to new projects.
+
 ## Project Overview
 
-This is a containerized Emacs GUI environment on Alpine Linux, designed as a devcontainer for AI-assisted development. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+This repo builds and maintains the containerized Emacs GUI environment on Wolfi Linux (glibc-based), designed as a devcontainer for AI-assisted development. Wolfi provides glibc compatibility enabling Playwright browser automation. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+
+**What this repo produces:**
+- Container image (`emacs-gui`) with all dev tools pre-installed
+- `jolo.py` CLI for launching devcontainers with git worktree support
+- Templates for new projects (`templates/`)
 
 ## Project Defaults
 
@@ -48,7 +57,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 ## Architecture
 
 **Key files:**
-- `Containerfile` - Alpine-based image with Emacs PGTK, language servers, and dev tools
+- `Containerfile` - Wolfi-based image with Emacs, language servers, and dev tools
 - `entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
 - `jolo.py` - Devcontainer CLI for project-based development with git worktree support
@@ -82,11 +91,11 @@ Spell-checking: aspell, hunspell, enchant2
 
 Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
-Browser automation: playwright, agent-browser, webctl
+Browser automation: playwright, agent-browser
 
 ## Browser Automation Tool Guide
 
-Three browser tools are available, each with different strengths. Choose based on your task.
+Two browser tools are available for web automation. Choose based on your task.
 
 ### Quick Reference: Task to Tool
 
@@ -95,11 +104,11 @@ Three browser tools are available, each with different strengths. Choose based o
 | Take a screenshot | Playwright | Native screenshot support, reliable |
 | Click a button/link | agent-browser | ARIA snapshot finds elements reliably |
 | Fill out a form | agent-browser | Handles multi-step interactions well |
-| Verify page content exists | WebCtl | Filtered output, fast verification |
-| Extract specific text | WebCtl | Precise ARIA selectors |
+| Verify page content exists | agent-browser | ARIA snapshot shows content |
+| Extract specific text | agent-browser | ARIA snapshot with selectors |
 | Debug visual layout | Playwright | Screenshots show actual rendering |
 | Navigate complex SPA | agent-browser | Waits for dynamic content automatically |
-| Scrape data from table | WebCtl | Structured output from ARIA tree |
+| Scrape data from table | agent-browser | ARIA snapshot shows structure |
 | Test responsive design | Playwright | Viewport control + screenshots |
 | Limited context window | agent-browser | 93% less context than raw HTML |
 | Login flow automation | agent-browser | Stateful session, handles redirects |
@@ -187,43 +196,6 @@ agent-browser wait "Dashboard"
 - Form filling and submission
 - Don't need visual output, just need actions to succeed
 
-### WebCtl
-
-**Best for:** Reading page content, verifying specific elements exist, extracting structured data.
-
-WebCtl provides filtered, structured output using ARIA selectors. Good for verification and data extraction without full automation overhead.
-
-```bash
-# Get page content (filtered, readable)
-webctl get https://example.com
-
-# Get specific element by ARIA selector
-webctl get https://example.com --selector="button[name='Submit']"
-
-# Get all links
-webctl get https://example.com --selector="link"
-
-# Get form inputs
-webctl get https://example.com --selector="textbox"
-
-# Get headings for page structure
-webctl get https://example.com --selector="heading"
-
-# Output as JSON for parsing
-webctl get https://example.com --json
-
-# Check if element exists (useful for assertions)
-webctl get https://example.com --selector="alert" --exists
-```
-
-**When to choose WebCtl:**
-- Verifying specific content exists on page
-- Extracting text from known elements
-- Getting page structure (headings, links, forms)
-- Need machine-readable output (JSON)
-- Quick content checks without full browser session
-- Scraping accessible data from static pages
-
 ### Decision Flowchart
 
 ```
@@ -232,13 +204,11 @@ Need visual output (screenshot/PDF)?
   NO  -> Continue
 
 Need to interact (click/fill/navigate)?
-  YES -> Is context window limited?
-         YES -> agent-browser (93% less context)
-         NO  -> agent-browser (better element finding)
+  YES -> agent-browser (ARIA snapshots, 93% less context)
   NO  -> Continue
 
 Need to verify/extract content?
-  YES -> WebCtl (filtered, structured output)
+  YES -> agent-browser snapshot (compact ARIA tree)
   NO  -> Start with agent-browser snapshot to understand page
 ```
 
@@ -246,7 +216,7 @@ Need to verify/extract content?
 
 **Verify a deployment is live:**
 ```bash
-webctl get https://myapp.com --selector="heading" --exists
+agent-browser navigate "https://myapp.com" --describe
 ```
 
 **Take screenshot of logged-in state:**
@@ -260,9 +230,9 @@ agent-browser wait "Dashboard"
 npx playwright screenshot --save-storage=auth.json https://app.com/dashboard dash.png
 ```
 
-**Extract all links from a page:**
+**Extract page structure:**
 ```bash
-webctl get https://docs.example.com --selector="link" --json | jq '.[].href'
+agent-browser navigate "https://docs.example.com" && agent-browser snapshot
 ```
 
 **Fill and submit a contact form:**

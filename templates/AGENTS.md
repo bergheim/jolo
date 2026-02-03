@@ -79,6 +79,31 @@ repos:
 - markdownlint for Markdown files
 - codespell for typo detection
 
+## Browser Automation
+
+Available tools for web testing and automation:
+
+| Tool | Use Case |
+|------|----------|
+| `npx playwright screenshot <url> file.png` | Screenshots, PDFs |
+| `npx playwright pdf <url> file.pdf` | Generate PDF from page |
+| `agent-browser navigate <url> --describe` | Interactive automation, ARIA snapshots |
+| `agent-browser click "Button Text"` | Click elements by text/label |
+| `agent-browser fill "Field" "value"` | Fill form fields |
+| `agent-browser snapshot` | Get compact ARIA tree (93% less context) |
+
+**Quick patterns:**
+```bash
+# Screenshot a page
+npx playwright screenshot https://example.com shot.png
+
+# Fill and submit a form
+agent-browser navigate "https://example.com/login" && \
+agent-browser fill "Email" "user@example.com" && \
+agent-browser fill "Password" "secret" && \
+agent-browser click "Sign In"
+```
+
 ## Project Setup Checklist
 
 1. Initialize git: `git init`
