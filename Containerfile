@@ -35,6 +35,7 @@ RUN apk update && apk add --no-cache \
     pinentry \
     pkgconf \
     podman \
+    posix-libc-utils \
     python3 \
     ripgrep \
     rust \
