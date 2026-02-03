@@ -908,5 +908,315 @@ class TestVerboseMode(unittest.TestCase):
         self.assertFalse(args.verbose)
 
 
+class TestMountArgParsing(unittest.TestCase):
+    """Test --mount argument parsing."""
+
+    def test_mount_flag_single(self):
+        """--mount should accept source:target."""
+        args = jolo.parse_args(['--mount', '~/data:data'])
+        self.assertEqual(args.mount, ['~/data:data'])
+
+    def test_mount_flag_multiple(self):
+        """--mount can be specified multiple times."""
+        args = jolo.parse_args(['--mount', '~/a:a', '--mount', '~/b:b'])
+        self.assertEqual(args.mount, ['~/a:a', '~/b:b'])
+
+    def test_mount_default_empty(self):
+        """--mount should default to empty list."""
+        args = jolo.parse_args([])
+        self.assertEqual(args.mount, [])
+
+    def test_mount_readonly(self):
+        """--mount should accept :ro suffix."""
+        args = jolo.parse_args(['--mount', '~/data:data:ro'])
+        self.assertEqual(args.mount, ['~/data:data:ro'])
+
+
+class TestCopyArgParsing(unittest.TestCase):
+    """Test --copy argument parsing."""
+
+    def test_copy_flag_single(self):
+        """--copy should accept source:target."""
+        args = jolo.parse_args(['--copy', '~/config.json:config.json'])
+        self.assertEqual(args.copy, ['~/config.json:config.json'])
+
+    def test_copy_flag_multiple(self):
+        """--copy can be specified multiple times."""
+        args = jolo.parse_args(['--copy', '~/a.json', '--copy', '~/b.json:b.json'])
+        self.assertEqual(args.copy, ['~/a.json', '~/b.json:b.json'])
+
+    def test_copy_default_empty(self):
+        """--copy should default to empty list."""
+        args = jolo.parse_args([])
+        self.assertEqual(args.copy, [])
+
+    def test_copy_without_target(self):
+        """--copy should accept source without target."""
+        args = jolo.parse_args(['--copy', '~/config.json'])
+        self.assertEqual(args.copy, ['~/config.json'])
+
+
+class TestMountAndCopyTogether(unittest.TestCase):
+    """Test --mount and --copy used together."""
+
+    def test_mount_and_copy_combined(self):
+        """--mount and --copy can be used together."""
+        args = jolo.parse_args([
+            '--mount', '~/data:data',
+            '--copy', '~/config.json',
+            '--mount', '~/other:other:ro',
+            '--copy', '~/secrets.json:secrets/keys.json'
+        ])
+        self.assertEqual(len(args.mount), 2)
+        self.assertEqual(len(args.copy), 2)
+        self.assertEqual(args.mount, ['~/data:data', '~/other:other:ro'])
+        self.assertEqual(args.copy, ['~/config.json', '~/secrets.json:secrets/keys.json'])
+
+
+class TestMountParsing(unittest.TestCase):
+    """Test parse_mount() function."""
+
+    def test_parse_mount_relative_target(self):
+        """Relative target should resolve to workspace."""
+        result = jolo.parse_mount('~/data:foo', 'myproj')
+        self.assertEqual(result['target'], '/workspaces/myproj/foo')
+        self.assertFalse(result['readonly'])
+
+    def test_parse_mount_absolute_target(self):
+        """Absolute target should be used as-is."""
+        result = jolo.parse_mount('~/data:/mnt/data', 'myproj')
+        self.assertEqual(result['target'], '/mnt/data')
+
+    def test_parse_mount_readonly(self):
+        """:ro suffix should set readonly."""
+        result = jolo.parse_mount('~/data:foo:ro', 'myproj')
+        self.assertTrue(result['readonly'])
+        self.assertEqual(result['target'], '/workspaces/myproj/foo')
+
+    def test_parse_mount_absolute_readonly(self):
+        """Absolute target with :ro suffix."""
+        result = jolo.parse_mount('~/data:/mnt/data:ro', 'myproj')
+        self.assertTrue(result['readonly'])
+        self.assertEqual(result['target'], '/mnt/data')
+
+    def test_parse_mount_expands_tilde(self):
+        """Should expand ~ in source path."""
+        result = jolo.parse_mount('~/data:foo', 'myproj')
+        self.assertNotIn('~', result['source'])
+        self.assertTrue(result['source'].startswith('/'))
+
+    def test_parse_mount_default_readwrite(self):
+        """Default should be read-write."""
+        result = jolo.parse_mount('~/data:foo', 'myproj')
+        self.assertFalse(result['readonly'])
+
+    def test_parse_mount_nested_target(self):
+        """Nested relative target should work."""
+        result = jolo.parse_mount('~/data:some/nested/path', 'myproj')
+        self.assertEqual(result['target'], '/workspaces/myproj/some/nested/path')
+
+
+class TestCopyParsing(unittest.TestCase):
+    """Test parse_copy() function."""
+
+    def test_parse_copy_with_target(self):
+        """Copy with target should resolve correctly."""
+        result = jolo.parse_copy('~/config.json:app/config.json', 'myproj')
+        self.assertEqual(result['target'], '/workspaces/myproj/app/config.json')
+
+    def test_parse_copy_basename_only(self):
+        """Copy without target should use basename."""
+        result = jolo.parse_copy('~/config.json', 'myproj')
+        self.assertEqual(result['target'], '/workspaces/myproj/config.json')
+
+    def test_parse_copy_absolute_target(self):
+        """Copy with absolute target should use as-is."""
+        result = jolo.parse_copy('~/config.json:/tmp/config.json', 'myproj')
+        self.assertEqual(result['target'], '/tmp/config.json')
+
+    def test_parse_copy_expands_tilde(self):
+        """Should expand ~ in source path."""
+        result = jolo.parse_copy('~/config.json', 'myproj')
+        self.assertNotIn('~', result['source'])
+        self.assertTrue(result['source'].startswith('/'))
+
+    def test_parse_copy_nested_source(self):
+        """Nested source path should work."""
+        result = jolo.parse_copy('~/some/nested/config.json', 'myproj')
+        self.assertEqual(result['target'], '/workspaces/myproj/config.json')
+        self.assertTrue(result['source'].endswith('some/nested/config.json'))
+
+
+class TestAddUserMounts(unittest.TestCase):
+    """Test add_user_mounts() function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_add_user_mounts_to_devcontainer_json(self):
+        """Mount should be added to mounts array in JSON."""
+        import json
+
+        # Create devcontainer.json
+        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir.mkdir()
+        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file.write_text(json.dumps({"name": "test", "mounts": []}))
+
+        # Add a mount
+        mounts = [{"source": "/home/user/data", "target": "/workspaces/test/data", "readonly": False}]
+        jolo.add_user_mounts(json_file, mounts)
+
+        # Verify
+        content = json.loads(json_file.read_text())
+        self.assertEqual(len(content['mounts']), 1)
+        self.assertIn('source=/home/user/data', content['mounts'][0])
+        self.assertIn('target=/workspaces/test/data', content['mounts'][0])
+        self.assertIn('type=bind', content['mounts'][0])
+
+    def test_mount_readonly_format(self):
+        """Readonly mount should include ,readonly in mount string."""
+        import json
+
+        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir.mkdir()
+        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file.write_text(json.dumps({"name": "test", "mounts": []}))
+
+        mounts = [{"source": "/data", "target": "/mnt", "readonly": True}]
+        jolo.add_user_mounts(json_file, mounts)
+
+        content = json.loads(json_file.read_text())
+        self.assertIn(',readonly', content['mounts'][0])
+
+    def test_multiple_mounts_in_json(self):
+        """Multiple mounts should all be added."""
+        import json
+
+        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir.mkdir()
+        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file.write_text(json.dumps({"name": "test", "mounts": ["existing"]}))
+
+        mounts = [
+            {"source": "/a", "target": "/mnt/a", "readonly": False},
+            {"source": "/b", "target": "/mnt/b", "readonly": True},
+        ]
+        jolo.add_user_mounts(json_file, mounts)
+
+        content = json.loads(json_file.read_text())
+        self.assertEqual(len(content['mounts']), 3)  # existing + 2 new
+
+    def test_add_user_mounts_creates_mounts_array(self):
+        """Should create mounts array if not present."""
+        import json
+
+        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir.mkdir()
+        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file.write_text(json.dumps({"name": "test"}))
+
+        mounts = [{"source": "/data", "target": "/mnt", "readonly": False}]
+        jolo.add_user_mounts(json_file, mounts)
+
+        content = json.loads(json_file.read_text())
+        self.assertIn('mounts', content)
+        self.assertEqual(len(content['mounts']), 1)
+
+    def test_add_user_mounts_empty_list(self):
+        """Empty mounts list should not modify file."""
+        import json
+
+        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir.mkdir()
+        json_file = devcontainer_dir / 'devcontainer.json'
+        original = {"name": "test"}
+        json_file.write_text(json.dumps(original))
+
+        jolo.add_user_mounts(json_file, [])
+
+        content = json.loads(json_file.read_text())
+        self.assertEqual(content, original)
+
+
+class TestCopyUserFiles(unittest.TestCase):
+    """Test copy_user_files() function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_file_copied_to_correct_location(self):
+        """File should be copied to target location."""
+        workspace = Path(self.tmpdir) / 'workspace'
+        workspace.mkdir()
+
+        # Create source file
+        source = Path(self.tmpdir) / 'source.json'
+        source.write_text('{"test": true}')
+
+        copies = [{"source": str(source), "target": "/workspaces/myproj/config.json"}]
+        jolo.copy_user_files(copies, workspace)
+
+        target = workspace / 'config.json'
+        self.assertTrue(target.exists())
+        self.assertEqual(target.read_text(), '{"test": true}')
+
+    def test_parent_directories_created(self):
+        """Parent directories should be created if needed."""
+        workspace = Path(self.tmpdir) / 'workspace'
+        workspace.mkdir()
+
+        source = Path(self.tmpdir) / 'source.json'
+        source.write_text('test')
+
+        copies = [{"source": str(source), "target": "/workspaces/myproj/nested/deep/config.json"}]
+        jolo.copy_user_files(copies, workspace)
+
+        target = workspace / 'nested' / 'deep' / 'config.json'
+        self.assertTrue(target.exists())
+
+    def test_error_on_missing_source(self):
+        """Should error if source file doesn't exist."""
+        workspace = Path(self.tmpdir) / 'workspace'
+        workspace.mkdir()
+
+        copies = [{"source": "/nonexistent/file.json", "target": "/workspaces/myproj/config.json"}]
+
+        with self.assertRaises(SystemExit) as cm:
+            jolo.copy_user_files(copies, workspace)
+        self.assertIn('does not exist', str(cm.exception.code))
+
+    def test_multiple_copies(self):
+        """Multiple files should all be copied."""
+        workspace = Path(self.tmpdir) / 'workspace'
+        workspace.mkdir()
+
+        source1 = Path(self.tmpdir) / 'a.json'
+        source1.write_text('a')
+        source2 = Path(self.tmpdir) / 'b.json'
+        source2.write_text('b')
+
+        copies = [
+            {"source": str(source1), "target": "/workspaces/myproj/a.json"},
+            {"source": str(source2), "target": "/workspaces/myproj/b.json"},
+        ]
+        jolo.copy_user_files(copies, workspace)
+
+        self.assertTrue((workspace / 'a.json').exists())
+        self.assertTrue((workspace / 'b.json').exists())
+
+
 if __name__ == '__main__':
     unittest.main()

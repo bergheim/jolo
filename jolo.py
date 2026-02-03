@@ -68,6 +68,74 @@ def verbose_print(msg: str) -> None:
         print(f"[verbose] {msg}", file=sys.stderr)
 
 
+def parse_mount(arg: str, project_name: str) -> dict:
+    """Parse mount argument into structured data.
+
+    Syntax:
+        source:target        - relative target, read-write
+        source:target:ro     - relative target, read-only
+        source:/abs/target   - absolute target
+        source:/abs/target:ro - absolute target, read-only
+
+    Returns dict with keys: source, target, readonly
+    """
+    parts = arg.split(":")
+    readonly = False
+
+    # Check for :ro suffix
+    if len(parts) >= 2 and parts[-1] == "ro":
+        readonly = True
+        parts = parts[:-1]
+
+    if len(parts) < 2:
+        sys.exit(f"Error: Invalid mount syntax: {arg} (expected source:target)")
+
+    # Handle Windows-style paths or paths with colons
+    source = parts[0]
+    target = ":".join(parts[1:])
+
+    # Expand ~ in source
+    source = os.path.expanduser(source)
+
+    # Resolve target: absolute if starts with /, else relative to workspace
+    if not target.startswith("/"):
+        target = f"/workspaces/{project_name}/{target}"
+
+    return {"source": source, "target": target, "readonly": readonly}
+
+
+def parse_copy(arg: str, project_name: str) -> dict:
+    """Parse copy argument into structured data.
+
+    Syntax:
+        source:target  - copy to target path
+        source         - copy to workspace with original basename
+
+    Returns dict with keys: source, target
+    """
+    if ":" in arg:
+        # Split on first colon only (in case target has colons)
+        parts = arg.split(":", 1)
+        source = parts[0]
+        target = parts[1]
+    else:
+        source = arg
+        target = None
+
+    # Expand ~ in source
+    source = os.path.expanduser(source)
+
+    # Resolve target
+    if target is None:
+        # Use basename of source
+        target = f"/workspaces/{project_name}/{Path(source).name}"
+    elif not target.startswith("/"):
+        # Relative target - prepend workspace
+        target = f"/workspaces/{project_name}/{target}"
+
+    return {"source": source, "target": target}
+
+
 def verbose_cmd(cmd: list[str]) -> None:
     """Print command if verbose mode is enabled."""
     if VERBOSE:
@@ -287,6 +355,24 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print commands being executed"
+    )
+
+    parser.add_argument(
+        "--mount",
+        action="append",
+        default=[],
+        metavar="SRC:TARGET[:ro]",
+        help="Mount host path into container. TARGET is relative to workspace "
+        "unless absolute. Append :ro for readonly. Can be repeated.",
+    )
+
+    parser.add_argument(
+        "--copy",
+        action="append",
+        default=[],
+        metavar="SRC[:TARGET]",
+        help="Copy file to workspace before start. TARGET defaults to basename. "
+        "Can be repeated.",
     )
 
     if HAVE_ARGCOMPLETE:
@@ -568,6 +654,65 @@ def validate_init_mode() -> None:
     git_root = find_git_root()
     if git_root is not None:
         sys.exit("Error: Already in a git repository. Use jolo without --init.")
+
+
+def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
+    """Add user-specified mounts to devcontainer.json.
+
+    Args:
+        devcontainer_json_path: Path to devcontainer.json
+        mounts: List of mount dicts with keys: source, target, readonly
+    """
+    if not mounts:
+        return
+
+    content = json.loads(devcontainer_json_path.read_text())
+
+    if "mounts" not in content:
+        content["mounts"] = []
+
+    for mount in mounts:
+        mount_str = f"source={mount['source']},target={mount['target']},type=bind"
+        if mount["readonly"]:
+            mount_str += ",readonly"
+        content["mounts"].append(mount_str)
+
+    devcontainer_json_path.write_text(json.dumps(content, indent=4))
+
+
+def copy_user_files(copies: list[dict], workspace_dir: Path) -> None:
+    """Copy user-specified files to workspace.
+
+    Args:
+        copies: List of copy dicts with keys: source, target
+        workspace_dir: The workspace directory (project root)
+    """
+    for copy_spec in copies:
+        source = Path(copy_spec["source"])
+        # Convert absolute container path to workspace-relative path
+        target_path = copy_spec["target"]
+        if target_path.startswith("/workspaces/"):
+            # Strip /workspaces/project/ prefix to get relative path
+            parts = target_path.split("/", 3)
+            if len(parts) >= 4:
+                relative = parts[3]
+                target = workspace_dir / relative
+            else:
+                # Just the project dir, use source basename
+                target = workspace_dir / source.name
+        else:
+            # Absolute path outside workspace - copy there directly
+            target = Path(target_path)
+
+        if not source.exists():
+            sys.exit(f"Error: Copy source does not exist: {source}")
+
+        # Create parent directories if needed
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy file
+        shutil.copy2(source, target)
+        verbose_print(f"Copied {source} -> {target}")
 
 
 def add_worktree_git_mount(devcontainer_json_path: Path, main_git_dir: Path) -> None:
@@ -1264,6 +1409,17 @@ def run_default_mode(args: argparse.Namespace) -> None:
     # Scaffold .devcontainer if missing
     scaffold_devcontainer(project_name, config=config)
 
+    # Add user-specified mounts to devcontainer.json
+    if args.mount:
+        parsed_mounts = [parse_mount(m, project_name) for m in args.mount]
+        devcontainer_json = git_root / ".devcontainer" / "devcontainer.json"
+        add_user_mounts(devcontainer_json, parsed_mounts)
+
+    # Copy user-specified files
+    if args.copy:
+        parsed_copies = [parse_copy(c, project_name) for c in args.copy]
+        copy_user_files(parsed_copies, git_root)
+
     # Set up secrets in environment
     secrets = get_secrets(config)
     os.environ.update(secrets)
@@ -1392,6 +1548,17 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         from_branch=args.from_branch,
     )
 
+    # Add user-specified mounts to devcontainer.json
+    if args.mount:
+        parsed_mounts = [parse_mount(m, worktree_name) for m in args.mount]
+        devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
+        add_user_mounts(devcontainer_json, parsed_mounts)
+
+    # Copy user-specified files
+    if args.copy:
+        parsed_copies = [parse_copy(c, worktree_name) for c in args.copy]
+        copy_user_files(parsed_copies, worktree_path)
+
     # Set up secrets in environment
     secrets = get_secrets(config)
     os.environ.update(secrets)
@@ -1466,6 +1633,17 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Change to project directory for devcontainer commands
     os.chdir(project_path)
 
+    # Add user-specified mounts to devcontainer.json
+    if args.mount:
+        parsed_mounts = [parse_mount(m, project_name) for m in args.mount]
+        devcontainer_json = project_path / ".devcontainer" / "devcontainer.json"
+        add_user_mounts(devcontainer_json, parsed_mounts)
+
+    # Copy user-specified files
+    if args.copy:
+        parsed_copies = [parse_copy(c, project_name) for c in args.copy]
+        copy_user_files(parsed_copies, project_path)
+
     # Set up secrets in environment
     secrets = get_secrets(config)
     os.environ.update(secrets)
@@ -1532,6 +1710,17 @@ def run_init_mode(args: argparse.Namespace) -> None:
     subprocess.run(cmd, cwd=project_path)
 
     print(f"Initialized: {project_path}")
+
+    # Add user-specified mounts to devcontainer.json
+    if args.mount:
+        parsed_mounts = [parse_mount(m, project_name) for m in args.mount]
+        devcontainer_json = project_path / ".devcontainer" / "devcontainer.json"
+        add_user_mounts(devcontainer_json, parsed_mounts)
+
+    # Copy user-specified files
+    if args.copy:
+        parsed_copies = [parse_copy(c, project_name) for c in args.copy]
+        copy_user_files(parsed_copies, project_path)
 
     # Set up secrets in environment
     secrets = get_secrets(config)
