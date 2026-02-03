@@ -68,11 +68,40 @@ DEFAULT_CONFIG = {
 # Global verbose flag
 VERBOSE = False
 
+# Valid languages for --lang flag
+VALID_LANGUAGES = frozenset(["python", "go", "typescript", "rust", "shell", "prose", "other"])
+
 
 def verbose_print(msg: str) -> None:
     """Print message if verbose mode is enabled."""
     if VERBOSE:
         print(f"[verbose] {msg}", file=sys.stderr)
+
+
+def parse_lang_arg(value: str) -> list[str]:
+    """Parse and validate --lang argument.
+
+    Accepts comma-separated language names, strips whitespace, validates
+    each language against VALID_LANGUAGES.
+
+    Args:
+        value: Comma-separated string of language names
+
+    Returns:
+        List of validated language names
+
+    Raises:
+        argparse.ArgumentTypeError: If any language is invalid
+    """
+    languages = [lang.strip() for lang in value.split(",")]
+    invalid = [lang for lang in languages if lang not in VALID_LANGUAGES]
+    if invalid:
+        valid_list = ", ".join(sorted(VALID_LANGUAGES))
+        raise argparse.ArgumentTypeError(
+            f"Invalid language(s): {', '.join(invalid)}. "
+            f"Valid options: {valid_list}"
+        )
+    return languages
 
 
 def get_agent_command(config: dict, agent_name: str | None = None, index: int = 0) -> str:
@@ -441,6 +470,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         metavar="SRC[:TARGET]",
         help="Copy file to workspace before start. TARGET defaults to basename. "
         "Can be repeated.",
+    )
+
+    parser.add_argument(
+        "--lang",
+        type=parse_lang_arg,
+        default=None,
+        metavar="LANG[,LANG,...]",
+        help="Project language(s), comma-separated. "
+        "Valid: python, go, typescript, rust, shell, prose, other",
     )
 
     if HAVE_ARGCOMPLETE:

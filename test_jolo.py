@@ -1250,6 +1250,70 @@ class TestAddUserMounts(unittest.TestCase):
         self.assertEqual(content, original)
 
 
+class TestGitignoreTemplate(unittest.TestCase):
+    """Test universal .gitignore template."""
+
+    def setUp(self):
+        self.template_path = Path(__file__).parent / 'templates' / '.gitignore'
+
+    def test_gitignore_template_exists(self):
+        """templates/.gitignore should exist."""
+        self.assertTrue(self.template_path.exists(), f"Missing {self.template_path}")
+
+    def test_gitignore_contains_python_patterns(self):
+        """Should contain Python ignore patterns."""
+        content = self.template_path.read_text()
+        self.assertIn('__pycache__', content)
+        self.assertIn('.venv', content)
+        self.assertIn('*.pyc', content)
+
+    def test_gitignore_contains_node_patterns(self):
+        """Should contain Node.js ignore patterns."""
+        content = self.template_path.read_text()
+        self.assertIn('node_modules/', content)
+        self.assertIn('dist/', content)
+
+    def test_gitignore_contains_rust_patterns(self):
+        """Should contain Rust ignore patterns."""
+        content = self.template_path.read_text()
+        self.assertIn('target/', content)
+
+    def test_gitignore_contains_general_patterns(self):
+        """Should contain general ignore patterns."""
+        content = self.template_path.read_text()
+        self.assertIn('.env', content)
+        self.assertIn('.DS_Store', content)
+        self.assertIn('*.log', content)
+
+
+class TestPreCommitTemplate(unittest.TestCase):
+    """Test pre-commit template configuration."""
+
+    def test_pre_commit_template_exists(self):
+        """templates/.pre-commit-config.yaml should exist."""
+        template_path = Path(__file__).parent / 'templates' / '.pre-commit-config.yaml'
+        self.assertTrue(template_path.exists(), f"Template not found at {template_path}")
+
+    def test_pre_commit_template_contains_gitleaks_hook(self):
+        """Template should contain gitleaks hook."""
+        template_path = Path(__file__).parent / 'templates' / '.pre-commit-config.yaml'
+        content = template_path.read_text()
+
+        # Check that gitleaks hook is configured
+        self.assertIn('id: gitleaks', content, "Should have gitleaks hook id")
+
+    def test_pre_commit_template_gitleaks_repo_url(self):
+        """Gitleaks repo URL should be correct."""
+        template_path = Path(__file__).parent / 'templates' / '.pre-commit-config.yaml'
+        content = template_path.read_text()
+
+        self.assertIn(
+            'repo: https://github.com/gitleaks/gitleaks',
+            content,
+            "Gitleaks repo URL should be https://github.com/gitleaks/gitleaks"
+        )
+
+
 class TestCopyUserFiles(unittest.TestCase):
     """Test copy_user_files() function."""
 
@@ -1321,6 +1385,126 @@ class TestCopyUserFiles(unittest.TestCase):
 
         self.assertTrue((workspace / 'a.json').exists())
         self.assertTrue((workspace / 'b.json').exists())
+
+
+class TestLangArgParsing(unittest.TestCase):
+    """Test --lang argument parsing."""
+
+    def test_lang_flag_single(self):
+        """--lang should accept a single language."""
+        args = jolo.parse_args(['--lang', 'python'])
+        self.assertEqual(args.lang, ['python'])
+
+    def test_lang_flag_comma_separated(self):
+        """--lang should accept comma-separated values."""
+        args = jolo.parse_args(['--lang', 'python,typescript'])
+        self.assertEqual(args.lang, ['python', 'typescript'])
+
+    def test_lang_flag_multiple_values(self):
+        """--lang should handle multiple comma-separated values."""
+        args = jolo.parse_args(['--lang', 'python,go,rust'])
+        self.assertEqual(args.lang, ['python', 'go', 'rust'])
+
+    def test_lang_default_none(self):
+        """--lang should default to None."""
+        args = jolo.parse_args([])
+        self.assertIsNone(args.lang)
+
+    def test_lang_valid_values(self):
+        """--lang should accept all valid language values."""
+        valid_langs = ['python', 'go', 'typescript', 'rust', 'shell', 'prose', 'other']
+        for lang in valid_langs:
+            args = jolo.parse_args(['--lang', lang])
+            self.assertEqual(args.lang, [lang])
+
+    def test_lang_invalid_value_raises_error(self):
+        """--lang should reject invalid language values."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(['--lang', 'invalid_language'])
+
+    def test_lang_mixed_valid_invalid_raises_error(self):
+        """--lang should reject if any value is invalid."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(['--lang', 'python,invalid'])
+
+    def test_lang_with_create(self):
+        """--lang can combine with --create."""
+        args = jolo.parse_args(['--create', 'myproject', '--lang', 'python,typescript'])
+        self.assertEqual(args.create, 'myproject')
+        self.assertEqual(args.lang, ['python', 'typescript'])
+
+    def test_lang_is_optional(self):
+        """--lang is not required for any command."""
+        # Should not raise
+        args = jolo.parse_args(['--create', 'myproject'])
+        self.assertIsNone(args.lang)
+
+    def test_lang_whitespace_handling(self):
+        """--lang should handle values with whitespace around commas."""
+        args = jolo.parse_args(['--lang', 'python, typescript, go'])
+        self.assertEqual(args.lang, ['python', 'typescript', 'go'])
+
+
+class TestEditorconfigTemplate(unittest.TestCase):
+    """Test templates/.editorconfig file."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Read the editorconfig file once for all tests."""
+        cls.template_path = Path(__file__).parent / 'templates' / '.editorconfig'
+        if cls.template_path.exists():
+            cls.content = cls.template_path.read_text()
+            cls.lines = cls.content.strip().split('\n')
+        else:
+            cls.content = None
+            cls.lines = []
+
+    def test_editorconfig_exists(self):
+        """templates/.editorconfig should exist."""
+        self.assertTrue(self.template_path.exists(),
+                       f"Expected {self.template_path} to exist")
+
+    def test_root_true(self):
+        """Should have root = true."""
+        self.assertIn('root = true', self.content)
+
+    def test_default_indent_4_spaces(self):
+        """Default indent should be 4 spaces."""
+        # Find the [*] section and check indent settings
+        self.assertIn('indent_style = space', self.content)
+        self.assertIn('indent_size = 4', self.content)
+
+    def test_go_files_use_tabs(self):
+        """Go files (*.go) should use tabs."""
+        # Find the [*.go] section
+        self.assertIn('[*.go]', self.content)
+        # Check that indent_style = tab appears after [*.go]
+        go_section_start = self.content.index('[*.go]')
+        go_section = self.content[go_section_start:]
+        # Check for tab indent in Go section (before next section or end)
+        next_section = go_section.find('\n[', 1)
+        if next_section != -1:
+            go_section = go_section[:next_section]
+        self.assertIn('indent_style = tab', go_section)
+
+    def test_makefile_uses_tabs(self):
+        """Makefile should use tabs."""
+        self.assertIn('[Makefile]', self.content)
+        # Check that indent_style = tab appears after [Makefile]
+        makefile_section_start = self.content.index('[Makefile]')
+        makefile_section = self.content[makefile_section_start:]
+        next_section = makefile_section.find('\n[', 1)
+        if next_section != -1:
+            makefile_section = makefile_section[:next_section]
+        self.assertIn('indent_style = tab', makefile_section)
+
+    def test_end_of_line_lf(self):
+        """Should have end_of_line = lf."""
+        self.assertIn('end_of_line = lf', self.content)
+
+    def test_charset_utf8(self):
+        """Should have charset = utf-8."""
+        self.assertIn('charset = utf-8', self.content)
 
 
 if __name__ == '__main__':
