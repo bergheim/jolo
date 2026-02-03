@@ -1995,36 +1995,35 @@ def spawn_tmux_multipane(
     first_agent_name = get_agent_name(config, agent_override, index=0)
 
     quoted_prompt = shlex.quote(prompt)
-    exec_cmd = f"devcontainer exec --workspace-folder {first_path} {first_agent_cmd} {quoted_prompt}"
 
+    # Build exec command using sh -c to properly handle agent flags
+    def build_exec_cmd(path: Path, agent_cmd: str) -> str:
+        inner_cmd = f"{agent_cmd} {quoted_prompt}"
+        return f"devcontainer exec --workspace-folder {path} sh -c {shlex.quote(inner_cmd)}"
+
+    # Create new session with first window
+    first_exec_cmd = build_exec_cmd(first_path, first_agent_cmd)
     subprocess.run([
         "tmux", "new-session", "-d", "-s", session_name, "-n", worktree_names[0],
     ])
-
-    # Send command to first pane
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{session_name}:0", exec_cmd, "Enter"
+        "tmux", "send-keys", "-t", f"{session_name}:{worktree_names[0]}", first_exec_cmd, "Enter"
     ])
 
-    # Create additional panes
+    # Create additional windows (not panes - full screen each)
     for i in range(1, n):
         path = worktree_paths[i]
         name = worktree_names[i]
         agent_cmd = get_agent_command(config, agent_override, index=i)
 
-        exec_cmd = f"devcontainer exec --workspace-folder {path} {agent_cmd} {quoted_prompt}"
+        exec_cmd = build_exec_cmd(path, agent_cmd)
 
-        # Split window and send command
+        # Create new window (full screen) and send command
         subprocess.run([
-            "tmux", "split-window", "-t", session_name, "-h"
+            "tmux", "new-window", "-t", session_name, "-n", name
         ])
         subprocess.run([
-            "tmux", "send-keys", "-t", session_name, exec_cmd, "Enter"
-        ])
-
-        # Rebalance layout
-        subprocess.run([
-            "tmux", "select-layout", "-t", session_name, "tiled"
+            "tmux", "send-keys", "-t", f"{session_name}:{name}", exec_cmd, "Enter"
         ])
 
     print(f"\nStarted {n} agents in tmux session '{session_name}'")
