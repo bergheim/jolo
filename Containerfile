@@ -1,74 +1,50 @@
-FROM alpine:latest
+FROM cgr.dev/chainguard/wolfi-base:latest
+
+# Wolfi uses glibc (not musl) - playwright/browser automation will work!
+# Package names may differ from Alpine - this is a best-effort port
 
 RUN apk update && apk add --no-cache \
-    adwaita-fonts \
-    adwaita-fonts-mono \
-    adwaita-fonts-sans \
-    adwaita-icon-theme \
-    adwaita-icon-theme-dev \
-    adwaita-xfce-icon-theme \
-    aspell \
-    aspell-en \
-    breeze-cursors \
-    autoconf \
-    automake \
+    bash \
     build-base \
-    cargo \
     cmake \
     coreutils \
     curl \
-    dbus \
-    emacs-pgtk-nativecomp \
-    enchant2 \
-    enchant2-dev \
-    eza \
+    emacs \
     fd \
     fontconfig \
-    font-jetbrains-mono-nerd \
-    font-noto-emoji \
     fzf \
-    github-cli \
     git \
-    go \
-    golangci-lint \
-    gopls \
+    glibc-locale-en \
     gnupg \
-    gum \
-    hunspell \
-    hunspell-en \
+    go \
     jq \
-    mesa-dri-gallium \
-    mise \
-    ncurses-terminfo \
-    ncurses-terminfo-base \
     neovim \
     nodejs \
     npm \
-    pinentry \
-    pinentry-tty \
-    podman \
-    pkgconf \
-    py3-lsp-server \
-    py3-pip \
+    openssh-client \
     python3 \
     ripgrep \
     rust \
-    rust-analyzer \
-    shellcheck \
     sqlite \
     sudo \
     tmux \
-    ttf-dejavu \
-    wayland-libs-client \
-    wayland-libs-cursor \
-    wl-clipboard \
     wget \
-    yadm \
-    yamllint \
     yq \
-    zoxide \
     zsh
 
+# Packages not in Wolfi - install via other means
+# - github-cli: install from GitHub releases
+# - gum: install from GitHub releases
+# - shellcheck: install from GitHub releases
+# - cargo: comes with rust (rustup)
+RUN wget -qO- https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.tar.gz | tar xz -C /tmp && \
+    mv /tmp/gh_2.67.0_linux_amd64/bin/gh /usr/local/bin/ && \
+    wget -qO- https://github.com/charmbracelet/gum/releases/download/v0.14.5/gum_0.14.5_Linux_x86_64.tar.gz | tar xz -C /tmp && \
+    mv /tmp/gum_0.14.5_Linux_x86_64/gum /usr/local/bin/ && \
+    wget -qO- https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz | tar xJ -C /tmp && \
+    mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/
+
+# npm global packages (language servers, browser automation, etc.)
 RUN npm install -g \
     @biomejs/biome \
     agent-browser \
@@ -83,12 +59,10 @@ RUN npm install -g \
     pyright \
     @ansible/ansible-language-server
 
-# it's a good idea to set this to your current host user as this will enable better history location sharing. recenf etc)
-# Build with say podman build --build-arg USERNAME=$(whoami) -t emacs-gui .
+# User setup
 ARG USERNAME=tsb
 ARG USER_ID=1000
 ARG GROUP_ID=1000
-# this is just so YOLO mode does not go bananas
 ARG USER_PASSWORD=dev123
 
 RUN addgroup -g $GROUP_ID $USERNAME && \
@@ -101,15 +75,15 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 COPY e /usr/local/bin/e
 RUN chmod +x /usr/local/bin/e
 
-# hadolint (Dockerfile linter) - not in Alpine repos
+# hadolint (Dockerfile linter)
 RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint
 
 USER $USERNAME
-ENV HOME /home/$USERNAME
+ENV HOME=/home/$USERNAME
 WORKDIR $HOME
 
-# Local package managers for user-managed tools (AI CLIs, etc.)
+# Local package managers for user-managed tools
 ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
 ENV PNPM_HOME=$HOME/.local/share/pnpm
 ENV PATH="$PNPM_HOME:$NPM_CONFIG_PREFIX/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
@@ -125,7 +99,6 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     mkdir -p $HOME/.gnupg && \
     chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
-    echo "pinentry-program /usr/bin/pinentry-tty" >> $HOME/.gnupg/gpg-agent.conf && \
     # Claude CLI (YOLO mode)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
     curl -fsSL https://claude.ai/install.sh | bash && \
@@ -134,18 +107,19 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
-    # tmux clipboard (OSC 52) - enable clipboard passthrough to terminal
+    # tmux clipboard (OSC 52)
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
-    # uv - fast Python package manager (no system pip, uv only!)
+    # uv - fast Python package manager
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    # Python tools via uv (isolated environments, no externally-managed-environment errors)
+    # Python tools via uv
     $HOME/.local/bin/uv tool install pre-commit && \
     $HOME/.local/bin/uv tool install ruff && \
     $HOME/.local/bin/uv tool install ansible-lint && \
-    $HOME/.local/bin/uv tool install ty
+    $HOME/.local/bin/uv tool install ty && \
+    # Browser automation (glibc = playwright just works!)
+    npx playwright install chromium
 
-# don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
 
 # ENTRYPOINT script for GUI launch
