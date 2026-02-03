@@ -134,9 +134,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     $HOME/.local/bin/uv tool install ty && \
     $HOME/.local/bin/uv tool install webctl && \
     # Configure webctl to use system chromium headlessly
-    $HOME/.local/bin/webctl config set use_global_playwright true && \
-    $HOME/.local/bin/webctl config set browser_executable_path /usr/bin/chromium && \
-    $HOME/.local/bin/webctl config set default_mode unattended && \
+    mkdir -p $HOME/.config/webctl && \
+    echo '{"idle_timeout":900,"auto_start":true,"default_session":"default","default_mode":"unattended","domain_policy":{"enabled":false,"policy":{"mode":"deny","allow":[],"deny":[]}},"a11y_include_bbox":false,"a11y_include_path_hint":true,"screenshot_on_error":false,"screenshot_error_dir":null,"browser_executable_path":"/usr/bin/chromium","use_global_playwright":true,"proxy_server":null,"proxy_username":null,"proxy_password":null,"proxy_bypass":null}' > $HOME/.config/webctl/config.json && \
     # Go tools
     go install golang.org/x/tools/gopls@latest && \
     # mise (version manager)
