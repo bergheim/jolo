@@ -577,6 +577,30 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             shutil.copy2(src, gemini_cache / filename)
 
 
+def copy_template_files(target_dir: Path) -> None:
+    """Copy template files to the target directory.
+
+    Copies AGENTS.md, CLAUDE.md, GEMINI.md, and .pre-commit-config.yaml
+    from the templates/ directory relative to jolo.py.
+
+    Prints a warning if templates/ directory doesn't exist but continues.
+    """
+    templates_dir = Path(__file__).parent / "templates"
+
+    if not templates_dir.exists():
+        print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
+        return
+
+    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".pre-commit-config.yaml"]
+
+    for filename in template_files:
+        src = templates_dir / filename
+        if src.exists():
+            dst = target_dir / filename
+            shutil.copy2(src, dst)
+            verbose_print(f"Copied template: {filename}")
+
+
 def scaffold_devcontainer(
     project_name: str,
     target_dir: Path | None = None,
@@ -1682,6 +1706,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Create project directory
     project_path.mkdir()
+
+    # Copy template files (AGENTS.md, CLAUDE.md, etc.)
+    copy_template_files(project_path)
 
     # Initialize git repo
     cmd = ["git", "init"]
