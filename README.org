@@ -29,14 +29,7 @@ podman build --build-arg USERNAME=$(whoami) \
 
 * What's Included
 
-- Wolfi Linux (glibc) base
-- Emacs, Neovim, tmux
-- Claude Code, Gemini CLI, Codex CLI
-- Language servers: Go, Rust, TypeScript, Python, Bash, YAML, Dockerfile
-- Browser automation: playwright, agent-browser, webctl
-- Dev tools: ripgrep, fd, jq, yq, gh, pre-commit, ruff, golangci-lint
-
-See [[file:AGENTS.md][AGENTS.md]] for AI agent guidance.
+Wolfi Linux (glibc), Emacs, AI tools (Claude/Gemini/Codex), language servers, browser automation, all the usual dev tools. See [[file:AGENTS.md][AGENTS.md]] for details.
 
 * Worktrees
 
