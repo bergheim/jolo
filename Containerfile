@@ -26,12 +26,14 @@ RUN apk update && apk add --no-cache \
     fontconfig \
     font-jetbrains-mono-nerd \
     font-noto-emoji \
+    fzf \
     github-cli \
     git \
     go \
     golangci-lint \
     gopls \
     gnupg \
+    gum \
     hunspell \
     hunspell-en \
     jq \
@@ -141,11 +143,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     $HOME/.local/bin/uv tool install pre-commit && \
     $HOME/.local/bin/uv tool install ruff && \
     $HOME/.local/bin/uv tool install ansible-lint && \
-    $HOME/.local/bin/uv tool install webctl && \
-    $HOME/.local/bin/uv tool install ty && \
-    # Browser automation (agent-agnostic)
-    npx playwright install chromium && \
-    agent-browser install
+    $HOME/.local/bin/uv tool install ty
 
 # don't load elfeed, org, etc
 ENV EMACS_CONTAINER=1
