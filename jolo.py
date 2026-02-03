@@ -1916,15 +1916,17 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
     # Start containers in parallel
     print(f"Starting {n} containers...")
     processes = []
-    for path in worktree_paths:
+    for i, path in enumerate(worktree_paths):
         cmd = ["devcontainer", "up", "--workspace-folder", str(path)]
         if args.new:
             cmd.append("--remove-existing-container")
         verbose_cmd(cmd)
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         processes.append((path, proc))
+        print(f"  [{i+1}/{n}] Launched: {path.name}")
 
     # Wait for all containers to start
+    print(f"Waiting for {n} containers to be ready...")
     failed = []
     for path, proc in processes:
         stdout, stderr = proc.communicate()
@@ -1932,9 +1934,12 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             failed.append(path.name)
             print(f"  Failed: {path.name}", file=sys.stderr)
             if stderr:
-                print(f"    {stderr.decode().strip()}", file=sys.stderr)
+                # Show last few lines of error
+                err_lines = stderr.decode().strip().split('\n')
+                for line in err_lines[-5:]:
+                    print(f"    {line}", file=sys.stderr)
         else:
-            print(f"  Started: {path.name}")
+            print(f"  Ready: {path.name}")
 
     if failed:
         print(f"Warning: {len(failed)} container(s) failed to start: {', '.join(failed)}")
