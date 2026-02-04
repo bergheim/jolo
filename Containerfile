@@ -14,6 +14,7 @@ RUN apk update && apk add --no-cache \
     curl \
     dbus \
     emacs \
+    enchant2 \
     eza \
     fd \
     fontconfig \
@@ -22,6 +23,7 @@ RUN apk update && apk add --no-cache \
     glibc \
     glibc-locale-en \
     gnupg \
+    gpg \
     go \
     gstreamer \
     hunspell \
