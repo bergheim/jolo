@@ -371,6 +371,13 @@ def get_test_framework_config(language: str) -> dict:
     """
     if language == "python":
         config_content = """\
+[project]
+name = "{{PROJECT_NAME}}"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.12"
+dependencies = []
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
@@ -604,7 +611,7 @@ def get_project_init_commands(language: str, project_name: str) -> list[list[str
     commands: list[list[str]] = []
 
     if language == "python":
-        commands.append(["uv", "init", "--no-readme"])  # non-interactive
+        # pyproject.toml is created during scaffolding, just ensure tests dir exists
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
         commands.append(["bun", "init"])  # interactive project template picker
@@ -2311,12 +2318,13 @@ def run_create_mode(args: argparse.Namespace) -> None:
     test_config = get_test_framework_config(primary_language)
     if test_config.get("config_file"):
         config_file = project_path / test_config["config_file"]
+        content = test_config["config_content"].replace("{{PROJECT_NAME}}", project_name)
         if config_file.exists():
             # Append to existing file
             existing = config_file.read_text()
-            config_file.write_text(existing + "\n" + test_config["config_content"])
+            config_file.write_text(existing + "\n" + content)
         else:
-            config_file.write_text(test_config["config_content"])
+            config_file.write_text(content)
         verbose_print(f"Wrote test framework config: {test_config['config_file']}")
 
     # Write example test file for primary language
