@@ -59,7 +59,7 @@ DEFAULT_CONFIG = {
     "agents": ["claude", "gemini", "codex"],
     "agent_commands": {
         "claude": "claude --dangerously-skip-permissions",
-        "gemini": "gemini",
+        "gemini": "gemini --yolo",
         "codex": "codex",
     },
     "base_port": 4000,

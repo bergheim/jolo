@@ -123,6 +123,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # AI tools (installed to $PNPM_HOME via pnpm)
     pnpm add -g @google/gemini-cli @openai/codex && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
+    echo 'alias gemini="gemini --yolo"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
     # tmux clipboard (OSC 52)
