@@ -2348,8 +2348,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Scaffold .devcontainer
     scaffold_devcontainer(project_name, project_path, config=config)
 
-    # Initial commit with .devcontainer
-    cmd = ["git", "add", ".devcontainer"]
+    # Initial commit with all generated files
+    cmd = ["git", "add", "."]
     verbose_cmd(cmd)
     subprocess.run(cmd, cwd=project_path)
 
@@ -2436,8 +2436,8 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Scaffold .devcontainer
     scaffold_devcontainer(project_name, project_path, config=config)
 
-    # Initial commit with .devcontainer
-    cmd = ["git", "add", ".devcontainer"]
+    # Initial commit with all generated files
+    cmd = ["git", "add", "."]
     verbose_cmd(cmd)
     subprocess.run(cmd, cwd=project_path)
 
