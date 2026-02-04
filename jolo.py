@@ -378,36 +378,46 @@ description = ""
 requires-python = ">=3.12"
 dependencies = []
 
+[project.scripts]
+{{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{PROJECT_NAME_UNDERSCORE}}"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 """
+        main_content = '''\
+def hello() -> str:
+    return "Hello, World!"
+
+
+def main() -> None:
+    print(hello())
+
+
+if __name__ == "__main__":
+    main()
+'''
         example_test_content = '''\
-"""Example test module demonstrating pytest usage."""
+from {{PROJECT_NAME_UNDERSCORE}}.main import hello
 
 
-def test_example_passes():
-    """Example test that should pass."""
-    assert True
-
-
-def test_addition():
-    """Test basic arithmetic."""
-    assert 1 + 1 == 2
-
-
-def test_string_operations():
-    """Test string operations."""
-    result = "hello".upper()
-    assert result == "HELLO"
+def test_hello():
+    assert hello() == "Hello, World!"
 '''
         return {
             "config_file": "pyproject.toml",
             "config_content": config_content,
-            "example_test_file": "tests/test_example.py",
+            "example_test_file": "tests/test_main.py",
             "example_test_content": example_test_content,
+            "main_file": "src/{{PROJECT_NAME_UNDERSCORE}}/main.py",
+            "main_content": main_content,
+            "init_file": "src/{{PROJECT_NAME_UNDERSCORE}}/__init__.py",
+            "tests_init_file": "tests/__init__.py",
         }
 
     elif language == "typescript":
@@ -2316,9 +2326,17 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Write test framework config for primary language
     test_config = get_test_framework_config(primary_language)
+    # Python module names use underscores, not hyphens
+    module_name = project_name.replace("-", "_")
+
+    def replace_placeholders(text: str) -> str:
+        return text.replace("{{PROJECT_NAME}}", project_name).replace(
+            "{{PROJECT_NAME_UNDERSCORE}}", module_name
+        )
+
     if test_config.get("config_file"):
         config_file = project_path / test_config["config_file"]
-        content = test_config["config_content"].replace("{{PROJECT_NAME}}", project_name)
+        content = replace_placeholders(test_config["config_content"])
         if config_file.exists():
             # Append to existing file
             existing = config_file.read_text()
@@ -2327,11 +2345,32 @@ def run_create_mode(args: argparse.Namespace) -> None:
             config_file.write_text(content)
         verbose_print(f"Wrote test framework config: {test_config['config_file']}")
 
+    # Write main module file (Python src layout)
+    if test_config.get("main_file") and test_config.get("main_content"):
+        main_path = project_path / replace_placeholders(test_config["main_file"])
+        main_path.parent.mkdir(parents=True, exist_ok=True)
+        main_path.write_text(test_config["main_content"])
+        verbose_print(f"Wrote main module: {main_path.relative_to(project_path)}")
+
+    # Write __init__.py for Python packages
+    if test_config.get("init_file"):
+        init_path = project_path / replace_placeholders(test_config["init_file"])
+        init_path.parent.mkdir(parents=True, exist_ok=True)
+        init_path.write_text("")
+        verbose_print(f"Wrote package init: {init_path.relative_to(project_path)}")
+
+    # Write tests/__init__.py for Python test packages
+    if test_config.get("tests_init_file"):
+        tests_init_path = project_path / test_config["tests_init_file"]
+        tests_init_path.parent.mkdir(parents=True, exist_ok=True)
+        tests_init_path.write_text("")
+        verbose_print(f"Wrote tests init: {tests_init_path.relative_to(project_path)}")
+
     # Write example test file for primary language
     if test_config.get("example_test_file") and test_config.get("example_test_content"):
         example_test_path = project_path / test_config["example_test_file"]
         example_test_path.parent.mkdir(parents=True, exist_ok=True)
-        example_test_path.write_text(test_config["example_test_content"])
+        example_test_path.write_text(replace_placeholders(test_config["example_test_content"]))
         verbose_print(f"Wrote example test: {test_config['example_test_file']}")
 
     # Write type checker config for primary language
