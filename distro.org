@@ -1,0 +1,216 @@
+#+TITLE: Distro Research for Devcontainer
+#+DATE: 2026-02-05
+
+* Overview
+
+Currently using Wolfi (glibc-based, security-focused). Pain point: thin package
+ecosystem means many dev tools must be wget-installed.
+
+* Package Availability Comparison
+
+Tools we currently wget in Wolfi:
+- gh (GitHub CLI)
+- gum (Charm TUI toolkit)
+- shellcheck
+- entr (file watcher)
+- just (task runner)
+- yadm (dotfile manager)
+- golangci-lint
+
+** Void Linux
+
+| Package       | Available | Install Command              |
+|---------------|-----------|------------------------------|
+| gh            | YES       | xbps-install github-cli      |
+| gum           | ?         | needs verification           |
+| shellcheck    | YES       | xbps-install shellcheck      |
+| entr          | YES       | xbps-install entr            |
+| just          | YES       | xbps-install just            |
+| yadm          | YES       | xbps-install yadm            |
+| golangci-lint | ?         | needs verification           |
+
+Void has both glibc and musl variants. Would need glibc for Playwright.
+
+** Fedora
+
+| Package       | Available | Install Command              |
+|---------------|-----------|------------------------------|
+| gh            | YES       | dnf install gh               |
+| gum           | ?         | possibly via COPR            |
+| shellcheck    | YES       | dnf install ShellCheck       |
+| entr          | YES       | dnf install entr             |
+| just          | ?         | possibly via COPR            |
+| yadm          | YES       | dnf copr enable .../yadm     |
+| golangci-lint | YES       | dnf install golangci-lint    |
+
+Fedora is glibc, packages are relatively fresh (6-month release cycle).
+
+** Alpine
+
+| Package       | Available | Notes                        |
+|---------------|-----------|------------------------------|
+| gh            | YES       | apk add github-cli           |
+| gum           | YES       | apk add gum                  |
+| shellcheck    | YES       | apk add shellcheck           |
+| entr          | YES       | apk add entr                 |
+| just          | YES       | apk add just                 |
+| yadm          | YES       | apk add yadm                 |
+| golangci-lint | YES       | apk add golangci-lint        |
+
+Alpine has excellent package coverage BUT uses musl libc.
+Playwright and some prebuilt binaries won't work.
+
+** Wolfi (current)
+
+| Package       | Available | Notes                        |
+|---------------|-----------|------------------------------|
+| gh            | NO        | wget from GitHub             |
+| gum           | NO        | wget from GitHub             |
+| shellcheck    | NO        | wget from GitHub             |
+| entr          | NO        | wget + compile               |
+| just          | YES       | apk add just                 |
+| yadm          | NO        | wget from GitHub             |
+| golangci-lint | NO        | curl installer               |
+
+Wolfi is glibc (good for Playwright) but thin dev tool coverage.
+
+* Distro Comparison Matrix
+
+| Distro | Size    | libc  | Freshness   | Dev Tools | Container-friendly |
+|--------|---------|-------|-------------|-----------|-------------------|
+| Wolfi  | ~50MB   | glibc | Fresh       | Poor      | Excellent         |
+| Alpine | ~5MB    | musl  | Fresh       | Excellent | Excellent         |
+| Fedora | ~170MB  | glibc | Fresh       | Excellent | Good              |
+| Void   | ~50MB   | both  | Fresh       | Good      | Good              |
+| Debian | ~120MB  | glibc | Stale       | Excellent | Good              |
+| Arch   | ~150MB  | glibc | Bleeding    | Excellent | Fair              |
+| Ubuntu | ~75MB   | glibc | Mixed       | Excellent | Good              |
+
+* Recommendations
+
+** If Playwright is required (needs glibc):
+1. Fedora - best package coverage, reasonable size
+2. Void (glibc) - smaller, good coverage, less mainstream
+3. Stay with Wolfi - accept wget maintenance burden
+
+** If Playwright is NOT required:
+1. Alpine - tiny, excellent packages, battle-tested for containers
+
+* Alpine + Playwright Research
+
+** The Problem
+
+Playwright bundles pre-compiled binaries (Node, Chromium) built against glibc.
+Alpine uses musl libc, which is NOT binary-compatible with glibc.
+
+Official Playwright stance: "Alpine Linux and other distributions based on musl
+standard library are not supported."
+
+** Workarounds Investigated
+
+*** 1. gcompat / libc6-compat layer
+- Alpine provides ~libc6-compat~ package
+- Works for simple binaries, NOT reliable for complex apps like Chromium
+- Chromium has deep glibc dependencies throughout
+- Verdict: *Does not work for Playwright*
+
+*** 2. Remote Browser Server (Official workaround)
+- Run Playwright client on Alpine
+- Connect to Playwright server running in glibc container (mcr.microsoft.com/playwright)
+- Command: ~npx playwright run-server~
+- Verdict: *Works but adds complexity* (two containers, network overhead)
+
+*** 3. Rebuild Playwright against musl (Hacky)
+- Clone playwright-python, rebuild with Alpine's Node
+- Replace bundled glibc Node binary with system musl Node
+- Symlink system Node into driver directory
+- Verdict: *Works but fragile* - author says "don't recommend anyone actually does this"
+- Risk: breaks if Playwright adds native glibc module dependencies
+
+*** 4. Zenika/alpine-chrome Docker image
+- Community Alpine image with Chromium
+- Can work with Playwright
+- Verdict: *Partial solution* - maintained by third party
+
+*** 5. System Chromium + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD (Promising!)
+Source: https://github.com/pestphp/pest/issues/1563 (Jan 2026 comment)
+
+Skip Playwright's bundled glibc browser, use Alpine's native musl Chromium:
+
+#+begin_src dockerfile
+# Skip bundled browser download
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+# Install Alpine's musl-compiled Chromium
+RUN apk add --no-cache chromium
+#+end_src
+
+#+begin_src javascript
+// Point Playwright to system Chromium
+const browser = await playwright.chromium.launch({
+  executablePath: '/usr/bin/chromium-browser'
+});
+#+end_src
+
+- Verdict: *NEEDS TESTING* - cleanest approach if it works
+- Risk: Playwright version may expect specific Chromium features
+
+** Conclusion
+
+Alpine + Playwright has a promising workaround (system Chromium) that needs testing.
+If it works, Alpine becomes viable and we get excellent package coverage.
+
+** Alternatives to Playwright (if we abandon it)
+
+| Tool              | Pros                          | Cons                         |
+|-------------------|-------------------------------|------------------------------|
+| Puppeteer         | Similar API                   | Same glibc bundling problem  |
+| Selenium          | Uses system browser           | Verbose API, heavyweight     |
+| CDP direct        | No bundling issues            | Low-level, more code         |
+| agent-browser     | Already in container          | Need to check internals      |
+| browserless.io    | No local browser              | External dependency, cost    |
+| Playwright Connect| Official solution             | Two containers needed        |
+
+* TODO [2/7]
+- [ ] Verify gum availability in Void/Fedora
+- [ ] Verify golangci-lint in Void
+- [ ] Test Void glibc container image size
+- [ ] Test Fedora minimal container image size
+- [X] Check if Alpine + glibc-compat works for Playwright → NO
+- [-] Test Alpine + system Chromium + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+  - [ ] Build Alpine test container
+  - [ ] Install chromium via apk
+  - [ ] Run playwright with executablePath
+  - [ ] Verify screenshots/PDF generation work
+- [ ] Check what agent-browser uses under the hood
+
+* Backlog
+
+** TODO Unified worktree model
+Instead of one container per worktree, mount all worktrees under /workspaces/:
+
+#+begin_example
+/workspaces/
+  emacs-container/              # main
+  emacs-container-alpine-test/  # worktree
+  emacs-container-feat-x/       # worktree
+#+end_example
+
+Benefits:
+- One container, one tmux session
+- Multiple panes for different worktrees
+- Just ~cd~ to switch context
+- Multiple Claude instances in different panes
+- Less resource usage
+
+Project deps (.venv, node_modules) are per-directory anyway.
+
+** TODO Add generation date to AGENTS.md template
+When scaffolding a project, AGENTS.md should include the date it was generated.
+
+* Sources
+- https://voidlinux.org/packages/
+- https://packages.fedoraproject.org/
+- https://pkgs.alpinelinux.org/
+- https://yadm.io/docs/install
+- https://github.com/cli/cli/blob/trunk/docs/install_linux.md
