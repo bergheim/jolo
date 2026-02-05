@@ -364,10 +364,11 @@ def get_motd_content(language: str, project_name: str) -> str:
         MOTD content string
     """
     if language == "python":
+        module_name = project_name.replace("-", "_")
         return f"""\
 {project_name}
 
-  Run:   uv run {project_name}
+  Run:   uv run python src/{module_name}/main.py
   Test:  uv run pytest
   Deps:  uv add <package>
 """
@@ -424,6 +425,9 @@ description = ""
 requires-python = ">=3.12"
 dependencies = []
 
+[dependency-groups]
+dev = ["pytest"]
+
 [project.scripts]
 {{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"
 
@@ -432,6 +436,7 @@ packages = ["src/{{PROJECT_NAME_UNDERSCORE}}"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
