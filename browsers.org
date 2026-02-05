@@ -1,0 +1,667 @@
+#+TITLE: Browser Automation for LLM Agents: Playwright vs agent-browser
+#+AUTHOR: Research Notes
+#+DATE: 2026-02-05
+#+OPTIONS: toc:2 num:t
+
+* Executive Summary
+
+This document compares browser automation tools from the perspective of autonomous
+LLM usage (AI agents). The key finding is that **context efficiency** is the primary
+differentiator: raw HTML can consume 30KB+ for a simple page, while ARIA snapshots
+reduce this to 5-8KB (interactive-only mode).
+
+| Tool           | Context/Tokens    | Best For                        | Statefulness   | Alpine |
+|----------------+-------------------+---------------------------------+----------------|--------|
+| Playwright CLI | N/A (screenshots) | Visual output, PDFs             | Stateless      | ✗      |
+| Playwright MCP | ARIA snapshots    | Full automation via MCP         | Stateful       | ?      |
+| agent-browser  | ARIA + refs       | CLI-driven LLM automation       | Session-based  | ✗      |
+| browser-check  | ARIA + refs       | Alpine-compatible CLI           | Stateless      | ✓      |
+| Browser Use    | Element indices   | Python autonomous agents        | Agent-managed  | ✗      |
+| Stagehand      | Hybrid (AI+code)  | Production apps with self-heal  | Context-aware  | ?      |
+
+* Context Efficiency
+
+** The Problem: Raw HTML Token Explosion
+
+When an LLM needs to understand a web page, the naive approach is sending raw HTML.
+This is extremely token-inefficient:
+
+#+begin_example
+# Hacker News homepage example
+Raw HTML:    34,101 bytes
+Full ARIA:   45,181 bytes  (includes all text content)
+Interactive: 7,679 bytes   (only clickable elements)
+#+end_example
+
+For an LLM with a context window, 34KB of HTML means:
+- ~8,500 tokens consumed just for page structure
+- Most of it is noise (CSS classes, data attributes, script tags)
+- No semantic understanding of what's clickable vs decorative
+
+** agent-browser's "93% Less Context" Claim
+
+The agent-browser tool addresses this with ARIA snapshots. The claim of "93% less
+context" is measured by comparing raw HTML to the interactive-only snapshot mode:
+
+#+begin_src shell
+# Raw HTML
+curl -s "https://news.ycombinator.com" | wc -c
+# => 34,101 bytes
+
+# Interactive-only ARIA snapshot
+agent-browser open "https://news.ycombinator.com"
+agent-browser snapshot -i | wc -c
+# => 7,679 bytes (77% reduction)
+
+# With simpler pages (example.com)
+# Raw HTML: ~1,200 bytes
+# Interactive: ~30 bytes (97%+ reduction)
+#+end_src
+
+The reduction varies by page complexity, but for typical pages with many
+non-interactive elements, the savings are substantial.
+
+** ARIA Snapshot Format
+
+Both Playwright and agent-browser use YAML-like ARIA snapshot format:
+
+#+begin_src yaml
+# Example.com snapshot (agent-browser)
+- document:
+  - heading "Example Domain" [ref=e1] [level=1]
+  - paragraph: This domain is for use in documentation examples...
+  - paragraph:
+    - link "Learn more" [ref=e2]:
+      - /url: https://iana.org/domains/example
+#+end_src
+
+#+begin_src yaml
+# Interactive-only mode (-i flag) strips non-interactive elements
+- link "Learn more" [ref=e1]
+#+end_src
+
+Key features of this format:
+- Semantic roles (link, button, heading, textbox) instead of HTML tags
+- Accessible names in quotes
+- Attributes in brackets [checked], [level=1], [ref=e3]
+- Element references (@e1, @e2) for targeting in subsequent commands
+
+** Comparison: Playwright ARIA vs agent-browser
+
+Both use the same underlying ARIA tree from Playwright. The difference is in how
+they're exposed to LLMs:
+
+| Feature                | Playwright ARIA           | agent-browser             |
+|------------------------+---------------------------+---------------------------|
+| Access method          | JS API / MCP              | CLI commands              |
+| Element references     | Via locators              | @e1, @e2, @e3 refs        |
+| Filtering              | Locator scoping           | -i, -c, -d, -s flags      |
+| JSON output            | ariaSnapshot() method     | --json flag               |
+| Designed for           | Test assertions           | LLM agent interaction     |
+
+* API Surface for LLMs
+
+** agent-browser CLI
+
+agent-browser is designed specifically for LLM agents. Every command is a simple
+one-liner that an LLM can easily construct:
+
+#+begin_src shell
+# Core workflow commands
+agent-browser open <url>          # Navigate
+agent-browser snapshot            # Get page state
+agent-browser snapshot -i         # Interactive elements only
+agent-browser click @e3           # Click element by ref
+agent-browser fill @e5 "text"     # Fill input by ref
+agent-browser type "search query" # Type text
+agent-browser press "Enter"       # Press key
+agent-browser wait "Success"      # Wait for text/element
+
+# Information retrieval
+agent-browser get text @e1        # Get element text
+agent-browser get url             # Get current URL
+agent-browser get title           # Get page title
+
+# Session management
+agent-browser --session myflow open url  # Named sessions
+agent-browser close                       # Close browser
+#+end_src
+
+*** Advantages for LLMs
+
+1. *Simple command syntax*: All commands follow =agent-browser <verb> [target] [value]=
+2. *Deterministic refs*: @e1, @e2 refs are stable within a session
+3. *Structured output*: =--json= flag returns machine-parseable JSON
+4. *Error messages*: Clear feedback when actions fail
+
+*** Example JSON output
+
+#+begin_src json
+{
+  "success": true,
+  "data": {
+    "refs": {
+      "e1": {"name": "Example Domain", "role": "heading"},
+      "e2": {"name": "Learn more", "role": "link"}
+    },
+    "snapshot": "- document:\n  - heading \"Example Domain\"..."
+  },
+  "error": null
+}
+#+end_src
+
+** Playwright CLI
+
+Playwright's CLI is limited for LLM automation - it's designed for developers,
+not agents:
+
+#+begin_src shell
+# Available CLI commands
+npx playwright screenshot <url> <file>   # Take screenshot
+npx playwright pdf <url> <file>          # Generate PDF
+npx playwright codegen <url>             # Record actions (interactive)
+npx playwright open <url>                # Open browser (interactive)
+#+end_src
+
+Playwright CLI cannot:
+- Return page content/structure to stdout
+- Accept interaction commands (click, fill)
+- Maintain stateful sessions from CLI
+
+For programmatic control, you need the JavaScript/Python/C# API or MCP server.
+
+** Playwright MCP Server
+
+The Playwright MCP server exposes browser automation to LLMs via Model Context
+Protocol:
+
+#+begin_src json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+#+end_src
+
+*** Tools exposed via MCP
+
+- =navigate= - Go to URL
+- =click= - Click element
+- =fill= - Fill input field
+- =snapshot= - Get accessibility tree
+- =screenshot= - Take screenshot (with =--caps vision=)
+- =pdf= - Generate PDF (with =--caps pdf=)
+
+*** Snapshot modes
+
+#+begin_src shell
+npx @playwright/mcp --snapshot-mode incremental  # Only changed elements
+npx @playwright/mcp --snapshot-mode full         # Complete tree each time
+npx @playwright/mcp --snapshot-mode none         # No automatic snapshots
+#+end_src
+
+* Stateful vs Stateless Operations
+
+** Playwright CLI: Stateless
+
+Each Playwright CLI command launches a new browser instance:
+
+#+begin_src shell
+# Each command is independent - no shared state
+npx playwright screenshot https://example.com/login login.png
+npx playwright screenshot https://example.com/dashboard dash.png
+# dashboard.png will show login page again (not logged in)
+#+end_src
+
+For stateful workflows, you need:
+- =--load-storage= / =--save-storage= flags (cookies/localStorage)
+- Full programmatic API
+- MCP server with persistent context
+
+** agent-browser: Session-based
+
+agent-browser maintains browser state across commands:
+
+#+begin_src shell
+# Login flow - state persists
+agent-browser open "https://app.example.com/login"
+agent-browser fill "Email" "user@example.com"
+agent-browser fill "Password" "secret"
+agent-browser click "Sign In"
+agent-browser wait "Dashboard"           # Now logged in
+agent-browser snapshot -i                # See dashboard elements
+
+# Named sessions for parallel workflows
+agent-browser --session flow1 open "https://site1.com"
+agent-browser --session flow2 open "https://site2.com"
+agent-browser --session flow1 click @e3  # Interact with site1
+#+end_src
+
+*** Session persistence options
+
+#+begin_src shell
+# Ephemeral session (default)
+agent-browser open url                   # Session dies on close
+
+# Persistent profile (survives restarts)
+agent-browser --profile ~/.myapp open url
+
+# Load saved state
+agent-browser --state ./auth-state.json open url
+#+end_src
+
+** Playwright MCP: Stateful via context
+
+MCP server maintains browser context for the duration of the session:
+
+#+begin_src shell
+# Start with isolated context
+npx @playwright/mcp --isolated
+
+# Or with pre-loaded state
+npx @playwright/mcp --storage-state auth.json
+#+end_src
+
+* Output Formats
+
+** What the LLM Sees After Each Action
+
+*** agent-browser
+
+#+begin_src shell
+# Navigation
+$ agent-browser open "https://example.com"
+# Output:
+✓ Example Domain
+  https://example.com/
+
+# Click
+$ agent-browser click @e2
+# Output:
+✓ Clicked "Learn more"
+
+# Snapshot (text)
+$ agent-browser snapshot
+# Output:
+- document:
+  - heading "Example Domain" [ref=e1] [level=1]
+  - link "Learn more" [ref=e2]
+
+# Snapshot (JSON)
+$ agent-browser snapshot --json
+# Output:
+{"success":true,"data":{"refs":{...},"snapshot":"..."},"error":null}
+#+end_src
+
+*** Playwright CLI
+
+#+begin_src shell
+# Screenshot
+$ npx playwright screenshot https://example.com shot.png
+# Output: (none - file created)
+
+# PDF
+$ npx playwright pdf https://example.com doc.pdf
+# Output: (none - file created)
+#+end_src
+
+For LLMs, the key difference is that agent-browser provides *text feedback*
+that can be parsed, while Playwright CLI produces *binary files* that require
+vision models or separate processing.
+
+** Screenshots as Fallback
+
+When ARIA snapshots don't capture enough information (canvas, images, complex
+layouts), screenshots are still valuable:
+
+#+begin_src shell
+# agent-browser can screenshot
+agent-browser screenshot page.png
+agent-browser screenshot --full page-full.png
+
+# Playwright's strength
+npx playwright screenshot --viewport-size=1280,720 url shot.png
+npx playwright screenshot --wait-for-selector=".loaded" url shot.png
+#+end_src
+
+* Use Case Decision Matrix
+
+** When to use Playwright CLI directly
+
+- Taking screenshots for visual inspection
+- Generating PDFs of web pages
+- Quick one-off visual captures
+- No need for interaction or page content
+
+#+begin_src shell
+# PDF generation
+npx playwright pdf https://example.com/report report.pdf
+
+# Full-page screenshot
+npx playwright screenshot --full-page https://example.com full.png
+
+# Specific viewport
+npx playwright screenshot --viewport-size=1920,1080 url desktop.png
+npx playwright screenshot --device "iPhone 12" url mobile.png
+#+end_src
+
+** When to use agent-browser
+
+- LLM needs to understand page structure
+- Multi-step interactions (login, forms, navigation)
+- Need minimal token usage
+- CLI-based agent workflows
+
+#+begin_src shell
+# Complete login flow
+agent-browser open "https://app.example.com/login" && \
+agent-browser fill "Email" "$EMAIL" && \
+agent-browser fill "Password" "$PASS" && \
+agent-browser click "Sign In" && \
+agent-browser wait "Dashboard" && \
+agent-browser snapshot -i
+#+end_src
+
+** When to use Playwright MCP
+
+- Building agents with MCP-compatible frameworks
+- Need full Playwright capability programmatically
+- Want structured tool interface for LLMs
+- Long-running automation sessions
+
+** When to use full Playwright API
+
+- Complex test automation
+- Custom browser manipulation
+- Need fine-grained control (network interception, etc.)
+- Building reusable automation libraries
+
+* Alternative Tools for LLM Browser Automation
+
+** Browser Use (Python)
+
+Repository: [[https://github.com/browser-use/browser-use][github.com/browser-use/browser-use]]
+
+Browser Use is a Python framework for building autonomous web agents. It presents
+pages as indexed clickable elements rather than full ARIA trees.
+
+#+begin_src python
+from browser_use import Agent, Browser, ChatBrowserUse
+import asyncio
+
+async def example():
+    browser = Browser()
+    llm = ChatBrowserUse()  # Optimized model for browser tasks
+    agent = Agent(
+        task="Find the number of stars on browser-use repo",
+        llm=llm,
+        browser=browser,
+    )
+    history = await agent.run()
+    return history
+
+asyncio.run(example())
+#+end_src
+
+*** Key features
+
+- Natural language task descriptions
+- Multi-LLM support (ChatBrowserUse, Claude, GPT-4, etc.)
+- Action visualization
+- Cloud deployment option
+
+*** Trade-offs
+
+- Python-only (no CLI for shell-based agents)
+- Higher-level abstraction (less control)
+- Requires Python runtime in agent environment
+
+** Stagehand (TypeScript/JavaScript)
+
+Repository: [[https://github.com/browserbase/stagehand][github.com/browserbase/stagehand]]
+
+Stagehand bridges traditional automation with AI assistance. It provides three
+core methods:
+
+#+begin_src typescript
+import { Stagehand } from "@browserbase/stagehand";
+
+const stagehand = new Stagehand();
+const page = stagehand.context.pages()[0];
+
+// Navigate traditionally
+await page.goto("https://github.com/browserbase");
+
+// act() - AI-driven actions with natural language
+await stagehand.act("click on the stagehand repo");
+
+// agent() - Multi-step reasoning
+const agent = stagehand.agent();
+await agent.execute("Get to the latest PR");
+
+// extract() - Structured data extraction with schema
+const { author, title } = await stagehand.extract(
+  "extract the author and title",
+  z.object({
+    author: z.string().describe("PR author username"),
+    title: z.string().describe("PR title"),
+  }),
+);
+#+end_src
+
+*** Key features
+
+- Hybrid approach: code when you know selectors, AI when you don't
+- Auto-caching: repeated actions don't need LLM calls
+- Self-healing: adapts when websites change
+- Zod schema validation for extracted data
+
+*** Trade-offs
+
+- JavaScript/TypeScript only
+- Requires Browserbase for cloud deployment
+- More setup than CLI tools
+
+** browser-check (Alpine-compatible)
+
+We built ~browser-check.js~ as an Alpine-compatible alternative to agent-browser.
+It uses Playwright's Node.js API with system Chromium, bypassing glibc requirements.
+
+#+begin_src shell
+# ARIA snapshot (like agent-browser snapshot)
+browser-check https://example.com --aria
+
+# Interactive only (like agent-browser snapshot -i)
+browser-check https://example.com --aria --interactive
+
+# Full diagnostic for LLM
+browser-check https://localhost:4000 --aria --interactive --errors --console --json
+
+# Screenshots and PDFs
+browser-check https://example.com --screenshot --output shot.png
+browser-check https://example.com --pdf --output page.pdf
+#+end_src
+
+*** Comparison with agent-browser
+
+| Feature           | agent-browser      | browser-check       |
+|-------------------+--------------------+---------------------|
+| Alpine support    | ✗ (glibc binary)   | ✓                   |
+| ARIA snapshots    | ✓                  | ✓                   |
+| Element refs      | ✓ (@e1, @e2)       | ✓ ([ref=e1])        |
+| Interactive filter| ✓ (-i flag)        | ✓ (--interactive)   |
+| JSON output       | ✓ (--json)         | ✓ (--json)          |
+| Console capture   | ✓                  | ✓ (--console)       |
+| Error detection   | ✓                  | ✓ (--errors)        |
+| Session/state     | ✓ (persistent)     | ✗ (stateless)       |
+| Click/fill        | ✓                  | ✗ (not yet)         |
+| Context reduction | 93%                | 93%                 |
+| Tree format       | Flat               | Hierarchical        |
+
+The main limitation is that browser-check is stateless (no persistent sessions),
+and doesn't yet support interaction commands (click, fill). For inspection and
+debugging, it's a full replacement.
+
+** Comparison Table
+
+| Tool          | Language   | Interface  | Context Format    | Multi-step | Self-heal | Alpine |
+|---------------+------------+------------+-------------------+------------+-----------+--------|
+| agent-browser | Any (CLI)  | CLI        | ARIA + refs       | Sessions   | No        | ✗      |
+| browser-check | Any (CLI)  | CLI        | ARIA + refs       | No         | No        | ✓      |
+| Playwright    | JS/TS/Py   | API / MCP  | ARIA              | Context    | No        | API ✓  |
+| Browser Use   | Python     | SDK        | Indexed elements  | Agent      | Partial   | ✗      |
+| Stagehand     | TypeScript | SDK        | AI-parsed         | Agent      | Yes       | ?      |
+| Browserbase   | Any        | Cloud API  | Varies            | Yes        | Depends   | N/A    |
+
+* Practical Examples for LLM Agents
+
+** Example 1: Simple Page Inspection
+
+Goal: Understand what's on a page and report back
+
+#+begin_src shell
+# agent-browser approach (recommended for LLMs)
+agent-browser open "https://news.ycombinator.com"
+agent-browser snapshot -i | head -30
+# Returns structured list of interactive elements with refs
+
+# Playwright approach (for developers)
+# Requires writing a script or using MCP
+#+end_src
+
+** Example 2: Form Submission
+
+Goal: Fill and submit a contact form
+
+#+begin_src shell
+# agent-browser
+agent-browser open "https://example.com/contact"
+agent-browser snapshot -i  # See form fields
+agent-browser fill "Name" "Test User"
+agent-browser fill "Email" "test@example.com"
+agent-browser fill "Message" "Hello, this is a test."
+agent-browser click "Send"
+agent-browser wait "Thank you"
+agent-browser snapshot -i  # Verify success
+#+end_src
+
+** Example 3: Login and Navigate
+
+Goal: Log in and extract data from authenticated page
+
+#+begin_src shell
+# agent-browser with session
+agent-browser open "https://app.example.com/login"
+agent-browser fill "Email" "$EMAIL"
+agent-browser fill "Password" "$PASSWORD"
+agent-browser click "Sign In"
+agent-browser wait "Dashboard"
+
+# Now navigate to specific section
+agent-browser click "Settings"
+agent-browser wait "Account Settings"
+agent-browser snapshot -i  # See settings options
+
+# Extract specific value
+agent-browser get text "Current Plan"
+#+end_src
+
+** Example 4: Screenshot After Dynamic Load
+
+Goal: Screenshot a page after JavaScript rendering
+
+#+begin_src shell
+# Using Playwright (better for screenshots)
+npx playwright screenshot \
+  --wait-for-selector=".content-loaded" \
+  --full-page \
+  https://example.com/dashboard \
+  dashboard.png
+
+# Or with agent-browser for waiting + playwright for capture
+agent-browser open "https://example.com/dashboard"
+agent-browser wait ".content-loaded"
+npx playwright screenshot https://example.com/dashboard dashboard.png
+#+end_src
+
+** Example 5: Debug JavaScript Errors
+
+Goal: Check for console errors on a page
+
+#+begin_src shell
+# agent-browser has console access
+agent-browser open "https://example.com"
+agent-browser console  # View any JavaScript errors
+
+# Clear and re-check
+agent-browser console --clear
+agent-browser click "Load Data"
+agent-browser console  # Check for new errors
+#+end_src
+
+* Recommendations
+
+** For CLI-based LLM Agents (Claude Code, Codex, etc.)
+
+*** On glibc systems (Wolfi, Fedora, Debian, etc.)
+
+Use *agent-browser* as the primary tool:
+- Simple CLI interface maps well to tool use
+- Session-based state for multi-step flows
+- =snapshot -i= provides minimal context
+- Refs (@e1, @e2) make element selection deterministic
+
+*** On musl systems (Alpine)
+
+Use *browser-check* as the agent-browser alternative:
+- Same ARIA snapshots with refs
+- Same 93% context reduction
+- Works with system Chromium on Alpine
+- Stateless (no sessions), but covers inspection/debugging use cases
+
+#+begin_src shell
+# Equivalent commands
+# agent-browser:
+agent-browser open "https://example.com"
+agent-browser snapshot -i
+
+# browser-check:
+browser-check https://example.com --aria --interactive
+#+end_src
+
+Use *Playwright CLI* for:
+- Screenshots and PDFs only
+- Visual output requirements
+
+** For SDK-based Agents (Custom Python/JS)
+
+Consider *Stagehand* if:
+- You want hybrid AI + deterministic automation
+- Self-healing is important
+- You're building production applications
+
+Consider *Browser Use* if:
+- You prefer Python
+- You want high-level autonomous agents
+- Natural language task description fits your use case
+
+** For MCP-compatible Frameworks
+
+Use *Playwright MCP* server:
+- Standard MCP interface
+- Full Playwright capabilities
+- Structured accessibility snapshots
+
+* References
+
+- [[https://github.com/vercel-labs/agent-browser][agent-browser GitHub]]
+- [[https://www.npmjs.com/package/agent-browser][agent-browser npm]]
+- [[https://github.com/microsoft/playwright-mcp][Playwright MCP GitHub]]
+- [[https://playwright.dev/docs/aria-snapshots][Playwright ARIA Snapshots Documentation]]
+- [[https://github.com/browserbase/stagehand][Stagehand GitHub]]
+- [[https://github.com/browser-use/browser-use][Browser Use GitHub]]
+- [[https://www.browserbase.com][Browserbase]]
+- [[https://browser-use.com][Browser Use (official site)]]

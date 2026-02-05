@@ -2175,18 +2175,31 @@ def run_destroy_mode(args: argparse.Namespace) -> None:
         subprocess.run(["git", "worktree", "prune"], cwd=main_repo, capture_output=True)
         verbose_print("Pruned stale worktree entries")
 
-        # Delete the branch if we found one
+        # Delete the branch if we found one (requires confirmation)
         if worktree_branch:
-            result = subprocess.run(
-                ["git", "branch", "-D", worktree_branch],
-                cwd=main_repo,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                print(f"Deleted branch: {worktree_branch}")
+            delete_branch = False
+            if args.yes:
+                delete_branch = True
             else:
-                print(f"Note: Could not delete branch {worktree_branch}: {result.stderr.strip()}")
+                try:
+                    response = input(f"Also delete branch '{worktree_branch}'? [y/N] ")
+                    delete_branch = response.lower() == "y"
+                except (EOFError, KeyboardInterrupt):
+                    print()
+
+            if delete_branch:
+                result = subprocess.run(
+                    ["git", "branch", "-D", worktree_branch],
+                    cwd=main_repo,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    print(f"Deleted branch: {worktree_branch}")
+                else:
+                    print(f"Note: Could not delete branch {worktree_branch}: {result.stderr.strip()}")
+            else:
+                print(f"Branch preserved: {worktree_branch}")
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:

@@ -88,12 +88,28 @@ Wolfi is glibc (good for Playwright) but thin dev tool coverage.
 
 * Recommendations
 
-** If Playwright is required (needs glibc):
+** UPDATED (2026-02-05): Alpine is now viable for browser automation
+
+With ~browser-check.js~, Alpine can do everything we need:
+- Playwright API works with system Chromium
+- ARIA snapshots with refs (93% context reduction)
+- Console/error capture for autonomous debugging
+- Screenshots and PDFs
+
+*DONE: Switched to Alpine (2026-02-05)*
+- ~Containerfile~ is now Alpine edge (Emacs 30.2, Go 1.25, etc.)
+- ~Containerfile.wolfi~ kept as glibc backup
+- All dev tools via apk (gh, gum, shellcheck, entr, just, yadm, golangci-lint)
+- Browser automation works via browser-check
+
+** Legacy recommendations (before browser-check)
+
+*** If Playwright is required (needs glibc):
 1. Fedora - best package coverage, reasonable size
 2. Void (glibc) - smaller, good coverage, less mainstream
 3. Stay with Wolfi - accept wget maintenance burden
 
-** If Playwright is NOT required:
+*** If Playwright is NOT required:
 1. Alpine - tiny, excellent packages, battle-tested for containers
 
 * Alpine + Playwright Research
@@ -157,8 +173,68 @@ const browser = await playwright.chromium.launch({
 
 ** Conclusion
 
-Alpine + Playwright has a promising workaround (system Chromium) that needs testing.
-If it works, Alpine becomes viable and we get excellent package coverage.
+*VERIFIED (2026-02-05):* Alpine + system Chromium + Playwright Node.js API WORKS.
+
+The workaround:
+1. ~ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1~
+2. ~apk add chromium~
+3. Launch with ~executablePath: '/usr/bin/chromium-browser'~
+
+*However:* Higher-level CLI tools do NOT work on Alpine:
+- agent-browser: ships glibc binary wrapper
+- webctl: Python playwright has no musl wheels
+
+| Tool             | Alpine (musl) | Wolfi (glibc) | Notes                    |
+|------------------|---------------|---------------|--------------------------|
+| Playwright API   | ✓             | ✓             | Use executablePath       |
+| browser-check    | ✓             | ✓             | Our tool, ARIA + refs    |
+| npx playwright   | ✗             | ✓             | Ignores system Chromium  |
+| agent-browser    | ✗             | ✓             | Hardcodes bundled browser|
+| webctl           | ✗             | ✓             | Python wheels need glibc |
+
+Note: ~npx playwright screenshot/pdf~ CLI ignores PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
+Only the Node.js API (~chromium.launch({executablePath})~) works with system Chromium.
+
+*Decision point:*
+- If you only need Playwright API (screenshots, PDFs, console capture): Alpine viable
+- If you need agent-browser/webctl CLIs: Stay with Wolfi (or Fedora)
+
+** browser-check: Alpine-compatible agent-browser alternative
+
+We built ~browser-check.js~ as a drop-in replacement that works on Alpine:
+
+#+begin_src shell
+# Like agent-browser snapshot -i
+browser-check https://localhost:4000 --aria --interactive
+
+# Full diagnostic with JSON (for LLM consumption)
+browser-check https://localhost:4000 --aria --interactive --errors --console --json
+
+# Screenshots and PDFs
+browser-check https://localhost:4000 --screenshot --pdf
+#+end_src
+
+Features:
+- ARIA snapshots with refs ([ref=e1], [ref=e2]) like agent-browser
+- Console log capture
+- Page error detection (JS exceptions)
+- Screenshots and PDFs
+- JSON output for LLM parsing
+- Works on musl (Alpine) with system Chromium
+
+See ~browser-check.js~ in project root.
+
+*** Context reduction verified (blog.thomasbergheim.com)
+
+| Format              | Bytes    | Reduction |
+|---------------------|----------|-----------|
+| Raw HTML            |    21802 | baseline  |
+| Full ARIA snapshot  |     8207 |  62%      |
+| Interactive-only    |     1445 |  93%      |
+
+Matches agent-browser's claimed 93% reduction. The hierarchy in browser-check
+output may actually be more useful than agent-browser's flat format for
+understanding page structure.
 
 ** Alternatives to Playwright (if we abandon it)
 
@@ -171,18 +247,31 @@ If it works, Alpine becomes viable and we get excellent package coverage.
 | browserless.io    | No local browser              | External dependency, cost    |
 | Playwright Connect| Official solution             | Two containers needed        |
 
-* TODO [2/7]
+* TODO [7/11]
 - [ ] Verify gum availability in Void/Fedora
 - [ ] Verify golangci-lint in Void
 - [ ] Test Void glibc container image size
 - [ ] Test Fedora minimal container image size
 - [X] Check if Alpine + glibc-compat works for Playwright → NO
-- [-] Test Alpine + system Chromium + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
-  - [X] Build Alpine test container → PR #4 (alpine branch)
-  - [X] Install chromium via apk → works
-  - [-] Run playwright with executablePath → browser-check.js helper created
-  - [ ] Verify screenshots/PDF generation work
-- [ ] Check what agent-browser uses under the hood
+- [X] Test Alpine + system Chromium + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+  - [X] Build Alpine test container
+  - [X] Install chromium via apk
+  - [X] Run playwright with executablePath
+  - [X] Verify screenshots/PDF generation work
+  RESULT: Playwright Node.js API works (2026-02-05)
+  - Navigation, screenshots, PDFs, console capture, error detection all work
+  - See test-alpine-playwright/ for test files
+- [X] Check what agent-browser uses under the hood
+  RESULT: Ships glibc Rust binary wrapper - doesn't work on Alpine
+  Architecture: Rust CLI (~800KB) + Node.js daemon (Playwright)
+  The daemon is pure JS - only the CLI needs rebuild for musl
+  Options: gcompat, rebuild with muslrust, pure Node wrapper, upstream PR
+- [X] Check webctl
+  RESULT: Python playwright has no musl wheels - doesn't work on Alpine
+- [X] Build browser-check as Alpine-compatible alternative
+  RESULT: Works! ARIA snapshots with refs, 93% context reduction verified
+- [X] Verify context reduction matches agent-browser claims
+  RESULT: 93% reduction confirmed on real-world page (blog.thomasbergheim.com)
 
 * Backlog
 

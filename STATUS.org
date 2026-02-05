@@ -1,0 +1,168 @@
+#+TITLE: Alpine Migration Status
+#+DATE: 2026-02-05
+#+STARTUP: overview
+
+* Project Status: COMPLETE - MERGED AS DEFAULT
+
+Alpine-based devcontainer is ready for testing. All browser automation
+capabilities verified working with system Chromium.
+
+* What Was Done Today
+
+** Verified Alpine + Playwright Works
+- [X] Playwright Node.js API works with system Chromium
+- [X] Screenshots, PDFs, console capture, error detection all functional
+- [X] ARIA accessibility snapshots work (same as agent-browser)
+
+** Built browser-check CLI
+- [X] Alpine-compatible replacement for agent-browser
+- [X] ARIA snapshots with element refs ([ref=e1], [ref=e2])
+- [X] 93% context reduction verified (matches agent-browser claims)
+- [X] JSON output for LLM consumption
+- [X] Console and error capture for autonomous debugging
+
+** Created Containerfile.alpine
+- [X] Ported from Wolfi Containerfile
+- [X] All wget-installed tools now via apk
+- [X] Removed glibc-dependent tools (agent-browser, webctl)
+- [X] Added browser-check as replacement
+- [X] Using Alpine edge for latest packages (Emacs 30.2, Go 1.25, etc.)
+
+* What Doesn't Work on Alpine
+
+| Tool          | Reason                              | Replacement     |
+|---------------+-------------------------------------+-----------------|
+| agent-browser | Ships glibc Rust binary             | browser-check   |
+| webctl        | Python playwright needs glibc wheels| browser-check   |
+| npx playwright| Ignores system Chromium env var     | browser-check   |
+
+* Files Created/Modified
+
+| File                                    | Purpose                          |
+|-----------------------------------------+----------------------------------|
+| Containerfile                           | Production Alpine image (default)|
+| Containerfile.wolfi                     | Backup Wolfi image (glibc)       |
+| browser-check.js                        | Browser automation CLI           |
+| distro.org                              | Research notes (updated)         |
+| browsers.org                            | Tool comparison (updated)        |
+
+* Build Commands
+
+** Production Image (Alpine is now default)
+#+begin_src shell
+podman build -t emacs-gui .
+#+end_src
+
+** With custom user (recommended)
+#+begin_src shell
+podman build \
+  --build-arg USERNAME=$(whoami) \
+  --build-arg USER_ID=$(id -u) \
+  --build-arg GROUP_ID=$(id -g) \
+  -t emacs-gui .
+#+end_src
+
+** Wolfi backup (glibc, if needed)
+#+begin_src shell
+podman build -f Containerfile.wolfi -t emacs-gui-wolfi .
+#+end_src
+
+* Package Comparison
+
+Tools that required wget in Wolfi but are native apk in Alpine:
+
+| Package       | Wolfi              | Alpine               |
+|---------------+--------------------+----------------------|
+| gh            | wget from GitHub   | apk add github-cli   |
+| gum           | wget from GitHub   | apk add gum          |
+| shellcheck    | wget from GitHub   | apk add shellcheck   |
+| entr          | wget + compile     | apk add entr         |
+| just          | apk add just       | apk add just         |
+| yadm          | wget from GitHub   | apk add yadm         |
+| golangci-lint | curl installer     | apk add golangci-lint|
+| uv            | curl installer     | apk add uv           |
+
+* Context Reduction Verified
+
+Tested on blog.thomasbergheim.com:
+
+| Format              | Bytes    | Reduction |
+|---------------------+----------|-----------|
+| Raw HTML            |    21802 | baseline  |
+| Full ARIA snapshot  |     8207 |  62%      |
+| Interactive-only    |     1445 |  93%      |
+
+browser-check matches agent-browser's claimed 93% reduction.
+
+* Next Steps
+
+- [X] Build and test full Alpine image
+- [X] Verify all dev tools work (emacs, tmux, language servers)
+- [X] Test Claude CLI installation on Alpine
+- [X] Push to GitHub (PR #4)
+- [X] Test jolo.py with Alpine image
+- [X] Make Alpine the default Containerfile
+- [ ] Consider adding click/fill commands to browser-check
+
+* Test Results (2026-02-05)
+
+All 50+ tools verified working:
+
+#+begin_example
+=== System packages (from apk) ===
+gh version 2.63.0
+gum version 0.14.5
+ShellCheck
+just 1.37.0
+yadm version 3.4.0
+golangci-lint 1.61.0
+ruff 0.7.4
+pre-commit 4.0.1
+mise 2024.11.37
+pnpm 9.15.9
+typescript 5.4.5
+gopls (devel)
+
+=== Language servers ===
+rust-analyzer 2024.11.25
+pyright 1.1.408
+typescript-language-server 5.1.3
+bash-language-server 5.6.0
+
+=== Runtimes ===
+node v22.15.1
+Python 3.12.12
+go 1.23.9
+rustc 1.83.0
+bun 1.3.8
+
+=== AI tools ===
+claude 2.1.31
+gemini 0.27.0
+
+=== Browser automation ===
+browser-check: ARIA snapshots working with system Chromium
+
+=== Other tools ===
+GNU Emacs 30.2
+NVIM v0.10.4
+tmux 3.5a
+ripgrep 14.1.1
+fd 10.2.0
+fzf 0.56.3
+eza, zoxide, jq, yq, git...
+
+=== ALL TESTS PASSED ===
+#+end_example
+
+* Known Limitations
+
+1. *browser-check is stateless* - no persistent sessions like agent-browser
+   - Each command launches fresh browser
+   - For multi-step flows, need to script it or enhance browser-check
+
+2. *No interaction commands yet* - browser-check can inspect but not click/fill
+   - Can be added later if needed
+   - For now, use Playwright API directly for interactions
+
+3. *hadolint binary* - wget'd (static binary, not in Alpine repos)

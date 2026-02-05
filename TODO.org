@@ -191,7 +191,7 @@ The current setup avoids actual dangerous patterns.
 
 * NEXT: Emacs config isolation improvements
 
-** Status (2024-01)
+** Status (2026-02)
 User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.cache/emacs:
 - eln-cache -> ~/.cache/emacs/eln-cache/
 - tree-sitter -> ~/.cache/emacs/tree-sitter/

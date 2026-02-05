@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repo builds and maintains the containerized Emacs GUI environment on Wolfi Linux (glibc-based), designed as a devcontainer for AI-assisted development. Wolfi provides glibc compatibility enabling Playwright browser automation. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+This repo builds and maintains the containerized Emacs GUI environment on Alpine Linux (musl-based), designed as a devcontainer for AI-assisted development. Alpine provides excellent package coverage and small image size. Browser automation uses Playwright with system Chromium. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
 
 **What this repo produces:**
 - Container image (`emacs-gui`) with all dev tools pre-installed
@@ -57,7 +57,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 ## Architecture
 
 **Key files:**
-- `Containerfile` - Wolfi-based image with Emacs, language servers, and dev tools
+- `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
 - `entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
 - `jolo.py` - Devcontainer CLI for project-based development with git worktree support
@@ -91,130 +91,82 @@ Spell-checking: aspell, hunspell, enchant2
 
 Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
-Browser automation: playwright, agent-browser
+Browser automation: browser-check (uses Playwright with system Chromium)
 
 ## Browser Automation Tool Guide
 
-Three tools available. Use this table - don't ask the user which tool to use.
+Use `browser-check` for browser automation. It provides ARIA snapshots with 93% less context than raw HTML.
 
-### Task → Tool (just use this)
+### Task → Tool
 
-| Task | Tool | Command |
-|------|------|---------|
-| Take screenshot | playwright | `npx playwright screenshot URL file.png` |
-| Generate PDF | playwright | `npx playwright pdf URL file.pdf` |
-| Full page screenshot | playwright | `npx playwright screenshot --full-page URL file.png` |
-| Check what's on page | agent-browser | `agent-browser navigate URL --describe` |
-| Click button/link | agent-browser | `agent-browser click "Button Text"` |
-| Fill form field | agent-browser | `agent-browser fill "Field Label" "value"` |
-| Read page content | agent-browser | `agent-browser snapshot` |
-| Check console logs | webctl | `webctl start --mode unattended && webctl console` |
-| Monitor network | webctl | `webctl start --mode unattended && webctl network` |
-| Long multi-step session | webctl | `webctl start --mode unattended` then commands |
-| Quick one-off action | agent-browser | Single command, no daemon |
+| Task | Command |
+|------|---------|
+| Check what's on page | `browser-check URL --describe` |
+| Take screenshot | `browser-check URL --screenshot` |
+| Full page screenshot | `browser-check URL --screenshot --full-page` |
+| Generate PDF | `browser-check URL --pdf` |
+| Get ARIA tree | `browser-check URL --aria` |
+| Interactive elements only | `browser-check URL --aria --interactive` |
+| Capture console logs | `browser-check URL --console` |
+| Capture JS errors | `browser-check URL --errors` |
+| JSON output for scripts | `browser-check URL --json --console --errors` |
 
-### playwright
+### browser-check
 
-Screenshots, PDFs, visual output. Stateless - each command is independent.
+Stateless browser automation using Playwright with system Chromium. Each command launches a fresh browser.
 
 ```bash
-npx playwright screenshot https://example.com shot.png
-npx playwright screenshot --viewport-size=1280,720 https://example.com shot.png
-npx playwright screenshot --full-page https://example.com full.png
-npx playwright pdf https://example.com doc.pdf
-npx playwright screenshot --wait-for-selector=".loaded" https://example.com shot.png
-```
+# Basic page inspection
+browser-check https://example.com --describe
 
-### agent-browser
+# Screenshot with custom output
+browser-check https://example.com --screenshot --output shot.png
+browser-check https://example.com --screenshot --full-page --output full.png
 
-Interactive automation with 93% less context than raw HTML. Uses ARIA snapshots.
+# PDF generation
+browser-check https://example.com --pdf --output doc.pdf
 
-```bash
-# Navigate and see what's there
-agent-browser navigate "https://example.com" --describe
+# ARIA accessibility tree (93% less context than raw HTML)
+browser-check https://example.com --aria
+browser-check https://example.com --aria --interactive  # just buttons, links, inputs
 
-# Interact
-agent-browser click "Sign In"
-agent-browser fill "Email" "user@example.com"
-agent-browser type "search query"
-agent-browser press "Enter"
-agent-browser scroll down
+# Debug a page - capture console and errors
+browser-check https://localhost:4000 --console --errors
 
-# Get page content (compact ARIA tree)
-agent-browser snapshot
+# JSON output for programmatic use
+browser-check https://myapp.com --console --errors --aria --json
 
-# Wait for something
-agent-browser wait "Success message"
-
-# Chain for flows
-agent-browser navigate "https://app.com/login" && \
-agent-browser fill "Email" "$EMAIL" && \
-agent-browser fill "Password" "$PASS" && \
-agent-browser click "Sign In" && \
-agent-browser wait "Dashboard"
-```
-
-### webctl
-
-Daemon-based. Start once, run many commands. Has console/network access.
-
-```bash
-# Start daemon (required first, --mode unattended for headless)
-webctl start --mode unattended
-
-# Navigate
-webctl navigate "https://example.com"
-
-# Get page content
-webctl snapshot
-webctl snapshot --interactive-only  # just interactive elements
-
-# Interact
-webctl click "role=button name='Submit'"
-webctl fill "role=textbox name='Email'" "user@example.com"
-
-# Debug info
-webctl console        # browser console logs
-webctl network        # network requests
-
-# Stop when done
-webctl stop --daemon
+# Wait longer for slow pages
+browser-check https://slow-site.com --wait 3000 --timeout 60000
 ```
 
 ### Common Patterns
 
-**Check if site is up:**
+**Check if dev server is up:**
 ```bash
-agent-browser navigate "https://myapp.com" --describe
-```
-
-**Screenshot after login:**
-```bash
-agent-browser navigate "https://app.com/login" && \
-agent-browser fill "Email" "$EMAIL" && \
-agent-browser fill "Password" "$PASS" && \
-agent-browser click "Sign In" && \
-agent-browser wait "Dashboard"
-npx playwright screenshot https://app.com/dashboard dash.png
+browser-check http://localhost:4000 --describe --console --errors
 ```
 
 **Debug JavaScript errors:**
 ```bash
-webctl start --mode unattended
-webctl navigate "https://myapp.com"
-webctl console  # see any JS errors
-webctl stop --daemon
+browser-check https://myapp.com --errors --console
 ```
 
-**Fill and submit form:**
+**Get page structure for LLM:**
 ```bash
-agent-browser navigate "https://example.com/contact" && \
-agent-browser fill "Name" "Test User" && \
-agent-browser fill "Email" "test@example.com" && \
-agent-browser fill "Message" "Hello, this is a test." && \
-agent-browser click "Send Message" && \
-agent-browser wait "Thank you"
+browser-check https://example.com --aria --interactive --json
 ```
+
+**Screenshot with error checking:**
+```bash
+browser-check https://myapp.com --screenshot --errors --output debug.png
+```
+
+### Limitations
+
+- **Stateless**: Each command launches fresh browser (no persistent sessions)
+- **No interaction**: Cannot click buttons or fill forms (use Playwright API directly for that)
+- For complex multi-step flows, write a Node.js script using Playwright directly
 
 ## Code Quality Best Practices
 
