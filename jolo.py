@@ -353,6 +353,52 @@ addopts = "--cov=src --cov-report=term-missing"
     }
 
 
+def get_motd_content(language: str, project_name: str) -> str:
+    """Generate MOTD content for a project based on language.
+
+    Args:
+        language: The programming language
+        project_name: The project name
+
+    Returns:
+        MOTD content string
+    """
+    if language == "python":
+        return f"""\
+{project_name}
+
+  Run:   uv run {project_name}
+  Test:  uv run pytest
+  Deps:  uv add <package>
+"""
+    elif language == "typescript":
+        return f"""\
+{project_name}
+
+  Run:   bun run index.ts
+  Test:  bun test
+  Deps:  bun add <package>
+"""
+    elif language == "go":
+        return f"""\
+{project_name}
+
+  Run:   go run .
+  Test:  go test ./...
+  Deps:  go get <package>
+"""
+    elif language == "rust":
+        return f"""\
+{project_name}
+
+  Run:   cargo run
+  Test:  cargo test
+  Deps:  cargo add <package>
+"""
+    else:
+        return f"{project_name}\n"
+
+
 def get_test_framework_config(language: str) -> dict:
     """Get test framework configuration for a language.
 
@@ -840,9 +886,11 @@ def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(WAYLAND_MOUNT)
 
+    workspace_folder = f"/workspaces/{project_name}"
     config = {
         "name": project_name,
         "build": {"dockerfile": "Dockerfile"},
+        "workspaceFolder": workspace_folder,
         "runArgs": ["--hostname", project_name],
         "mounts": mounts,
         "containerEnv": {
@@ -853,6 +901,7 @@ def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
             "PORT": str(port),
+            "WORKSPACE_FOLDER": workspace_folder,
         },
     }
 
@@ -1455,6 +1504,13 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
 
 def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     """Execute into container and attach/create tmux session."""
+    # Show MOTD inside tmux pane on new session only (not on attach)
+    # clear hides the command itself before showing MOTD
+    motd_cmd = "clear; [ -f MOTD ] && cat MOTD; true"
+    shell_cmd = (
+        "tmux attach-session -t dev || "
+        f"tmux new-session -s dev \\; send-keys '{motd_cmd}' Enter"
+    )
     cmd = [
         "devcontainer",
         "exec",
@@ -1462,7 +1518,7 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
         str(workspace_dir),
         "sh",
         "-c",
-        "tmux attach-session -t dev || tmux new-session -s dev",
+        shell_cmd,
     ]
 
     verbose_cmd(cmd)
@@ -2318,6 +2374,11 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Copy template files (AGENTS.md, CLAUDE.md, .gitignore, .editorconfig, etc.)
     copy_template_files(project_path)
+
+    # Generate MOTD for the project
+    motd_content = get_motd_content(primary_language, project_name)
+    (project_path / "MOTD").write_text(motd_content)
+    verbose_print("Generated MOTD")
 
     # Generate and write .pre-commit-config.yaml based on selected languages
     precommit_content = generate_precommit_config(languages)
