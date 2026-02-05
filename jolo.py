@@ -353,6 +353,102 @@ addopts = "--cov=src --cov-report=term-missing"
     }
 
 
+def get_justfile_content(language: str, project_name: str) -> str:
+    """Generate justfile content for a project based on language.
+
+    Args:
+        language: The programming language
+        project_name: The project name
+
+    Returns:
+        justfile content string
+    """
+    module_name = project_name.replace("-", "_")
+
+    if language == "python":
+        return f"""\
+# Run the project
+run:
+    uv run python src/{module_name}/main.py
+
+# Run tests
+test:
+    uv run pytest
+
+# Run tests continuously (on file change)
+watch:
+    fd -e py | entr -c uv run pytest
+
+# Add a dependency
+add *packages:
+    uv add {{{{packages}}}}
+"""
+    elif language == "typescript":
+        return """\
+# Run the project
+run:
+    bun run index.ts
+
+# Run tests
+test:
+    bun test
+
+# Run tests continuously (on file change)
+watch:
+    fd -e ts | entr -c bun test
+
+# Add a dependency
+add *packages:
+    bun add {{packages}}
+"""
+    elif language == "go":
+        return """\
+# Run the project
+run:
+    go run .
+
+# Run tests
+test:
+    go test ./...
+
+# Run tests continuously (on file change)
+watch:
+    fd -e go | entr -c go test ./...
+
+# Add a dependency
+add *packages:
+    go get {{packages}}
+"""
+    elif language == "rust":
+        return """\
+# Run the project
+run:
+    cargo run
+
+# Run tests
+test:
+    cargo test
+
+# Run tests continuously (on file change)
+watch:
+    fd -e rs | entr -c cargo test
+
+# Add a dependency
+add *packages:
+    cargo add {{packages}}
+"""
+    else:
+        return """\
+# Run the project
+run:
+    echo "No run command configured"
+
+# Run tests
+test:
+    echo "No test command configured"
+"""
+
+
 def get_motd_content(language: str, project_name: str) -> str:
     """Generate MOTD content for a project based on language.
 
@@ -363,41 +459,14 @@ def get_motd_content(language: str, project_name: str) -> str:
     Returns:
         MOTD content string
     """
-    if language == "python":
-        module_name = project_name.replace("-", "_")
-        return f"""\
+    return f"""\
 {project_name}
 
-  Run:   uv run python src/{module_name}/main.py
-  Test:  uv run pytest
-  Deps:  uv add <package>
+  just run     - run the project
+  just test    - run tests
+  just watch   - run tests on file change
+  just add X   - add dependency
 """
-    elif language == "typescript":
-        return f"""\
-{project_name}
-
-  Run:   bun run index.ts
-  Test:  bun test
-  Deps:  bun add <package>
-"""
-    elif language == "go":
-        return f"""\
-{project_name}
-
-  Run:   go run .
-  Test:  go test ./...
-  Deps:  go get <package>
-"""
-    elif language == "rust":
-        return f"""\
-{project_name}
-
-  Run:   cargo run
-  Test:  cargo test
-  Deps:  cargo add <package>
-"""
-    else:
-        return f"{project_name}\n"
 
 
 def get_test_framework_config(language: str) -> dict:
@@ -426,7 +495,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "pytest-watch"]
 
 [project.scripts]
 {{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"
@@ -987,10 +1056,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     parser.add_argument(
         "--destroy",
-        nargs="?",
-        const="",
-        default=None,
-        metavar="PATH",
+        action="store_true",
         help="Stop and remove all containers for project (before rm -rf)",
     )
 
@@ -999,6 +1065,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "-y",
         action="store_true",
         help="Skip confirmation prompts (use with --destroy)",
+    )
+
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Path to project (used with --destroy, --create, etc.)",
     )
 
     parser.add_argument(
@@ -1983,8 +2056,8 @@ def run_prune_mode(args: argparse.Namespace) -> None:
 def run_destroy_mode(args: argparse.Namespace) -> None:
     """Run --destroy mode: stop and remove all containers for project."""
     # If path argument provided, use it; otherwise detect from cwd
-    if args.destroy:
-        target_path = Path(args.destroy).resolve()
+    if args.path:
+        target_path = Path(args.path).resolve()
         if not target_path.exists():
             sys.exit(f"Error: Path does not exist: {target_path}")
         git_root = find_git_root(target_path)
@@ -2071,12 +2144,49 @@ def run_destroy_mode(args: argparse.Namespace) -> None:
             print(f"Directories preserved. To remove later: rm -rf {git_root}")
             return
 
+    # Check if target is a worktree - if so, get branch name before removing
+    worktree_branch = None
+    main_repo = None
+    git_file = git_root / ".git"
+    if git_file.is_file():
+        # This is a worktree (.git is a file pointing to main repo)
+        git_file_content = git_file.read_text().strip()
+        if git_file_content.startswith("gitdir:"):
+            # Extract main repo path from gitdir reference
+            gitdir = git_file_content.replace("gitdir:", "").strip()
+            # gitdir points to .git/worktrees/<name>, go up to find main repo
+            main_repo = Path(gitdir).parent.parent.parent
+            # Get branch name for this worktree
+            for wt_path, _, branch in list_worktrees(main_repo):
+                if wt_path.resolve() == git_root.resolve():
+                    worktree_branch = branch
+                    break
+
     for d in dirs_to_remove:
         try:
             shutil.rmtree(d)
             print(f"Removed: {d}")
         except Exception as e:
             print(f"Failed to remove {d}: {e}", file=sys.stderr)
+
+    # Clean up git worktree and branch if this was a worktree
+    if main_repo and main_repo.exists():
+        # Prune stale worktree entries
+        subprocess.run(["git", "worktree", "prune"], cwd=main_repo, capture_output=True)
+        verbose_print("Pruned stale worktree entries")
+
+        # Delete the branch if we found one
+        if worktree_branch:
+            result = subprocess.run(
+                ["git", "branch", "-D", worktree_branch],
+                cwd=main_repo,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                print(f"Deleted branch: {worktree_branch}")
+            else:
+                print(f"Note: Could not delete branch {worktree_branch}: {result.stderr.strip()}")
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:
@@ -2384,6 +2494,11 @@ def run_create_mode(args: argparse.Namespace) -> None:
     motd_content = get_motd_content(primary_language, project_name)
     (project_path / "MOTD").write_text(motd_content)
     verbose_print("Generated MOTD")
+
+    # Generate justfile for the project
+    justfile_content = get_justfile_content(primary_language, project_name)
+    (project_path / "justfile").write_text(justfile_content)
+    verbose_print("Generated justfile")
 
     # Generate and write .pre-commit-config.yaml based on selected languages
     precommit_content = generate_precommit_config(languages)
@@ -2858,7 +2973,7 @@ def main(argv: list[str] | None = None) -> None:
         run_prune_mode(args)
         return
 
-    if args.destroy is not None:
+    if args.destroy:
         run_destroy_mode(args)
         return
 

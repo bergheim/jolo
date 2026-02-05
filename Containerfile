@@ -28,6 +28,7 @@ RUN apk update && apk add --no-cache \
     gstreamer \
     hunspell \
     jq \
+    just \
     mesa \
     ncurses \
     neovim \
@@ -60,7 +61,9 @@ RUN wget -qO- https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_lin
     wget -qO- https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz | tar xJ -C /tmp && \
     mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/ && \
     curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin && \
-    wget -qO /usr/local/bin/yadm https://github.com/yadm-dev/yadm/raw/master/yadm && chmod +x /usr/local/bin/yadm
+    wget -qO /usr/local/bin/yadm https://github.com/yadm-dev/yadm/raw/master/yadm && chmod +x /usr/local/bin/yadm && \
+    wget -qO- https://eradman.com/entrproject/code/entr-5.7.tar.gz | tar xz -C /tmp && \
+    cd /tmp/entr-5.7 && ./configure && make install
 
 # npm global packages (language servers, browser automation, etc.)
 RUN npm install -g \

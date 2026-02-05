@@ -178,9 +178,9 @@ If it works, Alpine becomes viable and we get excellent package coverage.
 - [ ] Test Fedora minimal container image size
 - [X] Check if Alpine + glibc-compat works for Playwright → NO
 - [-] Test Alpine + system Chromium + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
-  - [ ] Build Alpine test container
-  - [ ] Install chromium via apk
-  - [ ] Run playwright with executablePath
+  - [X] Build Alpine test container → PR #4 (alpine branch)
+  - [X] Install chromium via apk → works
+  - [-] Run playwright with executablePath → browser-check.js helper created
   - [ ] Verify screenshots/PDF generation work
 - [ ] Check what agent-browser uses under the hood
 
@@ -196,12 +196,19 @@ Instead of one container per worktree, mount all worktrees under /workspaces/:
   emacs-container-feat-x/       # worktree
 #+end_example
 
-Benefits:
+Current pain points:
+- Each worktree = new container = new terminal window
+- Can't ~cd~ to other worktrees from inside container (not mounted)
+- Can't easily compare code across branches
+- Resource heavy (multiple containers)
+
+Benefits of unified model:
 - One container, one tmux session
 - Multiple panes for different worktrees
 - Just ~cd~ to switch context
 - Multiple Claude instances in different panes
 - Less resource usage
+- Can diff/compare across worktrees
 
 Project deps (.venv, node_modules) are per-directory anyway.
 
