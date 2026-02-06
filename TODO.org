@@ -189,41 +189,28 @@ For reference, things that would be real security problems:
 
 The current setup avoids actual dangerous patterns.
 
-* NEXT: Emacs config isolation improvements
+* DONE Emacs config isolation improvements
 
-** Status (2026-02)
-User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.cache/emacs:
-- eln-cache -> ~/.cache/emacs/eln-cache/
-- tree-sitter -> ~/.cache/emacs/tree-sitter/
-
-** Plan agreed upon
-1. Copy ~/.config/emacs to .devcontainer/.emacs-config/ (writable, isolated)
-2. Mount package dirs from ~/.cache/emacs readonly:
-   - ~/.cache/emacs/elpaca
-   - ~/.cache/emacs/tree-sitter
-3. Container gets writable ~/.cache/emacs/ for transient stuff
-
-** Mount structure in devcontainer
+** Mount structure in devcontainer (updated 2026-02)
 #+begin_src
-~/.config/emacs (container) <- .devcontainer/.emacs-config/ (copied, writable)
-~/.cache/emacs/elpaca       <- host ~/.cache/emacs/elpaca (readonly)
-~/.cache/emacs/tree-sitter  <- host ~/.cache/emacs/tree-sitter (readonly)
+~/.config/emacs (container)      <- .devcontainer/.emacs-config/ (copied, writable)
+~/.cache/emacs (container)       <- .devcontainer/.emacs-cache/ (fresh per-container)
+~/.cache/emacs/elpaca (container)      <- host ~/.cache/emacs-container/elpaca (read-write)
+~/.cache/emacs/tree-sitter (container) <- host ~/.cache/emacs-container/tree-sitter (read-write)
 #+end_src
 
-** DONE Implementation in jolo.py
-- [X] Revert the complex symlink approach currently in jolo.py
-- [X] Add function to copy ~/.config/emacs to .devcontainer/.emacs-config/
-- [X] Update BASE_MOUNTS:
-  - .devcontainer/.emacs-config -> ~/.config/emacs (writable)
-  - host ~/.cache/emacs/elpaca -> container ~/.cache/emacs/elpaca (readonly)
-  - host ~/.cache/emacs/tree-sitter -> container ~/.cache/emacs/tree-sitter (readonly)
-- [X] Remove the old emacs mounts
-- [X] Update CLAUDE.md
+** Key: separate cache from host Emacs
+Host runs Emacs 31 (glibc/Arch), container runs 30.2 (musl/Alpine).
+.elc files and native .so modules are NOT cross-compatible.
+=~/.cache/emacs-container/= is a separate persistent cache that elpaca builds
+into on first boot. Subsequent boots reuse it.
 
-** Why this approach
-- Config is isolated: AI changes don't leak to host
-- Packages mounted readonly: fast startup, no reinstall, AI can't mess with them
-- Small copy size (~2MB vs 1GB+)
+** DONE Implementation
+- [X] Config copied to .devcontainer/.emacs-config/ (writable, isolated)
+- [X] elpaca/tree-sitter mounted from ~/.cache/emacs-container/ (read-write, shared)
+- [X] setup_emacs_config() creates container cache dirs on host
+- [X] Containerfile includes enchant2-dev for jinx-mod.so compilation
+- [X] Containerfile includes aspell-en + hunspell-en-us for dictionaries
 
 * DONE Add --mount and --copy options to jolo.py [5/5]
 
@@ -369,3 +356,46 @@ Practical restriction: --copy targets should be workspace-relative.
 - test_add_user_mounts_to_devcontainer_json
 - test_mount_readonly_format
 - test_multiple_mounts_in_json
+
+* TODO Smart MOTD on every new shell session
+
+Display useful context every time a new tmux pane/window opens (i.e., every new interactive zsh).
+
+** Mechanism
+Add a line to =.zshrc.container= (in Containerfile) that runs a motd script.
+Every new tmux pane spawns a fresh interactive zsh -> sources .zshrc -> shows motd.
+
+** What to show (dynamic, context-aware)
+- Project name (from workspace dir or git remote)
+- Git branch + short status
+- If justfile exists: =just --list= (the project's available commands)
+- If no justfile: container-level info (available tools, tips)
+- Port info (=$PORT= value, useful in spawn mode)
+- Maybe: last commit summary (one-liner)
+
+** Implementation
+- [ ] Create =/usr/local/bin/motd= script in container (or bake into Containerfile)
+- [ ] Add =motd= call to =.zshrc.container=
+- [ ] Keep output compact - aim for ~5-10 lines max
+- [ ] Use color/formatting (gum?) for readability
+- [ ] Graceful fallback: if not in a project dir, show generic container info
+
+** Open questions
+- Should it suppress in non-interactive contexts? (probably automatic via .zshrc)
+- Use =gum= for formatting? (already installed in container)
+- Should jolo be able to inject project-specific motd content?
+
+* TODO Add interactive project switcher to jolo
+
+List all active jolo projects and let the user select one to switch to.
+
+** Requirements
+- [ ] =jolo --switch= (or similar) lists all active/running jolo projects
+- [ ] Display useful info per project (name, status, worktree, port, container state)
+- [ ] Interactive selection to switch into the chosen project's container
+- [ ] Reuse existing =--list= discovery logic for finding active projects
+
+** Design decisions
+- Selection UI: fzf
+- "Switch" means: tmux attach into the selected container
+- Only show running containers (stopped ones aren't switchable)

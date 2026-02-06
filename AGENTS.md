@@ -291,8 +291,10 @@ jolo --copy ~/config.json:app/    # copy to workspace/app/config.json
 
 **Emacs config isolation:**
 - Config (~/.config/emacs) copied to `.devcontainer/.emacs-config/` - writable
-- Package dirs mounted readonly from host ~/.cache/emacs/:
+- Package dirs mounted read-write from `~/.cache/emacs-container/` (NOT `~/.cache/emacs/`):
   - elpaca/ (package manager repos/builds)
   - tree-sitter/ (grammar files)
+- Separate from host Emacs cache to avoid version/libc mismatches (host=Emacs 31/glibc, container=30.x/musl)
+- First boot is slow (elpaca builds everything), subsequent boots reuse the shared cache
 - Cache dir (`.devcontainer/.emacs-cache/`) is fresh per-container
 - Changes to config stay in project, don't affect host

@@ -930,11 +930,14 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
     "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
-    # Emacs: config copied for isolation, packages mounted readonly from ~/.cache/emacs
+    # Emacs: config copied for isolation, packages in container-specific cache
+    # Uses ~/.cache/emacs-container/ (not ~/.cache/emacs/) so the container builds
+    # its own elpaca/tree-sitter for its Emacs version + musl, separate from host.
+    # First boot is slow (elpaca builds everything), subsequent boots reuse the cache.
     "source=${localWorkspaceFolder}/.devcontainer/.emacs-config,target=/home/${localEnv:USER}/.config/emacs,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.emacs-cache,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
-    "source=${localEnv:HOME}/.cache/emacs/elpaca,target=/home/${localEnv:USER}/.cache/emacs/elpaca,type=bind,readonly",
-    "source=${localEnv:HOME}/.cache/emacs/tree-sitter,target=/home/${localEnv:USER}/.cache/emacs/tree-sitter,type=bind,readonly",
+    "source=${localEnv:HOME}/.cache/emacs-container/elpaca,target=/home/${localEnv:USER}/.cache/emacs/elpaca,type=bind",
+    "source=${localEnv:HOME}/.cache/emacs-container/tree-sitter,target=/home/${localEnv:USER}/.cache/emacs/tree-sitter,type=bind",
     "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
@@ -1221,8 +1224,8 @@ def setup_emacs_config(workspace_dir: Path) -> None:
 
     Copies ~/.config/emacs to .devcontainer/.emacs-config/ so the container
     has an isolated, writable copy of the config. Package directories
-    (straight, eln-cache, tree-sitter) are mounted readonly from
-    ~/.cache/emacs/ via BASE_MOUNTS.
+    (elpaca, tree-sitter) are in ~/.cache/emacs-container/ on the host,
+    separate from the host's ~/.cache/emacs/ to avoid version/libc mismatches.
     """
     home = Path.home()
     emacs_src = home / ".config" / "emacs"
@@ -1235,6 +1238,13 @@ def setup_emacs_config(workspace_dir: Path) -> None:
 
     # Create cache dir (fresh each time is fine)
     cache_dst.mkdir(parents=True, exist_ok=True)
+
+    # Create container-specific cache dirs on host (separate from host Emacs cache)
+    # These persist across projects so elpaca only builds once for the container's
+    # Emacs version + musl libc combination.
+    container_cache = home / ".cache" / "emacs-container"
+    (container_cache / "elpaca").mkdir(parents=True, exist_ok=True)
+    (container_cache / "tree-sitter").mkdir(parents=True, exist_ok=True)
 
     # Copy entire config directory, preserving the directory itself for bind mounts
     if emacs_dst.exists():
