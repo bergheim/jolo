@@ -2,6 +2,10 @@
 
 Guidelines for AI coding assistants working on this project.
 
+## Task Tracking
+
+All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Check it before starting work and update it as tasks are completed or new ones arise.
+
 ## Port Configuration
 
 Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).

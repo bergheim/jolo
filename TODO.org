@@ -431,3 +431,23 @@ worktree and its associated container.
 - Show container state in picker (running/stopped/none)
 - Force-remove stopped containers, prompt if running
 - If worktree has uncommitted changes, warn and require =--force= or confirmation
+
+* TODO Tmux session layout — auto-start emacs + AI agents (tmuxinator-style)
+
+Explore having the entrypoint (or a dedicated script) set up a predefined tmux
+session layout on container start. Like tmuxinator but baked in.
+
+** Desired layout
+- Window 1: Emacs (main editor)
+- Window 2: Claude Code (claude)
+- Window 3: Gemini CLI (gemini)
+- Window 4: Codex CLI (codex)
+- Maybe a spare shell window/pane
+
+** Questions to explore
+- Use tmuxinator/tmuxp, or just raw tmux commands in entrypoint?
+- Should this be the default, or opt-in (=--layout full= or similar)?
+- How to handle agents that aren't configured (no API key)? Skip the window?
+- Should windows auto-restart the agent on exit, or drop to shell?
+- Tie into =jolo start -p= prompt mode — send the prompt to the active agent window?
+- Per-project layout overrides (=.tmux-layout= or similar)?

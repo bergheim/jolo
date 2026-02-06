@@ -1319,7 +1319,7 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
-    Copies AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore, and .editorconfig
+    Copies AGENTS.md, CLAUDE.md, GEMINI.md, TODO.org, .gitignore, and .editorconfig
     from the templates/ directory relative to jolo.py.
 
     Note: .pre-commit-config.yaml is generated dynamically based on language selection,
@@ -1333,7 +1333,7 @@ def copy_template_files(target_dir: Path) -> None:
         print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
         return
 
-    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".gitignore", ".editorconfig"]
+    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "TODO.org", ".gitignore", ".editorconfig"]
 
     for filename in template_files:
         src = templates_dir / filename
