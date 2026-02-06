@@ -995,173 +995,162 @@ USER CONTAINER_USER
 """
 
 
+SUBCOMMANDS = {
+    "create", "list", "stop", "tree", "spawn",
+    "attach", "init", "sync", "prune", "destroy",
+}
+
+
+def preprocess_argv(argv: list[str]) -> list[str]:
+    """Convert subcommand form to flag form: 'create foo' → '--create foo'."""
+    if argv and argv[0] in SUBCOMMANDS:
+        return [f"--{argv[0]}"] + argv[1:]
+    return argv
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse command-line arguments."""
+    argv = preprocess_argv(argv)
     parser = argparse.ArgumentParser(
         prog="jolo",
+        usage="jolo [command] [options] [path]",
         description="Devcontainer + Git Worktree Launcher",
-        epilog="Run with no arguments to start devcontainer in current git project.",
+        epilog="Examples: jolo create foo | jolo list | jolo tree feat-x | "
+        "jolo stop --all | jolo spawn 3 -p 'do thing'",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
 
-    parser.add_argument(
-        "--tree",
-        nargs="?",
-        const="",
-        default=None,
-        metavar="NAME",
-        help="Create git worktree and start devcontainer there. "
-        "If NAME not provided, generates random name.",
+    cmds = parser.add_argument_group(
+        "commands",
+        "  create NAME         Create new project with git + devcontainer\n"
+        "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
+        "  spawn N             Create N worktrees in parallel, each with its own agent\n"
+        "  list                List running containers and worktrees\n"
+        "  stop                Stop the devcontainer\n"
+        "  attach              Attach to running container\n"
+        "  init                Initialize git + devcontainer in current directory\n"
+        "  sync                Regenerate .devcontainer from template\n"
+        "  prune               Clean up stopped containers and stale worktrees\n"
+        "  destroy             Stop and remove all containers for project\n"
+        "  (no command)        Start devcontainer in current project",
     )
 
-    parser.add_argument(
-        "--create", metavar="NAME", help="Create new project with git + devcontainer"
+    # Commands use SUPPRESS for internal argparse flags, shown manually via description
+    cmds.add_argument("--create", metavar="NAME", help=argparse.SUPPRESS)
+    cmds.add_argument(
+        "--tree", nargs="?", const="", default=None, metavar="NAME",
+        help=argparse.SUPPRESS,
     )
+    cmds.add_argument("--spawn", type=int, metavar="N", help=argparse.SUPPRESS)
+    cmds.add_argument("--list", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--attach", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--init", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--sync", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
 
-    parser.add_argument(
-        "--init",
-        action="store_true",
-        help="Initialize git + devcontainer in current directory",
-    )
+    opts = parser.add_argument_group("options")
 
-    parser.add_argument(
-        "--new", action="store_true", help="Remove existing container before starting"
-    )
-
-    parser.add_argument(
-        "--sync",
-        action="store_true",
-        help="Regenerate .devcontainer from template using current config",
-    )
-
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List running containers and worktrees for current project",
-    )
-
-    parser.add_argument(
-        "--all",
-        "-a",
-        action="store_true",
-        help="With --list: show all devcontainers globally. "
-        "With --stop: stop all containers for project (worktrees + main)",
-    )
-
-    parser.add_argument(
-        "--stop", action="store_true", help="Stop the devcontainer for current project"
-    )
-
-    parser.add_argument(
-        "--prune",
-        action="store_true",
-        help="Clean up stopped containers and stale worktrees for project",
-    )
-
-    parser.add_argument(
-        "--destroy",
-        action="store_true",
-        help="Stop and remove all containers for project (before rm -rf)",
-    )
-
-    parser.add_argument(
-        "--yes",
-        "-y",
-        action="store_true",
-        help="Skip confirmation prompts (use with --destroy)",
-    )
-
-    parser.add_argument(
-        "path",
-        nargs="?",
-        default=None,
-        help="Path to project (used with --destroy, --create, etc.)",
-    )
-
-    parser.add_argument(
-        "--attach",
-        action="store_true",
-        help="Attach to running container (error if not running)",
-    )
-
-    parser.add_argument(
-        "--shell",
-        action="store_true",
-        help="Exec into container with zsh (no tmux)",
-    )
-
-    parser.add_argument(
-        "--run",
-        metavar="CMD",
-        help="Exec command directly in container (no tmux)",
-    )
-
-    parser.add_argument(
-        "--detach", "-d", action="store_true", help="Start container without attaching"
-    )
-
-    parser.add_argument(
-        "--from",
-        dest="from_branch",
-        metavar="BRANCH",
-        help="With --tree: create worktree from specified branch",
-    )
-
-    parser.add_argument(
+    opts.add_argument(
         "--prompt",
         "-p",
         metavar="PROMPT",
         help="Start AI agent with this prompt (implies --detach)",
     )
 
-    parser.add_argument(
+    opts.add_argument(
         "--agent",
         default="claude",
         metavar="CMD",
-        help="AI agent command to use with --prompt (default: claude)",
+        help="AI agent command (default: claude)",
     )
 
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Print commands being executed"
+    opts.add_argument(
+        "--from",
+        dest="from_branch",
+        metavar="BRANCH",
+        help="Create worktree from specified branch",
     )
 
-    parser.add_argument(
-        "--spawn",
-        type=int,
-        metavar="N",
-        help="Create N worktrees in parallel, each with its own container and agent",
-    )
-
-    parser.add_argument(
+    opts.add_argument(
         "--prefix",
         metavar="NAME",
-        help="Prefix for worktree names in spawn mode (e.g., --prefix feat creates feat-1, feat-2, ...)",
+        help="Prefix for spawn worktree names (feat → feat-1, feat-2, ...)",
     )
 
-    parser.add_argument(
+    opts.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="With list: all globally. With stop: all for project",
+    )
+
+    opts.add_argument(
+        "--new", action="store_true", help="Remove existing container before starting"
+    )
+
+    opts.add_argument(
+        "--detach", "-d", action="store_true", help="Start container without attaching"
+    )
+
+    opts.add_argument(
+        "--shell",
+        action="store_true",
+        help="Exec into container with zsh (no tmux)",
+    )
+
+    opts.add_argument(
+        "--run",
+        metavar="CMD",
+        help="Exec command directly in container (no tmux)",
+    )
+
+    opts.add_argument(
         "--mount",
         action="append",
         default=[],
-        metavar="SRC:TARGET[:ro]",
-        help="Mount host path into container. TARGET is relative to workspace "
-        "unless absolute. Append :ro for readonly. Can be repeated.",
+        metavar="SRC:DST[:ro]",
+        help="Mount host path into container (repeatable)",
     )
 
-    parser.add_argument(
+    opts.add_argument(
         "--copy",
         action="append",
         default=[],
-        metavar="SRC[:TARGET]",
-        help="Copy file to workspace before start. TARGET defaults to basename. "
-        "Can be repeated.",
+        metavar="SRC[:DST]",
+        help="Copy file to workspace before start (repeatable)",
     )
 
-    parser.add_argument(
+    opts.add_argument(
         "--lang",
         type=parse_lang_arg,
         default=None,
-        metavar="LANG[,LANG,...]",
-        help="Project language(s), comma-separated. "
-        "Valid: python, go, typescript, rust, shell, prose, other",
+        metavar="LANG[,...]",
+        help="Project language(s): python, go, typescript, rust, shell, prose, other",
+    )
+
+    opts.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts",
+    )
+
+    opts.add_argument(
+        "--verbose", "-v", action="store_true", help="Print commands being executed"
+    )
+
+    opts.add_argument(
+        "-h", "--help", action="help", help="Show this help message and exit"
+    )
+
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help=argparse.SUPPRESS,
     )
 
     if HAVE_ARGCOMPLETE:
