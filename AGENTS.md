@@ -243,17 +243,18 @@ Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
 
 ```bash
 # Basic usage
-jolo                      # start devcontainer in current project
+jolo start                # start devcontainer in current project
 jolo tree feature-x       # create worktree + devcontainer
 jolo create newproject    # scaffold new project
 jolo list                 # show containers/worktrees
+jolo switch               # pick a running container and attach to it
 jolo stop                 # stop container
 
 # AI prompt mode (starts agent in detached tmux)
-jolo -p "add user auth"           # run AI with prompt
-jolo tree feat -p "add OAuth"     # worktree + prompt
-jolo create app -p "scaffold"     # new project + prompt
-jolo --agent gemini -p "..."      # use different agent (default: claude)
+jolo start -p "add user auth"    # run AI with prompt
+jolo tree feat -p "add OAuth"    # worktree + prompt
+jolo create app -p "scaffold"    # new project + prompt
+jolo --agent gemini -p "..."     # use different agent (default: claude)
 
 # Spawn mode (multiple parallel agents)
 jolo spawn 5 -p "implement X"          # 5 random-named worktrees
@@ -264,26 +265,26 @@ jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
 # Other options
 jolo tree feat --from develop     # branch worktree from specific ref
 jolo attach                       # attach to running container
-jolo -d                           # start detached (no tmux attach)
-jolo --shell                      # exec zsh directly (no tmux)
-jolo --run claude                 # exec command directly (no tmux)
-jolo --run "npm test"             # run arbitrary command
+jolo start -d                     # start detached (no tmux attach)
+jolo start --shell                # exec zsh directly (no tmux)
+jolo start --run claude           # exec command directly (no tmux)
+jolo start --run "npm test"       # run arbitrary command
 jolo init                         # initialize git + devcontainer in current dir
 jolo sync                         # regenerate .devcontainer from template
-jolo --new                        # remove existing container before starting
+jolo start --new                  # remove existing container before starting
 jolo sync --new                   # regenerate config and rebuild
-jolo prune                        # cleanup stopped containers/stale worktrees
+jolo prune                        # cleanup stopped/orphan containers and worktrees
 jolo destroy                      # nuclear: stop + rm all containers for project
 jolo list --all                   # show all containers globally
 jolo stop --all                   # stop all containers for project
-jolo -v                           # verbose mode (print commands)
+jolo start -v                     # verbose mode (print commands)
 
 # Mount and copy options
-jolo --mount ~/data:data          # mount ~/data to workspace/data (rw)
-jolo --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
-jolo --mount ~/data:/mnt/data     # mount to absolute path
-jolo --copy ~/config.json         # copy file to workspace root
-jolo --copy ~/config.json:app/    # copy to workspace/app/config.json
+jolo start --mount ~/data:data          # mount ~/data to workspace/data (rw)
+jolo start --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
+jolo start --mount ~/data:/mnt/data     # mount to absolute path
+jolo start --copy ~/config.json         # copy file to workspace root
+jolo start --copy ~/config.json:app/    # copy to workspace/app/config.json
 ```
 
 **Security model:**

@@ -1014,7 +1014,7 @@ USER CONTAINER_USER
 SUBCOMMANDS = {
     "create", "list", "stop", "tree", "spawn",
     "attach", "init", "sync", "prune", "destroy",
-    "switch",
+    "switch", "start",
 }
 
 
@@ -1032,7 +1032,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prog="jolo",
         usage="jolo [command] [options] [path]",
         description="Devcontainer + Git Worktree Launcher",
-        epilog="Examples: jolo create foo | jolo list | jolo tree feat-x | "
+        epilog="Examples: jolo start | jolo create foo | jolo list | jolo tree feat-x | "
         "jolo stop --all | jolo spawn 3 -p 'do thing'",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
@@ -1040,6 +1040,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     cmds = parser.add_argument_group(
         "commands",
+        "  start               Start devcontainer in current project\n"
         "  create NAME         Create new project with git + devcontainer\n"
         "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
         "  spawn N             Create N worktrees in parallel, each with its own agent\n"
@@ -1050,8 +1051,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  init                Initialize git + devcontainer in current directory\n"
         "  sync                Regenerate .devcontainer from template\n"
         "  prune               Clean up stopped/orphan containers and stale worktrees\n"
-        "  destroy             Stop and remove all containers for project\n"
-        "  (no command)        Start devcontainer in current project",
+        "  destroy             Stop and remove all containers for project",
     )
 
     # Commands use SUPPRESS for internal argparse flags, shown manually via description
@@ -1069,6 +1069,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--switch", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--start", action="store_true", help=argparse.SUPPRESS)
 
     opts = parser.add_argument_group("options")
 
@@ -1175,7 +1176,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     if HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    args._parser = parser
+    return args
 
 
 def check_tmux_guard() -> None:
@@ -3137,6 +3140,15 @@ def main(argv: list[str] | None = None) -> None:
         run_destroy_mode(args)
         return
 
+    # No subcommand — show help
+    has_subcommand = any([
+        args.switch, args.attach, args.spawn, args.init,
+        args.create, args.tree is not None, args.start,
+    ])
+    if not has_subcommand:
+        args._parser.print_help()
+        return
+
     # Check guards (skip tmux guard if detaching, using prompt, shell, or run)
     if not args.detach and not args.prompt and not args.shell and not args.run:
         check_tmux_guard()
@@ -3154,7 +3166,7 @@ def main(argv: list[str] | None = None) -> None:
         run_create_mode(args)
     elif args.tree is not None:
         run_tree_mode(args)
-    else:
+    elif args.start:
         run_default_mode(args)
 
 

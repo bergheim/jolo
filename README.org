@@ -13,7 +13,7 @@ Alpine Linux container with Emacs, Claude/Gemini/Codex (all running with permiss
 ln -s $(pwd)/jolo.py ~/.local/bin/jolo
 
 # Start devcontainer in any git project
-cd ~/myproject && jolo
+cd ~/myproject && jolo start
 
 # Scaffold a new project
 jolo create myapp
@@ -55,7 +55,7 @@ templates/               # scaffolds for new projects
 
 * How It Works
 
-Each ~jolo~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Agents run in detached tmux sessions — attach when you want, ignore when you don't.
+Each ~jolo start~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Agents run in detached tmux sessions — attach when you want, ignore when you don't.
 
 ~spawn~ mode fans out N worktrees with agents round-robining through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
