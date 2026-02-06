@@ -1,0 +1,36 @@
+#!/bin/sh
+# Smart MOTD - context-aware welcome for container shells
+
+# Project name from git remote or directory basename
+project=$(git remote get-url origin 2>/dev/null | sed 's|.*/||;s|\.git$||')
+[ -z "$project" ] && project=$(basename "$PWD")
+
+# Git info
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ -n "$branch" ]; then
+    dirty=$(git diff --quiet HEAD 2>/dev/null || echo " *")
+    last_commit=$(git log -1 --format='%s' 2>/dev/null | cut -c1-60)
+    git_line="$branch$dirty  $last_commit"
+fi
+
+# Build header
+header="$project"
+[ -n "$PORT" ] && header="$header  :$PORT"
+
+# Hint line
+hint=""
+if [ -f justfile ] || [ -f Justfile ]; then
+    hint="Run tasks with: just <recipe>"
+fi
+
+# Print bordered header
+gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"}
+
+# Show justfile targets, static MOTD, or fallback
+if [ -f justfile ] || [ -f Justfile ]; then
+    echo ""
+    just --list --unsorted 2>/dev/null
+elif [ -f MOTD ]; then
+    echo ""
+    cat MOTD
+fi

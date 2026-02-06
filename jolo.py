@@ -1592,13 +1592,7 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
 
 def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     """Execute into container and attach/create tmux session."""
-    # Show MOTD inside tmux pane on new session only (not on attach)
-    # clear hides the command itself before showing MOTD
-    motd_cmd = "clear; [ -f MOTD ] && cat MOTD; true"
-    shell_cmd = (
-        "tmux attach-session -t dev || "
-        f"tmux new-session -s dev \\; send-keys '{motd_cmd}' Enter"
-    )
+    shell_cmd = "tmux attach-session -t dev || tmux new-session -s dev"
     cmd = [
         "devcontainer",
         "exec",

@@ -110,7 +110,8 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 
 # Smart emacsclient wrapper (must be before USER switch)
 COPY e /usr/local/bin/e
-RUN chmod +x /usr/local/bin/e
+COPY motd /usr/local/bin/motd
+RUN chmod +x /usr/local/bin/e /usr/local/bin/motd
 
 # fzf completion.zsh lives in /usr/share/zsh/plugins/fzf/ on Alpine
 # but most configs expect /usr/share/fzf/completion.zsh
@@ -163,7 +164,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # pre-commit, ruff, ansible-lint now from apk
     uv tool install ty && \
     # mise from apk, just need to activate it
-    echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container
+    echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
+    echo 'motd 2>/dev/null' >> $HOME/.zshrc.container
 
 ENV EMACS_CONTAINER=1
 
