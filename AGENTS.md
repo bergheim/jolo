@@ -19,6 +19,10 @@ This repo builds and maintains the containerized Emacs GUI environment on Alpine
 
 Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and notes. This is an Emacs-centric project.
 
+## Task Tracking
+
+All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties). Always check `TODO.org` for existing tasks before starting work, and update it as tasks are completed or new ones are identified.
+
 ## Project Defaults
 
 **Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. This defaults to 4000 but is set dynamically in spawn mode to avoid conflicts.

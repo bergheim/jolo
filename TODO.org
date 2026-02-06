@@ -357,7 +357,7 @@ Practical restriction: --copy targets should be workspace-relative.
 - test_mount_readonly_format
 - test_multiple_mounts_in_json
 
-* TODO Smart MOTD on every new shell session
+* DONE Smart MOTD on every new shell session
 
 Display useful context every time a new tmux pane/window opens (i.e., every new interactive zsh).
 
@@ -411,3 +411,23 @@ when only one container is running.
 - Only show running containers (stopped ones aren't switchable)
 - Orphan containers (workspace dir deleted) silently filtered out
 - =jolo prune= cleans up orphan containers
+
+* TODO Add =jolo delete= — interactive worktree/container removal
+
+Interactive picker (like =jolo open=) to select a worktree and delete both the
+worktree and its associated container.
+
+** Requirements
+- [ ] =jolo delete= lists worktrees with container status
+- [ ] Reuse =_format_container_display()= for display formatting
+- [ ] Interactive selection via fzf > gum > numbered fallback (same pattern as =jolo open=)
+- [ ] Stop and remove the selected container
+- [ ] Remove the git worktree (=git worktree remove=)
+- [ ] Confirmation prompt before destructive action
+- [ ] Skip picker when only one worktree exists (confirm and delete directly)
+
+** Design decisions
+- Only show worktrees (not the main repo checkout)
+- Show container state in picker (running/stopped/none)
+- Force-remove stopped containers, prompt if running
+- If worktree has uncommitted changes, warn and require =--force= or confirmation

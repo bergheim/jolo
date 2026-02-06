@@ -33,4 +33,9 @@ if [ -f justfile ] || [ -f Justfile ]; then
 elif [ -f MOTD ]; then
     echo ""
     cat MOTD
+else
+    echo ""
+    echo "  browser-check URL --describe    Inspect a page"
+    echo "  pre-commit run --all-files      Run linters"
+    echo "  just                            Run tasks (add a justfile)"
 fi
