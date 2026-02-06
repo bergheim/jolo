@@ -1014,7 +1014,7 @@ USER CONTAINER_USER
 SUBCOMMANDS = {
     "create", "list", "stop", "tree", "spawn",
     "attach", "init", "sync", "prune", "destroy",
-    "switch", "start",
+    "open", "start",
 }
 
 
@@ -1045,7 +1045,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
         "  spawn N             Create N worktrees in parallel, each with its own agent\n"
         "  list                List running containers and worktrees\n"
-        "  switch              Pick a running container and attach to it\n"
+        "  open                Pick a running container and attach to it\n"
         "  stop                Stop the devcontainer\n"
         "  attach              Attach to running container\n"
         "  init                Initialize git + devcontainer in current directory\n"
@@ -1068,7 +1068,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     cmds.add_argument("--sync", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--switch", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--open", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--start", action="store_true", help=argparse.SUPPRESS)
 
     opts = parser.add_argument_group("options")
@@ -2305,8 +2305,8 @@ def _format_container_display(workspace_folder: str) -> str:
     return p.name
 
 
-def run_switch_mode(args: argparse.Namespace) -> None:
-    """Run --switch mode: pick a running container and attach to it."""
+def run_open_mode(args: argparse.Namespace) -> None:
+    """Run --open mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
     running = [
         (name, folder) for name, folder, state in containers
@@ -3142,7 +3142,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # No subcommand — show help
     has_subcommand = any([
-        args.switch, args.attach, args.spawn, args.init,
+        args.open, args.attach, args.spawn, args.init,
         args.create, args.tree is not None, args.start,
     ])
     if not has_subcommand:
@@ -3154,8 +3154,8 @@ def main(argv: list[str] | None = None) -> None:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
-    if args.switch:
-        run_switch_mode(args)
+    if args.open:
+        run_open_mode(args)
     elif args.attach:
         run_attach_mode(args)
     elif args.spawn:

@@ -391,19 +391,16 @@ Added =--name= to =runArgs= in =build_devcontainer_json()=. Container names in
 =podman ps= now match the =name= field: =myapp= for main repo, =myapp-bold-bear=
 for worktrees (via =get_container_name()= which already prefixed).
 
-* TODO Rename =jolo switch= to =jolo open=
-
-=switch= implies toggling between things. =open= is what you're actually doing —
-opening a running project. Rename the subcommand, update help text, README, AGENTS.md.
+* DONE Rename =jolo switch= to =jolo open=
 
 * DONE Add interactive project switcher to jolo
 
-Implemented as =jolo switch=. Uses fzf > gum > numbered fallback.
+Implemented as =jolo open=. Uses fzf > gum > numbered fallback.
 Filters out orphan containers (missing workspace dir). Skips picker
 when only one container is running.
 
 ** Requirements
-- [X] =jolo switch= lists all active/running jolo projects
+- [X] =jolo open= lists all active/running jolo projects
 - [X] Display useful info per project (name, status, worktree, port, container state)
 - [X] Interactive selection to switch into the chosen project's container
 - [X] Reuse existing =--list= discovery logic for finding active projects

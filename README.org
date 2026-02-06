@@ -28,7 +28,7 @@ jolo tree feat -p "add OAuth login"
 jolo spawn 5 -p "implement the auth system"
 
 # Jump into a running container (fzf picker)
-jolo switch
+jolo open
 
 # Clean up orphaned/stopped containers
 jolo prune

@@ -247,7 +247,7 @@ jolo start                # start devcontainer in current project
 jolo tree feature-x       # create worktree + devcontainer
 jolo create newproject    # scaffold new project
 jolo list                 # show containers/worktrees
-jolo switch               # pick a running container and attach to it
+jolo open                 # pick a running container and attach to it
 jolo stop                 # stop container
 
 # AI prompt mode (starts agent in detached tmux)
