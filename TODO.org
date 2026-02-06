@@ -385,11 +385,16 @@ Every new tmux pane spawns a fresh interactive zsh -> sources .zshrc -> shows mo
 - Use =gum= for formatting? (already installed in container)
 - Should jolo be able to inject project-specific motd content?
 
-* TODO Prefix container/image names with project name
+* DONE Prefix container names with project name
 
-Random names like =busy-badger= don't indicate which project they belong to.
-Container names should be prefixed with the project name, e.g. =myapp-busy-badger=.
-This makes =podman ps= / =jolo list --all= output immediately meaningful.
+Added =--name= to =runArgs= in =build_devcontainer_json()=. Container names in
+=podman ps= now match the =name= field: =myapp= for main repo, =myapp-bold-bear=
+for worktrees (via =get_container_name()= which already prefixed).
+
+* TODO Rename =jolo switch= to =jolo open=
+
+=switch= implies toggling between things. =open= is what you're actually doing —
+opening a running project. Rename the subcommand, update help text, README, AGENTS.md.
 
 * DONE Add interactive project switcher to jolo
 
