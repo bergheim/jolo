@@ -568,29 +568,30 @@ describe('Example tests', () => {
         }
 
     elif language == "go":
-        # Go has built-in testing, no config file needed
+        # Go has built-in testing, no external dependencies needed
         example_test_content = """\
 package main
 
-import (
-\t"testing"
-
-\t"github.com/stretchr/testify/assert"
-)
+import "testing"
 
 func TestExample(t *testing.T) {
-\t// Basic assertion
-\tassert.True(t, true, "This should always pass")
+\tif false {
+\t\tt.Error("This should always pass")
+\t}
 }
 
 func TestAddition(t *testing.T) {
 \tresult := 1 + 1
-\tassert.Equal(t, 2, result, "1 + 1 should equal 2")
+\tif result != 2 {
+\t\tt.Errorf("expected 2, got %d", result)
+\t}
 }
 
 func TestStringOperations(t *testing.T) {
 \tresult := "hello"
-\tassert.Equal(t, "hello", result)
+\tif result != "hello" {
+\t\tt.Errorf("expected hello, got %s", result)
+\t}
 }
 """
         return {
@@ -598,6 +599,16 @@ func TestStringOperations(t *testing.T) {
             "config_content": "# Go uses built-in testing. Run tests with: go test ./...",
             "example_test_file": "example_test.go",
             "example_test_content": example_test_content,
+            "main_file": "main.go",
+            "main_content": """\
+package main
+
+import "fmt"
+
+func main() {
+\tfmt.Println("Hello, world!")
+}
+""",
         }
 
     elif language == "rust":
