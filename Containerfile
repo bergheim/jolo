@@ -18,12 +18,15 @@ RUN apk update && apk add --no-cache \
     curl \
     dbus \
     emacs-pgtk-nativecomp \
+    aspell-en \
     enchant2 \
+    enchant2-dev \
     entr \
     eza \
     fd \
     fontconfig \
     fzf \
+    fzf-zsh-plugin \
     git \
     github-cli \
     gnupg \
@@ -32,6 +35,7 @@ RUN apk update && apk add --no-cache \
     gstreamer \
     gum \
     hunspell \
+    hunspell-en-us \
     jq \
     just \
     mesa \
@@ -107,6 +111,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 # Smart emacsclient wrapper (must be before USER switch)
 COPY e /usr/local/bin/e
 RUN chmod +x /usr/local/bin/e
+
+# fzf completion.zsh lives in /usr/share/zsh/plugins/fzf/ on Alpine
+# but most configs expect /usr/share/fzf/completion.zsh
+RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh
 
 # hadolint (Dockerfile linter) - static binary works on musl
 RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
