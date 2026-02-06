@@ -271,6 +271,13 @@ jolo --destroy                    # nuclear: stop + rm all containers for projec
 jolo --list --all                 # show all containers globally
 jolo --stop --all                 # stop all containers for project
 jolo -v                           # verbose mode (print commands)
+
+# Mount and copy options
+jolo --mount ~/data:data          # mount ~/data to workspace/data (rw)
+jolo --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
+jolo --mount ~/data:/mnt/data     # mount to absolute path
+jolo --copy ~/config.json         # copy file to workspace root
+jolo --copy ~/config.json:app/    # copy to workspace/app/config.json
 ```
 
 **Security model:**

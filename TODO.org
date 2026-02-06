@@ -225,9 +225,9 @@ User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.
 - Packages mounted readonly: fast startup, no reinstall, AI can't mess with them
 - Small copy size (~2MB vs 1GB+)
 
-* TODO Add --mount and --copy options to jolo.py [0/5]
+* DONE Add --mount and --copy options to jolo.py [5/5]
 
-** TODO Add argument parsing for --mount and --copy
+** DONE Add argument parsing for --mount and --copy
 - [ ] Add =--mount= argument (action=append for multiple)
 - [ ] Add =--copy= argument (action=append for multiple)
 - [ ] Both default to empty list =[]= when not provided
@@ -235,7 +235,7 @@ User's Emacs config is now 1.8MB (small enough to copy). Cache dirs moved to ~/.
 - [ ] Test: single --copy, multiple --copy
 - [ ] Test: --mount and --copy combined
 
-** TODO Implement parse_mount() function
+** DONE Implement parse_mount() function
 Parse mount argument string into structured data.
 
 *** Syntax
@@ -258,7 +258,7 @@ Parse mount argument string into structured data.
 - [ ] Default readonly=False
 - [ ] Tilde expansion in source
 
-** TODO Implement parse_copy() function
+** DONE Implement parse_copy() function
 Parse copy argument string into structured data.
 
 *** Syntax
@@ -279,7 +279,7 @@ Parse copy argument string into structured data.
 - [ ] Absolute target used as-is
 - [ ] Tilde expansion in source
 
-** TODO Integrate mounts into devcontainer.json generation
+** DONE Integrate mounts into devcontainer.json generation
 - [ ] Create =add_user_mounts()= function (read-modify-write pattern)
 - [ ] Format mounts as devcontainer syntax: =source=...,target=...,type=bind[,readonly]=
 - [ ] Similar pattern to existing =add_worktree_git_mount()=
@@ -295,7 +295,7 @@ Parse copy argument string into structured data.
 - [ ] Multiple mounts all added
 - [ ] Verify correct devcontainer mount format
 
-** TODO Implement file copying for --copy
+** DONE Implement file copying for --copy
 - [ ] Copy files before =devcontainer_up()= is called
 - [ ] Handle missing source file (error with clear message)
 - [ ] Create parent directories if needed

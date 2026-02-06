@@ -260,7 +260,7 @@ understanding page structure.
   - [X] Verify screenshots/PDF generation work
   RESULT: Playwright Node.js API works (2026-02-05)
   - Navigation, screenshots, PDFs, console capture, error detection all work
-  - See test-alpine-playwright/ for test files
+  - See browser-check.js for implementation
 - [X] Check what agent-browser uses under the hood
   RESULT: Ships glibc Rust binary wrapper - doesn't work on Alpine
   Architecture: Rust CLI (~800KB) + Node.js daemon (Playwright)
