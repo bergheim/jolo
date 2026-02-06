@@ -748,7 +748,7 @@ def get_project_init_commands(language: str, project_name: str) -> list[list[str
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":
-        commands.append(["cargo", "new", ".", "--name", project_name])
+        commands.append(["cargo", "init", "--name", project_name])
     elif language == "shell":
         commands.append(["mkdir", "-p", "src"])
     elif language == "prose":
