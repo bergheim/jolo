@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > **Note:** This is a META-PROJECT for building the AI development container environment.
-> It is NOT meant for general development. For projects created with `jolo --create`,
+> It is NOT meant for general development. For projects created with `jolo create`,
 > see `templates/AGENTS.md` which gets copied to new projects.
 
 ## Project Overview
@@ -14,6 +14,10 @@ This repo builds and maintains the containerized Emacs GUI environment on Alpine
 - Container image (`emacs-gui`) with all dev tools pre-installed
 - `jolo.py` CLI for launching devcontainers with git worktree support
 - Templates for new projects (`templates/`)
+
+## File Format Preferences
+
+Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and notes. This is an Emacs-centric project.
 
 ## Project Defaults
 
@@ -26,7 +30,7 @@ python -m http.server $PORT
 flask run --port $PORT
 ```
 
-In spawn mode (`jolo --spawn N`), each worktree gets a unique port:
+In spawn mode (`jolo spawn N`), each worktree gets a unique port:
 - worktree-1: PORT=4000
 - worktree-2: PORT=4001
 - worktree-3: PORT=4002
@@ -238,38 +242,38 @@ Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
 ```bash
 # Basic usage
 jolo                      # start devcontainer in current project
-jolo --tree feature-x     # create worktree + devcontainer
-jolo --create newproject  # scaffold new project
-jolo --list               # show containers/worktrees
-jolo --stop               # stop container
+jolo tree feature-x       # create worktree + devcontainer
+jolo create newproject    # scaffold new project
+jolo list                 # show containers/worktrees
+jolo stop                 # stop container
 
 # AI prompt mode (starts agent in detached tmux)
 jolo -p "add user auth"           # run AI with prompt
-jolo --tree feat -p "add OAuth"   # worktree + prompt
-jolo --create app -p "scaffold"   # new project + prompt
+jolo tree feat -p "add OAuth"     # worktree + prompt
+jolo create app -p "scaffold"     # new project + prompt
 jolo --agent gemini -p "..."      # use different agent (default: claude)
 
 # Spawn mode (multiple parallel agents)
-jolo --spawn 5 -p "implement X"          # 5 random-named worktrees
-jolo --spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
+jolo spawn 5 -p "implement X"          # 5 random-named worktrees
+jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
 # Agents round-robin through configured list (claude, gemini, codex)
 # Each gets unique PORT (4000, 4001, 4002, ...)
 
 # Other options
-jolo --tree feat --from develop   # branch worktree from specific ref
-jolo --attach                     # attach to running container
+jolo tree feat --from develop     # branch worktree from specific ref
+jolo attach                       # attach to running container
 jolo -d                           # start detached (no tmux attach)
 jolo --shell                      # exec zsh directly (no tmux)
 jolo --run claude                 # exec command directly (no tmux)
 jolo --run "npm test"             # run arbitrary command
-jolo --init                       # initialize git + devcontainer in current dir
-jolo --sync                       # regenerate .devcontainer from template
+jolo init                         # initialize git + devcontainer in current dir
+jolo sync                         # regenerate .devcontainer from template
 jolo --new                        # remove existing container before starting
-jolo --sync --new                 # regenerate config and rebuild
-jolo --prune                      # cleanup stopped containers/stale worktrees
-jolo --destroy                    # nuclear: stop + rm all containers for project
-jolo --list --all                 # show all containers globally
-jolo --stop --all                 # stop all containers for project
+jolo sync --new                   # regenerate config and rebuild
+jolo prune                        # cleanup stopped containers/stale worktrees
+jolo destroy                      # nuclear: stop + rm all containers for project
+jolo list --all                   # show all containers globally
+jolo stop --all                   # stop all containers for project
 jolo -v                           # verbose mode (print commands)
 
 # Mount and copy options
