@@ -1,21 +1,29 @@
-#+TITLE: Emacs Container
+#+TITLE: jolo
 
-Containerized dev environment with Emacs, AI tools, and browser automation.
+YOLO-mode devcontainers for vibe coding. Spin up isolated Emacs environments with AI agents, point them at a problem, walk away.
+
+Alpine Linux container with Emacs, Claude/Gemini/Codex (all running with permissions skipped), language servers, browser automation, and the usual dev tools.
 
 * Quick Start
 
 #+begin_src bash
-# Install jolo
+# Install
 ln -s $(pwd)/jolo.py ~/.local/bin/jolo
 
 # Start devcontainer in any git project
 cd ~/myproject && jolo
 
-# Create worktree with isolated container
+# Scaffold a new project
+jolo create myapp
+
+# Worktree with its own container
 jolo tree feature-x
 
-# Create new project
-jolo create myapp
+# Fire and forget — AI works in background
+jolo tree feat -p "add OAuth login"
+
+# Spawn 5 parallel agents on the same problem
+jolo spawn 5 -p "implement the auth system"
 #+end_src
 
 * Build
@@ -27,21 +35,23 @@ podman build --build-arg USERNAME=$(whoami) \
              -t emacs-gui .
 #+end_src
 
-* What's Included
+* Layout
 
-Alpine Linux (musl), Emacs, AI tools (Claude/Gemini/Codex), language servers, browser automation, all the usual dev tools. See [[file:AGENTS.md][AGENTS.md]] for details.
+#+begin_example
+Containerfile            # image definition
+jolo.py                  # the CLI
+container/               # scripts baked into the image
+docs/                    # research notes
+templates/               # scaffolds for new projects
+#+end_example
 
-* Worktrees
+* How It Works
 
-Each ~tree~ or ~spawn~ command creates an isolated git worktree with its own container. Ports auto-increment:
+Each ~jolo~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Agents run in detached tmux sessions — attach when you want, ignore when you don't.
 
-| Worktree | PORT |
-|----------+------|
-| main     | 4000 |
-| tree-1   | 4001 |
-| tree-2   | 4002 |
+~spawn~ mode fans out N worktrees with agents round-robining through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
-Use ~$PORT~ in dev servers. Ports 4000-5000 forwarded to host.
+See [[file:AGENTS.md][AGENTS.md]] for the full reference.
 
 * License
 
