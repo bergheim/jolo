@@ -1,6 +1,6 @@
 #+TITLE: jolo
 
-/Not exactly YOLO but close enough (like programming has become!)/
+Not exatcly like YOLO but close enough - program like it's 2026.
 
 YOLO-mode devcontainers for vibe coding. Spin up isolated Emacs environments with AI agents, point them at a problem, walk away.
 
