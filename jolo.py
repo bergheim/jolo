@@ -1014,6 +1014,7 @@ USER CONTAINER_USER
 SUBCOMMANDS = {
     "create", "list", "stop", "tree", "spawn",
     "attach", "init", "sync", "prune", "destroy",
+    "switch",
 }
 
 
@@ -1043,6 +1044,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
         "  spawn N             Create N worktrees in parallel, each with its own agent\n"
         "  list                List running containers and worktrees\n"
+        "  switch              Pick a running container and attach to it\n"
         "  stop                Stop the devcontainer\n"
         "  attach              Attach to running container\n"
         "  init                Initialize git + devcontainer in current directory\n"
@@ -1066,6 +1068,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     cmds.add_argument("--sync", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--switch", action="store_true", help=argparse.SUPPRESS)
 
     opts = parser.add_argument_group("options")
 
@@ -2234,6 +2237,86 @@ def run_attach_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(git_root)
 
 
+def _format_container_display(workspace_folder: str) -> str:
+    """Derive a human-friendly label from a workspace path.
+
+    /home/tsb/dev/myapp           → myapp
+    /home/tsb/dev/myapp-worktrees/bold-bear → myapp / bold-bear
+    """
+    p = Path(workspace_folder)
+    if p.parent.name.endswith("-worktrees"):
+        project = p.parent.name.removesuffix("-worktrees")
+        return f"{project} / {p.name}"
+    return p.name
+
+
+def run_switch_mode(args: argparse.Namespace) -> None:
+    """Run --switch mode: pick a running container and attach to it."""
+    containers = list_all_devcontainers()
+    running = [(name, folder) for name, folder, state in containers if state == "running"]
+
+    if not running:
+        sys.exit("No running containers found.")
+
+    if len(running) == 1:
+        _, folder = running[0]
+        devcontainer_exec_tmux(Path(folder))
+        return
+
+    # Build display lines
+    labels = []
+    for _, folder in running:
+        label = _format_container_display(folder)
+        labels.append(f"{label:<30} {folder}")
+
+    # Try fzf > gum > numbered fallback
+    selected_folder = None
+    if shutil.which("fzf"):
+        try:
+            result = subprocess.run(
+                ["fzf", "--header", "Pick a container:", "--height", "~10",
+                 "--layout", "reverse", "--no-multi"],
+                input="\n".join(labels),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                return
+            selected_folder = result.stdout.strip().split()[-1]
+        except KeyboardInterrupt:
+            return
+    elif shutil.which("gum"):
+        try:
+            result = subprocess.run(
+                ["gum", "choose", "--header", "Pick a container:"] + labels,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                return
+            selected_folder = result.stdout.strip().split()[-1]
+        except KeyboardInterrupt:
+            return
+    else:
+        print("Pick a container:")
+        for i, line in enumerate(labels, 1):
+            print(f"  {i}. {line}")
+        print()
+        try:
+            response = input("> ").strip()
+        except (KeyboardInterrupt, EOFError):
+            return
+        if not response.isdigit():
+            sys.exit("Invalid selection.")
+        idx = int(response) - 1
+        if not (0 <= idx < len(running)):
+            sys.exit("Invalid selection.")
+        _, selected_folder = running[idx]
+
+    if selected_folder:
+        devcontainer_exec_tmux(Path(selected_folder))
+
+
 def run_list_mode(args: argparse.Namespace) -> None:
     """Run --list mode: show containers and worktrees for current project."""
     git_root = find_git_root()
@@ -3004,7 +3087,9 @@ def main(argv: list[str] | None = None) -> None:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
-    if args.attach:
+    if args.switch:
+        run_switch_mode(args)
+    elif args.attach:
         run_attach_mode(args)
     elif args.spawn:
         run_spawn_mode(args)
