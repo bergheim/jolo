@@ -52,6 +52,7 @@ RUN apk update && apk add --no-cache \
     python3 \
     py3-pip \
     ripgrep \
+    cargo \
     rust \
     rust-analyzer \
     shellcheck \
