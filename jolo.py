@@ -1049,7 +1049,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  attach              Attach to running container\n"
         "  init                Initialize git + devcontainer in current directory\n"
         "  sync                Regenerate .devcontainer from template\n"
-        "  prune               Clean up stopped containers and stale worktrees\n"
+        "  prune               Clean up stopped/orphan containers and stale worktrees\n"
         "  destroy             Stop and remove all containers for project\n"
         "  (no command)        Start devcontainer in current project",
     )
@@ -1975,19 +1975,34 @@ def remove_worktree(git_root: Path, worktree_path: Path) -> bool:
 
 def run_prune_global_mode() -> None:
     """Run --prune --all mode: clean up all stopped devcontainers globally."""
+    runtime = get_container_runtime()
+    if runtime is None:
+        sys.exit("Error: No container runtime found (docker or podman required)")
+
     all_containers = list_all_devcontainers()
     stopped_containers = [
         (name, folder) for name, folder, state in all_containers if state != "running"
     ]
+    orphan_containers = [
+        (name, folder) for name, folder, state in all_containers
+        if state == "running" and not Path(folder).exists()
+    ]
 
-    if not stopped_containers:
-        print("No stopped containers to prune.")
+    if not stopped_containers and not orphan_containers:
+        print("Nothing to prune.")
         return
 
-    print("Stopped containers:")
-    for name, folder in stopped_containers:
-        print(f"  {name:<24} {folder}")
-    print()
+    if stopped_containers:
+        print("Stopped containers:")
+        for name, folder in stopped_containers:
+            print(f"  {name:<24} {folder}")
+        print()
+
+    if orphan_containers:
+        print("Orphan containers (workspace dir missing):")
+        for name, folder in orphan_containers:
+            print(f"  {name:<24} {folder}")
+        print()
 
     # Prompt for confirmation
     try:
@@ -2000,7 +2015,17 @@ def run_prune_global_mode() -> None:
         print("Cancelled.")
         return
 
-    for name, _ in stopped_containers:
+    # Stop orphan containers first
+    for name, _ in orphan_containers:
+        cmd = [runtime, "stop", name]
+        verbose_cmd(cmd)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"Stopped: {name}")
+        else:
+            print(f"Failed to stop: {name}", file=sys.stderr)
+
+    for name, _ in stopped_containers + orphan_containers:
         if remove_container(name):
             print(f"Removed: {name}")
         else:
@@ -2016,13 +2041,24 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         run_prune_global_mode()
         return
 
+    runtime = get_container_runtime()
+    if runtime is None:
+        sys.exit("Error: No container runtime found (docker or podman required)")
+
     # Find stopped containers
     stopped_containers = find_stopped_containers_for_project(git_root)
+
+    # Find orphan containers (running but workspace dir missing)
+    all_project = find_containers_for_project(git_root)
+    orphan_containers = [
+        (name, folder) for name, folder, state in all_project
+        if state == "running" and not Path(folder).exists()
+    ]
 
     # Find stale worktrees
     stale_worktrees = find_stale_worktrees(git_root)
 
-    if not stopped_containers and not stale_worktrees:
+    if not stopped_containers and not orphan_containers and not stale_worktrees:
         print("Nothing to prune.")
         return
 
@@ -2030,6 +2066,12 @@ def run_prune_mode(args: argparse.Namespace) -> None:
     if stopped_containers:
         print("Stopped containers:")
         for name, folder in stopped_containers:
+            print(f"  {name:<24} {folder}")
+        print()
+
+    if orphan_containers:
+        print("Orphan containers (workspace dir missing):")
+        for name, folder in orphan_containers:
             print(f"  {name:<24} {folder}")
         print()
 
@@ -2050,8 +2092,18 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         print("Cancelled.")
         return
 
+    # Stop orphan containers first
+    for name, _ in orphan_containers:
+        cmd = [runtime, "stop", name]
+        verbose_cmd(cmd)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"Stopped: {name}")
+        else:
+            print(f"Failed to stop: {name}", file=sys.stderr)
+
     # Remove containers
-    for name, _ in stopped_containers:
+    for name, _ in stopped_containers + orphan_containers:
         if remove_container(name):
             print(f"Removed container: {name}")
         else:
@@ -2253,7 +2305,10 @@ def _format_container_display(workspace_folder: str) -> str:
 def run_switch_mode(args: argparse.Namespace) -> None:
     """Run --switch mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
-    running = [(name, folder) for name, folder, state in containers if state == "running"]
+    running = [
+        (name, folder) for name, folder, state in containers
+        if state == "running" and Path(folder).exists()
+    ]
 
     if not running:
         sys.exit("No running containers found.")
