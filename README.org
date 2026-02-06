@@ -1,5 +1,7 @@
 #+TITLE: jolo
 
+/Not exactly YOLO but close enough (like programming has become!)/
+
 YOLO-mode devcontainers for vibe coding. Spin up isolated Emacs environments with AI agents, point them at a problem, walk away.
 
 Alpine Linux container with Emacs, Claude/Gemini/Codex (all running with permissions skipped), language servers, browser automation, and the usual dev tools.
