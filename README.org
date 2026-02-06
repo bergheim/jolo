@@ -26,6 +26,12 @@ jolo tree feat -p "add OAuth login"
 
 # Spawn 5 parallel agents on the same problem
 jolo spawn 5 -p "implement the auth system"
+
+# Jump into a running container (fzf picker)
+jolo switch
+
+# Clean up orphaned/stopped containers
+jolo prune
 #+end_src
 
 * Build
