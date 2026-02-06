@@ -41,7 +41,6 @@ capabilities verified working with system Chromium.
 | File                                    | Purpose                          |
 |-----------------------------------------+----------------------------------|
 | Containerfile                           | Production Alpine image (default)|
-| Containerfile.wolfi                     | Backup Wolfi image (glibc)       |
 | browser-check.js                        | Browser automation CLI           |
 | distro.org                              | Research notes (updated)         |
 | browsers.org                            | Tool comparison (updated)        |
@@ -62,10 +61,6 @@ podman build \
   -t emacs-gui .
 #+end_src
 
-** Wolfi backup (glibc, if needed)
-#+begin_src shell
-podman build -f Containerfile.wolfi -t emacs-gui-wolfi .
-#+end_src
 
 * Package Comparison
 

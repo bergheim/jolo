@@ -110,8 +110,8 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Smart emacsclient wrapper (must be before USER switch)
-COPY e /usr/local/bin/e
-COPY motd /usr/local/bin/motd
+COPY container/e /usr/local/bin/e
+COPY container/motd /usr/local/bin/motd
 RUN chmod +x /usr/local/bin/e /usr/local/bin/motd
 
 # fzf completion.zsh lives in /usr/share/zsh/plugins/fzf/ on Alpine
@@ -123,7 +123,7 @@ RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releas
     chmod +x /usr/local/bin/hadolint
 
 # browser-check - Alpine-compatible browser automation CLI
-COPY browser-check.js /usr/local/lib/browser-check.js
+COPY container/browser-check.js /usr/local/lib/browser-check.js
 RUN printf '#!/bin/sh\nNODE_PATH=/usr/lib/node_modules exec node /usr/local/lib/browser-check.js "$@"\n' > /usr/local/bin/browser-check && \
     chmod +x /usr/local/bin/browser-check
 
@@ -171,7 +171,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
 ENV EMACS_CONTAINER=1
 
 # ENTRYPOINT script for GUI launch
-COPY --chown=$USERNAME:$USERNAME entrypoint.sh $HOME/
+COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh $HOME/
 RUN chmod +x $HOME/entrypoint.sh
 
 ENTRYPOINT ["sh", "-c", "exec \"$HOME/entrypoint.sh\" \"$@\"", "--"]
