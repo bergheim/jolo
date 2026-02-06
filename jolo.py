@@ -602,7 +602,12 @@ func TestStringOperations(t *testing.T) {
 
     elif language == "rust":
         # Rust has built-in testing, no config file needed
+        # Write to src/main.rs so cargo init creates a binary crate (not lib)
         example_test_content = """\
+fn main() {
+    println!("Hello, world!");
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -626,7 +631,7 @@ mod tests {
         return {
             "config_file": None,
             "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
-            "example_test_file": "src/lib.rs",
+            "example_test_file": "src/main.rs",
             "example_test_content": example_test_content,
         }
 
