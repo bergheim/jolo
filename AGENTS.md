@@ -62,10 +62,12 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 
 **Key files:**
 - `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
-- `entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
+- `container/entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
+- `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
+- `container/motd` - Message of the day shown on shell login
+- `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
 - `jolo.py` - Devcontainer CLI for project-based development with git worktree support
-- `e` - Smart Emacs launcher (GUI or terminal based on environment)
 
 **Sandbox mechanism (start-emacs.sh):**
 The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyra-experiments`. This gives Claude a copy of the Emacs config to modify freely without affecting the real dotfiles. The `private.el` secrets file is deleted from the worktree.
