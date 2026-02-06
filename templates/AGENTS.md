@@ -81,34 +81,36 @@ repos:
 
 ## Browser Automation
 
-Use this table - don't ask which tool to use.
+Use `browser-check` for all browser tasks. It provides ARIA snapshots with 93% less context than raw HTML. Each command launches a fresh browser (stateless).
 
-| Task | Tool | Command |
-|------|------|---------|
-| Screenshot | playwright | `npx playwright screenshot URL file.png` |
-| PDF | playwright | `npx playwright pdf URL file.pdf` |
-| Check page content | agent-browser | `agent-browser navigate URL --describe` |
-| Click/fill/interact | agent-browser | `agent-browser click "Text"` / `fill "Field" "value"` |
-| Console logs | webctl | `webctl start --mode unattended && webctl console` |
-| Network requests | webctl | `webctl start --mode unattended && webctl network` |
+| Task | Command |
+|------|---------|
+| Check what's on page | `browser-check URL --describe` |
+| Take screenshot | `browser-check URL --screenshot` |
+| Full page screenshot | `browser-check URL --screenshot --full-page` |
+| Generate PDF | `browser-check URL --pdf` |
+| Get ARIA tree | `browser-check URL --aria` |
+| Interactive elements only | `browser-check URL --aria --interactive` |
+| Capture console logs | `browser-check URL --console` |
+| Capture JS errors | `browser-check URL --errors` |
+| JSON output for scripts | `browser-check URL --json --console --errors` |
 
 **Quick patterns:**
 ```bash
-# Screenshot
-npx playwright screenshot https://example.com shot.png
+# Check if dev server is up
+browser-check http://localhost:$PORT --describe --console --errors
 
-# See what's on page
-agent-browser navigate "https://example.com" --describe
+# Screenshot with custom output
+browser-check https://example.com --screenshot --output shot.png
 
-# Fill form
-agent-browser navigate "https://example.com/login" && \
-agent-browser fill "Email" "user@example.com" && \
-agent-browser fill "Password" "secret" && \
-agent-browser click "Sign In"
+# Get page structure for LLM
+browser-check https://example.com --aria --interactive --json
 
-# Debug JS errors
-webctl start --mode unattended && webctl navigate "https://example.com" && webctl console
+# Debug JavaScript errors
+browser-check http://localhost:$PORT --errors --console
 ```
+
+**Limitations:** Stateless (no persistent sessions), no interaction (can't click/fill). For multi-step flows, write a Node.js script using Playwright directly.
 
 ## Project Setup Checklist
 

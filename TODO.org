@@ -391,17 +391,21 @@ Random names like =busy-badger= don't indicate which project they belong to.
 Container names should be prefixed with the project name, e.g. =myapp-busy-badger=.
 This makes =podman ps= / =jolo list --all= output immediately meaningful.
 
-* TODO Add interactive project switcher to jolo
+* DONE Add interactive project switcher to jolo
 
-List all active jolo projects and let the user select one to switch to.
+Implemented as =jolo switch=. Uses fzf > gum > numbered fallback.
+Filters out orphan containers (missing workspace dir). Skips picker
+when only one container is running.
 
 ** Requirements
-- [ ] =jolo --switch= (or similar) lists all active/running jolo projects
-- [ ] Display useful info per project (name, status, worktree, port, container state)
-- [ ] Interactive selection to switch into the chosen project's container
-- [ ] Reuse existing =--list= discovery logic for finding active projects
+- [X] =jolo switch= lists all active/running jolo projects
+- [X] Display useful info per project (name, status, worktree, port, container state)
+- [X] Interactive selection to switch into the chosen project's container
+- [X] Reuse existing =--list= discovery logic for finding active projects
 
 ** Design decisions
-- Selection UI: fzf
+- Selection UI: fzf > gum > numbered fallback
 - "Switch" means: tmux attach into the selected container
 - Only show running containers (stopped ones aren't switchable)
+- Orphan containers (workspace dir deleted) silently filtered out
+- =jolo prune= cleans up orphan containers
