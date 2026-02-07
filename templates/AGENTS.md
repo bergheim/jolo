@@ -10,13 +10,27 @@ All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Check it before 
 
 Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).
 
+**Always bind to `0.0.0.0`**, not `localhost` or `127.0.0.1`. Container networking requires it — `localhost` inside the container is not reachable from outside.
+
 | Framework | Configuration |
 |-----------|---------------|
-| Vite | `vite --port $PORT` |
-| Next.js | `next dev -p $PORT` |
-| Flask | `flask run --port $PORT` |
-| FastAPI | `uvicorn app:app --port $PORT` |
+| Vite | `vite --host 0.0.0.0 --port $PORT` |
+| Next.js | `next dev -H 0.0.0.0 -p $PORT` |
+| Flask | `flask run --host 0.0.0.0 --port $PORT` |
+| FastAPI | `uvicorn app:app --host 0.0.0.0 --port $PORT` |
 | Go | `http.ListenAndServe(":"+os.Getenv("PORT"), nil)` |
+
+## Development Workflow
+
+Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloads on file changes. Only use `just run` for one-off executions (e.g., scripts, CLI tools).
+
+| Recipe | Purpose |
+|--------|---------|
+| `just dev` | Run with auto-reload (use this for development) |
+| `just run` | Run once without watching |
+| `just test` | Run tests |
+| `just test-watch` | Run tests on file change |
+| `just add X` | Add a dependency |
 
 ## Code Quality
 

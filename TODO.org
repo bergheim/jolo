@@ -412,6 +412,23 @@ when only one container is running.
 - Orphan containers (workspace dir deleted) silently filtered out
 - =jolo prune= cleans up orphan containers
 
+* TODO Add Claude Code skills for complex multi-step workflows
+
+Skills (slash commands) are overkill for simple =just= wrappers — AGENTS.md handles that.
+But for complex multi-step workflows (deploy pipelines, database migrations, test+lint+commit
+sequences), custom skills could be useful.
+
+** Ideas
+- =/deploy= — build, test, push, tag, deploy in sequence
+- =/db-migrate= — run migration, verify schema, seed if needed
+- =/release= — bump version, changelog, tag, push, create GH release
+
+** Notes
+- Skills live in =.claude/commands/= as markdown files
+- Each skill is a prompt template that Claude executes
+- Only worth adding when the workflow has branching logic or error handling
+  that a simple =just= recipe can't express
+
 * TODO Add =jolo delete= — interactive worktree/container removal
 
 Interactive picker (like =jolo open=) to select a worktree and delete both the
