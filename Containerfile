@@ -52,6 +52,7 @@ RUN apk update && apk add --no-cache \
     python3 \
     py3-pip \
     ripgrep \
+    ruby \
     cargo \
     rust \
     rust-analyzer \
@@ -59,6 +60,7 @@ RUN apk update && apk add --no-cache \
     sqlite \
     sudo \
     tmux \
+    tmuxinator \
     uv \
     wget \
     wl-clipboard \
@@ -161,6 +163,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # tmux clipboard (OSC 52)
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
+    echo 'set -g base-index 1' >> $HOME/.tmux.conf && \
     # Python tools via uv (only ones not in apk)
     # pre-commit, ruff, ansible-lint now from apk
     uv tool install ty && \
@@ -172,6 +175,11 @@ ENV EMACS_CONTAINER=1
 
 # ENTRYPOINT script for GUI launch
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh $HOME/
-RUN chmod +x $HOME/entrypoint.sh
+COPY --chown=$USERNAME:$USERNAME container/tmux-layout.sh $HOME/
+RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh
+
+# tmuxinator layout
+RUN mkdir -p $HOME/.config/tmuxinator
+COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
 
 ENTRYPOINT ["sh", "-c", "exec \"$HOME/entrypoint.sh\" \"$@\"", "--"]

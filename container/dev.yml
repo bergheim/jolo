@@ -1,0 +1,8 @@
+name: dev
+startup_window: emacs
+windows:
+  - emacs: e
+  - claude: claude --dangerously-skip-permissions
+  - gemini: gemini --yolo
+  - codex: codex
+  - shell:

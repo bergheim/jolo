@@ -1603,7 +1603,10 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
 
 def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     """Execute into container and attach/create tmux session."""
-    shell_cmd = "tmux attach-session -t dev || tmux new-session -s dev"
+    shell_cmd = (
+        "if [ -x \"$HOME/tmux-layout.sh\" ]; then exec \"$HOME/tmux-layout.sh\"; "
+        "else tmux attach-session -d -t dev || tmux new-session -s dev; fi"
+    )
     cmd = [
         "devcontainer",
         "exec",
@@ -1634,27 +1637,12 @@ def devcontainer_exec_command(workspace_dir: Path, command: str) -> None:
     subprocess.run(cmd, cwd=workspace_dir)
 
 
-def devcontainer_exec_prompt(workspace_dir: Path, agent: str, prompt: str) -> None:
-    """Start AI agent with a prompt in a detached tmux session."""
-    quoted_prompt = shlex.quote(prompt)
-    # Claude needs --dangerously-skip-permissions since shell aliases aren't loaded
-    if agent == "claude":
-        agent_cmd = "claude --dangerously-skip-permissions"
-    else:
-        agent_cmd = agent
-    tmux_cmd = f"tmux new-session -d -s dev {agent_cmd} {quoted_prompt}"
-    cmd = [
-        "devcontainer",
-        "exec",
-        "--workspace-folder",
-        str(workspace_dir),
-        "sh",
-        "-c",
-        tmux_cmd,
-    ]
-
-    verbose_cmd(cmd)
-    subprocess.run(cmd, cwd=workspace_dir)
+def write_prompt_file(workspace_dir: Path, agent: str, prompt: str) -> None:
+    """Write prompt and agent name files for tmux-layout.sh to pick up on start."""
+    devcontainer_dir = workspace_dir / ".devcontainer"
+    devcontainer_dir.mkdir(parents=True, exist_ok=True)
+    (devcontainer_dir / ".agent-prompt").write_text(prompt)
+    (devcontainer_dir / ".agent-name").write_text(agent)
 
 
 def list_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
@@ -2458,13 +2446,16 @@ def run_default_mode(args: argparse.Namespace) -> None:
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(git_root)
 
+    # Write prompt file before starting container so entrypoint picks it up
+    if args.prompt:
+        write_prompt_file(git_root, args.agent, args.prompt)
+
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(git_root):
         if not devcontainer_up(git_root, remove_existing=args.new):
             sys.exit("Error: Failed to start devcontainer")
 
     if args.prompt:
-        devcontainer_exec_prompt(git_root, args.agent, args.prompt)
         print(f"Started {args.agent} in: {project_name}")
         return
 
@@ -2597,13 +2588,16 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(worktree_path)
 
+    # Write prompt file before starting container so entrypoint picks it up
+    if args.prompt:
+        write_prompt_file(worktree_path, args.agent, args.prompt)
+
     # Start devcontainer only if not already running (or --new forces restart)
     if args.new or not is_container_running(worktree_path):
         if not devcontainer_up(worktree_path, remove_existing=args.new):
             sys.exit("Error: Failed to start devcontainer")
 
     if args.prompt:
-        devcontainer_exec_prompt(worktree_path, args.agent, args.prompt)
         print(f"Started {args.agent} in: {worktree_path.name}")
         return
 
@@ -2774,6 +2768,10 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
 
+    # Write prompt file before starting container so entrypoint picks it up
+    if args.prompt:
+        write_prompt_file(project_path, args.agent, args.prompt)
+
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
@@ -2786,7 +2784,6 @@ def run_create_mode(args: argparse.Namespace) -> None:
         devcontainer_exec_command(project_path, cmd_str)
 
     if args.prompt:
-        devcontainer_exec_prompt(project_path, args.agent, args.prompt)
         print(f"Started {args.agent} in: {project_name}")
         return
 
@@ -2859,12 +2856,15 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
 
+    # Write prompt file before starting container so entrypoint picks it up
+    if args.prompt:
+        write_prompt_file(project_path, args.agent, args.prompt)
+
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
 
     if args.prompt:
-        devcontainer_exec_prompt(project_path, args.agent, args.prompt)
         print(f"Started {args.agent} in: {project_name}")
         return
 

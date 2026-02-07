@@ -432,7 +432,7 @@ worktree and its associated container.
 - Force-remove stopped containers, prompt if running
 - If worktree has uncommitted changes, warn and require =--force= or confirmation
 
-* TODO Tmux session layout — auto-start emacs + AI agents (tmuxinator-style)
+* DONE Tmux session layout — auto-start emacs + AI agents (tmuxinator-style)
 
 Explore having the entrypoint (or a dedicated script) set up a predefined tmux
 session layout on container start. Like tmuxinator but baked in.

@@ -498,3 +498,5 @@ mlruns/
 .devcontainer/.emacs-config/
 .devcontainer/.emacs-cache/
 .devcontainer/.histfile
+.devcontainer/.agent-prompt
+.devcontainer/.agent-name

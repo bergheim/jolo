@@ -58,6 +58,5 @@ export NO_AT_BRIDGE=1
 if [ "$START_EMACS" = "true" ]; then
     exec emacs --fg-daemon
 else
-    # auto-reattach to existing, else create
-    tmux attach-session -t dev || tmux new-session -s dev
+    exec sleep infinity
 fi
