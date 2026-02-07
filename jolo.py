@@ -984,7 +984,7 @@ def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
         "name": project_name,
         "build": {"dockerfile": "Dockerfile"},
         "workspaceFolder": workspace_folder,
-        "runArgs": ["--hostname", project_name, "--name", project_name],
+        "runArgs": ["--hostname", project_name, "--name", project_name, "-p", f"{port}:{port}"],
         "mounts": mounts,
         "containerEnv": {
             "TERM": "xterm-256color",
