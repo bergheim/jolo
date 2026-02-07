@@ -65,7 +65,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 
 **Key files:**
 - `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
-- `container/entrypoint.sh` - Container startup: display detection, GPG agent setup, keeps container alive
+- `container/entrypoint.sh` - Container startup: GPG agent setup, DBus, keeps container alive
 - `container/tmux-layout.sh` - Tmux session wrapper: starts tmuxinator layout, handles reattach and prompt mode
 - `container/dev.yml` - Tmuxinator config: 5-window layout (emacs, claude, gemini, codex, shell)
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
@@ -293,6 +293,7 @@ jolo start --copy ~/config.json:app/    # copy to workspace/app/config.json
 ```
 
 **Security model:**
+- **No X11 access** — jolo containers have no X11 socket mount and no `DISPLAY` variable. This prevents X11 keylogging, screenshot capture, and input injection by anything running in the container. GUI Emacs is only available via `start-emacs.sh` (the sandbox path that intentionally grants display access).
 - AI credentials copied (not mounted) to `.devcontainer/` at launch:
   - Claude: `.claude-cache/` and `.claude.json`
   - Gemini: `.gemini-cache/`

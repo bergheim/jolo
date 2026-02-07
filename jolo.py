@@ -460,11 +460,11 @@ add *packages:
         return f"""\
 # Run the project
 run:
-    bun run index.ts
+    bun run src/index.ts
 
 # Run with auto-reload
 dev:
-    fd -e ts | entr -r bun run index.ts
+    bun --hot src/index.ts
 
 # Run tests
 test:
@@ -847,7 +847,9 @@ def get_project_init_commands(language: str, project_name: str) -> list[list[str
         # pyproject.toml is created during scaffolding, just ensure tests dir exists
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
-        commands.append(["bun", "init"])  # interactive project template picker
+        commands.append(["bun", "init"])
+        commands.append(["mkdir", "-p", "src"])
+        commands.append(["mv", "index.ts", "src/index.ts"])
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":
@@ -1022,7 +1024,6 @@ def load_config(global_config_dir: Path | None = None) -> dict:
 
 # Base mounts that are always included
 BASE_MOUNTS = [
-    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
     # Gemini: copy-based isolation (credentials copied to .devcontainer/.gemini-cache/)
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     # Claude: copy-based isolation (credentials copied to .devcontainer/.claude-cache/)
@@ -1085,7 +1086,6 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
         "mounts": mounts,
         "containerEnv": {
             "TERM": "xterm-256color",
-            "DISPLAY": "${localEnv:DISPLAY}",
             "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",

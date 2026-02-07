@@ -1,11 +1,6 @@
 #!/bin/sh
-# entrypoint.sh: Container startup - display detection, GPG setup, tmux/emacs launch
+# entrypoint.sh: Container startup - GPG setup, DBus, tmux/emacs launch
 set -e
-
-if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ]; then
-    echo "Neither DISPLAY nor WAYLAND_DISPLAY is set"
-    exit 1
-fi
 
 # Set up XDG directories (use env var if set by devcontainer, else compute)
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-$(id -u)}"
