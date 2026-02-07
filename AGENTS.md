@@ -66,7 +66,9 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 
 **Key files:**
 - `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
-- `container/entrypoint.sh` - Container startup: display detection, GPG agent setup, tmux/emacs launch
+- `container/entrypoint.sh` - Container startup: display detection, GPG agent setup, keeps container alive
+- `container/tmux-layout.sh` - Tmux session wrapper: starts tmuxinator layout, handles reattach and prompt mode
+- `container/dev.yml` - Tmuxinator config: 5-window layout (emacs, claude, gemini, codex, shell)
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
@@ -78,7 +80,7 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 
 **Environment:**
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
-- `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise defaults to tmux
+- `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise tmuxinator creates 5-window layout (emacs, claude, gemini, codex, shell)
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `NPM_CONFIG_PREFIX`, `PNPM_HOME` - User-local package manager paths (no sudo needed)
 
@@ -91,9 +93,9 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 
 Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server
 
-Runtimes: Go, Rust, Python, Node.js, Bun, pnpm, mise (version manager)
+Runtimes: Go, Rust, Python, Ruby, Node.js, Bun, pnpm, mise (version manager)
 
-CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, neovim (aliased as `vi`)
+CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`)
 
 AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli)
 
