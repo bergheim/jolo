@@ -1,13 +1,10 @@
 #!/bin/sh
-# Smart Emacs launcher - GUI when available, terminal otherwise
+# Smart Emacs launcher - GUI when authorized, terminal otherwise
 
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-    # SSH session - terminal mode
-    emacs -nw "$@"
-elif [ -n "$WAYLAND_DISPLAY" ] || [ -n "$DISPLAY" ]; then
-    # GUI available
+if [ -n "$WAYLAND_DISPLAY" ] || { [ -n "$DISPLAY" ] && xset q >/dev/null 2>&1; }; then
+    # Display available and authorized
     emacs "$@"
 else
-    # Fallback to terminal
+    # Terminal mode (no display, no auth, or devcontainer without X forwarding)
     emacs -nw "$@"
 fi
