@@ -13,9 +13,13 @@ if [ -n "$branch" ]; then
     git_line="$branch$dirty  $last_commit"
 fi
 
-# Build header
+# Build header with full URL
 header="$project"
-[ -n "$PORT" ] && header="$header  :$PORT"
+if [ -n "$DEV_HOST" ] && [ -n "$PORT" ]; then
+    header="$header  http://${DEV_HOST}:${PORT}"
+elif [ -n "$PORT" ]; then
+    header="$header  :$PORT"
+fi
 
 # Hint line
 hint=""

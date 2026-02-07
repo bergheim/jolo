@@ -89,6 +89,34 @@ def is_port_available(port: int) -> bool:
             return False
 
 
+def detect_hostname() -> str:
+    """Detect the host's Tailscale hostname, with fallback to localhost.
+
+    Checks (in order):
+    1. DEV_HOST environment variable (explicit override)
+    2. Tailscale DNS name via `tailscale status --self --json`
+    3. Falls back to "localhost"
+    """
+    env_host = os.environ.get("DEV_HOST")
+    if env_host:
+        return env_host
+
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--self", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            dns_name = data.get("Self", {}).get("DNSName", "")
+            if dns_name:
+                return dns_name.rstrip(".")
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+
+    return "localhost"
+
+
 def read_port_from_devcontainer(workspace_dir: Path) -> int | None:
     """Read the PORT from an existing devcontainer.json, if present."""
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
@@ -399,6 +427,16 @@ def get_justfile_content(language: str, project_name: str) -> str:
     """
     module_name = project_name.replace("-", "_")
 
+    browse_recipe = """\
+
+# Open in browser
+browse:
+    #!/bin/sh
+    url="http://${DEV_HOST:-localhost}:${PORT:-4000}"
+    echo "$url"
+    xdg-open "$url" 2>/dev/null || echo "Open manually: $url"
+"""
+
     if language == "python":
         return f"""\
 # Run the project
@@ -420,9 +458,9 @@ test-watch:
 # Add a dependency
 add *packages:
     uv add {{{{packages}}}}
-"""
+{browse_recipe}"""
     elif language == "typescript":
-        return """\
+        return f"""\
 # Run the project
 run:
     bun run index.ts
@@ -441,10 +479,10 @@ test-watch:
 
 # Add a dependency
 add *packages:
-    bun add {{packages}}
-"""
+    bun add {{{{packages}}}}
+{browse_recipe}"""
     elif language == "go":
-        return """\
+        return f"""\
 # Run the project
 run:
     go run .
@@ -463,10 +501,10 @@ test-watch:
 
 # Add a dependency
 add *packages:
-    go get {{packages}}
-"""
+    go get {{{{packages}}}}
+{browse_recipe}"""
     elif language == "rust":
-        return """\
+        return f"""\
 # Run the project
 run:
     cargo run
@@ -485,10 +523,10 @@ test-watch:
 
 # Add a dependency
 add *packages:
-    cargo add {{packages}}
-"""
+    cargo add {{{{packages}}}}
+{browse_recipe}"""
     else:
-        return """\
+        return f"""\
 # Run the project
 run:
     echo "No run command configured"
@@ -496,7 +534,7 @@ run:
 # Run tests
 test:
     echo "No test command configured"
-"""
+{browse_recipe}"""
 
 
 def get_motd_content(language: str, project_name: str) -> str:
@@ -517,6 +555,7 @@ def get_motd_content(language: str, project_name: str) -> str:
   just test       - run tests
   just test-watch - run tests on file change
   just add X      - add dependency
+  just browse     - open in browser
 """
 
 
@@ -1019,6 +1058,7 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
     """Build devcontainer.json content dynamically.
 
     Conditionally includes Wayland mount only if WAYLAND_DISPLAY is set.
+    Auto-detects Tailscale hostname for DEV_HOST.
 
     Args:
         project_name: Name of the project/container
@@ -1026,6 +1066,8 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
     """
     if port is None:
         port = random_port()
+
+    hostname = detect_hostname()
 
     mounts = BASE_MOUNTS.copy()
 
@@ -1052,6 +1094,7 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
             "PORT": str(port),
+            "DEV_HOST": hostname,
             "WORKSPACE_FOLDER": workspace_folder,
         },
     }
