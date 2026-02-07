@@ -431,10 +431,7 @@ def get_justfile_content(language: str, project_name: str) -> str:
 
 # Open in browser
 browse:
-    #!/bin/sh
-    url="http://${DEV_HOST:-localhost}:${PORT:-4000}"
-    echo "$url"
-    xdg-open "$url" 2>/dev/null || echo "Open manually: $url"
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
 """
 
     if language == "python":
