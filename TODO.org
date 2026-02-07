@@ -434,20 +434,25 @@ worktree and its associated container.
 
 * DONE Tmux session layout — auto-start emacs + AI agents (tmuxinator-style)
 
-Explore having the entrypoint (or a dedicated script) set up a predefined tmux
-session layout on container start. Like tmuxinator but baked in.
+Uses tmuxinator (=apk add tmuxinator=, pulls in Ruby) with =container/dev.yml=.
+Layout script =container/tmux-layout.sh= handles reattach and prompt mode.
 
-** Desired layout
-- Window 1: Emacs (main editor)
-- Window 2: Claude Code (claude)
-- Window 3: Gemini CLI (gemini)
-- Window 4: Codex CLI (codex)
-- Maybe a spare shell window/pane
+** Layout (5 windows, base-index 1)
+- Window 1: Emacs (=e=)
+- Window 2: Claude Code (=claude --dangerously-skip-permissions=)
+- Window 3: Gemini CLI (=gemini --yolo=)
+- Window 4: Codex CLI (=codex=)
+- Window 5: Spare shell
 
-** Questions to explore
-- Use tmuxinator/tmuxp, or just raw tmux commands in entrypoint?
-- Should this be the default, or opt-in (=--layout full= or similar)?
-- How to handle agents that aren't configured (no API key)? Skip the window?
-- Should windows auto-restart the agent on exit, or drop to shell?
-- Tie into =jolo start -p= prompt mode — send the prompt to the active agent window?
-- Per-project layout overrides (=.tmux-layout= or similar)?
+** Prompt mode
+=jolo start -p "..."= writes =.devcontainer/.agent-prompt= and =.agent-name=
+before =devcontainer_up()=. =tmux-layout.sh= reads these, patches the
+tmuxinator config, and focuses the prompted agent's window.
+
+** Implementation
+- [X] =container/dev.yml= — tmuxinator config
+- [X] =container/tmux-layout.sh= — wrapper (reattach + prompt)
+- [X] =Containerfile= — ruby, tmuxinator, base-index 1, COPY files
+- [X] =entrypoint.sh= — =sleep infinity= (devcontainer exec handles tmux)
+- [X] =jolo.py= — =write_prompt_file()=, fallback in =devcontainer_exec_tmux()=
+- [X] =templates/.gitignore= — =.agent-prompt=, =.agent-name=
