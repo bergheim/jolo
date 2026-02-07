@@ -152,8 +152,9 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     # Claude CLI (YOLO mode)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
     curl -fsSL https://claude.ai/install.sh | bash && \
-    # AI tools (installed to $PNPM_HOME via pnpm)
-    pnpm add -g @google/gemini-cli @openai/codex && \
+    # AI tools: codex via pnpm, gemini via npm (pnpm global has known issues)
+    pnpm add -g @openai/codex && \
+    npm install -g @google/gemini-cli && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
