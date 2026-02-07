@@ -371,12 +371,16 @@ def get_justfile_content(language: str, project_name: str) -> str:
 run:
     uv run python src/{module_name}/main.py
 
+# Run with auto-reload
+dev:
+    fd -e py | entr -r uv run python src/{module_name}/main.py
+
 # Run tests
 test:
     uv run pytest
 
 # Run tests continuously (on file change)
-watch:
+test-watch:
     fd -e py | entr -c uv run pytest
 
 # Add a dependency
@@ -389,12 +393,16 @@ add *packages:
 run:
     bun run index.ts
 
+# Run with auto-reload
+dev:
+    fd -e ts | entr -r bun run index.ts
+
 # Run tests
 test:
     bun test
 
 # Run tests continuously (on file change)
-watch:
+test-watch:
     fd -e ts | entr -c bun test
 
 # Add a dependency
@@ -407,12 +415,16 @@ add *packages:
 run:
     go run .
 
+# Run with auto-reload
+dev:
+    air
+
 # Run tests
 test:
     go test ./...
 
 # Run tests continuously (on file change)
-watch:
+test-watch:
     fd -e go | entr -c go test ./...
 
 # Add a dependency
@@ -425,12 +437,16 @@ add *packages:
 run:
     cargo run
 
+# Run with auto-reload
+dev:
+    fd -e rs | entr -r cargo run
+
 # Run tests
 test:
     cargo test
 
 # Run tests continuously (on file change)
-watch:
+test-watch:
     fd -e rs | entr -c cargo test
 
 # Add a dependency
@@ -462,10 +478,11 @@ def get_motd_content(language: str, project_name: str) -> str:
     return f"""\
 {project_name}
 
-  just run     - run the project
-  just test    - run tests
-  just watch   - run tests on file change
-  just add X   - add dependency
+  just run        - run the project
+  just dev        - run with auto-reload
+  just test       - run tests
+  just test-watch - run tests on file change
+  just add X      - add dependency
 """
 
 

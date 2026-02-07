@@ -138,7 +138,8 @@ ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
 ENV PNPM_HOME=$HOME/.local/share/pnpm
 ENV PATH="$PNPM_HOME:$NPM_CONFIG_PREFIX/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
-RUN curl -fsSL https://bun.sh/install | bash && \
+RUN go install github.com/air-verse/air@latest && \
+    curl -fsSL https://bun.sh/install | bash && \
     echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
     # Create directories for mounts
     mkdir -p $HOME/.config/emacs && \
