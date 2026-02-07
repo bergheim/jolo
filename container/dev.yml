@@ -1,5 +1,5 @@
 name: dev
-startup_window: emacs
+startup_window: shell
 windows:
   - emacs: e
   - claude: claude --dangerously-skip-permissions
