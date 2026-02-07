@@ -13,6 +13,7 @@ import os
 import random
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tomllib
@@ -65,8 +66,41 @@ DEFAULT_CONFIG = {
     "base_port": 4000,
 }
 
+# Port range for dev servers
+PORT_MIN = 4000
+PORT_MAX = 5000
+
 # Global verbose flag
 VERBOSE = False
+
+
+def random_port() -> int:
+    """Pick a random port in the PORT_MIN-PORT_MAX range."""
+    return random.randint(PORT_MIN, PORT_MAX)
+
+
+def is_port_available(port: int) -> bool:
+    """Check if a TCP port is available on the host."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("", port))
+            return True
+        except OSError:
+            return False
+
+
+def read_port_from_devcontainer(workspace_dir: Path) -> int | None:
+    """Read the PORT from an existing devcontainer.json, if present."""
+    devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
+    if not devcontainer_json.exists():
+        return None
+    try:
+        config = json.loads(devcontainer_json.read_text())
+        port_str = config.get("containerEnv", {}).get("PORT")
+        return int(port_str) if port_str else None
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return None
+
 
 # Valid languages for --lang flag
 VALID_LANGUAGES = frozenset(["python", "go", "typescript", "rust", "shell", "prose", "other"])
@@ -981,15 +1015,18 @@ BASE_MOUNTS = [
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"
 
 
-def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
+def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
     """Build devcontainer.json content dynamically.
 
     Conditionally includes Wayland mount only if WAYLAND_DISPLAY is set.
 
     Args:
         project_name: Name of the project/container
-        port: Port number for dev servers (default 4000)
+        port: Port number for dev servers (random in 4000-5000 if not specified)
     """
+    if port is None:
+        port = random_port()
+
     mounts = BASE_MOUNTS.copy()
 
     # Only add Wayland mount if WAYLAND_DISPLAY is set
@@ -1001,7 +1038,11 @@ def build_devcontainer_json(project_name: str, port: int = 4000) -> str:
         "name": project_name,
         "build": {"dockerfile": "Dockerfile"},
         "workspaceFolder": workspace_folder,
-        "runArgs": ["--hostname", project_name, "--name", project_name, "-p", f"{port}:{port}"],
+        "runArgs": [
+            "--hostname", project_name,
+            "--name", project_name,
+            "-p", f"{port}:{port}",
+        ],
         "mounts": mounts,
         "containerEnv": {
             "TERM": "xterm-256color",
@@ -1364,11 +1405,12 @@ def scaffold_devcontainer(
     project_name: str,
     target_dir: Path | None = None,
     config: dict | None = None,
-    port: int = 4000,
+    port: int | None = None,
 ) -> bool:
     """Create .devcontainer directory with templates.
 
     Returns True if created, False if already exists.
+    Port is randomly assigned in 4000-5000 if not specified.
     """
     if target_dir is None:
         target_dir = Path.cwd()
@@ -1401,17 +1443,22 @@ def sync_devcontainer(
     project_name: str,
     target_dir: Path | None = None,
     config: dict | None = None,
-    port: int = 4000,
+    port: int | None = None,
 ) -> None:
     """Regenerate .devcontainer from template, overwriting existing files.
 
     Unlike scaffold_devcontainer, this always writes the files even if
-    .devcontainer already exists.
+    .devcontainer already exists. Preserves the existing port assignment
+    unless a new one is explicitly provided.
     """
     if target_dir is None:
         target_dir = Path.cwd()
     if config is None:
         config = DEFAULT_CONFIG
+
+    # Preserve existing port if not explicitly overridden
+    if port is None:
+        port = read_port_from_devcontainer(target_dir)
 
     devcontainer_dir = target_dir / ".devcontainer"
     devcontainer_dir.mkdir(parents=True, exist_ok=True)
@@ -1602,8 +1649,18 @@ def is_container_running(workspace_dir: Path) -> bool:
 def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
     """Start devcontainer with devcontainer up.
 
-    Returns True if successful.
+    Checks port availability before launching. Returns True if successful.
     """
+    # Check port availability before starting
+    port = read_port_from_devcontainer(workspace_dir)
+    if port is not None and not is_port_available(port):
+        print(
+            f"Error: Port {port} is already in use.\n"
+            f"Either stop the process using it, or change PORT in "
+            f".devcontainer/devcontainer.json"
+        )
+        return False
+
     # Ensure histfile exists as a file (otherwise mount creates a directory)
     histfile = workspace_dir / ".devcontainer" / ".histfile"
     histfile.touch(exist_ok=True)

@@ -25,7 +25,7 @@ All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Use standard org
 
 ## Project Defaults
 
-**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. This defaults to 4000 but is set dynamically in spawn mode to avoid conflicts.
+**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. Each project gets a random port in the 4000-5000 range assigned at creation time.
 
 ```bash
 # In your dev server config, always use $PORT
@@ -34,13 +34,12 @@ python -m http.server $PORT
 flask run --port $PORT
 ```
 
-In spawn mode (`jolo spawn N`), each worktree gets a unique port:
-- worktree-1: PORT=4000
-- worktree-2: PORT=4001
-- worktree-3: PORT=4002
-- etc.
-
-Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network.
+Port assignment:
+- `jolo create` / `jolo init` assigns a random port in 4000-5000, written to devcontainer.json
+- The port is stable for the project lifetime (stored in config, not re-randomized)
+- `jolo start` checks port availability before launching; errors if taken
+- In spawn mode (`jolo spawn N`), each worktree gets base_port + offset (4000, 4001, ...)
+- Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network
 
 ## Build Commands
 
@@ -85,9 +84,9 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 - `NPM_CONFIG_PREFIX`, `PNPM_HOME` - User-local package manager paths (no sudo needed)
 
 **Networking:**
-- Ports 4000-5000 are forwarded from the container to the host
-- Use these for dev servers (web apps, APIs, etc.) - they're accessible from the Tailscale network
-- Example: run `npm run dev -- --port 4000` and access from another machine via `http://<tailscale-ip>:4000`
+- Each project gets a random port in 4000-5000 assigned at creation time, forwarded from container to host
+- Use `$PORT` for dev servers - it's set in the container environment and accessible via Tailscale
+- Example: run `npm run dev -- --port $PORT` and access from another machine via `http://<tailscale-ip>:$PORT`
 
 ## Installed Tools
 
@@ -299,6 +298,7 @@ jolo start --copy ~/config.json:app/    # copy to workspace/app/config.json
   - Gemini: `.gemini-cache/`
 - Container cannot write back to host credential directories
 - Claude history/state is ephemeral per-project (no cross-project contamination)
+- GPG keyring (`pubring.kbx`, `trustdb.gpg`) mounted read-only; the agent socket is forwarded for signing. The `trustdb not writable` warning is expected and harmless.
 - Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/
 - Shell history persisted per-project in `.devcontainer/.histfile`
 
