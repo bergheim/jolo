@@ -50,6 +50,32 @@ Pre-commit hooks are already installed. They run automatically on `git commit`. 
 
 To run manually: `pre-commit run --all-files`
 
+## Coding Style
+
+Prefer functional style: pure functions, composition, immutable data. Use mutation or classes only when they're genuinely simpler (e.g., stateful protocol handlers, GUI frameworks that require it).
+
+**Types:** Always add type annotations — function signatures, return types, variables where the type isn't obvious. Use strict mode where available (mypy strict, TypeScript strict).
+
+**Naming:** Short but clear. `auth_user()` over `process_user_authentication_request()`. Single-letter names are fine in small scopes (`i`, `x` in lambdas/loops), longer names for public APIs.
+
+**File size:** Split when a file gets unwieldy (~300-500 lines). One module should have one clear responsibility, but don't split prematurely — three related functions in one file beats three single-function files.
+
+**Error handling:** Follow the language's idioms. Rust → `Result`, Python → exceptions, Go → error returns. Don't fight the language.
+
+**Comments:** Code should be self-documenting. Comments explain *why*, never *what*. No docstrings on functions where the name and types tell the whole story.
+
+**Testing:** Unit tests for pure logic, integration tests for workflows. Test the public contract, not implementation details. Avoid mocking unless you need to isolate from external systems (network, filesystem, databases).
+
+**Dependencies:** Prefer stdlib when it does the job well. Use popular, well-maintained libraries when they save significant effort or handle complexity you shouldn't reimplement (HTTP clients, ORMs, auth). Always use vetted libraries for security-sensitive code — never roll your own crypto, auth, or sanitization.
+
+**Avoid:**
+- Deep inheritance hierarchies — prefer composition
+- Over-engineering — no interfaces for single implementations, no DI containers, no config-driven everything
+- Magic and implicit behavior — no decorators that hide control flow, no monkey-patching, no metaclass tricks
+- Premature abstraction — three similar lines of code is better than a generic helper used once
+
+**When uncertain:** Ask rather than guess. A quick question is cheaper than a wrong assumption baked into the code.
+
 ## Browser Automation
 
 Use `browser-check` for all browser tasks. Stateless — each command launches a fresh browser.
