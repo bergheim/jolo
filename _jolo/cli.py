@@ -248,7 +248,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prog="jolo",
         usage="jolo [command] [options] [path]",
         description="Devcontainer + Git Worktree Launcher",
-        epilog="Examples: jolo start | jolo create foo | jolo list | jolo tree feat-x | "
+        epilog="Examples: jolo up | jolo create foo | jolo list | jolo tree feat-x | "
         "jolo stop --all | jolo spawn 3 -p 'do thing'",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
@@ -256,7 +256,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     cmds = parser.add_argument_group(
         "commands",
-        "  start               Start devcontainer in current project\n"
+        "  up                  Start devcontainer in current project\n"
         "  create NAME         Create new project with git + devcontainer\n"
         "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
         "  spawn N             Create N worktrees in parallel, each with its own agent\n"
@@ -285,7 +285,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
     cmds.add_argument("--open", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--start", action="store_true", help=argparse.SUPPRESS)
+    cmds.add_argument("--up", action="store_true", help=argparse.SUPPRESS)
 
     opts = parser.add_argument_group("options")
 

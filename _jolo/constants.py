@@ -170,5 +170,5 @@ USER CONTAINER_USER
 SUBCOMMANDS = {
     "create", "list", "stop", "tree", "spawn",
     "attach", "init", "sync", "prune", "destroy",
-    "open", "start",
+    "open", "up",
 }
