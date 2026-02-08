@@ -429,25 +429,24 @@ sequences), custom skills could be useful.
 - Only worth adding when the workflow has branching logic or error handling
   that a simple =just= recipe can't express
 
-* TODO Add =jolo delete= — interactive worktree/container removal
+* DONE Unified =jolo delete= — worktree and project removal
 
-Interactive picker (like =jolo open=) to select a worktree and delete both the
-worktree and its associated container.
+Replaced separate =jolo delete= (worktrees only) and =jolo destroy= (projects only)
+with a single =jolo delete= that handles both. =jolo destroy= removed.
 
-** Requirements
-- [ ] =jolo delete= lists worktrees with container status
-- [ ] Reuse =_format_container_display()= for display formatting
-- [ ] Interactive selection via fzf > gum > numbered fallback (same pattern as =jolo open=)
-- [ ] Stop and remove the selected container
-- [ ] Remove the git worktree (=git worktree remove=)
-- [ ] Confirmation prompt before destructive action
-- [ ] Skip picker when only one worktree exists (confirm and delete directly)
+** What was built
+- [X] =jolo delete= — interactive picker showing all projects and worktrees globally
+- [X] =jolo delete <name>= — delete worktree by name in current project
+- [X] =jolo delete <path>= — delete project by path (starts with =.= or =/=)
+- [X] =--purge= flag to also remove directories from disk
+- [X] =--yes= / =-y= to skip confirmation prompts
+- [X] Interactive selection via fzf > numbered fallback
+- [X] Confirmation before each destructive action
+- [X] If project has worktrees, prompts to delete them too
 
-** Design decisions
-- Only show worktrees (not the main repo checkout)
-- Show container state in picker (running/stopped/none)
-- Force-remove stopped containers, prompt if running
-- If worktree has uncommitted changes, warn and require =--force= or confirmation
+** Also fixed
+- [X] Worktree port conflicts: new worktrees get fresh random port instead of copying main project's
+- [X] Per-command CLI flags: each subcommand only shows its relevant flags in =--help=
 
 * DONE Tmux session layout — auto-start emacs + AI agents (tmuxinator-style)
 
