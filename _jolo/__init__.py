@@ -14,7 +14,6 @@ from _jolo.cli import (  # noqa: F401
     parse_copy,
     parse_lang_arg,
     parse_mount,
-    preprocess_argv,
     random_port,
     read_port_from_devcontainer,
     select_languages_interactive,
@@ -53,7 +52,6 @@ from _jolo.constants import (  # noqa: F401
     PORT_MAX,
     PORT_MIN,
     PRECOMMIT_HOOKS,
-    SUBCOMMANDS,
     VALID_LANGUAGES,
     VERBOSE,
 )

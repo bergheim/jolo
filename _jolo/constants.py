@@ -165,10 +165,3 @@ LABEL devcontainer.metadata='[{"remoteUser":"CONTAINER_USER"}]'
 
 USER CONTAINER_USER
 """
-
-
-SUBCOMMANDS = {
-    "create", "list", "stop", "tree", "spawn",
-    "attach", "init", "sync", "prune", "destroy",
-    "open", "up",
-}
