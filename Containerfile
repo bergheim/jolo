@@ -158,6 +158,7 @@ RUN go install github.com/air-verse/air@latest && \
     npm install -g @google/gemini-cli && \
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     # Fallback TERM if tmux-direct not in terminfo
     echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \

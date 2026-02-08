@@ -42,7 +42,7 @@ DEFAULT_CONFIG = {
     "agent_commands": {
         "claude": "claude --dangerously-skip-permissions",
         "gemini": "gemini --yolo --no-sandbox",
-        "codex": "codex",
+        "codex": "codex --dangerously-bypass-approvals-and-sandbox",
     },
     "base_port": 4000,
 }
