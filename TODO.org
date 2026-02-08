@@ -484,11 +484,10 @@ tmuxinator config, and focuses the prompted agent's window.
 - [X] =jolo.py= — =write_prompt_file()=, fallback in =devcontainer_exec_tmux()=
 - [X] =templates/.gitignore= — =.agent-prompt=, =.agent-name=
 
-* TODO Add a justfile for the jolo meta-project
+* DONE Add a justfile for the jolo meta-project
 
-Common dev tasks for this repo (not the generated per-project justfiles).
-Recipes to consider: run tests, run specific test file, lint, build container
-image, install jolo symlink, etc.
+Already in place with recipes: =test=, =test-k=, =test-v=, =lint=, =lint-fix=,
+=fmt=, =fmt-check=, =check= (all three), =build= (container image).
 
 * DONE Coding style conventions for AI agents
 
