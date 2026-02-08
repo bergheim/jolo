@@ -2,7 +2,7 @@ name: dev
 startup_window: shell
 windows:
   - emacs: e
-  - claude: claude --dangerously-skip-permissions
-  - gemini: gemini --yolo --no-sandbox
-  - codex: codex --dangerously-bypass-approvals-and-sandbox
+  - claude: claude
+  - gemini: gemini
+  - codex: codex
   - shell:
