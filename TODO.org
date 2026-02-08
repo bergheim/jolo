@@ -496,9 +496,22 @@ project gets it. Covers: functional style, strict types, short-but-clear naming,
 file size guidelines, language-idiomatic error handling, self-documenting code,
 balanced testing, dependency philosophy, and anti-patterns to avoid.
 
-* TODO Tmux copy to host clipboard does not work
+* DONE Tmux copy to host clipboard does not work
 
-Copying text in tmux inside the container should reach the host clipboard. Currently broken.
-The Containerfile sets OSC 52 (=set -s set-clipboard on=) and =wl-copy= but something
-in the chain isn't working. Likely candidates: OSC 52 not passing through, =wl-copy=
-not having access to Wayland socket, or tmux config not being picked up correctly.
+Two problems found and fixed:
+
+1. *Host tmux.conf overrides container's* — =BASE_MOUNTS= bind-mounts the host's
+   =~/.tmux.conf= (readonly) over the container's, so the Containerfile's clipboard
+   settings were silently lost.
+
+2. *=copy-command "wl-copy"= is wrong for containers* — =wl-copy= requires a working
+   Wayland connection. In terminal-only jolo devcontainers, Wayland is unreliable.
+   OSC 52 (=set -s set-clipboard on=) is the correct mechanism: tmux emits escape
+   sequences that the host terminal interprets and copies to the system clipboard.
+
+** Fix
+- Added =/etc/tmux.conf= with =set -s set-clipboard on=. The system-wide config is
+  loaded *in addition to* the user config, so it survives the host's =~/.tmux.conf=
+  being mounted over the container's.
+- Removed =copy-command "wl-copy"= from the Containerfile's =~/.tmux.conf=.
+  OSC 52 handles clipboard transfer without needing Wayland access.

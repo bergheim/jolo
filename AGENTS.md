@@ -98,7 +98,7 @@ Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bas
 
 Runtimes: Go, Rust, Python, Ruby, Node.js, Bun, pnpm, mise (version manager)
 
-CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`), air (Go live-reload)
+CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload)
 
 AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli)
 
