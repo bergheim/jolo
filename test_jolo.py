@@ -21,8 +21,7 @@ class TestArgumentParsing(unittest.TestCase):
     def test_no_args_returns_default_mode(self):
         """No arguments should result in default mode."""
         args = jolo.parse_args([])
-        self.assertIsNone(args.tree)
-        self.assertIsNone(args.create)
+        self.assertIsNone(args.command)
         self.assertFalse(args.new)
 
     def test_help_flag(self):
@@ -32,45 +31,48 @@ class TestArgumentParsing(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
 
     def test_tree_with_name(self):
-        """--tree NAME should set tree to NAME."""
-        args = jolo.parse_args(['--tree', 'feature-x'])
-        self.assertEqual(args.tree, 'feature-x')
+        """tree NAME should set name to NAME."""
+        args = jolo.parse_args(['tree', 'feature-x'])
+        self.assertEqual(args.command, 'tree')
+        self.assertEqual(args.name, 'feature-x')
 
     def test_tree_without_name(self):
-        """--tree without name should set tree to empty string (generate random)."""
-        args = jolo.parse_args(['--tree'])
-        self.assertEqual(args.tree, '')
+        """tree without name should set name to empty string (generate random)."""
+        args = jolo.parse_args(['tree'])
+        self.assertEqual(args.command, 'tree')
+        self.assertEqual(args.name, '')
 
     def test_create_with_name(self):
-        """--create NAME should set create to NAME."""
-        args = jolo.parse_args(['--create', 'myproject'])
-        self.assertEqual(args.create, 'myproject')
+        """create NAME should set name to NAME."""
+        args = jolo.parse_args(['create', 'myproject'])
+        self.assertEqual(args.command, 'create')
+        self.assertEqual(args.name, 'myproject')
 
     def test_create_requires_name(self):
-        """--create without NAME should fail."""
+        """create without NAME should fail."""
         with self.assertRaises(SystemExit):
-            jolo.parse_args(['--create'])
+            jolo.parse_args(['create'])
 
     def test_new_flag(self):
         """--new should set new to True."""
-        args = jolo.parse_args(['--new'])
+        args = jolo.parse_args(['up', '--new'])
         self.assertTrue(args.new)
 
     def test_new_with_tree(self):
-        """--new can combine with --tree."""
-        args = jolo.parse_args(['--new', '--tree', 'test'])
+        """--new can combine with tree."""
+        args = jolo.parse_args(['tree', 'test', '--new'])
         self.assertTrue(args.new)
-        self.assertEqual(args.tree, 'test')
+        self.assertEqual(args.name, 'test')
 
     def test_sync_flag(self):
-        """--sync should set sync to True."""
-        args = jolo.parse_args(['--sync'])
-        self.assertTrue(args.sync)
+        """sync should set command to sync."""
+        args = jolo.parse_args(['sync'])
+        self.assertEqual(args.command, 'sync')
 
     def test_sync_default_false(self):
-        """--sync should default to False."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertFalse(args.sync)
+        self.assertIsNone(args.command)
 
 
 class TestGuards(unittest.TestCase):
@@ -531,31 +533,31 @@ class TestConfigLoading(unittest.TestCase):
 
 
 class TestListMode(unittest.TestCase):
-    """Test --list functionality."""
+    """Test list functionality."""
 
     def test_list_flag(self):
-        """--list should set list to True."""
-        args = jolo.parse_args(['--list'])
-        self.assertTrue(args.list)
+        """list should set command to list."""
+        args = jolo.parse_args(['list'])
+        self.assertEqual(args.command, 'list')
 
     def test_list_default_false(self):
-        """--list should default to False."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertFalse(args.list)
+        self.assertIsNone(args.command)
 
     def test_all_flag(self):
         """--all should set all to True."""
-        args = jolo.parse_args(['--list', '--all'])
+        args = jolo.parse_args(['list', '--all'])
         self.assertTrue(args.all)
 
     def test_all_short_flag(self):
         """-a should set all to True."""
-        args = jolo.parse_args(['--list', '-a'])
+        args = jolo.parse_args(['list', '-a'])
         self.assertTrue(args.all)
 
     def test_all_default_false(self):
         """--all should default to False."""
-        args = jolo.parse_args(['--list'])
+        args = jolo.parse_args(['list'])
         self.assertFalse(args.all)
 
 
@@ -660,17 +662,17 @@ class TestListAllDevcontainers(unittest.TestCase):
 
 
 class TestStopMode(unittest.TestCase):
-    """Test --stop functionality."""
+    """Test down functionality."""
 
-    def test_stop_flag(self):
-        """--stop should set stop to True."""
-        args = jolo.parse_args(['--stop'])
-        self.assertTrue(args.stop)
+    def test_down_flag(self):
+        """down should set command to down."""
+        args = jolo.parse_args(['down'])
+        self.assertEqual(args.command, 'down')
 
     def test_stop_default_false(self):
-        """--stop should default to False."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertFalse(args.stop)
+        self.assertIsNone(args.command)
 
 
 class TestGetContainerForWorkspace(unittest.TestCase):
@@ -726,17 +728,17 @@ class TestStopContainer(unittest.TestCase):
 
 
 class TestPruneMode(unittest.TestCase):
-    """Test --prune functionality."""
+    """Test prune functionality."""
 
     def test_prune_flag(self):
-        """--prune should set prune to True."""
-        args = jolo.parse_args(['--prune'])
-        self.assertTrue(args.prune)
+        """prune should set command to prune."""
+        args = jolo.parse_args(['prune'])
+        self.assertEqual(args.command, 'prune')
 
     def test_prune_default_false(self):
-        """--prune should default to False."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertFalse(args.prune)
+        self.assertIsNone(args.command)
 
 
 class TestFindStaleWorktrees(unittest.TestCase):
@@ -800,17 +802,17 @@ class TestRemoveWorktree(unittest.TestCase):
 
 
 class TestAttachMode(unittest.TestCase):
-    """Test --attach functionality."""
+    """Test attach functionality."""
 
     def test_attach_flag(self):
-        """--attach should set attach to True."""
-        args = jolo.parse_args(['--attach'])
-        self.assertTrue(args.attach)
+        """attach should set command to attach."""
+        args = jolo.parse_args(['attach'])
+        self.assertEqual(args.command, 'attach')
 
     def test_attach_default_false(self):
-        """--attach should default to False."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertFalse(args.attach)
+        self.assertIsNone(args.command)
 
 
 class TestDetachMode(unittest.TestCase):
@@ -818,12 +820,12 @@ class TestDetachMode(unittest.TestCase):
 
     def test_detach_flag(self):
         """--detach should set detach to True."""
-        args = jolo.parse_args(['--detach'])
+        args = jolo.parse_args(['up', '--detach'])
         self.assertTrue(args.detach)
 
     def test_detach_short_flag(self):
         """-d should set detach to True."""
-        args = jolo.parse_args(['-d'])
+        args = jolo.parse_args(['up', '-d'])
         self.assertTrue(args.detach)
 
     def test_detach_default_false(self):
@@ -832,10 +834,10 @@ class TestDetachMode(unittest.TestCase):
         self.assertFalse(args.detach)
 
     def test_detach_with_tree(self):
-        """--detach can combine with --tree."""
-        args = jolo.parse_args(['--detach', '--tree', 'test'])
+        """--detach can combine with tree."""
+        args = jolo.parse_args(['tree', 'test', '--detach'])
         self.assertTrue(args.detach)
-        self.assertEqual(args.tree, 'test')
+        self.assertEqual(args.name, 'test')
 
 
 class TestFromBranch(unittest.TestCase):
@@ -843,18 +845,18 @@ class TestFromBranch(unittest.TestCase):
 
     def test_from_flag(self):
         """--from should set from_branch."""
-        args = jolo.parse_args(['--tree', 'test', '--from', 'main'])
+        args = jolo.parse_args(['tree', 'test', '--from', 'main'])
         self.assertEqual(args.from_branch, 'main')
 
     def test_from_default_none(self):
         """--from should default to None."""
-        args = jolo.parse_args(['--tree', 'test'])
+        args = jolo.parse_args(['tree', 'test'])
         self.assertIsNone(args.from_branch)
 
     def test_from_with_tree(self):
-        """--from can combine with --tree."""
-        args = jolo.parse_args(['--tree', 'feature', '--from', 'develop'])
-        self.assertEqual(args.tree, 'feature')
+        """--from can combine with tree."""
+        args = jolo.parse_args(['tree', 'feature', '--from', 'develop'])
+        self.assertEqual(args.name, 'feature')
         self.assertEqual(args.from_branch, 'develop')
 
 
@@ -894,12 +896,12 @@ class TestVerboseMode(unittest.TestCase):
 
     def test_verbose_flag(self):
         """--verbose should set verbose to True."""
-        args = jolo.parse_args(['--verbose'])
+        args = jolo.parse_args(['up', '--verbose'])
         self.assertTrue(args.verbose)
 
     def test_verbose_short_flag(self):
         """-v should set verbose to True."""
-        args = jolo.parse_args(['-v'])
+        args = jolo.parse_args(['up', '-v'])
         self.assertTrue(args.verbose)
 
     def test_verbose_default_false(self):
@@ -909,28 +911,28 @@ class TestVerboseMode(unittest.TestCase):
 
 
 class TestSpawnArgParsing(unittest.TestCase):
-    """Test --spawn argument parsing."""
+    """Test spawn argument parsing."""
 
     def test_spawn_flag(self):
-        """--spawn should accept integer."""
-        args = jolo.parse_args(['--spawn', '5'])
-        self.assertEqual(args.spawn, 5)
+        """spawn should accept integer."""
+        args = jolo.parse_args(['spawn', '5'])
+        self.assertEqual(args.count, 5)
 
     def test_spawn_default_none(self):
-        """--spawn should default to None."""
+        """No command should leave command as None."""
         args = jolo.parse_args([])
-        self.assertIsNone(args.spawn)
+        self.assertIsNone(args.command)
 
     def test_spawn_with_prefix(self):
-        """--spawn can be combined with --prefix."""
-        args = jolo.parse_args(['--spawn', '3', '--prefix', 'feat'])
-        self.assertEqual(args.spawn, 3)
+        """spawn can be combined with --prefix."""
+        args = jolo.parse_args(['spawn', '3', '--prefix', 'feat'])
+        self.assertEqual(args.count, 3)
         self.assertEqual(args.prefix, 'feat')
 
     def test_spawn_with_prompt(self):
-        """--spawn can be combined with --prompt."""
-        args = jolo.parse_args(['--spawn', '5', '-p', 'do stuff'])
-        self.assertEqual(args.spawn, 5)
+        """spawn can be combined with --prompt."""
+        args = jolo.parse_args(['spawn', '5', '-p', 'do stuff'])
+        self.assertEqual(args.count, 5)
         self.assertEqual(args.prompt, 'do stuff')
 
     def test_prefix_default_none(self):
@@ -1018,12 +1020,12 @@ class TestMountArgParsing(unittest.TestCase):
 
     def test_mount_flag_single(self):
         """--mount should accept source:target."""
-        args = jolo.parse_args(['--mount', '~/data:data'])
+        args = jolo.parse_args(['up', '--mount', '~/data:data'])
         self.assertEqual(args.mount, ['~/data:data'])
 
     def test_mount_flag_multiple(self):
         """--mount can be specified multiple times."""
-        args = jolo.parse_args(['--mount', '~/a:a', '--mount', '~/b:b'])
+        args = jolo.parse_args(['up', '--mount', '~/a:a', '--mount', '~/b:b'])
         self.assertEqual(args.mount, ['~/a:a', '~/b:b'])
 
     def test_mount_default_empty(self):
@@ -1033,7 +1035,7 @@ class TestMountArgParsing(unittest.TestCase):
 
     def test_mount_readonly(self):
         """--mount should accept :ro suffix."""
-        args = jolo.parse_args(['--mount', '~/data:data:ro'])
+        args = jolo.parse_args(['up', '--mount', '~/data:data:ro'])
         self.assertEqual(args.mount, ['~/data:data:ro'])
 
 
@@ -1042,12 +1044,12 @@ class TestCopyArgParsing(unittest.TestCase):
 
     def test_copy_flag_single(self):
         """--copy should accept source:target."""
-        args = jolo.parse_args(['--copy', '~/config.json:config.json'])
+        args = jolo.parse_args(['up', '--copy', '~/config.json:config.json'])
         self.assertEqual(args.copy, ['~/config.json:config.json'])
 
     def test_copy_flag_multiple(self):
         """--copy can be specified multiple times."""
-        args = jolo.parse_args(['--copy', '~/a.json', '--copy', '~/b.json:b.json'])
+        args = jolo.parse_args(['up', '--copy', '~/a.json', '--copy', '~/b.json:b.json'])
         self.assertEqual(args.copy, ['~/a.json', '~/b.json:b.json'])
 
     def test_copy_default_empty(self):
@@ -1057,7 +1059,7 @@ class TestCopyArgParsing(unittest.TestCase):
 
     def test_copy_without_target(self):
         """--copy should accept source without target."""
-        args = jolo.parse_args(['--copy', '~/config.json'])
+        args = jolo.parse_args(['up', '--copy', '~/config.json'])
         self.assertEqual(args.copy, ['~/config.json'])
 
 
@@ -1067,6 +1069,7 @@ class TestMountAndCopyTogether(unittest.TestCase):
     def test_mount_and_copy_combined(self):
         """--mount and --copy can be used together."""
         args = jolo.parse_args([
+            'up',
             '--mount', '~/data:data',
             '--copy', '~/config.json',
             '--mount', '~/other:other:ro',
@@ -1392,17 +1395,17 @@ class TestLangArgParsing(unittest.TestCase):
 
     def test_lang_flag_single(self):
         """--lang should accept a single language."""
-        args = jolo.parse_args(['--lang', 'python'])
+        args = jolo.parse_args(['create', 'test', '--lang', 'python'])
         self.assertEqual(args.lang, ['python'])
 
     def test_lang_flag_comma_separated(self):
         """--lang should accept comma-separated values."""
-        args = jolo.parse_args(['--lang', 'python,typescript'])
+        args = jolo.parse_args(['create', 'test', '--lang', 'python,typescript'])
         self.assertEqual(args.lang, ['python', 'typescript'])
 
     def test_lang_flag_multiple_values(self):
         """--lang should handle multiple comma-separated values."""
-        args = jolo.parse_args(['--lang', 'python,go,rust'])
+        args = jolo.parse_args(['create', 'test', '--lang', 'python,go,rust'])
         self.assertEqual(args.lang, ['python', 'go', 'rust'])
 
     def test_lang_default_none(self):
@@ -1414,34 +1417,34 @@ class TestLangArgParsing(unittest.TestCase):
         """--lang should accept all valid language values."""
         valid_langs = ['python', 'go', 'typescript', 'rust', 'shell', 'prose', 'other']
         for lang in valid_langs:
-            args = jolo.parse_args(['--lang', lang])
+            args = jolo.parse_args(['create', 'test', '--lang', lang])
             self.assertEqual(args.lang, [lang])
 
     def test_lang_invalid_value_raises_error(self):
         """--lang should reject invalid language values."""
         with self.assertRaises(SystemExit):
-            jolo.parse_args(['--lang', 'invalid_language'])
+            jolo.parse_args(['create', 'test', '--lang', 'invalid_language'])
 
     def test_lang_mixed_valid_invalid_raises_error(self):
         """--lang should reject if any value is invalid."""
         with self.assertRaises(SystemExit):
-            jolo.parse_args(['--lang', 'python,invalid'])
+            jolo.parse_args(['create', 'test', '--lang', 'python,invalid'])
 
     def test_lang_with_create(self):
-        """--lang can combine with --create."""
-        args = jolo.parse_args(['--create', 'myproject', '--lang', 'python,typescript'])
-        self.assertEqual(args.create, 'myproject')
+        """--lang can combine with create."""
+        args = jolo.parse_args(['create', 'myproject', '--lang', 'python,typescript'])
+        self.assertEqual(args.name, 'myproject')
         self.assertEqual(args.lang, ['python', 'typescript'])
 
     def test_lang_is_optional(self):
         """--lang is not required for any command."""
         # Should not raise
-        args = jolo.parse_args(['--create', 'myproject'])
+        args = jolo.parse_args(['create', 'myproject'])
         self.assertIsNone(args.lang)
 
     def test_lang_whitespace_handling(self):
         """--lang should handle values with whitespace around commas."""
-        args = jolo.parse_args(['--lang', 'python, typescript, go'])
+        args = jolo.parse_args(['create', 'test', '--lang', 'python, typescript, go'])
         self.assertEqual(args.lang, ['python', 'typescript', 'go'])
 
 
@@ -2273,8 +2276,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         )
 
     def test_create_with_lang_uses_provided_languages(self):
-        """--create with --lang should use the provided languages."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python,typescript', '-d'])
+        """create with --lang should use the provided languages."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python,typescript', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2290,8 +2293,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertIn('biome', content)  # TypeScript
 
     def test_create_without_lang_calls_interactive_selector(self):
-        """--create without --lang should call select_languages_interactive."""
-        args = jolo.parse_args(['--create', 'testproj', '-d'])
+        """create without --lang should call select_languages_interactive."""
+        args = jolo.parse_args(['create', 'testproj', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2308,8 +2311,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertIn('golangci-lint', content)  # Go
 
     def test_create_generates_precommit_config(self):
-        """--create should generate .pre-commit-config.yaml based on languages."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'rust', '-d'])
+        """create should generate .pre-commit-config.yaml based on languages."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'rust', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2328,8 +2331,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertIn('gitleaks', content)
 
     def test_create_copies_gitignore_from_templates(self):
-        """--create should copy .gitignore from templates/."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python', '-d'])
+        """create should copy .gitignore from templates/."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2341,8 +2344,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertTrue(gitignore.exists())
 
     def test_create_copies_editorconfig_from_templates(self):
-        """--create should copy .editorconfig from templates/."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python', '-d'])
+        """create should copy .editorconfig from templates/."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2354,8 +2357,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertTrue(editorconfig.exists())
 
     def test_create_runs_init_commands_for_primary_language(self):
-        """--create should run project init commands for primary language after container starts."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python,typescript', '-d'])
+        """create should run project init commands for primary language after container starts."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python,typescript', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2369,8 +2372,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             self.assertTrue(uv_init_called, f"Expected 'uv init' to be called, got: {exec_calls}")
 
     def test_create_writes_test_framework_config_for_python(self):
-        """--create with python should write pytest config to pyproject.toml."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python', '-d'])
+        """create with python should write pytest config to pyproject.toml."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2386,8 +2389,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             self.assertIn('pytest', content.lower())
 
     def test_create_writes_test_framework_config_for_typescript(self):
-        """--create with typescript should create example test with bun:test."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'typescript', '-d'])
+        """create with typescript should create example test with bun:test."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'typescript', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2401,8 +2404,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertIn('bun:test', content)
 
     def test_create_writes_type_checker_config_for_typescript(self):
-        """--create with typescript should write tsconfig.json."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'typescript', '-d'])
+        """create with typescript should write tsconfig.json."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'typescript', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2417,7 +2420,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
     def test_create_first_language_is_primary(self):
         """First language in list should be treated as primary for init commands."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'go,python', '-d'])
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'go,python', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2431,7 +2434,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
     def test_create_empty_language_selection_uses_other(self):
         """If interactive selector returns empty list, should use 'other' as default."""
-        args = jolo.parse_args(['--create', 'testproj', '-d'])
+        args = jolo.parse_args(['create', 'testproj', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2444,8 +2447,8 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertTrue(precommit_config.exists())
 
     def test_create_template_files_are_copied(self):
-        """--create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
-        args = jolo.parse_args(['--create', 'testproj', '--lang', 'python', '-d'])
+        """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
+        args = jolo.parse_args(['create', 'testproj', '--lang', 'python', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
@@ -2460,16 +2463,16 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
 
 class TestDestroyYesFlag(unittest.TestCase):
-    """Tests for --destroy --yes flag."""
+    """Tests for destroy --yes flag."""
 
     def test_yes_flag_exists(self):
         """--yes flag should be recognized by argparser."""
-        args = jolo.parse_args(["--destroy", "--yes"])
+        args = jolo.parse_args(["destroy", "--yes"])
         self.assertTrue(args.yes)
 
     def test_yes_flag_default_false(self):
         """--yes flag should default to False."""
-        args = jolo.parse_args(["--destroy"])
+        args = jolo.parse_args(["destroy"])
         self.assertFalse(args.yes)
 
     @mock.patch("_jolo.commands.find_git_root")
@@ -2494,7 +2497,7 @@ class TestDestroyYesFlag(unittest.TestCase):
         mock_run.return_value = mock.MagicMock(returncode=0)
         mock_remove.return_value = True
 
-        args = jolo.parse_args(["--destroy", "--yes"])
+        args = jolo.parse_args(["destroy", "--yes"])
 
         with mock.patch("builtins.input") as mock_input:
             jolo.run_destroy_mode(args)
@@ -2518,7 +2521,7 @@ class TestDestroyYesFlag(unittest.TestCase):
             ("test-container", "/fake/project", "stopped")
         ]
 
-        args = jolo.parse_args(["--destroy"])
+        args = jolo.parse_args(["destroy"])
 
         with mock.patch("builtins.input", return_value="n") as mock_input:
             jolo.run_destroy_mode(args)
