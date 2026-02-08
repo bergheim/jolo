@@ -344,154 +344,6 @@ def run_prune_mode(args: argparse.Namespace) -> None:
             print(f"Failed to remove worktree: {wt_path.name}", file=sys.stderr)
 
 
-def run_destroy_mode(args: argparse.Namespace) -> None:
-    """Run --destroy mode: stop and remove all containers for project."""
-    # If path argument provided, use it; otherwise detect from cwd
-    if args.path:
-        target_path = Path(args.path).resolve()
-        if not target_path.exists():
-            sys.exit(f"Error: Path does not exist: {target_path}")
-        git_root = find_git_root(target_path)
-        if git_root is None:
-            sys.exit(f"Error: Not a git repository: {target_path}")
-    else:
-        git_root = find_git_root()
-        if git_root is None:
-            sys.exit("Error: Not in a git repository.")
-
-    runtime = get_container_runtime()
-    if runtime is None:
-        sys.exit("Error: No container runtime found (docker or podman required)")
-
-    # Find all containers for this project
-    containers = find_containers_for_project(git_root)
-
-    if not containers:
-        print("No containers found for this project.")
-        return
-
-    # Show what will be destroyed
-    print(f"Project: {git_root.name}")
-    print()
-    print("Containers to destroy:")
-    for name, folder, state in containers:
-        print(f"  {name:<24} {state:<10} {folder}")
-    print()
-
-    # Prompt for confirmation unless --yes
-    if not args.yes:
-        try:
-            response = input("Stop and remove these containers? [y/N] ")
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return
-
-        if response.lower() != "y":
-            print("Cancelled.")
-            return
-
-    # Stop running containers first
-    for name, folder, state in containers:
-        if state == "running":
-            cmd = [runtime, "stop", name]
-            verbose_cmd(cmd)
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"Stopped: {name}")
-            else:
-                print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
-
-    # Remove all containers
-    for name, folder, state in containers:
-        if remove_container(name):
-            print(f"Removed: {name}")
-        else:
-            print(f"Failed to remove: {name}", file=sys.stderr)
-
-    print()
-    print("Containers removed.")
-    print()
-
-    # Ask about directory removal
-    worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
-    dirs_to_remove = [git_root]
-    if worktrees_dir.exists():
-        dirs_to_remove.append(worktrees_dir)
-
-    print("Directories:")
-    for d in dirs_to_remove:
-        print(f"  {d}")
-    print()
-
-    if not args.yes:
-        try:
-            response = input("Also remove these directories? [y/N] ")
-        except (EOFError, KeyboardInterrupt):
-            print()
-            print(f"Directories preserved. To remove later: rm -rf {git_root}")
-            return
-
-        if response.lower() != "y":
-            print(f"Directories preserved. To remove later: rm -rf {git_root}")
-            return
-
-    # Check if target is a worktree - if so, get branch name before removing
-    worktree_branch = None
-    main_repo = None
-    git_file = git_root / ".git"
-    if git_file.is_file():
-        # This is a worktree (.git is a file pointing to main repo)
-        git_file_content = git_file.read_text().strip()
-        if git_file_content.startswith("gitdir:"):
-            # Extract main repo path from gitdir reference
-            gitdir = git_file_content.replace("gitdir:", "").strip()
-            # gitdir points to .git/worktrees/<name>, go up to find main repo
-            main_repo = Path(gitdir).parent.parent.parent
-            # Get branch name for this worktree
-            for wt_path, _, branch in list_worktrees(main_repo):
-                if wt_path.resolve() == git_root.resolve():
-                    worktree_branch = branch
-                    break
-
-    for d in dirs_to_remove:
-        try:
-            shutil.rmtree(d)
-            print(f"Removed: {d}")
-        except Exception as e:
-            print(f"Failed to remove {d}: {e}", file=sys.stderr)
-
-    # Clean up git worktree and branch if this was a worktree
-    if main_repo and main_repo.exists():
-        # Prune stale worktree entries
-        subprocess.run(["git", "worktree", "prune"], cwd=main_repo, capture_output=True)
-        verbose_print("Pruned stale worktree entries")
-
-        # Delete the branch if we found one (requires confirmation)
-        if worktree_branch:
-            delete_branch = False
-            if args.yes:
-                delete_branch = True
-            else:
-                try:
-                    response = input(f"Also delete branch '{worktree_branch}'? [y/N] ")
-                    delete_branch = response.lower() == "y"
-                except (EOFError, KeyboardInterrupt):
-                    print()
-
-            if delete_branch:
-                result = subprocess.run(
-                    ["git", "branch", "-D", worktree_branch],
-                    cwd=main_repo,
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    print(f"Deleted branch: {worktree_branch}")
-                else:
-                    print(f"Note: Could not delete branch {worktree_branch}: {result.stderr.strip()}")
-            else:
-                print(f"Branch preserved: {worktree_branch}")
-
 
 def run_attach_mode(args: argparse.Namespace) -> None:
     """Run --attach mode: attach to running container."""
@@ -1245,68 +1097,253 @@ def spawn_tmux_multipane(
     subprocess.run(["tmux", "attach", "-t", session_name])
 
 
-def run_delete_mode(args: argparse.Namespace) -> None:
-    """Run delete mode: delete a worktree and its container."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
+    """Find worktrees that can be deleted for a given git root.
 
+    Returns list of (wt_path, commit, branch) excluding the main repo.
+    """
     worktrees = list_worktrees(git_root)
-    # Filter out main repo
-    wt_list = [(p, c, b) for p, c, b in worktrees if p != git_root]
+    return [(p, c, b) for p, c, b in worktrees if p != git_root]
 
-    if not wt_list:
-        sys.exit("No worktrees found to delete.")
 
-    if args.name:
-        # Find specified worktree
-        target = None
-        for wt_path, commit, branch in wt_list:
-            if wt_path.name == args.name:
-                target = (wt_path, branch)
-                break
-        if target is None:
-            available = ", ".join(p.name for p, _, _ in wt_list)
-            sys.exit(f"Error: Worktree '{args.name}' not found. Available: {available}")
-    else:
-        # Interactive selection
-        print("Select worktree to delete:")
-        for i, (wt_path, commit, branch) in enumerate(wt_list, 1):
-            print(f"  {i}. {wt_path.name} ({branch}) [{commit[:7]}]")
-        print()
-        try:
-            response = input("> ").strip()
-        except (KeyboardInterrupt, EOFError):
-            return
-        if not response.isdigit():
-            sys.exit("Invalid selection.")
-        idx = int(response) - 1
-        if not (0 <= idx < len(wt_list)):
-            sys.exit("Invalid selection.")
-        wt_path, _, branch = wt_list[idx]
-        target = (wt_path, branch)
+def _build_delete_picker_items() -> list[dict]:
+    """Build a list of deletable items (worktrees and projects) globally.
 
-    wt_path, branch = target
+    Returns list of dicts with keys:
+        - path: Path to the workspace
+        - label: Display label for picker
+        - type: "worktree" or "project"
+        - git_root: Path to the main git repo
+        - branch: branch name (worktrees only)
+    """
+    containers = list_all_devcontainers()
+    seen_roots: set[Path] = set()
+    items: list[dict] = []
 
-    # Confirm unless --yes
-    if not args.yes:
-        try:
-            response = input(f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] ")
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return
-        if response.lower() != "y":
-            print("Cancelled.")
-            return
+    for _, folder, _ in containers:
+        folder_path = Path(folder)
+        if not folder_path.exists():
+            continue
+        root = find_git_root(folder_path)
+        if root is None or root in seen_roots:
+            continue
+        seen_roots.add(root)
 
-    # Stop container if running
+        # Add the main project
+        items.append({
+            "path": root,
+            "label": f"{root.name:<24} (project)",
+            "type": "project",
+            "git_root": root,
+            "branch": None,
+        })
+
+        # Add worktrees
+        for wt_path, commit, branch in _find_deletable_worktrees(root):
+            items.append({
+                "path": wt_path,
+                "label": f"  {wt_path.name:<22} ({branch}) [{commit[:7]}]",
+                "type": "worktree",
+                "git_root": root,
+                "branch": branch,
+            })
+
+    return items
+
+
+def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
+    """Delete a single worktree: stop container, remove worktree."""
     stop_container(wt_path)
-
-    # Remove worktree
     if remove_worktree(git_root, wt_path):
-        print(f"Deleted: {wt_path.name}")
+        print(f"Deleted worktree: {wt_path.name}")
     else:
-        print(f"Failed to delete: {wt_path.name}", file=sys.stderr)
+        print(f"Failed to delete worktree: {wt_path.name}", file=sys.stderr)
+
+
+def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> None:
+    """Delete a project: stop containers, optionally remove dirs.
+
+    1. Find all worktrees under the project
+    2. If worktrees exist, prompt to delete them too (unless --yes)
+    3. Stop and remove all containers
+    4. If --purge, remove directories from disk
+    """
+    runtime = get_container_runtime()
+    if runtime is None:
+        sys.exit("Error: No container runtime found (docker or podman required)")
+
+    # Find worktrees
+    wt_list = _find_deletable_worktrees(git_root)
+
+    if wt_list:
+        if not yes:
+            try:
+                wt_names = ", ".join(p.name for p, _, _ in wt_list)
+                response = input(f"Project has worktrees: {wt_names}\nAlso delete them? [y/N] ")
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return
+            if response.lower() != "y":
+                print("Cancelled.")
+                return
+
+        # Delete each worktree
+        for wt_path, _, branch in wt_list:
+            _delete_worktree(wt_path, git_root, yes=yes)
+
+    # Find and remove containers for the main project
+    containers = find_containers_for_project(git_root)
+    for name, folder, state in containers:
+        if state == "running":
+            cmd = [runtime, "stop", name]
+            verbose_cmd(cmd)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"Stopped: {name}")
+            else:
+                print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
+
+    for name, folder, state in containers:
+        if remove_container(name):
+            print(f"Removed container: {name}")
+        else:
+            print(f"Failed to remove container: {name}", file=sys.stderr)
+
+    if purge:
+        dirs_to_remove = [git_root]
+        worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
+        if worktrees_dir.exists():
+            dirs_to_remove.append(worktrees_dir)
+
+        for d in dirs_to_remove:
+            try:
+                shutil.rmtree(d)
+                print(f"Removed directory: {d}")
+            except Exception as e:
+                print(f"Failed to remove {d}: {e}", file=sys.stderr)
+
+
+def run_delete_mode(args: argparse.Namespace) -> None:
+    """Run delete mode: delete a worktree or project and its containers."""
+    git_root = find_git_root()
+    target_arg = args.target
+    purge = getattr(args, "purge", False)
+
+    if target_arg:
+        # Target specified: either a path or a worktree name
+        if target_arg.startswith("/") or target_arg.startswith("."):
+            # Path → treat as project
+            target_path = Path(target_arg).resolve()
+            if not target_path.exists():
+                sys.exit(f"Error: Path does not exist: {target_path}")
+            project_root = find_git_root(target_path)
+            if project_root is None:
+                sys.exit(f"Error: Not a git repository: {target_path}")
+
+            # Confirm
+            if not args.yes:
+                try:
+                    response = input(f"Delete project '{project_root.name}'? [y/N] ")
+                except (EOFError, KeyboardInterrupt):
+                    print()
+                    return
+                if response.lower() != "y":
+                    print("Cancelled.")
+                    return
+
+            _delete_project(project_root, purge=purge, yes=args.yes)
+        else:
+            # Name → find worktree in current project
+            if git_root is None:
+                sys.exit("Error: Not in a git repository (needed to find worktree by name).")
+
+            wt_list = _find_deletable_worktrees(git_root)
+            if not wt_list:
+                sys.exit("No worktrees found to delete.")
+
+            target = None
+            for wt_path, commit, branch in wt_list:
+                if wt_path.name == target_arg:
+                    target = (wt_path, branch)
+                    break
+
+            if target is None:
+                available = ", ".join(p.name for p, _, _ in wt_list)
+                sys.exit(f"Error: Worktree '{target_arg}' not found. Available: {available}")
+
+            wt_path, branch = target
+
+            # Confirm
+            if not args.yes:
+                try:
+                    response = input(f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] ")
+                except (EOFError, KeyboardInterrupt):
+                    print()
+                    return
+                if response.lower() != "y":
+                    print("Cancelled.")
+                    return
+
+            _delete_worktree(wt_path, git_root, yes=args.yes)
+    else:
+        # Interactive picker
+        items = _build_delete_picker_items()
+
+        if not items:
+            sys.exit("No worktrees or projects found to delete.")
+
+        labels = [item["label"] for item in items]
+
+        selected_idx = None
+        if shutil.which("fzf"):
+            try:
+                result = subprocess.run(
+                    ["fzf", "--header", "Pick item to delete:", "--height", "~10",
+                     "--layout", "reverse", "--no-multi"],
+                    input="\n".join(labels),
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    return
+                selected_line = result.stdout.strip()
+                selected_idx = labels.index(selected_line)
+            except (KeyboardInterrupt, ValueError):
+                return
+        else:
+            print("Select item to delete:")
+            for i, label in enumerate(labels, 1):
+                print(f"  {i}. {label}")
+            print()
+            try:
+                response = input("> ").strip()
+            except (KeyboardInterrupt, EOFError):
+                return
+            if not response.isdigit():
+                sys.exit("Invalid selection.")
+            selected_idx = int(response) - 1
+            if not (0 <= selected_idx < len(items)):
+                sys.exit("Invalid selection.")
+
+        selected = items[selected_idx]
+
+        # Confirm
+        if not args.yes:
+            kind = selected["type"]
+            name = selected["path"].name
+            try:
+                response = input(f"Delete {kind} '{name}'? [y/N] ")
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return
+            if response.lower() != "y":
+                print("Cancelled.")
+                return
+
+        if selected["type"] == "worktree":
+            _delete_worktree(selected["path"], selected["git_root"], yes=args.yes)
+        else:
+            _delete_project(selected["git_root"], purge=purge, yes=args.yes)
 
 
 def run_sync_mode(args: argparse.Namespace) -> None:
@@ -1361,10 +1398,6 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "delete":
         run_delete_mode(args)
-        return
-
-    if cmd == "destroy":
-        run_destroy_mode(args)
         return
 
     # No subcommand — show help
