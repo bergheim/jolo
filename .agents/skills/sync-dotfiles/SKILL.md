@@ -1,3 +1,8 @@
+---
+name: sync-dotfiles
+description: Sync the latest dotfiles from the yadm repository into the container's Emacs config sandbox.
+---
+
 # /sync-dotfiles
 
 Sync the latest dotfiles from the yadm repository into the container's Emacs config sandbox.

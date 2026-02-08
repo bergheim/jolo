@@ -1,3 +1,8 @@
+---
+name: db-reset
+description: Reset the local development database to a clean state. Detects database type (Prisma, Drizzle, Alembic, SQLite, Docker) and runs appropriate reset commands.
+---
+
 # /db-reset
 
 Reset the local development database to a clean state.

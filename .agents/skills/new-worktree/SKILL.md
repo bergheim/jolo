@@ -1,3 +1,8 @@
+---
+name: new-worktree
+description: Create a new git worktree with a devcontainer, following naming conventions and optionally creating a draft PR.
+---
+
 # /new-worktree
 
 Create a new git worktree with a devcontainer, following naming conventions and optionally creating a draft PR.
