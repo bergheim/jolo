@@ -473,3 +473,7 @@ tmuxinator config, and focuses the prompted agent's window.
 - [X] =entrypoint.sh= — =sleep infinity= (devcontainer exec handles tmux)
 - [X] =jolo.py= — =write_prompt_file()=, fallback in =devcontainer_exec_tmux()=
 - [X] =templates/.gitignore= — =.agent-prompt=, =.agent-name=
+
+* TODO Tasks, agent, skill or similar for setting up how to program
+
+Ie. functional, prefer smaller modules and packages to one big file, etc
