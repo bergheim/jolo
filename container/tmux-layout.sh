@@ -20,7 +20,7 @@ if [ -f "$PROMPT_FILE" ]; then
 
     case "$AGENT" in
         claude)  CMD="claude --dangerously-skip-permissions" ;;
-        gemini)  CMD="gemini --yolo" ;;
+        gemini)  CMD="gemini --yolo --no-sandbox" ;;
         codex)   CMD="codex" ;;
         *)       CMD="$AGENT" ;;
     esac

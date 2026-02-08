@@ -495,3 +495,10 @@ Added "Coding Style" section to =templates/AGENTS.md= so every =jolo create=
 project gets it. Covers: functional style, strict types, short-but-clear naming,
 file size guidelines, language-idiomatic error handling, self-documenting code,
 balanced testing, dependency philosophy, and anti-patterns to avoid.
+
+* TODO Tmux copy to host clipboard does not work
+
+Copying text in tmux inside the container should reach the host clipboard. Currently broken.
+The Containerfile sets OSC 52 (=set -s set-clipboard on=) and =wl-copy= but something
+in the chain isn't working. Likely candidates: OSC 52 not passing through, =wl-copy=
+not having access to Wayland socket, or tmux config not being picked up correctly.
