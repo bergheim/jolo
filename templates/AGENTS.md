@@ -32,6 +32,18 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 | `just test-watch` | Run tests on file change |
 | `just add X` | Add a dependency |
 
+## Git Workflow
+
+Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
+
+```bash
+git checkout feature-branch
+git rebase main
+git checkout main
+git merge feature-branch          # fast-forward for single commit
+git merge --no-ff feature-branch  # merge commit for multi-commit branches
+```
+
 ## Code Quality
 
 Pre-commit hooks are already installed. They run automatically on `git commit`. If a commit fails, fix the issues and commit again.
