@@ -133,27 +133,24 @@ RUN pnpm add -g \
     @openai/codex \
     @google/gemini-cli
 
-RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.local/bin && \
+# Downloads and installs (cached layer — rarely changes)
+RUN mkdir -p $HOME/.local/bin && \
     go install github.com/air-verse/air@latest && \
     curl -fsSL https://bun.sh/install | bash && \
+    curl -fsSL https://claude.ai/install.sh | bash && \
+    curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
+    uv tool install ty && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
-    chmod +x $HOME/.local/bin/browser-check && \
-    # GPG setup with loopback pinentry for signing
-    mkdir -p $HOME/.gnupg && \
-    chmod 700 $HOME/.gnupg && \
+    chmod +x $HOME/.local/bin/browser-check
+
+# Config (changes often — keep on its own layer)
+RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
+    mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
-    # Claude CLI
-    curl -fsSL https://claude.ai/install.sh | bash && \
-    # Beads
-    curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
-    # Python tools via uv (only ones not in apk)
-    uv tool install ty && \
-    # tmux clipboard (OSC 52)
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
     echo 'set -g base-index 1' >> $HOME/.tmux.conf && \
-    # Shell config
     echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
