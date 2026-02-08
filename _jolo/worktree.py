@@ -1,11 +1,12 @@
 """Git worktree operations for jolo."""
 
+import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from _jolo.cli import find_git_root, get_container_name, verbose_cmd
+from _jolo.cli import find_git_root, get_container_name, random_port, verbose_cmd
 from _jolo.setup import add_worktree_git_mount, scaffold_devcontainer
 
 
@@ -195,9 +196,33 @@ def get_or_create_worktree(
         container_name = get_container_name(str(git_root), worktree_name)
         scaffold_devcontainer(container_name, worktree_path, config=config)
 
+    # Update container name and port so it doesn't clash with main project
+    devcontainer_json = dst_devcontainer / "devcontainer.json"
+    if devcontainer_json.exists():
+        content = json.loads(devcontainer_json.read_text())
+        container_name = get_container_name(str(git_root), worktree_name)
+        content["name"] = container_name
+        # Update --name in runArgs
+        run_args = content.get("runArgs", [])
+        for i, arg in enumerate(run_args):
+            if arg == "--name" and i + 1 < len(run_args):
+                run_args[i + 1] = container_name
+            if arg == "--hostname" and i + 1 < len(run_args):
+                run_args[i + 1] = container_name
+        # Assign a fresh port
+        new_port = random_port()
+        for i, arg in enumerate(run_args):
+            if arg == "-p" and i + 1 < len(run_args):
+                run_args[i + 1] = f"{new_port}:{new_port}"
+        if "containerEnv" not in content:
+            content["containerEnv"] = {}
+        content["containerEnv"]["PORT"] = str(new_port)
+        # Update workspaceFolder to match worktree name
+        content["workspaceFolder"] = f"/workspaces/{worktree_name}"
+        devcontainer_json.write_text(json.dumps(content, indent=4))
+
     # Add mount for main repo's .git directory so worktree git operations work
     main_git_dir = git_root / ".git"
-    devcontainer_json = dst_devcontainer / "devcontainer.json"
     add_worktree_git_mount(devcontainer_json, main_git_dir)
 
     print(f"Created worktree: {worktree_path}")
