@@ -1,3 +1,8 @@
+---
+name: deploy-preview
+description: Package the current project and prepare for preview deployment. Runs tests, builds, pushes a preview branch, and creates a draft PR.
+---
+
 # /deploy-preview
 
 Package the current project and prepare for preview deployment.

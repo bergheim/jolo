@@ -1,3 +1,8 @@
+---
+name: scaffold-api
+description: Scaffold a new API project with standard configuration. Supports FastAPI (Python) and Elysia (Bun) stacks.
+---
+
 # /scaffold-api
 
 Scaffold a new API project with standard configuration.
