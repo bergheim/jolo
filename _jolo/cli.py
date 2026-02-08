@@ -234,160 +234,120 @@ def verbose_cmd(cmd: list[str]) -> None:
         print(f'[verbose] $ {" ".join(cmd)}', file=sys.stderr)
 
 
-def preprocess_argv(argv: list[str]) -> list[str]:
-    """Convert subcommand form to flag form: 'create foo' -> '--create foo'."""
-    if argv and argv[0] in constants.SUBCOMMANDS:
-        return [f"--{argv[0]}"] + argv[1:]
-    return argv
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse command-line arguments."""
-    argv = preprocess_argv(argv)
-    parser = argparse.ArgumentParser(
-        prog="jolo",
-        usage="jolo [command] [options] [path]",
-        description="Devcontainer + Git Worktree Launcher",
-        epilog="Examples: jolo start | jolo create foo | jolo list | jolo tree feat-x | "
-        "jolo stop --all | jolo spawn 3 -p 'do thing'",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-    )
+    # Shared parent parser with all options (no help to avoid duplicate -h)
+    shared = argparse.ArgumentParser(add_help=False)
 
-    cmds = parser.add_argument_group(
-        "commands",
-        "  start               Start devcontainer in current project\n"
-        "  create NAME         Create new project with git + devcontainer\n"
-        "  tree [NAME]         Create worktree + devcontainer (random name if omitted)\n"
-        "  spawn N             Create N worktrees in parallel, each with its own agent\n"
-        "  list                List running containers and worktrees\n"
-        "  open                Pick a running container and attach to it\n"
-        "  stop                Stop the devcontainer\n"
-        "  attach              Attach to running container\n"
-        "  init                Initialize git + devcontainer in current directory\n"
-        "  sync                Regenerate .devcontainer from template\n"
-        "  prune               Clean up stopped/orphan containers and stale worktrees\n"
-        "  destroy             Stop and remove all containers for project",
-    )
-
-    # Commands use SUPPRESS for internal argparse flags, shown manually via description
-    cmds.add_argument("--create", metavar="NAME", help=argparse.SUPPRESS)
-    cmds.add_argument(
-        "--tree", nargs="?", const="", default=None, metavar="NAME",
-        help=argparse.SUPPRESS,
-    )
-    cmds.add_argument("--spawn", type=int, metavar="N", help=argparse.SUPPRESS)
-    cmds.add_argument("--list", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--attach", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--init", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--sync", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--prune", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--destroy", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--open", action="store_true", help=argparse.SUPPRESS)
-    cmds.add_argument("--start", action="store_true", help=argparse.SUPPRESS)
-
-    opts = parser.add_argument_group("options")
-
-    opts.add_argument(
-        "--prompt",
-        "-p",
-        metavar="PROMPT",
+    shared.add_argument(
+        "--prompt", "-p", metavar="PROMPT",
         help="Start AI agent with this prompt (implies --detach)",
     )
-
-    opts.add_argument(
-        "--agent",
-        default="claude",
-        metavar="CMD",
+    shared.add_argument(
+        "--agent", default="claude", metavar="CMD",
         help="AI agent command (default: claude)",
     )
-
-    opts.add_argument(
-        "--from",
-        dest="from_branch",
-        metavar="BRANCH",
+    shared.add_argument(
+        "--from", dest="from_branch", metavar="BRANCH",
         help="Create worktree from specified branch",
     )
-
-    opts.add_argument(
-        "--prefix",
-        metavar="NAME",
+    shared.add_argument(
+        "--prefix", metavar="NAME",
         help="Prefix for spawn worktree names (feat -> feat-1, feat-2, ...)",
     )
-
-    opts.add_argument(
-        "--all",
-        "-a",
-        action="store_true",
-        help="With list: all globally. With stop: all for project",
+    shared.add_argument(
+        "--all", "-a", action="store_true",
+        help="With list: all globally. With down: all for project",
     )
-
-    opts.add_argument(
-        "--new", action="store_true", help="Remove existing container before starting"
+    shared.add_argument(
+        "--new", action="store_true",
+        help="Remove existing container before starting",
     )
-
-    opts.add_argument(
-        "--detach", "-d", action="store_true", help="Start container without attaching"
+    shared.add_argument(
+        "--detach", "-d", action="store_true",
+        help="Start container without attaching",
     )
-
-    opts.add_argument(
-        "--shell",
-        action="store_true",
+    shared.add_argument(
+        "--shell", action="store_true",
         help="Exec into container with zsh (no tmux)",
     )
-
-    opts.add_argument(
-        "--run",
-        metavar="CMD",
+    shared.add_argument(
+        "--run", metavar="CMD",
         help="Exec command directly in container (no tmux)",
     )
-
-    opts.add_argument(
-        "--mount",
-        action="append",
-        default=[],
-        metavar="SRC:DST[:ro]",
+    shared.add_argument(
+        "--mount", action="append", default=[], metavar="SRC:DST[:ro]",
         help="Mount host path into container (repeatable)",
     )
-
-    opts.add_argument(
-        "--copy",
-        action="append",
-        default=[],
-        metavar="SRC[:DST]",
+    shared.add_argument(
+        "--copy", action="append", default=[], metavar="SRC[:DST]",
         help="Copy file to workspace before start (repeatable)",
     )
-
-    opts.add_argument(
-        "--lang",
-        type=parse_lang_arg,
-        default=None,
-        metavar="LANG[,...]",
+    shared.add_argument(
+        "--lang", type=parse_lang_arg, default=None, metavar="LANG[,...]",
         help="Project language(s): python, go, typescript, rust, shell, prose, other",
     )
-
-    opts.add_argument(
-        "--yes",
-        "-y",
-        action="store_true",
+    shared.add_argument(
+        "--yes", "-y", action="store_true",
         help="Skip confirmation prompts",
     )
-
-    opts.add_argument(
-        "--verbose", "-v", action="store_true", help="Print commands being executed"
+    shared.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print commands being executed",
     )
 
-    opts.add_argument(
-        "-h", "--help", action="help", help="Show this help message and exit"
+    # Main parser — no parents so top-level help stays clean
+    parser = argparse.ArgumentParser(
+        prog="jolo",
+        usage="jolo <command> [options]",
+        description="Devcontainer + Git Worktree Launcher",
+        epilog="Run 'jolo <command> --help' for command-specific options.\n\n"
+        "Examples: jolo up | jolo create foo | jolo list | jolo tree feat-x | "
+        "jolo down --all | jolo spawn 3 -p 'do thing'",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # Defaults so attributes exist even when no subcommand is given
+    parser.set_defaults(
+        prompt=None, agent="claude", from_branch=None, prefix=None,
+        all=False, new=False, detach=False, shell=False, run=None,
+        mount=[], copy=[], lang=None, yes=False, verbose=False,
     )
 
-    parser.add_argument(
-        "path",
-        nargs="?",
-        default=None,
-        help=argparse.SUPPRESS,
-    )
+    subparsers = parser.add_subparsers(dest="command", prog="jolo")
+
+    subparsers.add_parser("up", parents=[shared],
+                          help="Start devcontainer in current project")
+
+    sub_create = subparsers.add_parser("create", parents=[shared],
+                                       help="Create new project with git + devcontainer")
+    sub_create.add_argument("name", help="Project name")
+
+    sub_tree = subparsers.add_parser("tree", parents=[shared],
+                                     help="Create worktree + devcontainer (random name if omitted)")
+    sub_tree.add_argument("name", nargs="?", default="", help="Worktree name")
+
+    sub_spawn = subparsers.add_parser("spawn", parents=[shared],
+                                      help="Create N worktrees in parallel, each with its own agent")
+    sub_spawn.add_argument("count", type=int, help="Number of worktrees")
+
+    subparsers.add_parser("list", parents=[shared],
+                          help="List running containers and worktrees")
+    subparsers.add_parser("open", parents=[shared],
+                          help="Pick a running container and attach to it")
+    subparsers.add_parser("down", parents=[shared],
+                          help="Stop the devcontainer")
+    subparsers.add_parser("attach", parents=[shared],
+                          help="Attach to running container")
+    subparsers.add_parser("init", parents=[shared],
+                          help="Initialize git + devcontainer in current directory")
+    subparsers.add_parser("sync", parents=[shared],
+                          help="Regenerate .devcontainer from template")
+    subparsers.add_parser("prune", parents=[shared],
+                          help="Clean up stopped/orphan containers and stale worktrees")
+
+    sub_destroy = subparsers.add_parser("destroy", parents=[shared],
+                                        help="Stop and remove all containers for project")
+    sub_destroy.add_argument("path", nargs="?", default=None, help="Project path")
 
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
