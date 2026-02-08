@@ -501,7 +501,7 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: Not in a git repository.")
 
     if not is_container_running(git_root):
-        sys.exit("Error: Container is not running. Use jolo to start it.")
+        sys.exit("Error: Container is not running. Use jolo up to start it.")
 
     # Direct exec modes (no tmux)
     if args.shell:
@@ -1299,7 +1299,7 @@ def main(argv: list[str] | None = None) -> None:
     # No subcommand — show help
     has_subcommand = any([
         args.open, args.attach, args.spawn, args.init,
-        args.create, args.tree is not None, args.start,
+        args.create, args.tree is not None, args.up,
     ])
     if not has_subcommand:
         args._parser.print_help()
@@ -1322,7 +1322,7 @@ def main(argv: list[str] | None = None) -> None:
         run_create_mode(args)
     elif args.tree is not None:
         run_tree_mode(args)
-    elif args.start:
+    elif args.up:
         run_default_mode(args)
 
 
