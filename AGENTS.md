@@ -12,7 +12,7 @@ This repo builds and maintains the containerized Emacs GUI environment on Alpine
 
 **What this repo produces:**
 - Container image (`emacs-gui`) with all dev tools pre-installed
-- `jolo.py` CLI for launching devcontainers with git worktree support
+- `jolo.py` + `_jolo/` package — CLI for launching devcontainers with git worktree support
 - Templates for new projects (`templates/`)
 
 ## File Format Preferences
@@ -72,7 +72,7 @@ podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
 - `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
-- `jolo.py` - Devcontainer CLI for project-based development with git worktree support
+- `jolo.py` + `_jolo/` - Devcontainer CLI split into a package: `constants.py`, `cli.py`, `templates.py`, `container.py`, `setup.py`, `worktree.py`, `commands.py`
 
 **Sandbox mechanism (start-emacs.sh):**
 The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyra-experiments`. This gives Claude a copy of the Emacs config to modify freely without affecting the real dotfiles. The `private.el` secrets file is deleted from the worktree.
@@ -242,7 +242,7 @@ When scaffolding new projects:
 
 This is especially important in AI-assisted development where code is generated quickly - linters catch issues before they're committed.
 
-## jolo.py - Devcontainer Launcher
+## jolo - Devcontainer Launcher
 
 Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
 
