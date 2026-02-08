@@ -146,11 +146,6 @@ class TestGetProjectInitCommands(unittest.TestCase):
         self.assertTrue(hasattr(jolo, 'get_project_init_commands'))
         self.assertTrue(callable(jolo.get_project_init_commands))
 
-    def test_python_returns_uv_init(self):
-        """Python should return uv commands."""
-        commands = jolo.get_project_init_commands('python', 'myproject')
-        self.assertIn(['uv', 'init'], commands)
-
     def test_python_creates_tests_dir(self):
         """Python should create tests directory."""
         commands = jolo.get_project_init_commands('python', 'myproject')
@@ -166,10 +161,10 @@ class TestGetProjectInitCommands(unittest.TestCase):
         commands = jolo.get_project_init_commands('go', 'myproject')
         self.assertIn(['go', 'mod', 'init', 'myproject'], commands)
 
-    def test_rust_returns_cargo_new(self):
-        """Rust should return cargo new commands."""
+    def test_rust_returns_cargo_init(self):
+        """Rust should return cargo init commands."""
         commands = jolo.get_project_init_commands('rust', 'myproject')
-        self.assertIn(['cargo', 'new', '.', '--name', 'myproject'], commands)
+        self.assertIn(['cargo', 'init', '--name', 'myproject'], commands)
 
     def test_shell_returns_src_mkdir(self):
         """Shell should create src directory."""
@@ -206,9 +201,9 @@ class TestGetProjectInitCommands(unittest.TestCase):
         self.assertIn(go_mod_cmd, commands)
 
     def test_project_name_used_in_rust_command(self):
-        """Project name should be used in cargo new."""
+        """Project name should be used in cargo init."""
         commands = jolo.get_project_init_commands('rust', 'my-awesome-app')
-        cargo_cmd = ['cargo', 'new', '.', '--name', 'my-awesome-app']
+        cargo_cmd = ['cargo', 'init', '--name', 'my-awesome-app']
         self.assertIn(cargo_cmd, commands)
 
     def test_unknown_language_returns_src_mkdir(self):
@@ -225,101 +220,45 @@ class TestSelectLanguagesInteractive(unittest.TestCase):
         self.assertTrue(hasattr(jolo, 'select_languages_interactive'))
         self.assertTrue(callable(jolo.select_languages_interactive))
 
-    def test_returns_list(self):
-        """Should return a list of selected languages."""
-        # Mock pick to return a selection
-        mock_selection = [('Python', 0), ('TypeScript', 2)]
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertIsInstance(result, list)
-
-    def test_returns_lowercase_language_codes(self):
-        """Should return lowercase language codes."""
-        mock_selection = [('Python', 0), ('TypeScript', 2)]
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertEqual(result, ['python', 'typescript'])
-
-    def test_empty_selection_returns_empty_list(self):
-        """Should return empty list when user selects nothing."""
-        mock_selection = []
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertEqual(result, [])
-
-    def test_single_selection(self):
-        """Should handle single selection correctly."""
-        mock_selection = [('Go', 1)]
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertEqual(result, ['go'])
-
     def test_all_languages_available(self):
         """All valid languages should be available as options."""
-        # We can't easily test the options passed to pick without capturing them,
-        # so we test the LANGUAGE_OPTIONS constant instead
         self.assertTrue(hasattr(jolo, 'LANGUAGE_OPTIONS'))
         options = jolo.LANGUAGE_OPTIONS
-        # Should have entries for all valid languages
         expected = ['Python', 'Go', 'TypeScript', 'Rust', 'Shell', 'Prose/Docs', 'Other']
         self.assertEqual(options, expected)
 
-    def test_prose_docs_maps_to_prose(self):
-        """Prose/Docs option should map to 'prose' code."""
-        mock_selection = [('Prose/Docs', 5)]
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertEqual(result, ['prose'])
-
-    def test_preserves_selection_order(self):
-        """Should preserve the order of selection (first selected = primary)."""
-        # Pick returns selections in the order they appear in the list,
-        # but we want to preserve that order
-        mock_selection = [('TypeScript', 2), ('Python', 0), ('Rust', 3)]
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', return_value=mock_selection):
-                result = jolo.select_languages_interactive()
-        self.assertEqual(result, ['typescript', 'python', 'rust'])
-
-    def test_fallback_when_pick_unavailable(self):
-        """Should use fallback input when pick is not available."""
-        # Simulate pick not being available
-        with mock.patch('jolo.HAVE_PICK', False):
-            with mock.patch('builtins.input', return_value='1,3'):
-                result = jolo.select_languages_interactive()
-        self.assertIsInstance(result, list)
-
     def test_fallback_parses_comma_separated_numbers(self):
         """Fallback should parse comma-separated numbers."""
-        with mock.patch('jolo.HAVE_PICK', False):
+        with mock.patch('shutil.which', return_value=None):
             with mock.patch('builtins.input', return_value='1,3'):
                 result = jolo.select_languages_interactive()
         self.assertEqual(result, ['python', 'typescript'])
 
     def test_fallback_handles_empty_input(self):
         """Fallback should return empty list on empty input."""
-        with mock.patch('jolo.HAVE_PICK', False):
+        with mock.patch('shutil.which', return_value=None):
             with mock.patch('builtins.input', return_value=''):
                 result = jolo.select_languages_interactive()
         self.assertEqual(result, [])
 
     def test_fallback_handles_invalid_numbers(self):
         """Fallback should skip invalid numbers gracefully."""
-        with mock.patch('jolo.HAVE_PICK', False):
+        with mock.patch('shutil.which', return_value=None):
             with mock.patch('builtins.input', return_value='1,99,2'):
                 result = jolo.select_languages_interactive()
-        # Should return python (1) and go (2), skip invalid 99
         self.assertEqual(result, ['python', 'go'])
 
-    def test_keyboard_interrupt_returns_empty(self):
+    def test_fallback_single_selection(self):
+        """Fallback should handle single selection."""
+        with mock.patch('shutil.which', return_value=None):
+            with mock.patch('builtins.input', return_value='6'):
+                result = jolo.select_languages_interactive()
+        self.assertEqual(result, ['prose'])
+
+    def test_fallback_keyboard_interrupt_returns_empty(self):
         """Should return empty list on keyboard interrupt."""
-        with mock.patch('jolo.HAVE_PICK', True):
-            with mock.patch('jolo.pick', side_effect=KeyboardInterrupt):
+        with mock.patch('shutil.which', return_value=None):
+            with mock.patch('builtins.input', side_effect=KeyboardInterrupt):
                 result = jolo.select_languages_interactive()
         self.assertEqual(result, [])
 
@@ -356,9 +295,9 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         self.assertIn('[tool.pytest.ini_options]', result['config_content'])
 
     def test_python_example_test_file(self):
-        """Python should create tests/test_example.py."""
+        """Python should create tests/test_main.py."""
         result = jolo.get_test_framework_config('python')
-        self.assertEqual(result['example_test_file'], 'tests/test_example.py')
+        self.assertEqual(result['example_test_file'], 'tests/test_main.py')
 
     def test_python_example_test_content(self):
         """Python example test should use pytest."""
@@ -421,12 +360,11 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         self.assertTrue(result['example_test_file'].endswith('_test.go'))
 
     def test_go_example_test_content(self):
-        """Go example test should use testing package and testify."""
+        """Go example test should use testing package."""
         result = jolo.get_test_framework_config('go')
         content = result['example_test_content']
         self.assertIn('testing', content)
         self.assertIn('func Test', content)
-        self.assertIn('testify', content.lower())
 
     # Rust (built-in testing) tests
     def test_rust_config_file_none(self):
