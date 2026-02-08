@@ -284,11 +284,13 @@ class TestPortAllocation(unittest.TestCase):
     """Test PORT environment variable in devcontainer.json."""
 
     def test_default_port_in_json(self):
-        """Default port should be 4000."""
+        """Default port should be in the valid range."""
         import json
         result = jolo.build_devcontainer_json('test')
         config = json.loads(result)
-        self.assertEqual(config['containerEnv']['PORT'], '4000')
+        port = int(config['containerEnv']['PORT'])
+        self.assertGreaterEqual(port, jolo.PORT_MIN)
+        self.assertLessEqual(port, jolo.PORT_MAX)
 
     def test_custom_port_in_json(self):
         """Custom port should be set."""

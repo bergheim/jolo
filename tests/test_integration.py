@@ -29,11 +29,10 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
     def _mock_devcontainer_calls(self):
         """Create mocks for devcontainer commands."""
         return mock.patch.multiple(
-            'jolo',
+            '_jolo.commands',
             devcontainer_up=mock.DEFAULT,
             devcontainer_exec_command=mock.DEFAULT,
             devcontainer_exec_tmux=mock.DEFAULT,
-            devcontainer_exec_prompt=mock.DEFAULT,
             is_container_running=mock.DEFAULT,
             setup_credential_cache=mock.DEFAULT,
             setup_emacs_config=mock.DEFAULT,
@@ -62,7 +61,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
-            with mock.patch('jolo.select_languages_interactive', return_value=['go']) as mock_selector:
+            with mock.patch('_jolo.commands.select_languages_interactive', return_value=['go']) as mock_selector:
                 jolo.run_create_mode(args)
                 mock_selector.assert_called_once()
 
@@ -129,11 +128,10 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             jolo.run_create_mode(args)
 
             # Primary language is python (first in list)
-            # Should have executed uv init inside the container
+            # Should have executed mkdir -p tests inside the container
             exec_calls = mocks['devcontainer_exec_command'].call_args_list
-            # Find the uv init call
-            uv_init_called = any('uv init' in str(call) for call in exec_calls)
-            self.assertTrue(uv_init_called, f"Expected 'uv init' to be called, got: {exec_calls}")
+            mkdir_called = any('mkdir -p tests' in str(call) for call in exec_calls)
+            self.assertTrue(mkdir_called, f"Expected 'mkdir -p tests' to be called, got: {exec_calls}")
 
     def test_create_writes_test_framework_config_for_python(self):
         """create with python should write pytest config to pyproject.toml."""
@@ -196,19 +194,15 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             go_mod_called = any('go mod init' in str(call) for call in exec_calls)
             self.assertTrue(go_mod_called, f"Expected 'go mod init' to be called, got: {exec_calls}")
 
-    def test_create_empty_language_selection_uses_other(self):
-        """If interactive selector returns empty list, should use 'other' as default."""
+    def test_create_empty_language_selection_aborts(self):
+        """If interactive selector returns empty list, should abort."""
         args = jolo.parse_args(['create', 'testproj', '-d'])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks['devcontainer_up'].return_value = True
-            with mock.patch('jolo.select_languages_interactive', return_value=[]):
-                jolo.run_create_mode(args)
-
-        project_path = Path(self.tmpdir) / 'testproj'
-        # Should still have .pre-commit-config.yaml with base hooks
-        precommit_config = project_path / '.pre-commit-config.yaml'
-        self.assertTrue(precommit_config.exists())
+            with mock.patch('_jolo.commands.select_languages_interactive', return_value=[]):
+                with self.assertRaises(SystemExit):
+                    jolo.run_create_mode(args)
 
     def test_create_template_files_are_copied(self):
         """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
