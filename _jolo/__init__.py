@@ -29,7 +29,6 @@ from _jolo.commands import (  # noqa: F401
     run_create_mode,
     run_default_mode,
     run_delete_mode,
-    run_destroy_mode,
     run_init_mode,
     run_list_global_mode,
     run_list_mode,
