@@ -515,3 +515,8 @@ Two problems found and fixed:
   being mounted over the container's.
 - Removed =copy-command "wl-copy"= from the Containerfile's =~/.tmux.conf=.
   OSC 52 handles clipboard transfer without needing Wayland access.
+
+* DONE Add template metadata placeholders
+
+- Added =Generated: <YYYY-MM-DD>= to =templates/AGENTS.md=.
+- Added =#+DATE: <YYYY-MM-DD>= to =templates/TODO.org=.

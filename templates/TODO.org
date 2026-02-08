@@ -1,4 +1,5 @@
 #+TITLE: Project Tasks
+#+DATE: <YYYY-MM-DD>
 
 * TODO Define the project
 Discuss with the user what we're building, agree on scope, and break it into tasks.
