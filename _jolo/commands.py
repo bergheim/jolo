@@ -708,7 +708,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         sys.exit(f"Error: Branch does not exist: {args.from_branch}")
 
     # Generate name if not provided
-    worktree_name = args.tree if args.tree else generate_random_name()
+    worktree_name = args.name if args.name else generate_random_name()
 
     # Compute paths
     worktree_path = get_worktree_path(str(git_root), worktree_name)
@@ -778,9 +778,9 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
 def run_create_mode(args: argparse.Namespace) -> None:
     """Run --create mode: create new project with devcontainer."""
-    validate_create_mode(args.create)
+    validate_create_mode(args.name)
 
-    project_name = args.create
+    project_name = args.name
     project_path = Path.cwd() / project_name
 
     # Load config
@@ -1047,9 +1047,9 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
     """Run --spawn mode: create N worktrees with containers and agents."""
     git_root = validate_tree_mode()
 
-    n = args.spawn
+    n = args.count
     if n < 1:
-        sys.exit("Error: --spawn requires a positive integer")
+        sys.exit("Error: spawn requires a positive integer")
 
     # Load config
     config = load_config()
@@ -1273,35 +1273,34 @@ def main(argv: list[str] | None = None) -> None:
     if args.verbose:
         constants.VERBOSE = True
 
+    cmd = args.command
+
     # These modes don't need tmux guard (no container attachment)
-    if args.sync:
+    if cmd == "sync":
         run_sync_mode(args)
         # Continue to start container if --new was also specified
         if not args.new:
             return
+        cmd = "up"
 
-    if args.list:
+    if cmd == "list":
         run_list_mode(args)
         return
 
-    if args.stop:
+    if cmd == "down":
         run_stop_mode(args)
         return
 
-    if args.prune:
+    if cmd == "prune":
         run_prune_mode(args)
         return
 
-    if args.destroy:
+    if cmd == "destroy":
         run_destroy_mode(args)
         return
 
     # No subcommand — show help
-    has_subcommand = any([
-        args.open, args.attach, args.spawn, args.init,
-        args.create, args.tree is not None, args.up,
-    ])
-    if not has_subcommand:
+    if cmd is None:
         args._parser.print_help()
         return
 
@@ -1310,19 +1309,19 @@ def main(argv: list[str] | None = None) -> None:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
-    if args.open:
+    if cmd == "open":
         run_open_mode(args)
-    elif args.attach:
+    elif cmd == "attach":
         run_attach_mode(args)
-    elif args.spawn:
+    elif cmd == "spawn":
         run_spawn_mode(args)
-    elif args.init:
+    elif cmd == "init":
         run_init_mode(args)
-    elif args.create:
+    elif cmd == "create":
         run_create_mode(args)
-    elif args.tree is not None:
+    elif cmd == "tree":
         run_tree_mode(args)
-    elif args.up:
+    elif cmd == "up":
         run_default_mode(args)
 
 

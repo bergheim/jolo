@@ -41,7 +41,7 @@ flask run --port $PORT
 Port assignment:
 - `jolo create` / `jolo init` assigns a random port in 4000-5000, written to devcontainer.json
 - The port is stable for the project lifetime (stored in config, not re-randomized)
-- `jolo start` checks port availability before launching; errors if taken
+- `jolo up` checks port availability before launching; errors if taken
 - In spawn mode (`jolo spawn N`), each worktree gets base_port + offset (4000, 4001, ...)
 - Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network
 
@@ -252,18 +252,18 @@ Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
 
 ```bash
 # Basic usage
-jolo start                # start devcontainer in current project
-jolo tree feature-x       # create worktree + devcontainer
+jolo up                   # start devcontainer in current project
 jolo create newproject    # scaffold new project
+jolo tree feature-x       # create worktree + devcontainer
 jolo list                 # show containers/worktrees
 jolo open                 # pick a running container and attach to it
-jolo stop                 # stop container
+jolo down                 # stop container
 
 # AI prompt mode (starts agent in detached tmux)
-jolo start -p "add user auth"    # run AI with prompt
+jolo up -p "add user auth"       # run AI with prompt
 jolo tree feat -p "add OAuth"    # worktree + prompt
 jolo create app -p "scaffold"    # new project + prompt
-jolo --agent gemini -p "..."     # use different agent (default: claude)
+jolo up --agent gemini -p "..."  # use different agent (default: claude)
 
 # Spawn mode (multiple parallel agents)
 jolo spawn 5 -p "implement X"          # 5 random-named worktrees
@@ -274,26 +274,26 @@ jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
 # Other options
 jolo tree feat --from develop     # branch worktree from specific ref
 jolo attach                       # attach to running container
-jolo start -d                     # start detached (no tmux attach)
-jolo start --shell                # exec zsh directly (no tmux)
-jolo start --run claude           # exec command directly (no tmux)
-jolo start --run "npm test"       # run arbitrary command
+jolo up -d                        # start detached (no tmux attach)
+jolo up --shell                   # exec zsh directly (no tmux)
+jolo up --run claude              # exec command directly (no tmux)
+jolo up --run "npm test"          # run arbitrary command
 jolo init                         # initialize git + devcontainer in current dir
 jolo sync                         # regenerate .devcontainer from template
-jolo start --new                  # remove existing container before starting
+jolo up --new                     # remove existing container before starting
 jolo sync --new                   # regenerate config and rebuild
 jolo prune                        # cleanup stopped/orphan containers and worktrees
 jolo destroy                      # nuclear: stop + rm all containers for project
 jolo list --all                   # show all containers globally
-jolo stop --all                   # stop all containers for project
-jolo start -v                     # verbose mode (print commands)
+jolo down --all                   # stop all containers for project
+jolo up -v                        # verbose mode (print commands)
 
 # Mount and copy options
-jolo start --mount ~/data:data          # mount ~/data to workspace/data (rw)
-jolo start --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
-jolo start --mount ~/data:/mnt/data     # mount to absolute path
-jolo start --copy ~/config.json         # copy file to workspace root
-jolo start --copy ~/config.json:app/    # copy to workspace/app/config.json
+jolo up --mount ~/data:data          # mount ~/data to workspace/data (rw)
+jolo up --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
+jolo up --mount ~/data:/mnt/data     # mount to absolute path
+jolo up --copy ~/config.json         # copy file to workspace root
+jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
 ```
 
 **Security model:**
