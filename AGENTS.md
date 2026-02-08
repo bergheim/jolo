@@ -85,7 +85,7 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
 - `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise tmuxinator creates 5-window layout (emacs, claude, gemini, codex, shell)
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
-- `NPM_CONFIG_PREFIX`, `PNPM_HOME` - User-local package manager paths (no sudo needed)
+- `PNPM_HOME` - pnpm global package path (no sudo needed)
 
 **Networking:**
 - Each project gets a random port in 4000-5000 assigned at creation time, forwarded from container to host
