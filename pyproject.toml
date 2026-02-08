@@ -18,4 +18,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["jolo"]
+known-first-party = ["jolo", "_jolo"]

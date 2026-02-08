@@ -710,15 +710,15 @@ class TestStopContainer(unittest.TestCase):
 
     def test_stop_returns_false_when_no_container(self):
         """Should return False when no container found."""
-        with mock.patch('jolo.get_container_runtime', return_value='docker'):
-            with mock.patch('jolo.get_container_for_workspace', return_value=None):
+        with mock.patch('_jolo.container.get_container_runtime', return_value='docker'):
+            with mock.patch('_jolo.container.get_container_for_workspace', return_value=None):
                 result = jolo.stop_container(Path('/some/path'))
                 self.assertFalse(result)
 
     def test_stop_returns_true_on_success(self):
         """Should return True when container stopped successfully."""
-        with mock.patch('jolo.get_container_runtime', return_value='docker'):
-            with mock.patch('jolo.get_container_for_workspace', return_value='my-container'):
+        with mock.patch('_jolo.container.get_container_runtime', return_value='docker'):
+            with mock.patch('_jolo.container.get_container_for_workspace', return_value='my-container'):
                 with mock.patch('subprocess.run') as mock_run:
                     mock_run.return_value = mock.Mock(returncode=0)
                     result = jolo.stop_container(Path('/some/path'))
@@ -2472,11 +2472,11 @@ class TestDestroyYesFlag(unittest.TestCase):
         args = jolo.parse_args(["--destroy"])
         self.assertFalse(args.yes)
 
-    @mock.patch("jolo.find_git_root")
-    @mock.patch("jolo.get_container_runtime")
-    @mock.patch("jolo.find_containers_for_project")
-    @mock.patch("jolo.subprocess.run")
-    @mock.patch("jolo.remove_container")
+    @mock.patch("_jolo.commands.find_git_root")
+    @mock.patch("_jolo.commands.get_container_runtime")
+    @mock.patch("_jolo.commands.find_containers_for_project")
+    @mock.patch("_jolo.commands.subprocess.run")
+    @mock.patch("_jolo.commands.remove_container")
     def test_yes_skips_confirmation(
         self,
         mock_remove,
@@ -2502,9 +2502,9 @@ class TestDestroyYesFlag(unittest.TestCase):
 
         mock_remove.assert_called_once()
 
-    @mock.patch("jolo.find_git_root")
-    @mock.patch("jolo.get_container_runtime")
-    @mock.patch("jolo.find_containers_for_project")
+    @mock.patch("_jolo.commands.find_git_root")
+    @mock.patch("_jolo.commands.get_container_runtime")
+    @mock.patch("_jolo.commands.find_containers_for_project")
     def test_no_yes_prompts_confirmation(
         self,
         mock_find_containers,
