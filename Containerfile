@@ -44,7 +44,6 @@ RUN apk update && apk add --no-cache \
     ncurses-terminfo-base \
     neovim \
     nodejs \
-    npm \
     openssh-client \
     pinentry \
     pkgconf \
@@ -84,21 +83,6 @@ RUN apk update && apk add --no-cache \
     ttf-freefont \
     ca-certificates
 
-# npm global packages (language servers, etc.)
-# Note: agent-browser excluded - ships glibc binary, won't work on Alpine
-# Note: playwright included - works with system Chromium via executablePath
-# Note: typescript and pnpm now from apk
-RUN npm install -g \
-    @biomejs/biome \
-    playwright \
-    typescript-language-server \
-    vscode-langservers-extracted \
-    bash-language-server \
-    yaml-language-server \
-    dockerfile-language-server-nodejs \
-    pyright \
-    @ansible/ansible-language-server
-
 # User setup
 ARG USERNAME=tsb
 ARG USER_ID=1000
@@ -126,51 +110,55 @@ RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releas
 
 # browser-check - Alpine-compatible browser automation CLI
 COPY container/browser-check.js /usr/local/lib/browser-check.js
-RUN printf '#!/bin/sh\nNODE_PATH=/usr/lib/node_modules exec node /usr/local/lib/browser-check.js "$@"\n' > /usr/local/bin/browser-check && \
-    chmod +x /usr/local/bin/browser-check
 
 USER $USERNAME
 ENV HOME=/home/$USERNAME
 WORKDIR $HOME
 
-# Local package managers for user-managed tools
-ENV NPM_CONFIG_PREFIX=$HOME/.npm-global
+# pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
-ENV PATH="$PNPM_HOME:$NPM_CONFIG_PREFIX/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
+ENV PATH="$PNPM_HOME:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
-RUN go install github.com/air-verse/air@latest && \
+# All Node.js global packages in one pnpm install
+RUN pnpm add -g \
+    @biomejs/biome \
+    playwright \
+    typescript-language-server \
+    vscode-langservers-extracted \
+    bash-language-server \
+    yaml-language-server \
+    dockerfile-language-server-nodejs \
+    pyright \
+    @ansible/ansible-language-server \
+    @openai/codex \
+    @google/gemini-cli
+
+RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.local/bin && \
+    go install github.com/air-verse/air@latest && \
     curl -fsSL https://bun.sh/install | bash && \
-    echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $HOME/.zshrc.container && \
-    # Create directories for mounts
-    mkdir -p $HOME/.config/emacs && \
-    mkdir -p $HOME/.claude && \
-    mkdir -p $HOME/.gemini && \
-    mkdir -p $HOME/.local/bin && \
+    # browser-check wrapper (resolve pnpm global node_modules at build time)
+    printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
+    chmod +x $HOME/.local/bin/browser-check && \
     # GPG setup with loopback pinentry for signing
     mkdir -p $HOME/.gnupg && \
     chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
-    # Claude CLI (YOLO mode)
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.zshrc.container && \
+    # Claude CLI
     curl -fsSL https://claude.ai/install.sh | bash && \
-    # AI tools: codex via pnpm, gemini via npm (pnpm global has known issues)
-    pnpm add -g @openai/codex && \
-    npm install -g @google/gemini-cli && \
-    echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
-    echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
-    echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
-    echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
-    # Fallback TERM if tmux-direct not in terminfo
-    echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
+    # Beads
     curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
+    # Python tools via uv (only ones not in apk)
+    uv tool install ty && \
     # tmux clipboard (OSC 52)
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
     echo 'set -g base-index 1' >> $HOME/.tmux.conf && \
-    # Python tools via uv (only ones not in apk)
-    # pre-commit, ruff, ansible-lint now from apk
-    uv tool install ty && \
-    # mise from apk, just need to activate it
+    # Shell config
+    echo 'alias claude="claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
+    echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
+    echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
     echo 'motd 2>/dev/null' >> $HOME/.zshrc.container
 
