@@ -3,6 +3,6 @@ startup_window: shell
 windows:
   - emacs: e
   - claude: claude --dangerously-skip-permissions
-  - gemini: gemini --yolo
+  - gemini: gemini --yolo --no-sandbox
   - codex: codex
   - shell:
