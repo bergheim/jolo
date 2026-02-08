@@ -345,6 +345,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers.add_parser("prune", parents=[shared],
                           help="Clean up stopped/orphan containers and stale worktrees")
 
+    sub_delete = subparsers.add_parser("delete", parents=[shared],
+                                        help="Delete a worktree and its container")
+    sub_delete.add_argument("name", nargs="?", default=None,
+                            help="Worktree name to delete (interactive if omitted)")
+
     sub_destroy = subparsers.add_parser("destroy", parents=[shared],
                                         help="Stop and remove all containers for project")
     sub_destroy.add_argument("path", nargs="?", default=None, help="Project path")

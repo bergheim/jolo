@@ -1245,6 +1245,70 @@ def spawn_tmux_multipane(
     subprocess.run(["tmux", "attach", "-t", session_name])
 
 
+def run_delete_mode(args: argparse.Namespace) -> None:
+    """Run delete mode: delete a worktree and its container."""
+    git_root = find_git_root()
+    if git_root is None:
+        sys.exit("Error: Not in a git repository.")
+
+    worktrees = list_worktrees(git_root)
+    # Filter out main repo
+    wt_list = [(p, c, b) for p, c, b in worktrees if p != git_root]
+
+    if not wt_list:
+        sys.exit("No worktrees found to delete.")
+
+    if args.name:
+        # Find specified worktree
+        target = None
+        for wt_path, commit, branch in wt_list:
+            if wt_path.name == args.name:
+                target = (wt_path, branch)
+                break
+        if target is None:
+            available = ", ".join(p.name for p, _, _ in wt_list)
+            sys.exit(f"Error: Worktree '{args.name}' not found. Available: {available}")
+    else:
+        # Interactive selection
+        print("Select worktree to delete:")
+        for i, (wt_path, commit, branch) in enumerate(wt_list, 1):
+            print(f"  {i}. {wt_path.name} ({branch}) [{commit[:7]}]")
+        print()
+        try:
+            response = input("> ").strip()
+        except (KeyboardInterrupt, EOFError):
+            return
+        if not response.isdigit():
+            sys.exit("Invalid selection.")
+        idx = int(response) - 1
+        if not (0 <= idx < len(wt_list)):
+            sys.exit("Invalid selection.")
+        wt_path, _, branch = wt_list[idx]
+        target = (wt_path, branch)
+
+    wt_path, branch = target
+
+    # Confirm unless --yes
+    if not args.yes:
+        try:
+            response = input(f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if response.lower() != "y":
+            print("Cancelled.")
+            return
+
+    # Stop container if running
+    stop_container(wt_path)
+
+    # Remove worktree
+    if remove_worktree(git_root, wt_path):
+        print(f"Deleted: {wt_path.name}")
+    else:
+        print(f"Failed to delete: {wt_path.name}", file=sys.stderr)
+
+
 def run_sync_mode(args: argparse.Namespace) -> None:
     """Run --sync mode: regenerate .devcontainer from template."""
     git_root = find_git_root()
@@ -1293,6 +1357,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "prune":
         run_prune_mode(args)
+        return
+
+    if cmd == "delete":
+        run_delete_mode(args)
         return
 
     if cmd == "destroy":
