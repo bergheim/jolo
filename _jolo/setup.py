@@ -151,6 +151,17 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
 
+    # Copy template directories (skills, agent config)
+    template_dirs = [".agents", ".claude", ".gemini"]
+    for dirname in template_dirs:
+        src = templates_dir / dirname
+        if src.exists():
+            dst = target_dir / dirname
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst, symlinks=True)
+            verbose_print(f"Copied template dir: {dirname}/")
+
 
 def scaffold_devcontainer(
     project_name: str,
