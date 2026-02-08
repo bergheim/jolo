@@ -133,7 +133,7 @@ RUN pnpm add -g \
     @openai/codex \
     @google/gemini-cli
 
-RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.local/bin && \
+RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.local/bin && \
     go install github.com/air-verse/air@latest && \
     curl -fsSL https://bun.sh/install | bash && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)

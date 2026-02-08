@@ -40,9 +40,9 @@ DEFAULT_CONFIG = {
     "pass_path_openai": "api/llm/openai",
     "agents": ["claude", "gemini", "codex"],
     "agent_commands": {
-        "claude": "claude --dangerously-skip-permissions",
-        "gemini": "gemini --yolo --no-sandbox",
-        "codex": "codex --dangerously-bypass-approvals-and-sandbox",
+        "claude": "claude",
+        "gemini": "gemini",
+        "codex": "codex",
     },
     "base_port": 4000,
 }
@@ -130,11 +130,11 @@ PRECOMMIT_HOOKS = {
 
 # Base mounts that are always included
 BASE_MOUNTS = [
-    # Gemini: copy-based isolation (credentials copied to .devcontainer/.gemini-cache/)
-    "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
-    # Claude: copy-based isolation (credentials copied to .devcontainer/.claude-cache/)
+    # AI agent credentials: copy-based isolation (copied to .devcontainer/.<name>-cache/)
     "source=${localWorkspaceFolder}/.devcontainer/.claude-cache,target=/home/${localEnv:USER}/.claude,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.histfile,target=/home/${localEnv:USER}/.histfile,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",

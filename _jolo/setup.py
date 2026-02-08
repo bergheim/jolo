@@ -111,6 +111,19 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
 
+    # Codex credentials
+    codex_cache = workspace_dir / ".devcontainer" / ".codex-cache"
+    if codex_cache.exists():
+        clear_directory_contents(codex_cache)
+    else:
+        codex_cache.mkdir(parents=True)
+
+    codex_dir = home / ".codex"
+    for filename in ["config.toml", "auth.json"]:
+        src = codex_dir / filename
+        if src.exists():
+            shutil.copy2(src, codex_cache / filename)
+
 
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.

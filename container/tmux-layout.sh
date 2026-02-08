@@ -19,9 +19,9 @@ if [ -f "$PROMPT_FILE" ]; then
     rm -f "$PROMPT_FILE" "$AGENT_FILE"
 
     case "$AGENT" in
-        claude)  CMD="claude --dangerously-skip-permissions" ;;
-        gemini)  CMD="gemini --yolo --no-sandbox" ;;
-        codex)   CMD="codex --dangerously-bypass-approvals-and-sandbox" ;;
+        claude)  CMD="claude" ;;
+        gemini)  CMD="gemini" ;;
+        codex)   CMD="codex" ;;
         *)       CMD="$AGENT" ;;
     esac
 
