@@ -263,6 +263,16 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
     gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
 
+    # Codex: append notify setting to .codex-cache/config.toml (best-effort)
+    codex_config_path = workspace_dir / ".devcontainer" / ".codex-cache" / "config.toml"
+    if codex_config_path.exists():
+        config = codex_config_path.read_text()
+        if "notify-done" not in config:
+            if not config.endswith("\n"):
+                config += "\n"
+            config += 'notify = ["sh", "-c", "AGENT=codex notify-done"]\n'
+            codex_config_path.write_text(config)
+
 
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
