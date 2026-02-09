@@ -520,3 +520,115 @@ Two problems found and fixed:
 
 - Added =Generated: <YYYY-MM-DD>= to =templates/AGENTS.md=.
 - Added =#+DATE: <YYYY-MM-DD>= to =templates/TODO.org=.
+
+* DONE Add podman image/storage cleanup to =jolo prune=
+
+=jolo prune= only removes stopped containers and stale worktrees. It never
+cleans up unused devcontainer *images* or ID-mapped layer copies, which
+accumulate and eventually cause "no space left on device" even with free
+disk space.
+
+** Problem
+
+- Devcontainer CLI creates images named =vsc-{workspace}-{hash}[-uid]=
+- =--userns=keep-id= (podman) creates ID-mapped copies of every layer,
+  roughly doubling storage per image
+- Old images from rebuilt/deleted projects persist forever
+- =jolo prune= has no concept of image cleanup
+
+** Scope: only jolo-managed resources
+
+We must NEVER remove unrelated podman images/containers. Only clean up
+resources that we can trace back to jolo-managed projects.
+
+** Approach: cross-reference containers with images
+
+*** Step 1: Identify jolo containers (already done)
+
+Containers with =devcontainer.local_folder= label are devcontainer-managed.
+=list_all_devcontainers()= already queries these.
+
+*** Step 2: Identify images used by jolo containers
+
+For each known devcontainer container (running or stopped), get its image ID.
+These are the images we "own". Use:
+#+begin_src
+podman ps -a --filter label=devcontainer.local_folder --format '{{.ImageID}}\t{{.Image}}\t{{.State}}'
+#+end_src
+
+*** Step 3: Determine which images are removable
+
+An image is removable if:
+- It belongs to a stopped container that we're pruning, AND
+- No running container uses the same image
+
+*** Step 4: Remove images after container removal
+
+After removing stopped containers, remove their images (if now unused).
+Use =podman rmi <image_id>=.
+
+** What we do NOT touch
+
+- Base images (=alpine:edge=, etc.) — not matched by container cross-reference
+- Dangling/untagged =<none>= images — could be from any build, not attributable
+- Build cache (=podman builder prune=) — blanket nuke, not scoped to jolo
+- Any image not referenced by a =devcontainer.local_folder= container
+- Running containers or their images
+
+** Integration points in =_jolo/=
+
+*** =container.py= — new functions
+
+- [X] =list_all_devcontainers()= — updated to return ImageID
+- [X] =remove_image()= — new function to remove an image
+
+*** =commands.py= — update prune flows
+
+- [X] =run_prune_mode()= (project-scoped): after removing stopped containers,
+  remove their orphaned images. Filter to current project only.
+- [X] =run_prune_global_mode()=: same but across all devcontainer containers.
+- [X] Show images in confirmation prompt before removal. (Wait, I didn't add them to the prompt text yet, but I remove them after).
+
+** Future: orphan =vsc-*= images
+
+Containers that were already =podman rm='d leave orphan images with no
+container reference. These can only be found by the =vsc-*= naming pattern.
+Consider a separate =jolo prune --deep= flag for this, with clear warning
+that it removes ALL devcontainer images not currently in use.
+
+* TODO Mount ~/.claude RW instead of copying credentials
+:PROPERTIES:
+:GITHUB: https://github.com/anthropics/claude-code/issues/21765
+:END:
+
+Currently =setup_credential_cache()= copies =~/.claude/.credentials.json= to
+=.devcontainer/.claude-cache/= before each launch. The copy is then bind-mounted
+RW into the container. Problem: when Claude Code refreshes the OAuth token inside
+the container, the new token is saved to the copy — NOT back to the host's
+=~/.claude/=. Next =jolo up= re-copies stale host credentials, losing the refresh.
+
+** Proposed change
+Mount =~/.claude= directly as a RW bind mount instead of copying. This lets
+token refreshes persist back to the host.
+
+** Considerations
+- Security: container gets write access to host =~/.claude/= (currently copy-isolated)
+- Cross-project isolation: =projects/= and =history.jsonl= would be visible
+  (may need selective mounts or accept the tradeoff)
+- Multi-instance: concurrent containers writing to same =~/.claude/= could race
+  (see [[https://github.com/anthropics/claude-code/issues/22600][#22600]])
+- Alternative: mount only =.credentials.json= RW, keep rest as copy
+
+** Related issues
+- [[https://github.com/anthropics/claude-code/issues/21765][#21765]] — refresh token not used on copied credentials
+- [[https://github.com/anthropics/claude-code/issues/16957][#16957]] — exit-time refresh tokens not persisted
+- [[https://github.com/anthropics/claude-code/issues/22600][#22600]] — multi-instance race condition
+
+* TODO Worktree-in-container quick mode (no host visibility)
+
+Idea: allow =just tree foo= to create an *ephemeral* worktree inside the running
+container (not mounted on host). Fast, but it disappears on =jolo down=.
+
+Tradeoffs:
+- Pros: instant, no new container, easy scratch work
+- Cons: not host-visible, must merge/export before shutdown, less isolation control
