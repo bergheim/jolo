@@ -26,15 +26,15 @@ The hang occurs even when nothing changes between runs and can be reproduced bac
      - =podman events --format json --filter event=start=
    - This behavior is in the upstream devcontainer CLI, not our own app code.
 
-3. Restarting the container immediately unblocks the CLI.
+4. Restarting the container immediately unblocks the CLI.
    - =podman restart p2= emits a new start event.
    - The waiting =podman events= command returns instantly.
 
-4. This strongly indicates a race:
+5. This strongly indicates a race:
    - The container starts before the events listener is attached.
    - The start event is missed, so the CLI waits forever.
 
-5. Version note:
+6. Version note:
    - Observed with =@devcontainers/cli= 0.80.0 (from verbose startup log).
 
 * Plan For Fix
@@ -51,6 +51,12 @@ We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstre
 3. Keep success behavior unchanged, but fail fast with a clear error if readiness never arrives.
 
 4. Validate the fix by running =jolo create= repeatedly *without* sleeps and confirming no hangs.
+
+* Comments
+
+- The numbered list in *Findings* had a duplicate "3"; corrected for clarity.
+- The observed process state shows =devcontainer up= waiting on a Podman event stream; that is the most concrete indicator of where the hang originates.
+- The "sleep 1" workaround is an observational clue only; it should not be treated as evidence of correctness.
 
 * Suggestions (Codex)
 
@@ -77,7 +83,7 @@ Changing the entrypoint to =exec "$@"= would make the container exit after the p
 
 The race is definitively: =podman events --filter event=start= listener attaches /after/ =podman start= completes. The event fires before anyone is listening. The CLI waits forever.
 
-The =sleep 1= workaround does not help because it only delays the /next/ create — it does not change the ordering between the container start and the event listener within a single =devcontainer up= invocation.
+The =sleep 1= workaround does not help because it only delays the /next/ create — it does not change the ordering between the container start and the event listener within a single =devcontainer up= invocation. The race window is entirely inside the CLI: =podman start= fires the event, then =podman events --filter event=start= attaches too late. No external sleep can close that window.
 
 ** What devcontainer up actually does post-start (in our case: nothing)
 
