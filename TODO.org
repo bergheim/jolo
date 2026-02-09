@@ -1,6 +1,9 @@
 #+TITLE: Security Analysis for Autonomous Agent Execution
 #+DESCRIPTION: Practical security assessment - what actually matters vs security theater
 
+* Tasks
+** DONE Alternate agents between external reviews in feature-workflow
+
 * Overview
 
 This document analyzes security for running Claude Code in YOLO mode inside containers. The goal: *maximum usability while understanding real risks*.
