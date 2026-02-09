@@ -107,3 +107,70 @@ generated projects. Keeps root clean for code files.
 - =templates/AGENTS.md= updated to reference =docs/= paths
 - =_jolo/setup.py:copy_template_files()= now copies =docs/= as template dir
 - Meta-project keeps its own TODO.org and RESEARCH.org at root
+
+* jolo create slowness from Emacs cache copy             :emacs:perf:jolo:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Observed ~jolo create~ taking ~40s while ~devcontainer up~ is ~2s and
+~podman run~ is ~0.5s.
+
+** Root cause
+Emacs cache (~/.cache/emacs) was being copied as part of Emacs config staging.
+Cache size was ~4.2G. Copy dominates runtime even if config itself is small.
+
+** Fix
+Exclude cache-like directories during Emacs config copy (e.g. elpaca/straight/elpa,
+eln-cache, tree-sitter, auto-save-list, tramp, server). Keep caches in
+~/.cache/emacs-container~ bind mounts instead of copying into workspace.
+
+** Evidence
+~rsync~ of ~~/.config/emacs~ alone is ~0.05s, while cache size is ~4.2G.
+
+** Key files
+- ~_jolo/setup.py~ (setup_emacs_config ignore patterns)
+
+* Eliminate per-project Dockerfile and devcontainer exec overhead :performance:jolo:podman:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Additional startup optimizations beyond the emacs cache fix.
+
+** Per-project Dockerfile eliminated
+
+Each project generated a Dockerfile (~FROM emacs-gui~ + ~apk add nodejs npm~ +
+user label). The devcontainer CLI ran two builds (features layer + UID remap)
+on every launch even when cached. Switched to ~"image"~ in devcontainer.json
+with ~"updateRemoteUserUID": false~. ~DOCKERFILE_TEMPLATE~ constant removed.
+
+** Direct podman exec instead of devcontainer CLI
+
+Every ~devcontainer exec~ spawns Node.js, parses config, resolves features.
+- ~is_container_running()~ now uses ~podman ps --filter~ directly
+- ~_runtime_exec()~ helper tries ~podman exec~ first, falls back to devcontainer CLI
+- Init commands batched into single exec with ~&&~
+
+** GPG keyserver fetch removed from entrypoint
+
+~gpg --keyserver keys.openpgp.org --recv-keys~ ran on every boot. Public keyring
+already mounted read-only from host — fetch was redundant and caused variable
+3s-2min delays depending on network.
+
+** devcontainer CLI post-start delays (Arch Linux + podman)
+
+Research found three CLI-side delays worth investigating if startup is still slow:
+- ~updateRemoteUserUID~ CLI default may override JSON setting
+  (use ~--update-remote-user-uid-default never~)
+- ~userEnvProbe~ runs interactive login shell with 10s timeout
+  (set ~"userEnvProbe": "none"~ in devcontainer.json)
+- Podman ~events_logger=journald~ on Arch can stall 10-20s
+  (set ~events_logger = "file"~ in ~containers.conf~)
+- Ref: [[https://github.com/microsoft/vscode-remote-release/issues/7980][vscode-remote-release#7980]] (Arch + podman events hang)
+
+** Rename
+
+~run_default_mode~ renamed to ~run_up_mode~ — ~--help~ is the actual default,
+~up~ is the subcommand.
+
