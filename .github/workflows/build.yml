@@ -1,12 +1,20 @@
-name: Build Container
-on: [push]
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Containerfile"
+      - "container/**"
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and push
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | podman login -u ${{ github.actor }} --password-stdin ghcr.io
-          podman build -t ghcr.io/${{ github.repository_owner }}/emacs-gui:latest .
-          podman push ghcr.io/${{ github.repository_owner }}/emacs-gui:latest
+      - name: Log in to ghcr.io
+        run: echo ${{ secrets.GITHUB_TOKEN }} | podman login -u ${{ github.actor }} --password-stdin ghcr.io
+      - name: Build image
+        run: podman build -t ghcr.io/${{ github.repository_owner }}/emacs-gui:latest .
+      - name: Push image
+        run: podman push ghcr.io/${{ github.repository_owner }}/emacs-gui:latest
