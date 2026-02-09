@@ -296,8 +296,8 @@ class TestNotificationHooks(unittest.TestCase):
         (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
         return ws
 
-    def test_claude_stop_hook_injected(self):
-        """Should inject Stop hook into Claude settings."""
+    def test_claude_session_end_hook_injected(self):
+        """Should inject SessionEnd hook into Claude settings."""
         ws = self._workspace()
         claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
         claude_settings.write_text("{}")
@@ -305,10 +305,10 @@ class TestNotificationHooks(unittest.TestCase):
         jolo.setup_notification_hooks(ws)
 
         settings = json.loads(claude_settings.read_text())
-        stop_hooks = settings["hooks"]["Stop"]
-        self.assertEqual(len(stop_hooks), 1)
-        self.assertIn("notify-done", stop_hooks[0]["hooks"][0]["command"])
-        self.assertIn("AGENT=claude", stop_hooks[0]["hooks"][0]["command"])
+        hooks = settings["hooks"]["SessionEnd"]
+        self.assertEqual(len(hooks), 1)
+        self.assertIn("notify-done", hooks[0]["hooks"][0]["command"])
+        self.assertIn("AGENT=claude", hooks[0]["hooks"][0]["command"])
 
     def test_gemini_session_end_hook_injected(self):
         """Should inject SessionEnd hook into Gemini settings."""
@@ -330,7 +330,7 @@ class TestNotificationHooks(unittest.TestCase):
         claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
         existing = {
             "hooks": {
-                "Stop": [{"hooks": [{"type": "command", "command": "echo done"}]}],
+                "SessionEnd": [{"hooks": [{"type": "command", "command": "echo done"}]}],
             },
             "other_key": "preserved",
         }
@@ -341,7 +341,7 @@ class TestNotificationHooks(unittest.TestCase):
         settings = json.loads(claude_settings.read_text())
         self.assertEqual(settings["other_key"], "preserved")
         # Original hook + our new one
-        self.assertEqual(len(settings["hooks"]["Stop"]), 2)
+        self.assertEqual(len(settings["hooks"]["SessionEnd"]), 2)
 
     def test_idempotent_no_duplicates(self):
         """Running twice should not add duplicate hooks."""
@@ -353,7 +353,7 @@ class TestNotificationHooks(unittest.TestCase):
         jolo.setup_notification_hooks(ws)
 
         settings = json.loads(claude_settings.read_text())
-        self.assertEqual(len(settings["hooks"]["Stop"]), 1)
+        self.assertEqual(len(settings["hooks"]["SessionEnd"]), 1)
 
     def test_creates_settings_if_missing(self):
         """Should create settings.json if it doesn't exist."""
@@ -416,6 +416,32 @@ class TestNotificationHooks(unittest.TestCase):
         jolo.setup_notification_hooks(ws)
 
         self.assertFalse(codex_config.exists())
+
+    def test_corrupt_json_does_not_crash(self):
+        """Should handle corrupt/empty settings.json gracefully."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings.write_text("not valid json{{{")
+
+        # Should not raise
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        self.assertIn("hooks", settings)
+
+    def test_codex_skipped_if_notify_key_exists(self):
+        """Should not append duplicate notify key to codex config."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('notify = ["some-other-command"]\n')
+
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertEqual(config.count("notify"), 1)
+        self.assertNotIn("notify-done", config)
 
 
 if __name__ == "__main__":
