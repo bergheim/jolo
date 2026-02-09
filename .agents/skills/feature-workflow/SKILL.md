@@ -1,13 +1,22 @@
 ---
-name: big-task
-description: "Structured workflow for large or risky changes: create a branch, use TDD where applicable, commit frequently, get an external agent review, fix issues, then get a second external review and optionally open a PR. Use when the user says a task is big, multi-step, high-risk, or explicitly wants TDD, frequent commits, or multi-agent review."
+name: feature-workflow
+description: "Structured workflow for feature-sized or risky changes: short intake questions, create a branch, use TDD where applicable, commit frequently, get an external agent review, fix issues, then get a second external review and optionally open a PR. Use when the user says a task is big, multi-step, high-risk, or explicitly wants TDD, frequent commits, or multi-agent review."
 ---
 
-# Big Task
+# Feature Workflow
 
 ## Overview
 
-Use this skill to handle large changes safely: isolate work on a branch, iterate with tests, commit frequently, and require two external reviews before final merge or PR.
+Use this skill to handle large changes safely: a quick intake to clarify ambiguity, then branch isolation, test-driven iterations, frequent commits, and two external reviews before merge or PR.
+
+## Intake (Ask First If Ambiguous)
+
+Ask 2–4 short questions if the task has unclear scope or risk.
+
+- What outcome defines “done”?
+- Any files/areas to avoid or prioritize?
+- Expected tests or constraints?
+- Any deadline or review expectations?
 
 ## Workflow
 
