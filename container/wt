@@ -21,6 +21,7 @@ Commands:
   main                                       Switch back to dev session
   list, ls                                   List worktree sessions
   delete <name>, rm <name>                   Remove worktree + session
+  prune                                      Clean up stale worktree refs
   (no args)                                  List worktree sessions
 EOF
 }
@@ -172,9 +173,12 @@ cmd_delete() {
     sess=$(session_name "$name")
     wt_path="/workspaces/$name"
 
+    # If directory is gone, clean up stale refs and tmux session
     if [ ! -d "$wt_path" ]; then
-        echo "error: no worktree '$name' found" >&2
-        exit 1
+        tmux kill-session -t "$sess" 2>/dev/null || true
+        git -C "$WS" worktree prune
+        echo "pruned stale worktree $name"
+        return
     fi
 
     # Warn if dirty
@@ -203,6 +207,10 @@ cmd_delete() {
     echo "removed worktree $name"
 }
 
+cmd_prune() {
+    git -C "$WS" worktree prune -v
+}
+
 # Main dispatch
 case "${1:-}" in
     new)
@@ -226,6 +234,9 @@ case "${1:-}" in
             exit 1
         fi
         cmd_delete "$1"
+        ;;
+    prune)
+        cmd_prune
         ;;
     -h|--help|help)
         usage
