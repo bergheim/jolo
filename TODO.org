@@ -717,6 +717,14 @@ Install libsixel utilities and enable tmux sixel passthrough so WezTerm can rend
 
 Create a skill to run pragmatic tests and delegate diff review to a different agent.
 
+* DONE Add research skill for agented web notes           :skills:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Create a skill for parallel web research that writes append-only notes to
+RESEARCH.org and commits after each agent section.
+
 
 * DONE Activate ruff linting and fix all violations        :code-quality:
 :PROPERTIES:
