@@ -8,4 +8,4 @@ test:
 
 # Open in browser
 browse:
-    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty ; echo "Copied to clipboard: $u"
