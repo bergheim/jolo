@@ -103,13 +103,13 @@ class TestListAllDevcontainers(unittest.TestCase):
 
     def test_list_all_parses_docker_output(self):
         """Should parse docker ps output correctly."""
-        mock_output = "mycontainer\t/home/user/project\trunning\n"
+        mock_output = "mycontainer\t/home/user/project\trunning\timg123\n"
         with mock.patch('jolo.get_container_runtime', return_value='docker'):
             with mock.patch('subprocess.run') as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0, stdout=mock_output)
                 result = jolo.list_all_devcontainers()
                 self.assertEqual(len(result), 1)
-                self.assertEqual(result[0], ('mycontainer', '/home/user/project', 'running'))
+                self.assertEqual(result[0], ('mycontainer', '/home/user/project', 'running', 'img123'))
 
 
 class TestGetContainerForWorkspace(unittest.TestCase):

@@ -190,7 +190,7 @@ class TestDeleteProjectByPath(unittest.TestCase):
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, 'abc123', 'main')]  # no worktrees
         mock_find_containers.return_value = [
-            ("test-container", "/fake/project", "running")
+            ("test-container", "/fake/project", "running", "img123")
         ]
         mock_subproc.return_value = mock.MagicMock(returncode=0)
         mock_remove.return_value = True
@@ -329,7 +329,7 @@ class TestDeleteInteractivePicker(unittest.TestCase):
         with mock.patch('_jolo.commands.find_git_root') as mock_fgr:
             mock_fgr.side_effect = [None, project]
             mock_containers.return_value = [
-                ("proj", "/fake/project", "running"),
+                ("proj", "/fake/project", "running", "img123"),
             ]
             mock_list.return_value = [
                 (project, 'abc123', 'main'),
