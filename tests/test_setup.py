@@ -45,25 +45,24 @@ class TestTemplateSystem(unittest.TestCase):
         content = json_file.read_text()
         self.assertIn('"name": "testproject"', content)
 
-    def test_scaffold_devcontainer_creates_dockerfile(self):
-        """Should create Dockerfile with default base image."""
+    def test_scaffold_devcontainer_sets_image(self):
+        """Should set image in devcontainer.json with default base image."""
         os.chdir(self.tmpdir)
         jolo.scaffold_devcontainer('testproject')
 
-        dockerfile = Path(self.tmpdir) / '.devcontainer' / 'Dockerfile'
-        self.assertTrue(dockerfile.exists())
-        content = dockerfile.read_text()
-        self.assertIn('FROM localhost/emacs-gui:latest', content)
+        json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
+        content = json_file.read_text()
+        self.assertIn('"image": "localhost/emacs-gui:latest"', content)
 
     def test_scaffold_devcontainer_uses_config_base_image(self):
-        """Should use base_image from config."""
+        """Should use base_image from config in devcontainer.json."""
         os.chdir(self.tmpdir)
         config = {'base_image': 'custom/myimage:v3'}
         jolo.scaffold_devcontainer('testproject', config=config)
 
-        dockerfile = Path(self.tmpdir) / '.devcontainer' / 'Dockerfile'
-        content = dockerfile.read_text()
-        self.assertIn('FROM custom/myimage:v3', content)
+        json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
+        content = json_file.read_text()
+        self.assertIn('"image": "custom/myimage:v3"', content)
         self.assertNotIn('localhost/emacs-gui', content)
 
     def test_scaffold_warns_if_exists(self):

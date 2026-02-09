@@ -532,8 +532,8 @@ def run_list_mode(args: argparse.Namespace) -> None:
         print("Worktrees: (none)")
 
 
-def run_default_mode(args: argparse.Namespace) -> None:
-    """Run default mode: start devcontainer in current git project."""
+def run_up_mode(args: argparse.Namespace) -> None:
+    """Run up mode: start devcontainer in current git project."""
     git_root = find_git_root()
 
     if git_root is None:
@@ -844,10 +844,10 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Run project init commands for primary language inside the container
     init_commands = get_project_init_commands(primary_language, project_name)
-    for cmd_parts in init_commands:
-        cmd_str = " ".join(cmd_parts)
-        verbose_print(f"Running in container: {cmd_str}")
-        devcontainer_exec_command(project_path, cmd_str)
+    if init_commands:
+        combined_cmd = " && ".join([" ".join(c) for c in init_commands])
+        verbose_print(f"Running in container: {combined_cmd}")
+        devcontainer_exec_command(project_path, combined_cmd)
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
@@ -1462,7 +1462,7 @@ def main(argv: list[str] | None = None) -> None:
     elif cmd == "tree":
         run_tree_mode(args)
     elif cmd == "up":
-        run_default_mode(args)
+        run_up_mode(args)
 
 
 if __name__ == "__main__":

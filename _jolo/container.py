@@ -17,7 +17,12 @@ from _jolo.cli import (
 )
 
 
-def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
+def build_devcontainer_json(
+    project_name: str,
+    port: int | None = None,
+    base_image: str | None = None,
+    remote_user: str | None = None,
+) -> str:
     """Build devcontainer.json content dynamically.
 
     Conditionally includes Wayland mount only if WAYLAND_DISPLAY is set.
@@ -30,6 +35,12 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
     if port is None:
         port = random_port()
 
+    if base_image is None:
+        base_image = constants.DEFAULT_CONFIG["base_image"]
+
+    if remote_user is None:
+        remote_user = os.environ.get("USER", "dev")
+
     hostname = detect_hostname()
 
     mounts = constants.BASE_MOUNTS.copy()
@@ -41,8 +52,10 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
     workspace_folder = f"/workspaces/{project_name}"
     config = {
         "name": project_name,
-        "build": {"dockerfile": "Dockerfile"},
+        "image": base_image,
         "workspaceFolder": workspace_folder,
+        "remoteUser": remote_user,
+        "updateRemoteUserUID": False,
         "runArgs": [
             "--hostname", project_name,
             "--name", project_name,
@@ -66,10 +79,27 @@ def build_devcontainer_json(project_name: str, port: int | None = None) -> str:
 
 def is_container_running(workspace_dir: Path) -> bool:
     """Check if devcontainer for workspace is already running."""
-    cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace_dir), "true"]
-    verbose_cmd(cmd)
-    result = subprocess.run(cmd, capture_output=True, cwd=workspace_dir)
-    return result.returncode == 0
+    runtime = get_container_runtime()
+    if runtime is None:
+        return False
+
+    # Query running containers with matching workspace folder label
+    result = subprocess.run(
+        [
+            runtime,
+            "ps",
+            "--filter",
+            f"label=devcontainer.local_folder={workspace_dir}",
+            "--filter",
+            "status=running",
+            "--format",
+            "{{.Names}}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    return bool(result.stdout.strip())
 
 
 def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
@@ -101,12 +131,44 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
     return result.returncode == 0
 
 
+def _runtime_exec(
+    workspace_dir: Path, command: str, interactive: bool = False
+) -> bool:
+    """Try executing a command via the container runtime directly.
+
+    Returns True if successful, False if we should fall back to devcontainer CLI.
+    """
+    runtime = get_container_runtime()
+    container_name = get_container_for_workspace(workspace_dir)
+
+    if not runtime or not container_name:
+        return False
+
+    user = os.environ.get("USER", "dev")
+    project_name = workspace_dir.name
+    workspace_folder = f"/workspaces/{project_name}"
+
+    cmd = [runtime, "exec"]
+    if interactive:
+        cmd.append("-it")
+    cmd.extend(["-u", user, "-w", workspace_folder, container_name, "sh", "-c", command])
+
+    verbose_cmd(cmd)
+    result = subprocess.run(cmd)
+    return result.returncode == 0
+
+
 def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     """Execute into container and attach/create tmux session."""
     shell_cmd = (
         "if [ -x \"$HOME/tmux-layout.sh\" ]; then exec \"$HOME/tmux-layout.sh\"; "
         "else tmux attach-session -d -t dev || tmux new-session -s dev; fi"
     )
+
+    if _runtime_exec(workspace_dir, shell_cmd, interactive=True):
+        return
+
+    # Fallback: slow path via devcontainer CLI
     cmd = [
         "devcontainer",
         "exec",
@@ -123,6 +185,10 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
 
 def devcontainer_exec_command(workspace_dir: Path, command: str) -> None:
     """Execute a command directly in container (no tmux)."""
+    if _runtime_exec(workspace_dir, command):
+        return
+
+    # Fallback: slow path via devcontainer CLI
     cmd = [
         "devcontainer",
         "exec",
@@ -188,13 +254,13 @@ def list_all_devcontainers() -> list[tuple[str, str, str, str]]:
 def get_container_for_workspace(workspace_dir: Path) -> str | None:
     """Get container name for a workspace directory.
 
-    Returns container name if found, None otherwise.
+    Returns container name if found, None otherwise. Prefers running containers.
     """
     runtime = get_container_runtime()
     if runtime is None:
         return None
 
-    # Query containers with matching workspace folder
+    # Query containers with matching workspace folder, sorted by status (running first)
     result = subprocess.run(
         [
             runtime,
@@ -203,7 +269,7 @@ def get_container_for_workspace(workspace_dir: Path) -> str | None:
             "--filter",
             f"label=devcontainer.local_folder={workspace_dir}",
             "--format",
-            "{{.Names}}",
+            "{{.Names}}\t{{.State}}",
         ],
         capture_output=True,
         text=True,
@@ -212,7 +278,16 @@ def get_container_for_workspace(workspace_dir: Path) -> str | None:
     if result.returncode != 0 or not result.stdout.strip():
         return None
 
-    return result.stdout.strip().split("\n")[0]
+    lines = result.stdout.strip().split("\n")
+    
+    # Check for running ones first
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[1] == "running":
+            return parts[0]
+            
+    # Fall back to first available (stopped)
+    return lines[0].split("\t")[0]
 
 
 def stop_container(workspace_dir: Path) -> bool:

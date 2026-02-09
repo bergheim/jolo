@@ -27,7 +27,7 @@ from _jolo.commands import (  # noqa: F401
     main,
     run_attach_mode,
     run_create_mode,
-    run_default_mode,
+    run_up_mode,
     run_delete_mode,
     run_init_mode,
     run_list_global_mode,
@@ -43,7 +43,6 @@ from _jolo.commands import (  # noqa: F401
 from _jolo.constants import (  # noqa: F401
     ADJECTIVES,
     DEFAULT_CONFIG,
-    DOCKERFILE_TEMPLATE,
     HAVE_ARGCOMPLETE,
     LANGUAGE_CODE_MAP,
     LANGUAGE_OPTIONS,
