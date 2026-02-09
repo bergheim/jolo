@@ -111,20 +111,52 @@ def is_container_running(workspace_dir: Path) -> bool:
     return bool(result.stdout.strip())
 
 
+def reassign_port(workspace_dir: Path) -> int:
+    """Pick a new available port and rewrite devcontainer.json."""
+    devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
+    config = json.loads(devcontainer_json.read_text())
+
+    new_port = random_port()
+    while not is_port_available(new_port):
+        new_port = random_port()
+
+    old_port = config.get("containerEnv", {}).get("PORT")
+    config["containerEnv"]["PORT"] = str(new_port)
+
+    # Update the -p runArg
+    run_args = config.get("runArgs", [])
+    for i, arg in enumerate(run_args):
+        if i > 0 and run_args[i - 1] == "-p" and old_port and old_port in arg:
+            run_args[i] = f"{new_port}:{new_port}"
+            break
+
+    devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
+    return new_port
+
+
 def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
     """Start devcontainer with devcontainer up.
 
     Checks port availability before launching. Returns True if successful.
     """
-    # Check port availability before starting (skip when replacing existing container)
     port = read_port_from_devcontainer(workspace_dir)
-    if port is not None and not remove_existing and not is_port_available(port):
-        print(
-            f"Error: Port {port} is already in use.\n"
-            f"Either stop the process using it, or change PORT in "
-            f".devcontainer/devcontainer.json"
-        )
-        return False
+    if port is not None and not is_port_available(port):
+        # Our own container will free the port when removed
+        if remove_existing and is_container_running(workspace_dir):
+            pass
+        elif sys.stdin.isatty():
+            try:
+                answer = input(f"Port {port} is in use. Assign a new random port? [Y/n] ")
+            except (KeyboardInterrupt, EOFError):
+                return False
+            if answer.strip().lower() not in ("", "y", "yes"):
+                print(f"Error: Port {port} is already in use.")
+                return False
+            port = reassign_port(workspace_dir)
+            print(f"Reassigned to port {port}")
+        else:
+            print(f"Error: Port {port} is already in use.")
+            return False
 
     # zsh-state dir: zsh needs rename() for histfile, which fails across filesystems
     (workspace_dir / ".devcontainer" / ".zsh-state").mkdir(exist_ok=True)
