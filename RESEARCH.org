@@ -188,21 +188,18 @@ Claude Code supports hooks configured in:
 
 Hook events include =Stop=, =SessionStart=, and =SessionEnd=. The official
 hooks reference documents the hook events, configuration structure, and that
-=SessionEnd= runs when a session ends. citeturn0search1
+=SessionEnd= runs when a session ends. citeturn1search0
 
-** Codex CLI (confirmed: notify hook)
+** Gemini CLI (confirmed)
 
-Codex CLI supports a =notify= setting in =config.toml=. The configuration
-reference states that =notify= is an array of strings (command argv) and that
-the command is invoked for notifications, receiving a JSON payload from Codex.
-This is the supported mechanism for “after turn” notifications. citeturn2view0turn3view0
+Gemini CLI documents lifecycle hooks including =SessionStart= and =SessionEnd=,
+configured in =~/.gemini/settings.json= or =.gemini/settings.json=. The hooks
+reference specifies event names and configuration structure. citeturn0search1turn0search8
 
-** Gemini CLI (unconfirmed)
+** Codex CLI (no official hooks documented)
 
-No official hooks documentation was found in primary sources. There are GitHub
-issues from users describing =hooks= and =enableHooks= in =~/.gemini/settings.json=,
-but these are not authoritative docs. Treat Gemini hooks as unconfirmed until
-official documentation is located. citeturn0search0
+OpenAI’s official Codex CLI docs do not mention hooks or a notify configuration.
+Treat any notification mechanism as unsupported until OpenAI documents it. citeturn0search6
 
 * Zimfw race condition on container startup                :zsh:zimfw:perf:race:
 :PROPERTIES:
