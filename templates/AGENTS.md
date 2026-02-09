@@ -91,10 +91,11 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 
 ## Browser Automation
 
-Use `browser-check` for all browser tasks. Stateless — each command launches a fresh browser.
+Use **Playwright MCP** for most tasks. It is stateful and allows full interaction (clicking, typing, etc.). Use `browser-check` for quick, stateless audits.
 
-| Task | Command |
-|------|---------|
+| Task | Tool / Command |
+|------|----------------|
+| **Interactive Flow** | **Playwright MCP** (pre-configured) |
 | Check what's on page | `browser-check URL --describe` |
 | Take screenshot | `browser-check URL --screenshot` |
 | Full page screenshot | `browser-check URL --screenshot --full-page` |
@@ -104,6 +105,8 @@ Use `browser-check` for all browser tasks. Stateless — each command launches a
 | Console logs | `browser-check URL --console` |
 | JS errors | `browser-check URL --errors` |
 | JSON output | `browser-check URL --json --console --errors` |
+
+### Browser Automation Examples
 
 ```bash
 # Check if dev server is up
@@ -116,4 +119,4 @@ browser-check http://localhost:$PORT --screenshot --output shot.png
 browser-check http://localhost:$PORT --aria --interactive --json
 ```
 
-For multi-step interactive flows (clicking, filling forms), write a Node.js script using Playwright directly.
+For multi-step interactive flows (clicking, filling forms), use the **Playwright MCP** tools (`navigate`, `fill`, `click`). MCP servers are automatically discovered from `templates/mcp/*.json` and injected into agent configurations during `jolo up`.

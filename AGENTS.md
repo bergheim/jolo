@@ -132,6 +132,7 @@ Use `browser-check` for browser automation. It provides ARIA snapshots with 93% 
 
 | Task | Command |
 |------|---------|
+| **Interactive Flow** | **Playwright MCP** (pre-configured) |
 | Check what's on page | `browser-check URL --describe` |
 | Take screenshot | `browser-check URL --screenshot` |
 | Full page screenshot | `browser-check URL --screenshot --full-page` |
@@ -195,9 +196,8 @@ browser-check https://myapp.com --screenshot --errors --output debug.png
 
 ### Limitations
 
-- **Stateless**: Each command launches fresh browser (no persistent sessions)
-- **No interaction**: Cannot click buttons or fill forms (use Playwright API directly for that)
-- For complex multi-step flows, write a Node.js script using Playwright directly
+- **Stateless**: `browser-check` commands launch fresh browser (no persistent sessions). Use Playwright MCP for stateful sessions.
+- For complex multi-step flows where MCP is not sufficient, write a Node.js script using Playwright directly.
 
 ## Code Quality Best Practices
 
