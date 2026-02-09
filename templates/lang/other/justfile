@@ -1,0 +1,11 @@
+# Run the project
+run:
+    echo "No run command configured"
+
+# Run tests
+test:
+    echo "No test command configured"
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
