@@ -48,7 +48,7 @@ Ask 2–4 short questions if the task has unclear scope or risk.
 
 - Review 1: External agent, correctness-focused.
 - Fix issues, commit.
-- Review 2: External agent, correctness-focused.
+- Review 2: External agent, correctness-focused, and MUST be a different agent than Review 1.
 - Fix issues, commit.
 
 ## Optional PR
