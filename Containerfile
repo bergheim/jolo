@@ -39,6 +39,8 @@ RUN apk update && apk add --no-cache \
     hunspell-en-us \
     jq \
     just \
+    libsixel \
+    libsixel-utils \
     mesa \
     ncurses \
     ncurses-terminfo \
@@ -147,6 +149,8 @@ RUN mkdir -p $HOME/.local/bin && \
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
     mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
+    echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
+    echo 'set -g terminal-features ",xterm-256color:sixel,wezterm:sixel"' >> /etc/tmux.conf && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
     echo 'set -g base-index 1' >> $HOME/.tmux.conf && \
