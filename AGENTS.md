@@ -337,9 +337,9 @@ jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
 **Security model:**
 - **No X11 access** — jolo containers have no X11 socket mount and no `DISPLAY` variable. This prevents X11 keylogging, screenshot capture, and input injection by anything running in the container. GUI Emacs is only available via `start-emacs.sh` (the sandbox path that intentionally grants display access).
 - AI credentials copied (not mounted) to `.devcontainer/` at launch:
-  - Claude: `.claude-cache/` and `.claude.json`
-  - Gemini: `.gemini-cache/`
-- Container cannot write back to host credential directories
+  - Claude credentials: `.credentials.json` mounted RW from host (token refreshes persist), `settings.json` copied to `.claude-cache/` (container-specific hooks), `statsig/` mounted RO from host, `.claude.json` copied (MCP injection)
+  - Gemini: `.gemini-cache/` copied
+  - Codex: `.codex-cache/` copied
 - Claude history/state is ephemeral per-project (no cross-project contamination)
 - GPG keyring (`pubring.kbx`, `trustdb.gpg`) mounted read-only; the agent socket is forwarded for signing. The `trustdb not writable` warning is expected and harmless.
 - Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/

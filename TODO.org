@@ -3,6 +3,19 @@
 
 * Tasks
 ** DONE Alternate agents between external reviews in feature-workflow
+** TODO Plan: add `jolo clone <git-url> [dir]` command (devcontainer wrapper)
+   - Goal: `jolo clone` clones a repo and immediately brings it up in a devcontainer.
+   - Signature: `jolo clone <url> [dir]`
+   - Default clone location: `repos/<name>` at workspace root.
+   - AGENTS/CLAUDE handling: keep foreign agent files; add top-level guidance in this repo’s AGENTS that cloned repo instructions apply only within that folder.
+   - Behavior: should automatically run `jolo up` for the cloned repo after clone.
+   - Notes: Beads is installed but cannot be initialized in this worktree.
+     - Error: `bd init` fails in worktree; must init in main repo.
+     - Required flow:
+       1) `cd /workspaces/emacs-container`
+       2) `bd init`
+       3) `bd worktree create <path> --branch <branch-name>`
+     - Reference: https://github.com/steveyegge/beads/blob/main/docs/WORKTREES.md
 
 * Overview
 
@@ -599,7 +612,7 @@ container reference. These can only be found by the =vsc-*= naming pattern.
 Consider a separate =jolo prune --deep= flag for this, with clear warning
 that it removes ALL devcontainer images not currently in use.
 
-* TODO Mount ~/.claude RW instead of copying credentials
+* DONE Mount ~/.claude RW instead of copying credentials
 :PROPERTIES:
 :GITHUB: https://github.com/anthropics/claude-code/issues/21765
 :BLOCKED: Upstream issues #21765, #16957, #22600 all still open (as of 2026-02)
