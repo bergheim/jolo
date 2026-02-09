@@ -7,7 +7,9 @@ We observed intermittent hangs (~50/50) during =jolo create= / =devcontainer up=
 
 - "Container started"
 
-The hang occurs even when nothing changes between runs and can be reproduced back-to-back. A manual =sleep 1= between delete/create appears to reduce incidence, suggesting a timing race.
+The hang occurs even when nothing changes between runs and can be reproduced back-to-back. A manual =sleep 1= between delete/create appears to reduce incidence, but does not eliminate it.
+
+- **Update (2026-02-09)**: User reported a hang even with =jolo delete --purge --yes ./p3 && sleep 1; jolo create p3 -v --lang rust=. The CLI hung indefinitely after "Container started".
 
 * Findings
 
