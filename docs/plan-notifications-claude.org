@@ -1,0 +1,343 @@
+#+TITLE: Agent Completion Notifications via ntfy.sh
+#+DATE: 2026-02-09
+#+PROPERTY: STATUS planning
+
+* Context
+
+When running AI agents unattended — especially via =jolo spawn 5= or =jolo up -p=
+— there's no way to know when they finish. You have to poll manually. This is the
+#1 friction point for the "fire and forget" workflow.
+
+*Goal:* Get a push notification on phone/desktop the moment any agent finishes,
+with context about which project and agent completed.
+
+*Approach:* Use each agent's native session-end hooks (no wrapper scripts) to call
+a shared notification script that POSTs to [[https://ntfy.sh][ntfy.sh]].
+
+* Architecture Overview
+
+#+begin_example
+┌─────────────────────────────────────────────────┐
+│  Container                                      │
+│                                                 │
+│  Claude ──Stop hook──┐                          │
+│  Gemini ──SessionEnd─┤──→ /usr/local/bin/notify-done │
+│  Codex  ──(future)───┘        │                 │
+│                               ▼                 │
+│                    curl POST ntfy.sh/$NTFY_TOPIC│
+│                                                 │
+│  Environment:                                   │
+│    NTFY_TOPIC=<project-name>                    │
+│    NTFY_SERVER=https://ntfy.sh (default)        │
+│    PROJECT=<project-name>                       │
+│    AGENT=claude|gemini|codex                    │
+└─────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────┐
+  │  ntfy.sh     │  ← accessible over Tailscale
+  │  (or self-   │  ← has iOS/Android apps
+  │   hosted)    │  ← simple HTTP POST API
+  └──────────────┘
+#+end_example
+
+* Implementation Steps
+
+** Step 1: Create =container/notify-done= script
+
+*File:* =container/notify-done= (new file)
+
+A minimal, robust shell script that POSTs to ntfy.sh. Must handle:
+- Missing env vars gracefully (sensible defaults)
+- Network failures silently (agent shouldn't hang on notification failure)
+- Reading agent-provided context from stdin (Claude passes JSON on stdin)
+
+#+begin_src sh
+#!/bin/sh
+# notify-done — Send push notification when an AI agent finishes.
+# Called by agent session-end hooks. Receives JSON context on stdin.
+#
+# Environment:
+#   NTFY_SERVER  — ntfy server URL (default: https://ntfy.sh)
+#   NTFY_TOPIC   — notification topic (default: devcontainer)
+#   PROJECT      — project name (default: unknown)
+#   AGENT        — agent name (default: unknown)
+
+set -e
+
+SERVER="${NTFY_SERVER:-https://ntfy.sh}"
+TOPIC="${NTFY_TOPIC:-devcontainer}"
+PROJECT="${PROJECT:-unknown}"
+AGENT="${AGENT:-unknown}"
+
+# Drain stdin (agents pipe JSON context) — don't block if empty
+CONTEXT=$(cat 2>/dev/null || true)
+
+# Extract session_id from Claude's JSON if available (best-effort)
+SESSION=""
+if command -v jq >/dev/null 2>&1 && [ -n "$CONTEXT" ]; then
+    SESSION=$(echo "$CONTEXT" | jq -r '.session_id // empty' 2>/dev/null || true)
+fi
+
+TITLE="${PROJECT} — ${AGENT} finished"
+BODY="Agent ${AGENT} completed in project ${PROJECT}."
+[ -n "$SESSION" ] && BODY="${BODY} Session: ${SESSION}"
+
+# Fire and forget — don't let notification failure affect the agent
+curl -sf \
+    -H "Title: ${TITLE}" \
+    -H "Priority: default" \
+    -H "Tags: robot,checkmark" \
+    -d "${BODY}" \
+    "${SERVER}/${TOPIC}" \
+    >/dev/null 2>&1 || true
+#+end_src
+
+*Key design decisions:*
+- =#!/bin/sh= not bash — Alpine uses ash, keep it POSIX
+- =|| true= on curl — notification must never cause agent hook failure
+- =-sf= (silent + fail) — no noisy output to pollute agent logs
+- =jq= is optional — degrades gracefully without it (jq IS installed in the image)
+- Drains stdin to prevent agent from hanging on a blocked pipe
+
+** Step 2: Install =notify-done= in Containerfile
+
+*File:* =Containerfile= — add COPY line near the other =container/= scripts
+
+#+begin_src dockerfile
+COPY container/notify-done /usr/local/bin/notify-done
+#+end_src
+
+This goes alongside the existing copies:
+
+#+begin_example
+COPY container/e /usr/local/bin/e
+COPY container/motd /usr/local/bin/motd
+COPY container/wt /usr/local/bin/wt
+COPY container/notify-done /usr/local/bin/notify-done   ← NEW
+#+end_example
+
+** Step 3: Add environment variables to =containerEnv=
+
+*File:* =_jolo/container.py= — =build_devcontainer_json()= function
+
+Add three new env vars to the =containerEnv= dict:
+
+#+begin_src python
+"containerEnv": {
+    # ... existing vars ...
+    "NTFY_TOPIC": project_name,          # NEW — topic = project name
+    "NTFY_SERVER": "${localEnv:NTFY_SERVER}",  # NEW — allow override from host
+    "PROJECT": project_name,              # NEW — for notify-done context
+}
+#+end_src
+
+Notes:
+- =NTFY_TOPIC= defaults to the project name, giving each project its own channel
+- =NTFY_SERVER= uses =localEnv= interpolation so users can override on host
+  (e.g. point to a self-hosted ntfy instance)
+- =AGENT= is NOT set here — it's set per-window by the hook config itself,
+  since each agent window runs a different agent
+
+** Step 4: Inject Claude hook into settings during credential setup
+
+*File:* =_jolo/setup.py= — new function =setup_notification_hooks()=
+
+Called from =setup_credential_cache()= (or alongside it in the =up= flow).
+
+*** Claude hook injection
+
+The Claude =SessionEnd= hook fires when the session exits. We inject it
+into the project-level settings that get copied to the container.
+
+Target file: =.devcontainer/.claude-cache/settings.json=
+
+Hook JSON to inject:
+
+#+begin_src json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AGENT=claude notify-done"
+          }
+        ]
+      }
+    ]
+  }
+}
+#+end_src
+
+*Why =SessionEnd= and not =Stop=?*
+- =Stop= fires every time the agent finishes a response — in interactive
+  sessions this would spam a notification on every reply
+- =SessionEnd= fires on session exit (completion, =ctrl-c=, =/exit=, etc.)
+- In prompt mode (=-p=), the agent exits after completing the prompt, so
+  =SessionEnd= fires exactly once at the right time
+- Changed from =Stop= after Codex review caught the spam issue
+
+*Important:* The hook must merge with any existing hooks in settings.json,
+not overwrite them.
+
+*** Gemini hook injection
+
+Target file: =.devcontainer/.gemini-cache/settings.json=
+
+Hook JSON to inject:
+
+#+begin_src json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AGENT=gemini notify-done"
+          }
+        ]
+      }
+    ]
+  }
+}
+#+end_src
+
+*Why =SessionEnd= for Gemini?*
+- Gemini CLI doesn't have a =Stop= event equivalent
+- =SessionEnd= is the closest match — fires when the session terminates
+- In prompt mode, this fires when the agent completes and exits
+
+*** Codex — skip for now
+
+Per RESEARCH.org, Codex CLI has no documented hook support. We skip it and
+revisit when OpenAI adds official hooks.
+
+*** Implementation pattern
+
+#+begin_src python
+def setup_notification_hooks(workspace_dir: Path) -> None:
+    """Inject agent completion notification hooks into cached settings files.
+
+    Adds hooks that call notify-done when agents finish.
+    Merges with existing hooks (does not overwrite).
+    """
+    # Claude: inject SessionEnd hook into .claude-cache/settings.json
+    claude_settings = workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
+    settings = _load_json_safe(claude_settings)
+
+    hooks = settings.setdefault("hooks", {})
+    session_hooks = hooks.setdefault("SessionEnd", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}]
+    }
+    # Avoid duplicates on re-run
+    if not any("notify-done" in str(h) for h in session_hooks):
+        session_hooks.append(notify_hook)
+    claude_settings.write_text(json.dumps(settings, indent=2))
+
+    # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
+    gemini_settings = workspace_dir / ".devcontainer" / ".gemini-cache" / "settings.json"
+    if gemini_settings.exists():
+        settings = json.loads(gemini_settings.read_text())
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+    session_end_hooks = hooks.setdefault("SessionEnd", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=gemini notify-done"}]
+    }
+    if not any("notify-done" in str(h) for h in session_end_hooks):
+        session_end_hooks.append(notify_hook)
+    gemini_settings.write_text(json.dumps(settings, indent="\t"))
+#+end_src
+
+** Step 5: Wire =setup_notification_hooks()= into the launch flow
+
+*File:* =_jolo/commands.py=
+
+Call =setup_notification_hooks()= right after =setup_credential_cache()= in:
+
+1. =run_up_mode()= (~line 565, after credential setup)
+2. =run_tree_mode()= (after credential setup in worktree flow)
+3. Spawn mode inherits from the above
+
+This ensures hooks are configured every time a container starts, using
+the latest settings from the host.
+
+** Step 6: Optional — =AGENT= env var per tmux window
+
+*File:* =container/dev.yml= (tmuxinator config)
+
+Currently each window just launches the agent command. We can set =AGENT=
+as a window-level environment variable so notify-done knows which agent
+called it, even outside of hooks (e.g. if someone calls it manually).
+
+However, this is NOT required — the hook command itself sets =AGENT=claude=
+or =AGENT=gemini= inline. This step is optional polish.
+
+* Files Modified (Summary)
+
+| File                    | Change                                          |
+|-------------------------+-------------------------------------------------|
+| =container/notify-done= | NEW — notification script                       |
+| =Containerfile=          | Add COPY for notify-done                        |
+| =_jolo/container.py=    | Add NTFY_TOPIC, NTFY_SERVER, PROJECT to containerEnv |
+| =_jolo/setup.py=        | New =setup_notification_hooks()= function        |
+| =_jolo/commands.py=     | Call =setup_notification_hooks()= in up/tree flows |
+
+* Verification Plan
+
+** Unit test: notify-done script
+#+begin_src sh
+# Test with mock env vars (no actual ntfy call)
+echo '{"session_id":"test-123"}' | \
+    NTFY_SERVER=http://localhost:9999 NTFY_TOPIC=test \
+    PROJECT=myproject AGENT=claude \
+    notify-done
+# Should exit 0 (curl failure is swallowed by || true)
+#+end_src
+
+** Integration test: hook injection
+#+begin_src sh
+# After running jolo up, exec into container and check:
+cat ~/.claude/settings.json | jq '.hooks.Stop'
+# Should show the notify-done hook
+
+cat ~/.gemini/settings.json | jq '.hooks.SessionEnd'
+# Should show the notify-done hook
+#+end_src
+
+** End-to-end test: actual notification
+#+begin_src sh
+# 1. Subscribe to the ntfy topic in another terminal:
+curl -s "ntfy.sh/myproject/json"
+
+# 2. Run an agent in prompt mode:
+jolo up -p "say hello and exit"
+
+# 3. When agent finishes, the ntfy subscriber should receive the notification
+#+end_src
+
+** Existing tests
+#+begin_src sh
+just test  # ensure nothing breaks in the 280 existing tests
+#+end_src
+
+* Considerations & Future Work
+
+- *Topic naming:* Using project name as topic. For =jolo spawn=, all N agents
+  share the same topic — you get N notifications when all finish. Could add
+  worktree name suffix for disambiguation.
+- *Self-hosted ntfy:* =NTFY_SERVER= env var allows pointing to a self-hosted
+  instance. No code changes needed.
+- *Desktop fallback:* Could add =notify-send= fallback when =DISPLAY= is set
+  (only in =start-emacs.sh= GUI mode). Not needed for headless containers.
+- *Notification content:* Currently minimal. Could parse transcript for a
+  summary, but that adds complexity. Keep it simple for v1.
+- *Codex hooks:* Revisit when OpenAI documents official hook support.
+- *Priority levels:* Could use ntfy priority levels (e.g. high for errors,
+  default for success). Requires parsing agent exit status.

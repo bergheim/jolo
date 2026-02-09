@@ -278,5 +278,171 @@ class TestCopyUserFiles(unittest.TestCase):
         self.assertTrue((workspace / "b.json").exists())
 
 
+class TestNotificationHooks(unittest.TestCase):
+    """Test setup_notification_hooks() function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _workspace(self):
+        """Create workspace with cache dirs mimicking post-credential-setup state."""
+        ws = Path(self.tmpdir) / "project"
+        (ws / ".devcontainer" / ".claude-cache").mkdir(parents=True)
+        (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
+        return ws
+
+    def test_claude_session_end_hook_injected(self):
+        """Should inject SessionEnd hook into Claude settings."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        hooks = settings["hooks"]["SessionEnd"]
+        self.assertEqual(len(hooks), 1)
+        self.assertIn("notify-done", hooks[0]["hooks"][0]["command"])
+        self.assertIn("AGENT=claude", hooks[0]["hooks"][0]["command"])
+
+    def test_gemini_session_end_hook_injected(self):
+        """Should inject SessionEnd hook into Gemini settings."""
+        ws = self._workspace()
+        gemini_settings = ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        gemini_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(gemini_settings.read_text())
+        hooks = settings["hooks"]["SessionEnd"]
+        self.assertEqual(len(hooks), 1)
+        self.assertIn("notify-done", hooks[0]["hooks"][0]["command"])
+        self.assertIn("AGENT=gemini", hooks[0]["hooks"][0]["command"])
+
+    def test_merges_with_existing_hooks(self):
+        """Should not clobber existing hooks in settings."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        existing = {
+            "hooks": {
+                "SessionEnd": [{"hooks": [{"type": "command", "command": "echo done"}]}],
+            },
+            "other_key": "preserved",
+        }
+        claude_settings.write_text(json.dumps(existing))
+
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        self.assertEqual(settings["other_key"], "preserved")
+        # Original hook + our new one
+        self.assertEqual(len(settings["hooks"]["SessionEnd"]), 2)
+
+    def test_idempotent_no_duplicates(self):
+        """Running twice should not add duplicate hooks."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws)
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        self.assertEqual(len(settings["hooks"]["SessionEnd"]), 1)
+
+    def test_creates_settings_if_missing(self):
+        """Should create settings.json if it doesn't exist."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        # Don't create the file — it shouldn't exist yet
+
+        jolo.setup_notification_hooks(ws)
+
+        self.assertTrue(claude_settings.exists())
+        settings = json.loads(claude_settings.read_text())
+        self.assertIn("hooks", settings)
+
+    def test_creates_cache_dirs_if_missing(self):
+        """Should create cache dirs if they don't exist."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        # Don't create .devcontainer cache dirs
+
+        jolo.setup_notification_hooks(ws)
+
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        gemini_settings = ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        self.assertTrue(claude_settings.exists())
+        self.assertTrue(gemini_settings.exists())
+
+    def test_codex_notify_appended(self):
+        """Should append notify to codex config.toml if it exists."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('model = "o3"\n')
+
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertIn("notify-done", config)
+        self.assertIn("AGENT=codex", config)
+
+    def test_codex_notify_idempotent(self):
+        """Should not duplicate codex notify on re-run."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('model = "o3"\n')
+
+        jolo.setup_notification_hooks(ws)
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertEqual(config.count("notify-done"), 1)
+
+    def test_codex_skipped_if_no_config(self):
+        """Should not create codex config if it doesn't exist."""
+        ws = self._workspace()
+        codex_config = ws / ".devcontainer" / ".codex-cache" / "config.toml"
+
+        jolo.setup_notification_hooks(ws)
+
+        self.assertFalse(codex_config.exists())
+
+    def test_corrupt_json_does_not_crash(self):
+        """Should handle corrupt/empty settings.json gracefully."""
+        ws = self._workspace()
+        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings.write_text("not valid json{{{")
+
+        # Should not raise
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        self.assertIn("hooks", settings)
+
+    def test_codex_skipped_if_notify_key_exists(self):
+        """Should not append duplicate notify key to codex config."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('notify = ["some-other-command"]\n')
+
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertEqual(config.count("notify"), 1)
+        self.assertNotIn("notify-done", config)
+
+
 if __name__ == "__main__":
     unittest.main()

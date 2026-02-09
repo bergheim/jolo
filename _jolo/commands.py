@@ -44,6 +44,7 @@ from _jolo.setup import (
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
+    setup_notification_hooks,
     sync_devcontainer,
     write_prompt_file,
 )
@@ -567,6 +568,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(git_root)
+    setup_notification_hooks(git_root)
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(git_root)
@@ -648,6 +650,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(worktree_path)
+    setup_notification_hooks(worktree_path)
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(worktree_path)
@@ -826,6 +829,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
+    setup_notification_hooks(project_path)
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
@@ -917,6 +921,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
+    setup_notification_hooks(project_path)
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
@@ -1023,6 +1028,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
 
         # Set up credentials and emacs config
         setup_credential_cache(worktree_path)
+        setup_notification_hooks(worktree_path)
         setup_emacs_config(worktree_path)
 
         # Ensure histfile exists (otherwise mount creates a directory)
