@@ -15,8 +15,11 @@ TOPIC="${NTFY_TOPIC:-devcontainer}"
 PROJECT="${PROJECT:-unknown}"
 AGENT="${AGENT:-unknown}"
 
-# Drain stdin (agents pipe JSON context) — don't block if empty
-CONTEXT=$(cat 2>/dev/null || true)
+# Drain stdin (agents pipe JSON context) — skip if interactive terminal
+CONTEXT=""
+if [ ! -t 0 ]; then
+    CONTEXT=$(cat 2>/dev/null || true)
+fi
 
 # Extract session_id from Claude's JSON if available (best-effort)
 SESSION=""
