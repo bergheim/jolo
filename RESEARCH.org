@@ -522,3 +522,14 @@ The ~${localEnv:GH_TOKEN}~ in devcontainer.json picks up the value set by
 ** Note
 Existing containers need ~jolo up --sync --new~ to pick up the change.
 The ~gh~ config mount (~~/.config/gh~ readonly) is kept for non-token config.
+
+* Feature workflow reviews alternate agents               :process:skills:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Updated the feature-workflow skill to require Review 2 to use a different
+external agent than Review 1 to ensure fresh eyes on correctness.
+
+** Key files
+- .agents/skills/feature-workflow/SKILL.md
