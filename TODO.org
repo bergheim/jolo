@@ -725,6 +725,14 @@ Create a skill to run pragmatic tests and delegate diff review to a different ag
 Create a skill for parallel web research that writes append-only notes to
 RESEARCH.org and commits after each agent section.
 
+* DONE Add big-task workflow skill                        :skills:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Create a skill for large changes: branch isolation, TDD, frequent commits,
+and two external reviews before optional PR.
+
 
 * DONE Activate ruff linting and fix all violations        :code-quality:
 :PROPERTIES:
