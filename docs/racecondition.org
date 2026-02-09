@@ -81,11 +81,10 @@ We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstre
 
 * Suggestions (Gemini)
 
-- **Fix the Entrypoint Contract**: The =devcontainer= CLI often runs a probe command (e.g., =echo Container started=) to verify readiness. Our current =entrypoint.sh= ignores all arguments (=$@=) and ends in =exec sleep infinity=. This "swallows" the probe command, causing the CLI to hang waiting for a return that never comes.
-- **The Fix**:
-  1. Update =entrypoint.sh= to =exec "$@"= if arguments are provided.
-  2. Simplify the =Containerfile= ENTRYPOINT to call the script directly (remove the =sh -c= wrapper).
-- **Benefit**: This makes the container "well-behaved" according to the =devcontainer= spec and likely removes the state-mismatch causing the hang.
+- **Research Findings**: Confirmed that the Podman event race is a known issue (e.g., =devcontainers/cli= issue #434). Unlike Docker's client/server model, Podman's "fork/exec" model means events are easily missed if the listener process (=podman events=) isn't attached at the exact millisecond the container starts.
+- **Root Cause Confirmed**: The CLI is indeed hanging because it's waiting for a =start= event that was emitted before its listener was ready. This is a "well-known" friction point between the Devcontainer CLI and Podman's ephemeral event stream.
+- **Pivot from Entrypoint Hypothesis**: My previous suggestion about the entrypoint contract is likely a secondary concern; the primary blocker is the orchestration race.
+- **Recommended Strategy**: Implement a "Timeout + State Verification" guard in the =jolo= wrapper. If the CLI hangs but =podman inspect= shows the container is running, we can safely assume success and terminate the stalled CLI process.
 
 * Analysis (Claude)
 
