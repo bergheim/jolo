@@ -1,0 +1,237 @@
+#!/bin/sh
+set -e
+
+# wt — lightweight in-container worktree manager
+# Creates git worktrees at /workspaces/<name> with their own tmux sessions.
+# Switch instantly with `wt <name>` or tmux's `C-b s`.
+
+ADJECTIVES="brave swift calm bold keen wild warm cool fair wise"
+NOUNS="panda falcon river mountain oak wolf hawk cedar fox bear"
+
+WS="${WORKSPACE_FOLDER:-$(pwd)}"
+TMUX_CONFIG="$HOME/.config/tmuxinator/dev.yml"
+
+usage() {
+    cat <<EOF
+Usage: wt <command> [options]
+
+Commands:
+  new <name> [--from <ref>] [-p <prompt>]   Create worktree + tmux session
+  <name>                                     Switch to worktree session
+  main                                       Switch back to dev session
+  list, ls                                   List worktree sessions
+  delete <name>, rm <name>                   Remove worktree + session
+  (no args)                                  List worktree sessions
+EOF
+}
+
+random_name() {
+    adj=$(echo "$ADJECTIVES" | tr ' ' '\n' | shuf -n1)
+    noun=$(echo "$NOUNS" | tr ' ' '\n' | shuf -n1)
+    echo "${adj}-${noun}"
+}
+
+session_name() {
+    echo "wt-$1"
+}
+
+create_session() {
+    name="$1"
+    prompt="$2"
+    wt_path="/workspaces/$name"
+    sess=$(session_name "$name")
+
+    tmp_config="/tmp/wt-${name}.yml"
+    cp "$TMUX_CONFIG" "$tmp_config"
+
+    # Set session name and root directory
+    sed -i "s|^name:.*|name: $sess|" "$tmp_config"
+    # Add root directive after name line
+    sed -i "/^name:/a root: $wt_path" "$tmp_config"
+
+    # If prompt provided, patch the agent window
+    if [ -n "$prompt" ]; then
+        agent="claude"
+        cmd="claude"
+        escaped=$(printf '%s' "$cmd $prompt" | sed 's/[&/\]/\\&/g')
+        sed -i "s|  - $agent:.*|  - $agent: $escaped|" "$tmp_config"
+        sed -i "s|startup_window:.*|startup_window: $agent|" "$tmp_config"
+    fi
+
+    tmuxinator start -p "$tmp_config"
+}
+
+cmd_new() {
+    # Parse arguments
+    name=""
+    from_ref=""
+    prompt=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --from)
+                shift
+                from_ref="$1"
+                ;;
+            -p)
+                shift
+                prompt="$1"
+                ;;
+            *)
+                [ -z "$name" ] && name="$1"
+                ;;
+        esac
+        shift
+    done
+
+    [ -z "$name" ] && name=$(random_name)
+
+    if [ ! -d "$WS/.git" ] && [ ! -f "$WS/.git" ]; then
+        echo "error: not in a git repository" >&2
+        exit 1
+    fi
+
+    if [ -z "$TMUX" ]; then
+        echo "error: must be inside tmux" >&2
+        exit 1
+    fi
+
+    wt_path="/workspaces/$name"
+
+    if [ -d "$wt_path" ]; then
+        echo "error: worktree already exists at $wt_path" >&2
+        exit 1
+    fi
+
+    # Create the worktree
+    if [ -n "$from_ref" ]; then
+        git -C "$WS" worktree add -b "$name" "$wt_path" "$from_ref"
+    else
+        git -C "$WS" worktree add -b "$name" "$wt_path"
+    fi
+
+    create_session "$name" "$prompt"
+    tmux switch-client -t "$(session_name "$name")"
+    echo "created worktree $name at $wt_path"
+}
+
+cmd_switch() {
+    name="$1"
+    sess=$(session_name "$name")
+    wt_path="/workspaces/$name"
+
+    if tmux has-session -t "$sess" 2>/dev/null; then
+        tmux switch-client -t "$sess"
+    elif [ -d "$wt_path" ]; then
+        create_session "$name" ""
+        tmux switch-client -t "$sess"
+    else
+        echo "error: no worktree '$name' found" >&2
+        exit 1
+    fi
+}
+
+cmd_list() {
+    current=""
+    if [ -n "$TMUX" ]; then
+        current=$(tmux display-message -p '#S')
+    fi
+
+    # Get worktrees, filter to /workspaces/* excluding main workspace
+    git -C "$WS" worktree list --porcelain | while IFS= read -r line; do
+        case "$line" in
+            "worktree /workspaces/"*)
+                wt_path="${line#worktree }"
+                wt_name="${wt_path##*/}"
+                # Skip the main workspace
+                ws_base="${WS##*/}"
+                [ "$wt_name" = "$ws_base" ] && continue
+                ;;
+            "branch refs/heads/"*)
+                branch="${line#branch refs/heads/}"
+                ;;
+            "")
+                [ -z "$wt_name" ] && continue
+                sess=$(session_name "$wt_name")
+                if tmux has-session -t "$sess" 2>/dev/null; then
+                    active="[session active]"
+                else
+                    active="[no session]"
+                fi
+                marker="  "
+                [ "$current" = "$sess" ] && marker="* "
+                printf "%s%-20s %-20s %s\n" "$marker" "$wt_name" "$branch" "$active"
+                wt_name=""
+                branch=""
+                ;;
+        esac
+    done
+}
+
+cmd_delete() {
+    name="$1"
+    sess=$(session_name "$name")
+    wt_path="/workspaces/$name"
+
+    if [ ! -d "$wt_path" ]; then
+        echo "error: no worktree '$name' found" >&2
+        exit 1
+    fi
+
+    # Warn if dirty
+    if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
+        printf "worktree '%s' has uncommitted changes. delete anyway? [y/N] " "$name"
+        read -r answer
+        case "$answer" in
+            [yY]*) ;;
+            *) echo "aborted"; exit 1 ;;
+        esac
+    fi
+
+    # If currently in this session, switch to dev first
+    if [ -n "$TMUX" ]; then
+        current=$(tmux display-message -p '#S')
+        if [ "$current" = "$sess" ]; then
+            tmux switch-client -t dev
+        fi
+    fi
+
+    # Kill tmux session
+    tmux kill-session -t "$sess" 2>/dev/null || true
+
+    # Remove worktree
+    git -C "$WS" worktree remove --force "$wt_path"
+    echo "removed worktree $name"
+}
+
+# Main dispatch
+case "${1:-}" in
+    new)
+        shift
+        cmd_new "$@"
+        ;;
+    main)
+        if [ -z "$TMUX" ]; then
+            echo "error: must be inside tmux" >&2
+            exit 1
+        fi
+        tmux switch-client -t dev
+        ;;
+    list|ls|"")
+        cmd_list
+        ;;
+    delete|rm)
+        shift
+        if [ -z "$1" ]; then
+            echo "error: name required" >&2
+            exit 1
+        fi
+        cmd_delete "$1"
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        # Treat as switch if it looks like a name
+        cmd_switch "$1"
+        ;;
+esac

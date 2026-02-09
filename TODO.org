@@ -624,14 +624,33 @@ token refreshes persist back to the host.
 - [[https://github.com/anthropics/claude-code/issues/16957][#16957]] — exit-time refresh tokens not persisted
 - [[https://github.com/anthropics/claude-code/issues/22600][#22600]] — multi-instance race condition
 
-* TODO Worktree-in-container quick mode (no host visibility)
+* TODO Worktree-in-container quick mode (=wt= command)
 
-Idea: allow =just tree foo= to create an *ephemeral* worktree inside the running
-container (not mounted on host). Fast, but it disappears on =jolo down=.
+Lightweight in-container worktree manager. Creates git worktrees at
+=/workspaces/<name>= (container-only, ephemeral) with dedicated tmux sessions
+using the existing 5-window layout.
 
-Tradeoffs:
-- Pros: instant, no new container, easy scratch work
-- Cons: not host-visible, must merge/export before shutdown, less isolation control
+** Commands
+- =wt new <name> [--from <ref>] [-p <prompt>]= — create worktree + session
+- =wt <name>= — switch to session (auto-creates if worktree exists)
+- =wt main= — switch back to =dev= session
+- =wt list= / =wt ls= / =wt= — list worktree sessions
+- =wt delete <name>= / =wt rm <name>= — remove worktree + session
+- =just tree <name>= — alias for =wt new=
+
+** Files
+- [ ] =container/wt= — new shell script (~150 lines)
+- [ ] =Containerfile= — add COPY + chmod for wt
+- [ ] =justfile= — add =tree= recipe
+- [ ] Tests where applicable
+
+** Design
+- Worktrees at =/workspaces/<name>= (container filesystem, not bind mount)
+- Tmux sessions named =wt-<name>=
+- Prompt support patches tmuxinator config (same as =tmux-layout.sh=)
+- Random names from embedded word lists (matching =_jolo/constants.py=)
+- Committed work safe (git objects on bind mount), uncommitted edits ephemeral
+- =jolo tree= remains for full container isolation
 
 * DONE Speed up Emacs config staging                     :emacs:perf:
 :PROPERTIES:
