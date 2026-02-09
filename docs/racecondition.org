@@ -17,7 +17,11 @@ The hang occurs even when nothing changes between runs and can be reproduced bac
    - =podman ps= shows the container up and healthy.
    - =podman logs= shows the start message only.
 
-2. The devcontainer CLI appears blocked waiting for a start event.
+2. The issue persists regardless of the ENTRYPOINT target.
+   - Hangs occur even if the entrypoint is pointed at =/bin/sh= instead of =entrypoint.sh=.
+   - This indicates the root cause is *not* the logic inside our specific script.
+
+3. The devcontainer CLI appears blocked waiting for a start event.
    - The process list shows it sitting on:
      - =podman events --format json --filter event=start=
    - This behavior is in the upstream devcontainer CLI, not our own app code.
