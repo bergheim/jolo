@@ -99,9 +99,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 
 # Root-level files and setup
 COPY container/e /usr/local/bin/e
+COPY container/wt /usr/local/bin/wt
 COPY container/motd /usr/local/bin/motd
 COPY container/browser-check.js /usr/local/lib/browser-check.js
-RUN chmod +x /usr/local/bin/e /usr/local/bin/motd && \
+RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd && \
     ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint
