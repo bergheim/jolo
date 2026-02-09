@@ -2,15 +2,15 @@
 
 # run all tests
 test *args:
-    python -m pytest tests/ {{args}}
+    uv run --with pytest pytest tests/ {{args}}
 
 # run tests matching a keyword
 test-k pattern:
-    python -m pytest tests/ -k '{{pattern}}' -v
+    uv run --with pytest pytest tests/ -k '{{pattern}}' -v
 
 # run tests with verbose output
 test-v *args:
-    python -m pytest tests/ -v {{args}}
+    uv run --with pytest pytest tests/ -v {{args}}
 
 # lint python files
 lint:

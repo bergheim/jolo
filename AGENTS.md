@@ -55,6 +55,16 @@ podman build -t emacs-gui .
 podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .
 ```
 
+## Testing
+
+System Python on Alpine has no pytest and pip is blocked (externally-managed-environment). Use `uv` to run tests:
+
+```bash
+just test              # run all tests
+just test-k "pattern"  # run tests matching keyword
+just test-v            # verbose output
+```
+
 ## Running
 
 ```bash
