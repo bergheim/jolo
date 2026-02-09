@@ -699,6 +699,23 @@ Install libsixel utilities and enable tmux sixel passthrough so WezTerm can rend
 Create a skill to run pragmatic tests and delegate diff review to a different agent.
 
 
+* DONE Activate ruff linting and fix all violations        :code-quality:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Ruff was configured (=.pre-commit-config.yaml= + =pyproject.toml=) but
+pre-commit hooks were never installed. Code had 29 lint violations and
+14 files needing reformatting.
+
+- [X] Auto-fixed 18 violations with =ruff check --fix= (imports, whitespace, sorting)
+- [X] Reformatted 14 files with =ruff format=
+- [X] Manually fixed 9x B007 (unused loop vars → =_= prefix)
+- [X] Fixed F841 (removed unused =first_agent_name= assignment)
+- [X] Fixed F401 (replaced =import argcomplete= with =importlib.util.find_spec=)
+- [X] Installed pre-commit hooks (=pre-commit install=)
+- [X] All 280 tests pass, all hooks pass
+
 * TODO Agent completion notifications via ntfy.sh          :agents:notifications:
 :PROPERTIES:
 :DATE: 2026-02-09
