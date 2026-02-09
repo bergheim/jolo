@@ -63,14 +63,21 @@ class TestArgumentParsing(unittest.TestCase):
         self.assertEqual(args.name, 'test')
 
     def test_sync_flag(self):
-        """sync should set command to sync."""
-        args = jolo.parse_args(['sync'])
-        self.assertEqual(args.command, 'sync')
+        """--sync should set sync to True."""
+        args = jolo.parse_args(['up', '--sync'])
+        self.assertTrue(args.sync)
+
+    def test_sync_with_tree(self):
+        """--sync can combine with tree."""
+        args = jolo.parse_args(['tree', 'test', '--sync'])
+        self.assertTrue(args.sync)
+        self.assertEqual(args.name, 'test')
 
     def test_sync_default_false(self):
         """No command should leave command as None."""
         args = jolo.parse_args([])
         self.assertIsNone(args.command)
+        self.assertFalse(args.sync)
 
 
 class TestGuards(unittest.TestCase):

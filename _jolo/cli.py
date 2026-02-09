@@ -287,6 +287,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Remove existing container before starting",
     )
 
+    p_sync = argparse.ArgumentParser(add_help=False)
+    p_sync.add_argument(
+        "--sync", action="store_true",
+        help="Regenerate .devcontainer from template",
+    )
+
     p_all = argparse.ArgumentParser(add_help=False)
     p_all.add_argument(
         "--all", "-a", action="store_true",
@@ -312,16 +318,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     # Defaults so attributes exist even when no subcommand is given
     parser.set_defaults(
         prompt=None, agent="claude", from_branch=None, prefix=None,
-        all=False, new=False, detach=False, shell=False, run=None,
+        all=False, new=False, sync=False, detach=False, shell=False, run=None,
         mount=[], copy=[], lang=None, yes=False, verbose=False,
         purge=False, target=None,
     )
 
     subparsers = parser.add_subparsers(dest="command", prog="jolo")
 
-    # up: prompt, agent, detach, exec, mounts, new, verbose
+    # up: prompt, agent, detach, exec, mounts, new, sync, verbose
     subparsers.add_parser("up",
-                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new],
+                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
                           help="Start devcontainer in current project")
 
     # create: prompt, agent, detach, exec, mounts, lang, verbose
@@ -334,9 +340,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Project language(s): python, go, typescript, rust, shell, prose, other",
     )
 
-    # tree: prompt, agent, detach, exec, mounts, new, from, verbose
+    # tree: prompt, agent, detach, exec, mounts, new, sync, from, verbose
     sub_tree = subparsers.add_parser("tree",
-                                     parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new],
+                                     parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
                                      help="Create worktree + devcontainer (random name if omitted)")
     sub_tree.add_argument("name", nargs="?", default="", help="Worktree name")
     sub_tree.add_argument(
@@ -344,9 +350,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Create worktree from specified branch",
     )
 
-    # spawn: prompt, agent, from, prefix, mounts, new, verbose
+    # spawn: prompt, agent, from, prefix, mounts, new, sync, verbose
     sub_spawn = subparsers.add_parser("spawn",
-                                      parents=[p_verbose, p_prompt, p_mounts, p_new],
+                                      parents=[p_verbose, p_prompt, p_mounts, p_new, p_sync],
                                       help="Create N worktrees in parallel, each with its own agent")
     sub_spawn.add_argument("count", type=int, help="Number of worktrees")
     sub_spawn.add_argument(
@@ -374,14 +380,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers.add_parser("attach", parents=[p_verbose, p_exec],
                           help="Attach to running container")
 
-    # init: prompt, agent, detach, exec, mounts, verbose
+    # init: prompt, agent, detach, exec, mounts, sync, verbose
     subparsers.add_parser("init",
-                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts],
+                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_sync],
                           help="Initialize git + devcontainer in current directory")
-
-    # sync: new, verbose
-    subparsers.add_parser("sync", parents=[p_verbose, p_new],
-                          help="Regenerate .devcontainer from template")
 
     # prune: all, yes, verbose
     subparsers.add_parser("prune", parents=[p_verbose, p_all, p_yes],

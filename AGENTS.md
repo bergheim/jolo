@@ -289,9 +289,8 @@ jolo up --shell                   # exec zsh directly (no tmux)
 jolo up --run claude              # exec command directly (no tmux)
 jolo up --run "npm test"          # run arbitrary command
 jolo init                         # initialize git + devcontainer in current dir
-jolo sync                         # regenerate .devcontainer from template
-jolo up --new                     # remove existing container before starting
-jolo sync --new                   # regenerate config and rebuild
+jolo up --sync                    # regenerate .devcontainer from template
+jolo up --sync --new               # regenerate config and rebuild
 jolo prune                        # cleanup stopped/orphan containers and worktrees
 jolo destroy                      # nuclear: stop + rm all containers for project
 jolo list --all                   # show all containers globally

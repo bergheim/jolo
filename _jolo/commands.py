@@ -545,8 +545,11 @@ def run_default_mode(args: argparse.Namespace) -> None:
     # Load config
     config = load_config()
 
-    # Scaffold .devcontainer if missing
-    scaffold_devcontainer(project_name, config=config)
+    # Sync or scaffold .devcontainer
+    if args.sync:
+        sync_devcontainer(project_name, config=config)
+    else:
+        scaffold_devcontainer(project_name, config=config)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -625,6 +628,10 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         from_branch=args.from_branch,
     )
 
+    # Sync .devcontainer if requested
+    if args.sync:
+        sync_devcontainer(worktree_name, target_dir=worktree_path, config=config)
+
     # Add user-specified mounts to devcontainer.json
     if args.mount:
         parsed_mounts = [parse_mount(m, worktree_name) for m in args.mount]
@@ -674,6 +681,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Attach to tmux
     devcontainer_exec_tmux(worktree_path)
+
 
 
 def run_create_mode(args: argparse.Namespace) -> None:
@@ -879,8 +887,11 @@ def run_init_mode(args: argparse.Namespace) -> None:
     if result.returncode != 0:
         sys.exit("Error: Failed to initialize git repository")
 
-    # Scaffold .devcontainer
-    scaffold_devcontainer(project_name, project_path, config=config)
+    # Sync or scaffold .devcontainer
+    if args.sync:
+        sync_devcontainer(project_name, project_path, config=config)
+    else:
+        scaffold_devcontainer(project_name, project_path, config=config)
 
     # Initial commit with all generated files
     cmd = ["git", "add", "."]
@@ -991,9 +1002,13 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             from_branch=args.from_branch,
         )
 
-        # Update devcontainer.json with correct port
+        # Sync .devcontainer if requested
+        if args.sync:
+            sync_devcontainer(name, target_dir=worktree_path, config=config, port=port)
+
+        # Update devcontainer.json with correct port if not syncing (sync handles it)
         devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
-        if devcontainer_json.exists():
+        if devcontainer_json.exists() and not args.sync:
             content = json.loads(devcontainer_json.read_text())
             if "containerEnv" not in content:
                 content["containerEnv"] = {}
@@ -1394,23 +1409,6 @@ def run_delete_mode(args: argparse.Namespace) -> None:
             _delete_project(selected["git_root"], purge=purge, yes=args.yes)
 
 
-def run_sync_mode(args: argparse.Namespace) -> None:
-    """Run --sync mode: regenerate .devcontainer from template."""
-    git_root = find_git_root()
-
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
-
-    os.chdir(git_root)
-    project_name = git_root.name
-
-    # Load config
-    config = load_config()
-
-    # Sync .devcontainer
-    sync_devcontainer(project_name, config=config)
-
-
 def main(argv: list[str] | None = None) -> None:
     """Main entry point."""
     if argv is None:
@@ -1423,14 +1421,6 @@ def main(argv: list[str] | None = None) -> None:
         constants.VERBOSE = True
 
     cmd = args.command
-
-    # These modes don't need tmux guard (no container attachment)
-    if cmd == "sync":
-        run_sync_mode(args)
-        # Continue to start container if --new was also specified
-        if not args.new:
-            return
-        cmd = "up"
 
     if cmd == "list":
         run_list_mode(args)
@@ -1447,6 +1437,7 @@ def main(argv: list[str] | None = None) -> None:
     if cmd == "delete":
         run_delete_mode(args)
         return
+
 
     # No subcommand — show help
     if cmd is None:

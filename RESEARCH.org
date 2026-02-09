@@ -61,3 +61,49 @@ Alpine ships BusyBox which lacks many GNU flags. Tools that break:
 
 Emacs apheleia uses ~diff --rcs~ for formatting patches — fails silently
 with BusyBox, shows "Output file descriptor of apheleia-diff is closed".
+
+* OAuth token expiration in devcontainers              :oauth:claude:credentials:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Claude Code OAuth tokens expire multiple times per day in jolo devcontainers.
+
+** Root cause
+
+=setup_credential_cache()= copies =~/.claude/.credentials.json= to
+=.devcontainer/.claude-cache/= at launch. The copy is bind-mounted RW into
+the container. When Claude Code refreshes the token inside the container,
+the new token writes to the copy — NOT back to host =~/.claude/=.
+Next =jolo up= overwrites the refreshed token with stale host credentials.
+
+Additionally, Claude Code has bugs where it doesn't actually use the refresh
+token in several scenarios (copied creds, multi-instance, exit/restart).
+
+** Proposed fix
+
+Mount =~/.claude/.credentials.json= directly RW instead of copying.
+Or mount all of =~/.claude= RW (but this exposes =projects/=, =history.jsonl=).
+
+** Open issues (anthropics/claude-code)
+
+- [[https://github.com/anthropics/claude-code/issues/21765][#21765]] — refresh token not used on copied credentials (thumbs-upped, subscribed)
+- [[https://github.com/anthropics/claude-code/issues/16957][#16957]] — exit-time refresh tokens not persisted
+- [[https://github.com/anthropics/claude-code/issues/22600][#22600]] — multi-instance race condition
+- [[https://github.com/anthropics/claude-code/issues/22602][#22602]] — VS Code reuses expired tokens across windows
+
+* Generated project docs layout                             :templates:structure:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Moved =TODO.org= and =RESEARCH.org= from project root to =docs/= for
+generated projects. Keeps root clean for code files.
+
+** Changes made
+
+- =templates/TODO.org= -> =templates/docs/TODO.org=
+- Created =templates/docs/RESEARCH.org=
+- =templates/AGENTS.md= updated to reference =docs/= paths
+- =_jolo/setup.py:copy_template_files()= now copies =docs/= as template dir
+- Meta-project keeps its own TODO.org and RESEARCH.org at root
