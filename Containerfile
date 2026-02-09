@@ -17,6 +17,7 @@ RUN apk update && apk add --no-cache \
     coreutils \
     curl \
     dbus \
+    diffutils \
     emacs-pgtk-nativecomp \
     aspell-en \
     enchant2 \
@@ -48,6 +49,7 @@ RUN apk update && apk add --no-cache \
     pinentry \
     pkgconf \
     podman \
+    procps \
     python3 \
     py3-pip \
     ripgrep \
@@ -156,7 +158,8 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
-    echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
+    # echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
+    echo 'export TERM=tmux-256color' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
     echo 'motd 2>/dev/null' >> $HOME/.zshrc.container
 

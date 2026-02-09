@@ -111,6 +111,19 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
 
+    # Gemini CLI expects ~/.gemini/tmp/... to exist and be writable.
+    (gemini_cache / "tmp").mkdir(parents=True, exist_ok=True)
+
+    # Disable node-pty in container — it crashes on Alpine/musl (forkpty segfault).
+    # Gemini falls back to child_process which works fine.
+    settings_path = gemini_cache / "settings.json"
+    if settings_path.exists():
+        settings = json.loads(settings_path.read_text())
+    else:
+        settings = {}
+    settings.setdefault("tools", {}).setdefault("shell", {})["enableInteractiveShell"] = False
+    settings_path.write_text(json.dumps(settings, indent="\t"))
+
     # Codex credentials
     codex_cache = workspace_dir / ".devcontainer" / ".codex-cache"
     if codex_cache.exists():
