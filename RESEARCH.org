@@ -258,3 +258,35 @@ At runtime, ~init.zsh~ is already built and newer than ~.zimrc~, so the
 - ~container/tmux-layout.sh~ — reverted workaround
 - ~~/.zshrc~ lines 121-138 — bootstrap code (bind-mounted from host, readonly)
 - ~~/.zim/zimfw.zsh~ line 877 — the ~git symbolic-ref~ that races
+
+* wt worktree manager permission denied on /workspaces    :wt:container:permissions:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+~wt new foo~ fails: ~fatal: could not create leading directories of '/workspaces/foo/.git': Permission denied~
+
+** Root cause
+
+~/workspaces/~ is owned by ~root:root~ with ~drwxr-xr-x~. The devcontainer
+runtime creates it when mounting the project, defaulting to root ownership.
+~wt~ creates worktrees as sibling dirs under ~/workspaces/~, which requires
+write access to the parent.
+
+** Fix
+
+Added to Containerfile (root-level RUN block, before ~USER $USERNAME~):
+#+begin_src dockerfile
+mkdir -p /workspaces && chown $USERNAME:$USERNAME /workspaces
+#+end_src
+
+The devcontainer mount overlays the project subdirectory but the parent dir
+retains its image-layer permissions.
+
+Also replaced ~just tree~ recipe (which only called ~wt new~) with a full
+passthrough ~just wt~ recipe that supports all subcommands.
+
+** Key files
+- ~Containerfile~ — ownership fix
+- ~container/wt~ — worktree manager script
+- ~justfile~ — ~wt~ recipe
