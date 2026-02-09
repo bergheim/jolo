@@ -12,7 +12,7 @@ test:
 
 # Run tests continuously (on file change)
 test-watch:
-    fd -e ts | entr -c bun test
+    fd -e ts | entr -cn bun test
 
 # Add a dependency
 add *packages:
