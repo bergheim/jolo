@@ -1,0 +1,57 @@
+#+TITLE: Devcontainer Start Race Condition (podman events)
+#+DATE: 2026-02-09
+
+* Context
+
+We observed intermittent hangs (~50/50) during =jolo create= / =devcontainer up= after the log line:
+
+- "Container started"
+
+The hang occurs even when nothing changes between runs and can be reproduced back-to-back. A manual =sleep 1= between delete/create appears to reduce incidence, suggesting a timing race.
+
+* Findings
+
+1. The container *is* running when the hang occurs.
+   - =podman ps= shows the container up and healthy.
+   - =podman logs= shows the start message only.
+
+2. The devcontainer CLI appears blocked waiting for a start event.
+   - The process list shows it sitting on:
+     - =podman events --format json --filter event=start=
+   - This behavior is in the upstream devcontainer CLI, not our own app code.
+
+3. Restarting the container immediately unblocks the CLI.
+   - =podman restart p2= emits a new start event.
+   - The waiting =podman events= command returns instantly.
+
+4. This strongly indicates a race:
+   - The container starts before the events listener is attached.
+   - The start event is missed, so the CLI waits forever.
+
+5. Version note:
+   - Observed with =@devcontainers/cli= 0.80.0 (from verbose startup log).
+
+* Plan For Fix
+
+We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstream a fix to the devcontainer CLI.
+
+1. Make readiness detection race-free in jolo.
+   - Prefer polling =podman inspect= for =State.Running=true= with a short timeout.
+   - This avoids relying on event streams entirely.
+
+2. Optional mitigation (not fully race-free):
+   - Use =podman events --since <timestamp>= to reduce (not eliminate) the race window.
+
+3. Keep success behavior unchanged, but fail fast with a clear error if readiness never arrives.
+
+4. Validate the fix by running =jolo create= repeatedly *without* sleeps and confirming no hangs.
+
+* Open Questions
+
+- Is this Podman-specific, or reproducible with Docker? (Docker may buffer events differently.)
+- Should we open an upstream issue/PR against =@devcontainers/cli= after confirming?
+
+* Notes
+
+- The issue is not app code or container runtime; it is event-handling in the startup orchestration.
+- The sleep workaround likely reduces the window where the event is missed.
