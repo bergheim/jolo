@@ -444,5 +444,75 @@ class TestNotificationHooks(unittest.TestCase):
         self.assertNotIn("notify-done", config)
 
 
+class TestCredentialMountStrategy(unittest.TestCase):
+    """Test that Claude credentials use selective mounts, not directory copy."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_credentials_not_copied_to_cache(self):
+        """setup_credential_cache() should NOT copy .credentials.json (mounted from host)."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+
+        home = Path(self.tmpdir) / "home"
+        claude_dir = home / ".claude"
+        claude_dir.mkdir(parents=True)
+        (claude_dir / ".credentials.json").write_text('{"token": "test"}')
+        (claude_dir / "settings.json").write_text("{}")
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        cache = ws / ".devcontainer" / ".claude-cache"
+        self.assertFalse((cache / ".credentials.json").exists())
+
+    def test_settings_still_copied_to_cache(self):
+        """setup_credential_cache() should still copy settings.json for hook injection."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+
+        home = Path(self.tmpdir) / "home"
+        claude_dir = home / ".claude"
+        claude_dir.mkdir(parents=True)
+        (claude_dir / "settings.json").write_text('{"theme": "dark"}')
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        cache = ws / ".devcontainer" / ".claude-cache"
+        self.assertTrue((cache / "settings.json").exists())
+        self.assertIn("dark", (cache / "settings.json").read_text())
+
+    def test_base_mounts_has_selective_claude_mounts(self):
+        """BASE_MOUNTS should have individual file mounts, not a directory mount."""
+        from _jolo.constants import BASE_MOUNTS
+
+        claude_mounts = [m for m in BASE_MOUNTS if ".claude" in m and ".claude.json" not in m]
+
+        # Should have credentials (RW from host), settings (from cache), statsig (RO from host)
+        cred_mounts = [m for m in claude_mounts if ".credentials.json" in m]
+        settings_mounts = [m for m in claude_mounts if "settings.json" in m]
+        statsig_mounts = [m for m in claude_mounts if "statsig" in m]
+
+        self.assertEqual(len(cred_mounts), 1)
+        self.assertNotIn("readonly", cred_mounts[0])
+
+        self.assertEqual(len(settings_mounts), 1)
+        self.assertIn(".claude-cache/settings.json", settings_mounts[0])
+
+        self.assertEqual(len(statsig_mounts), 1)
+        self.assertIn("readonly", statsig_mounts[0])
+
+        # Should NOT have the old directory mount
+        dir_mounts = [m for m in claude_mounts if m.endswith("type=bind") and ".claude,target" in m]
+        self.assertEqual(len(dir_mounts), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
