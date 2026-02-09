@@ -127,8 +127,11 @@ PRECOMMIT_HOOKS = {
 
 # Base mounts that are always included
 BASE_MOUNTS = [
-    # AI agent credentials: copy-based isolation (copied to .devcontainer/.<name>-cache/)
-    "source=${localWorkspaceFolder}/.devcontainer/.claude-cache,target=/home/${localEnv:USER}/.claude,type=bind",
+    # Claude: selective mounts — credentials RW to host (token refresh persists),
+    # settings/statsig from cache (container-specific hook injection)
+    "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/${localEnv:USER}/.claude/.credentials.json,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.claude-cache/settings.json,target=/home/${localEnv:USER}/.claude/settings.json,type=bind",
+    "source=${localEnv:HOME}/.claude/statsig,target=/home/${localEnv:USER}/.claude/statsig,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",

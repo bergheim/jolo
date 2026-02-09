@@ -599,7 +599,7 @@ container reference. These can only be found by the =vsc-*= naming pattern.
 Consider a separate =jolo prune --deep= flag for this, with clear warning
 that it removes ALL devcontainer images not currently in use.
 
-* TODO Mount ~/.claude RW instead of copying credentials
+* DONE Mount ~/.claude RW instead of copying credentials
 :PROPERTIES:
 :GITHUB: https://github.com/anthropics/claude-code/issues/21765
 :END:
