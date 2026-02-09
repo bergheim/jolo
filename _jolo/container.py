@@ -76,6 +76,7 @@ def build_devcontainer_json(
             "PORT": str(port),
             "DEV_HOST": hostname,
             "WORKSPACE_FOLDER": workspace_folder,
+            "HISTFILE": f"/home/{remote_user}/.zsh-state/.histfile",
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "PROJECT": project_name,
@@ -125,9 +126,8 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
         )
         return False
 
-    # Ensure histfile exists as a file (otherwise mount creates a directory)
-    histfile = workspace_dir / ".devcontainer" / ".histfile"
-    histfile.touch(exist_ok=True)
+    # zsh-state dir: zsh needs rename() for histfile, which fails across filesystems
+    (workspace_dir / ".devcontainer" / ".zsh-state").mkdir(exist_ok=True)
 
     cmd = ["devcontainer", "up", "--workspace-folder", str(workspace_dir)]
 

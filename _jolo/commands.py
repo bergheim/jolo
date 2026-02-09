@@ -1039,9 +1039,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         setup_notification_hooks(worktree_path)
         setup_emacs_config(worktree_path)
 
-        # Ensure histfile exists (otherwise mount creates a directory)
-        histfile = worktree_path / ".devcontainer" / ".histfile"
-        histfile.touch(exist_ok=True)
+        (worktree_path / ".devcontainer" / ".zsh-state").mkdir(exist_ok=True)
 
         worktree_paths.append(worktree_path)
 

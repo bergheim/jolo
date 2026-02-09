@@ -5,4 +5,4 @@ windows:
   - claude: claude
   - gemini: gemini
   - codex: codex
-  - shell: motd 2>/dev/null; exec zsh
+  - shell:
