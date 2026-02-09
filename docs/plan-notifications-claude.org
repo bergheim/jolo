@@ -147,7 +147,7 @@ Called from =setup_credential_cache()= (or alongside it in the =up= flow).
 
 *** Claude hook injection
 
-The Claude =Stop= hook fires when the agent finishes responding. We inject it
+The Claude =SessionEnd= hook fires when the session exits. We inject it
 into the project-level settings that get copied to the container.
 
 Target file: =.devcontainer/.claude-cache/settings.json=
@@ -157,7 +157,7 @@ Hook JSON to inject:
 #+begin_src json
 {
   "hooks": {
-    "Stop": [
+    "SessionEnd": [
       {
         "hooks": [
           {
@@ -171,14 +171,13 @@ Hook JSON to inject:
 }
 #+end_src
 
-*Why =Stop= and not =SessionEnd=?*
-- =Stop= fires every time the agent finishes a response — including the final one
-- =SessionEnd= fires on session exit (=ctrl-c=, =/exit=, etc.)
-- For "agent finished its work" semantics, =Stop= is more appropriate — it fires
-  when the agent decides it's done, not when the user closes the session
-- However, in prompt mode (=-p=), the agent exits after completing the prompt,
-  so =SessionEnd= would also work there
-- We use =Stop= because it covers both interactive and prompt modes
+*Why =SessionEnd= and not =Stop=?*
+- =Stop= fires every time the agent finishes a response — in interactive
+  sessions this would spam a notification on every reply
+- =SessionEnd= fires on session exit (completion, =ctrl-c=, =/exit=, etc.)
+- In prompt mode (=-p=), the agent exits after completing the prompt, so
+  =SessionEnd= fires exactly once at the right time
+- Changed from =Stop= after Codex review caught the spam issue
 
 *Important:* The hook must merge with any existing hooks in settings.json,
 not overwrite them.
@@ -225,22 +224,18 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     Adds hooks that call notify-done when agents finish.
     Merges with existing hooks (does not overwrite).
     """
-    # Claude: inject Stop hook into .claude-cache/settings.json
+    # Claude: inject SessionEnd hook into .claude-cache/settings.json
     claude_settings = workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
-    if claude_settings.exists():
-        settings = json.loads(claude_settings.read_text())
-    else:
-        settings = {}
+    settings = _load_json_safe(claude_settings)
 
     hooks = settings.setdefault("hooks", {})
-    stop_hooks = hooks.setdefault("Stop", [])
-    # Append our hook group (don't clobber existing Stop hooks)
+    session_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
         "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}]
     }
     # Avoid duplicates on re-run
-    if not any("notify-done" in str(h) for h in stop_hooks):
-        stop_hooks.append(notify_hook)
+    if not any("notify-done" in str(h) for h in session_hooks):
+        session_hooks.append(notify_hook)
     claude_settings.write_text(json.dumps(settings, indent=2))
 
     # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
