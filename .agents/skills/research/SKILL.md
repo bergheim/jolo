@@ -12,6 +12,7 @@ Use this skill to coordinate parallel web research. Each agent appends its own o
 ## Workflow
 
 1. Define the research question or prompt in one sentence.
+1. Sync your branch/worktree to the latest state and check `git status`.
 1. Gather sources (prefer primary docs, reputable outlets, and official sites).
 1. Append a new top-level heading in `RESEARCH.org` for the current agent.
 1. Write findings under the heading using the standard template.
