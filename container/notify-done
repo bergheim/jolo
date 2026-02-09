@@ -32,7 +32,7 @@ BODY="Agent ${AGENT} completed in project ${PROJECT}."
 [ -n "$SESSION" ] && BODY="${BODY} Session: ${SESSION}"
 
 # Fire and forget — don't let notification failure affect the agent
-curl -sf \
+curl -sf --max-time 5 \
     -H "Title: ${TITLE}" \
     -H "Priority: default" \
     -H "Tags: robot,checkmark" \
