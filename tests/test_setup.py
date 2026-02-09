@@ -380,6 +380,43 @@ class TestNotificationHooks(unittest.TestCase):
         self.assertTrue(claude_settings.exists())
         self.assertTrue(gemini_settings.exists())
 
+    def test_codex_notify_appended(self):
+        """Should append notify to codex config.toml if it exists."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('model = "o3"\n')
+
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertIn("notify-done", config)
+        self.assertIn("AGENT=codex", config)
+
+    def test_codex_notify_idempotent(self):
+        """Should not duplicate codex notify on re-run."""
+        ws = self._workspace()
+        codex_cache = ws / ".devcontainer" / ".codex-cache"
+        codex_cache.mkdir(parents=True)
+        codex_config = codex_cache / "config.toml"
+        codex_config.write_text('model = "o3"\n')
+
+        jolo.setup_notification_hooks(ws)
+        jolo.setup_notification_hooks(ws)
+
+        config = codex_config.read_text()
+        self.assertEqual(config.count("notify-done"), 1)
+
+    def test_codex_skipped_if_no_config(self):
+        """Should not create codex config if it doesn't exist."""
+        ws = self._workspace()
+        codex_config = ws / ".devcontainer" / ".codex-cache" / "config.toml"
+
+        jolo.setup_notification_hooks(ws)
+
+        self.assertFalse(codex_config.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
