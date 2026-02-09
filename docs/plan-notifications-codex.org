@@ -1,0 +1,102 @@
+#+TITLE: Agent Completion Notifications (ntfy.sh) — Implementation Plan
+#+DATE: 2026-02-09
+
+* Summary
+
+Implement agent completion notifications via ntfy.sh using native hooks for Claude and Gemini,
+and a best-effort notify hook for Codex. Add a shared notify script in the container image,
+wire hooks during credential cache setup, and set container env defaults (PROJECT + optional
+NTFY_TOPIC). Mark the TODO as DONE and add tests to verify hook injection.
+
+* Scope and Success Criteria
+
+- Notifications fire on Stop + SessionEnd for Claude and Gemini.
+- Notifications are best-effort for Codex (no official hooks documented).
+- Default ntfy topic = project name, override via NTFY_TOPIC.
+- Notifications include agent and event context.
+- Works for jolo up, jolo spawn, and worktrees.
+- Tests cover hook/notify injection.
+
+* Public Interfaces / Config Changes
+
+** New script
+- container/notify-done (installed to /usr/local/bin/notify-done)
+
+** New container env vars (devcontainer.json)
+- PROJECT: project name
+- NTFY_TOPIC: ${localEnv:NTFY_TOPIC} (optional; script falls back to PROJECT)
+
+** Files modified during setup
+- .devcontainer/.claude-cache/settings.json
+- .devcontainer/.gemini-cache/settings.json
+- .devcontainer/.codex-cache/config.toml (best-effort)
+
+* Detailed Implementation Steps
+
+** 1) Add notify script to the image
+Create container/notify-done:
+- Read AGENT, EVENT, PROJECT, NTFY_TOPIC
+- topic defaults to PROJECT if NTFY_TOPIC is unset
+- Send via curl -s to https://ntfy.sh/$topic
+- Accept optional --agent / --event to override env
+
+Add to Containerfile:
+- COPY container/notify-done /usr/local/bin/notify-done
+- chmod +x /usr/local/bin/notify-done
+
+** 2) Add container env defaults
+Update _jolo/container.py build_devcontainer_json:
+- Add PROJECT=project_name
+- Add NTFY_TOPIC=${localEnv:NTFY_TOPIC}
+
+** 3) Claude hooks injection
+In _jolo/setup.py setup_credential_cache:
+- After copying ~/.claude/settings.json, load JSON
+- Merge hooks list:
+  - Stop: AGENT=claude EVENT=Stop /usr/local/bin/notify-done
+  - SessionEnd: AGENT=claude EVENT=SessionEnd /usr/local/bin/notify-done
+- If hooks exist, append only if identical event+command not present
+
+** 4) Gemini hooks injection
+In _jolo/setup.py setup_credential_cache:
+- After Gemini settings load, inject hooks with AGENT=gemini
+- Keep existing enableInteractiveShell logic intact
+- Merge safely without duplicating
+
+** 5) Codex notify (best-effort)
+In _jolo/setup.py codex config injection:
+- If notify already present, skip
+- Else append:
+  notify = ["/usr/local/bin/notify-done", "--agent", "codex", "--event", "SessionEnd"]
+- Document as best-effort; no official hooks docs
+
+** 6) Update TODO.org
+- Mark "Agent completion notifications via ntfy.sh" as DONE
+- Note: Claude/Gemini hooks wired; Codex best-effort notify
+
+** 7) Tests
+Add tests in tests/test_setup.py:
+- Claude settings injection
+- Gemini settings injection
+- Codex notify append
+
+Use temp HOME to avoid touching real user files.
+
+* Edge Cases / Failure Modes
+
+- Missing settings: create minimal JSON with hooks
+- Existing hooks: do not duplicate
+- curl failure: script should exit non-zero but must not block agent
+- NTFY_TOPIC unset: topic defaults to PROJECT
+
+* Assumptions
+
+- Hook events used: Stop + SessionEnd
+- Default topic: project name (override via NTFY_TOPIC)
+- No local notify-send fallback
+- Codex notify is best-effort
+
+* Test Plan
+
+- just test -k setup (or just test)
+- Manual: jolo up -p "..." and verify ntfy messages for Stop and SessionEnd
