@@ -71,6 +71,7 @@ RUN apk update && apk add --no-cache \
     wl-clipboard \
     yadm \
     yamllint \
+    util-linux-misc \
     yq \
     zoxide \
     zsh \
