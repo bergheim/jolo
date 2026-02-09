@@ -221,6 +221,66 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         print(f"Warning: Failed to inject MCP configs into Codex config.toml: {e}", file=sys.stderr)
 
 
+def _load_json_safe(path: Path) -> dict:
+    """Load JSON from a file, returning empty dict on missing/corrupt files."""
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+
+def setup_notification_hooks(workspace_dir: Path) -> None:
+    """Inject agent completion notification hooks into cached settings files.
+
+    Adds hooks that call notify-done when agents finish.
+    Merges with existing hooks (does not overwrite).
+    Must be called after setup_credential_cache() so the cache dirs exist.
+    """
+    # Claude: inject SessionEnd hook into .claude-cache/settings.json
+    claude_settings_path = workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
+    settings = _load_json_safe(claude_settings_path)
+
+    hooks = settings.setdefault("hooks", {})
+    session_hooks = hooks.setdefault("SessionEnd", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}],
+    }
+    # Avoid duplicates on re-run
+    if not any("notify-done" in str(h) for h in session_hooks):
+        session_hooks.append(notify_hook)
+    claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    claude_settings_path.write_text(json.dumps(settings, indent=2))
+
+    # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
+    gemini_settings_path = workspace_dir / ".devcontainer" / ".gemini-cache" / "settings.json"
+    settings = _load_json_safe(gemini_settings_path)
+
+    hooks = settings.setdefault("hooks", {})
+    session_end_hooks = hooks.setdefault("SessionEnd", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=gemini notify-done"}],
+    }
+    if not any("notify-done" in str(h) for h in session_end_hooks):
+        session_end_hooks.append(notify_hook)
+    gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
+
+    # Codex: append notify setting to .codex-cache/config.toml (best-effort)
+    codex_config_path = workspace_dir / ".devcontainer" / ".codex-cache" / "config.toml"
+    if codex_config_path.exists():
+        config = codex_config_path.read_text()
+        # Skip if notify-done already present OR if a notify key already exists
+        # Use regex to catch notify=, notify =, etc.
+        has_notify = any(line.strip().startswith("notify") for line in config.splitlines())
+        if "notify-done" not in config and not has_notify:
+            if not config.endswith("\n"):
+                config += "\n"
+            config += 'notify = ["sh", "-c", "AGENT=codex notify-done"]\n'
+            codex_config_path.write_text(config)
+
+
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
