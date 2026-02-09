@@ -31,6 +31,10 @@ fmt-check:
 # lint + format + test
 check: lint fmt-check test
 
+# create/switch worktree with tmux session (in-container)
+tree *args:
+    wt new {{args}}
+
 # build the container image
 build:
     podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .
