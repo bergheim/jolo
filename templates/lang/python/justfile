@@ -1,0 +1,23 @@
+# Run the project
+run:
+    uv run python src/{{MODULE_NAME}}/main.py
+
+# Run with auto-reload
+dev:
+    fd -e py | entr -r uv run python src/{{MODULE_NAME}}/main.py
+
+# Run tests
+test:
+    uv run pytest
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e py | entr -c uv run pytest
+
+# Add a dependency
+add *packages:
+    uv add {{packages}}
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
