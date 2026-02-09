@@ -4,14 +4,14 @@
 #
 # Environment:
 #   NTFY_SERVER  — ntfy server URL (default: https://ntfy.sh)
-#   NTFY_TOPIC   — notification topic (default: devcontainer)
+#   NTFY_TOPIC   — notification topic (default: jolo)
 #   PROJECT      — project name (default: unknown)
 #   AGENT        — agent name (default: unknown)
 
 set -e
 
 SERVER="${NTFY_SERVER:-https://ntfy.sh}"
-TOPIC="${NTFY_TOPIC:-devcontainer}"
+TOPIC="${NTFY_TOPIC:-jolo}"
 PROJECT="${PROJECT:-unknown}"
 AGENT="${AGENT:-unknown}"
 

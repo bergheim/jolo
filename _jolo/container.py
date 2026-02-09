@@ -74,7 +74,7 @@ def build_devcontainer_json(
             "PORT": str(port),
             "DEV_HOST": hostname,
             "WORKSPACE_FOLDER": workspace_folder,
-            "NTFY_TOPIC": project_name,
+            "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "PROJECT": project_name,
         },

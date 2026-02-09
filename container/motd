@@ -27,8 +27,12 @@ if [ -f justfile ] || [ -f Justfile ]; then
     hint="Run tasks with: just <recipe>"
 fi
 
+# Notification topic
+topic="${NTFY_TOPIC:-jolo}"
+notify_line="Notify: ${topic}"
+
 # Print bordered header
-gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"}
+gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${notify_line:+"$notify_line"}
 
 # Show justfile targets, static MOTD, or fallback
 if [ -f justfile ] || [ -f Justfile ]; then
