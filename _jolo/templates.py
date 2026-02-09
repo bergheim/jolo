@@ -1,8 +1,23 @@
 """Template and config generation functions for jolo."""
 
 import json
+from pathlib import Path
 
 from _jolo import constants
+
+_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
+
+def _read_template(path: str) -> str:
+    """Read a template file relative to templates/ dir."""
+    return (_TEMPLATES_DIR / path).read_text()
+
+
+def _render(template: str, **variables: str) -> str:
+    """Replace {{VAR}} placeholders in template text."""
+    for key, value in variables.items():
+        template = template.replace(f"{{{{{key}}}}}", value)
+    return template
 
 
 def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
@@ -226,112 +241,9 @@ def get_justfile_content(language: str, project_name: str) -> str:
         justfile content string
     """
     module_name = project_name.replace("-", "_")
-
-    browse_recipe = """\
-
-# Open in browser
-browse:
-    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
-"""
-
-    if language == "python":
-        return f"""\
-# Run the project
-run:
-    uv run python src/{module_name}/main.py
-
-# Run with auto-reload
-dev:
-    fd -e py | entr -r uv run python src/{module_name}/main.py
-
-# Run tests
-test:
-    uv run pytest
-
-# Run tests continuously (on file change)
-test-watch:
-    fd -e py | entr -c uv run pytest
-
-# Add a dependency
-add *packages:
-    uv add {{{{packages}}}}
-{browse_recipe}"""
-    elif language == "typescript":
-        return f"""\
-# Run the project
-run:
-    bun run src/index.ts
-
-# Run with auto-reload
-dev:
-    bun --hot src/index.ts
-
-# Run tests
-test:
-    bun test
-
-# Run tests continuously (on file change)
-test-watch:
-    fd -e ts | entr -c bun test
-
-# Add a dependency
-add *packages:
-    bun add {{{{packages}}}}
-{browse_recipe}"""
-    elif language == "go":
-        return f"""\
-# Run the project
-run:
-    go run .
-
-# Run with auto-reload
-dev:
-    air
-
-# Run tests
-test:
-    go test ./...
-
-# Run tests continuously (on file change)
-test-watch:
-    fd -e go | entr -c go test ./...
-
-# Add a dependency
-add *packages:
-    go get {{{{packages}}}}
-{browse_recipe}"""
-    elif language == "rust":
-        return f"""\
-# Run the project
-run:
-    cargo run
-
-# Run with auto-reload
-dev:
-    fd -e rs | entr -r cargo run
-
-# Run tests
-test:
-    cargo test
-
-# Run tests continuously (on file change)
-test-watch:
-    fd -e rs | entr -c cargo test
-
-# Add a dependency
-add *packages:
-    cargo add {{{{packages}}}}
-{browse_recipe}"""
-    else:
-        return f"""\
-# Run the project
-run:
-    echo "No run command configured"
-
-# Run tests
-test:
-    echo "No test command configured"
-{browse_recipe}"""
+    lang = language if language in ("python", "typescript", "go", "rust") else "other"
+    template = _read_template(f"lang/{lang}/justfile")
+    return _render(template, PROJECT_NAME=project_name, MODULE_NAME=module_name)
 
 
 def get_motd_content(language: str, project_name: str) -> str:
@@ -344,16 +256,8 @@ def get_motd_content(language: str, project_name: str) -> str:
     Returns:
         MOTD content string
     """
-    return f"""\
-{project_name}
-
-  just run        - run the project
-  just dev        - run with auto-reload
-  just test       - run tests
-  just test-watch - run tests on file change
-  just add X      - add dependency
-  just browse     - open in browser
-"""
+    template = _read_template("motd")
+    return _render(template, PROJECT_NAME=project_name)
 
 
 def get_test_framework_config(language: str) -> dict:
@@ -373,164 +277,41 @@ def get_test_framework_config(language: str) -> dict:
             - 'example_test_content': Content for example test file
     """
     if language == "python":
-        config_content = """\
-[project]
-name = "{{PROJECT_NAME}}"
-version = "0.1.0"
-description = ""
-requires-python = ">=3.12"
-dependencies = []
-
-[dependency-groups]
-dev = ["pytest", "pytest-watch"]
-
-[project.scripts]
-{{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/{{PROJECT_NAME_UNDERSCORE}}"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-python_files = ["test_*.py", "*_test.py"]
-python_functions = ["test_*"]
-addopts = "-v --tb=short"
-"""
-        main_content = """\
-def hello() -> str:
-    return "Hello, World!"
-
-
-def main() -> None:
-    print(hello())
-
-
-if __name__ == "__main__":
-    main()
-"""
-        example_test_content = """\
-from {{PROJECT_NAME_UNDERSCORE}}.main import hello
-
-
-def test_hello():
-    assert hello() == "Hello, World!"
-"""
         return {
             "config_file": "pyproject.toml",
-            "config_content": config_content,
+            "config_content": _read_template("lang/python/pyproject.toml"),
             "example_test_file": "tests/test_main.py",
-            "example_test_content": example_test_content,
+            "example_test_content": _read_template("lang/python/test_main.py"),
             "main_file": "src/{{PROJECT_NAME_UNDERSCORE}}/main.py",
-            "main_content": main_content,
+            "main_content": _read_template("lang/python/main.py"),
             "init_file": "src/{{PROJECT_NAME_UNDERSCORE}}/__init__.py",
             "tests_init_file": "tests/__init__.py",
         }
 
     elif language == "typescript":
-        # Bun has built-in test runner, no config file needed
-        example_test_content = """\
-import { describe, it, expect } from 'bun:test';
-
-describe('Example tests', () => {
-  it('should pass a basic test', () => {
-    expect(true).toBe(true);
-  });
-
-  it('should perform arithmetic correctly', () => {
-    expect(1 + 1).toBe(2);
-  });
-
-  it('should handle string operations', () => {
-    const result = 'hello'.toUpperCase();
-    expect(result).toBe('HELLO');
-  });
-});
-"""
         return {
             "config_file": None,
             "config_content": "# Bun has built-in testing. Run tests with: bun test",
             "example_test_file": "src/example.test.ts",
-            "example_test_content": example_test_content,
+            "example_test_content": _read_template("lang/typescript/example.test.ts"),
         }
 
     elif language == "go":
-        # Go has built-in testing, no external dependencies needed
-        example_test_content = """\
-package main
-
-import "testing"
-
-func TestExample(t *testing.T) {
-\tif false {
-\t\tt.Error("This should always pass")
-\t}
-}
-
-func TestAddition(t *testing.T) {
-\tresult := 1 + 1
-\tif result != 2 {
-\t\tt.Errorf("expected 2, got %d", result)
-\t}
-}
-
-func TestStringOperations(t *testing.T) {
-\tresult := "hello"
-\tif result != "hello" {
-\t\tt.Errorf("expected hello, got %s", result)
-\t}
-}
-"""
         return {
             "config_file": None,
             "config_content": "# Go uses built-in testing. Run tests with: go test ./...",
             "example_test_file": "example_test.go",
-            "example_test_content": example_test_content,
+            "example_test_content": _read_template("lang/go/example_test.go"),
             "main_file": "main.go",
-            "main_content": """\
-package main
-
-import "fmt"
-
-func main() {
-\tfmt.Println("Hello, world!")
-}
-""",
+            "main_content": _read_template("lang/go/main.go"),
         }
 
     elif language == "rust":
-        # Rust has built-in testing, no config file needed
-        # Write to src/main.rs so cargo init creates a binary crate (not lib)
-        example_test_content = """\
-fn main() {
-    println!("Hello, world!");
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_example_passes() {
-        assert!(true, "This should always pass");
-    }
-
-    #[test]
-    fn test_addition() {
-        let result = 1 + 1;
-        assert_eq!(result, 2, "1 + 1 should equal 2");
-    }
-
-    #[test]
-    fn test_string_operations() {
-        let result = "hello".to_uppercase();
-        assert_eq!(result, "HELLO");
-    }
-}
-"""
         return {
             "config_file": None,
             "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
             "example_test_file": "src/main.rs",
-            "example_test_content": example_test_content,
+            "example_test_content": _read_template("lang/rust/main.rs"),
         }
 
     # Shell, prose, other, and unknown languages have no standard test framework

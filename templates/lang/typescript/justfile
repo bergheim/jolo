@@ -1,0 +1,23 @@
+# Run the project
+run:
+    bun run src/index.ts
+
+# Run with auto-reload
+dev:
+    bun --hot src/index.ts
+
+# Run tests
+test:
+    bun test
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e ts | entr -c bun test
+
+# Add a dependency
+add *packages:
+    bun add {{packages}}
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
