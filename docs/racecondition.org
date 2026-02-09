@@ -104,17 +104,38 @@ The =sleep 1= workaround does not help because it only delays the /next/ create 
 
 With our config (=userEnvProbe: "none"=, no lifecycle commands, no features, =updateRemoteUserUID: false=), the CLI has nothing to do after confirming the container is running. It just returns the JSON result. This means if the container IS running, the =devcontainer up= process is safe to kill — no post-start work is lost.
 
-** Recommended fix: timeout with container-running check
+** Likely root cause: journald event logger in rootless podman
 
-Rather than hacking around the race (background restarts, sleeps), use a timeout on =devcontainer up= and verify the container independently:
+Research found this is a well-known issue. Podman's default =events_logger= is =journald=, and journald silently drops events in rootless mode. The devcontainer CLI's =podman events --filter event=start= listener never receives the start event because journald lost it — not because of listener/start ordering.
+
+This explains the 50/50 behavior: journald event delivery is unreliable, not consistently broken. Sometimes the event arrives, sometimes it doesn't.
+
+*** The fix
+
+Set =events_logger = "file"= in =~/.config/containers/containers.conf=:
+
+#+begin_src toml
+[engine]
+events_logger = "file"
+#+end_src
+
+This switches podman to file-based event logging, which is reliable in rootless mode.
+
+*** References
+
+- [[https://github.com/microsoft/vscode-remote-release/issues/7980][microsoft/vscode-remote-release#7980]] — exact same symptoms (hang after "Container started" with podman), confirmed fix: =events_logger = "file"=
+- [[https://github.com/containers/podman/issues/21685][containers/podman#21685]] — intermittent event loss with journald in rootless podman
+- [[https://github.com/containers/podman/issues/26910][containers/podman#26910]] — journald log driver silently not working
+
+** Previous recommendation: timeout with container-running check
+
+If the =events_logger= fix does not fully resolve the issue, a fallback:
 
 1. Run =devcontainer up= with a 15-second timeout.
 2. If it completes normally, done.
 3. If it times out, check =podman inspect= for =State.Running == true=.
 4. If running, kill the hung CLI process and return success.
 5. If not running, return failure.
-
-This is not a hack — the container genuinely is ready. We are just not waiting for a buggy event listener to acknowledge something that already happened. The workaround is confined to a single function (=devcontainer_up()=) and does not change the happy path.
 
 * Open Questions
 
