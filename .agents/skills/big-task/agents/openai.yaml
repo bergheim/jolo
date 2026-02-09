@@ -1,4 +1,0 @@
-interface:
-  display_name: "Big Task"
-  short_description: "Branch + TDD + double review workflow"
-  default_prompt: "Use $big-task to run a large task with branch isolation, TDD, frequent commits, and two external reviews."

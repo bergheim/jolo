@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Workflow"
+  short_description: "Branch + TDD + double review workflow"
+  default_prompt: "Use $feature-workflow to run a large task with branch isolation, TDD, frequent commits, and two external reviews."
