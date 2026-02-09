@@ -1,0 +1,38 @@
+#!/bin/sh
+# notify-done — Send push notification when an AI agent finishes.
+# Called by agent session-end hooks. Receives JSON context on stdin.
+#
+# Environment:
+#   NTFY_SERVER  — ntfy server URL (default: https://ntfy.sh)
+#   NTFY_TOPIC   — notification topic (default: devcontainer)
+#   PROJECT      — project name (default: unknown)
+#   AGENT        — agent name (default: unknown)
+
+set -e
+
+SERVER="${NTFY_SERVER:-https://ntfy.sh}"
+TOPIC="${NTFY_TOPIC:-devcontainer}"
+PROJECT="${PROJECT:-unknown}"
+AGENT="${AGENT:-unknown}"
+
+# Drain stdin (agents pipe JSON context) — don't block if empty
+CONTEXT=$(cat 2>/dev/null || true)
+
+# Extract session_id from Claude's JSON if available (best-effort)
+SESSION=""
+if command -v jq >/dev/null 2>&1 && [ -n "$CONTEXT" ]; then
+    SESSION=$(echo "$CONTEXT" | jq -r '.session_id // empty' 2>/dev/null || true)
+fi
+
+TITLE="${PROJECT} — ${AGENT} finished"
+BODY="Agent ${AGENT} completed in project ${PROJECT}."
+[ -n "$SESSION" ] && BODY="${BODY} Session: ${SESSION}"
+
+# Fire and forget — don't let notification failure affect the agent
+curl -sf \
+    -H "Title: ${TITLE}" \
+    -H "Priority: default" \
+    -H "Tags: robot,checkmark" \
+    -d "${BODY}" \
+    "${SERVER}/${TOPIC}" \
+    >/dev/null 2>&1 || true
