@@ -174,3 +174,61 @@ Research found three CLI-side delays worth investigating if startup is still slo
 ~run_default_mode~ renamed to ~run_up_mode~ — ~--help~ is the actual default,
 ~up~ is the subcommand.
 
+* Zimfw race condition on container startup                :zsh:zimfw:perf:race:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Multiple tmux windows starting simultaneously caused sporadic ~git symbolic-ref~
+errors from zimfw.
+
+** Symptoms
+
+#+begin_example
+x modules/input: Error during git symbolic-ref. Use zmodule option -z|--frozen...
+  fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+#+end_example
+
+Different number of modules fail each time. Started appearing after Emacs config
+copy was optimized (faster startup = more concurrent shell inits).
+
+** Root cause
+
+Tmuxinator launches 5 windows (emacs, claude, gemini, codex, shell) simultaneously.
+Each window starts zsh, which sources ~.zshrc~. The ~.zshrc~ zimfw bootstrap
+(lines 121-138) checks if ~init.zsh~ is older than ~.zimrc~ and runs
+~zimfw init -q~ if so. With 5 shells racing, multiple ~zimfw init~ processes
+do concurrent git operations on the same module repos under ~~/.zim/modules/~.
+
+The ~pre~ action in ~zimfw.zsh~ (line 877) runs ~git symbolic-ref --short
+refs/remotes/origin/HEAD~ on each module. Concurrent git operations on the
+same repos corrupt or conflict on the ref files.
+
+** Fix
+
+Bake zimfw into the container image. Added to Containerfile:
+
+#+begin_src dockerfile
+COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
+RUN curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \
+        https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh && \
+    zsh -c "ZIM_HOME=$HOME/.zim source $HOME/.zim/zimfw.zsh init -q"
+#+end_src
+
+At runtime, ~init.zsh~ is already built and newer than ~.zimrc~, so the
+~.zshrc~ check skips init entirely. No git operations, no race.
+
+** What didn't work
+
+- ~on_project_start~ in tmuxinator dev.yml — command was ignored or too late
+- ~tmux-layout.sh~ pre-init with ~if [ -f zimfw.zsh ]~ — skipped on first boot
+  because zimfw wasn't downloaded yet (it's not in dotfile mounts)
+
+** Key files
+
+- ~Containerfile~ — zimfw download + init at build time
+- ~container/zimrc~ — module list baked into image
+- ~container/tmux-layout.sh~ — reverted workaround
+- ~~/.zshrc~ lines 121-138 — bootstrap code (bind-mounted from host, readonly)
+- ~~/.zim/zimfw.zsh~ line 877 — the ~git symbolic-ref~ that races
+
