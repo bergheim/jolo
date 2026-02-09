@@ -1,0 +1,63 @@
+#+TITLE: Research Notes
+#+STARTUP: overview
+
+* Gemini CLI crashes on Alpine/musl                        :musl:nodejs:gemini:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+node-pty prebuilt binary segfaults during PTY cleanup on musl libc.
+The command itself executes fine — crash happens on PTY destroy/resize after exit.
+
+** Root cause
+
+~@lydell/node-pty-linux-x64/pty.node~ is compiled against glibc.
+~ldd~ shows missing symbols: ~__asprintf_chk~, ~fcntl64~ (glibc-specific),
+plus ~napi_*~ symbols (resolved by Node at runtime, not an issue).
+
+~gcompat~ makes the binary loadable but ~forkpty()~ still segfaults
+at the native level during cleanup — uncatchable by JS try/catch.
+
+** Fix
+
+Set ~tools.shell.enableInteractiveShell: false~ in ~settings.json~.
+This bypasses node-pty entirely and uses ~child_process.spawn()~ fallback
+(see ~shellExecutionService.js:86-99~).
+
+Applied in ~_jolo/setup.py:setup_credential_cache()~ — merges the setting
+into gemini's settings.json when copying credentials to container.
+
+** Key files
+
+- ~_jolo/setup.py~ — merges ~enableInteractiveShell: false~ after credential copy
+- ~Containerfile~ — ~procps~ (GNU pgrep), ~diffutils~ (GNU diff for apheleia)
+- Gemini source: ~shellExecutionService.js~, ~getPty.js~, ~shell-utils.js~
+
+** Refs
+
+- https://github.com/google-gemini/gemini-cli/issues/14087 (Alpine crash, open)
+- https://github.com/google-gemini/gemini-cli/issues/4676 (Alpine shell hang)
+- https://github.com/google-gemini/gemini-cli/issues/3448 (bash not found)
+
+** What ~enableInteractiveShell: false~ loses
+
+- Color output (stripped to plain text)
+- Interactive programs (vim, less) don't work in shell tool
+- ~isatty()~ returns false
+
+None of this matters for AI agent usage in YOLO mode.
+
+* BusyBox vs GNU tools in Alpine container                 :alpine:busybox:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Alpine ships BusyBox which lacks many GNU flags. Tools that break:
+
+| Tool | Missing flag | Fix package |
+|------+--------------+-------------|
+| pgrep | ~-g~ (process group) | ~procps~ |
+| diff | ~--rcs~, ~--strip-trailing-cr~, ~--text~ | ~diffutils~ |
+
+Emacs apheleia uses ~diff --rcs~ for formatting patches — fails silently
+with BusyBox, shows "Output file descriptor of apheleia-diff is closed".

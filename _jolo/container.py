@@ -146,10 +146,10 @@ def get_container_runtime() -> str | None:
     return None
 
 
-def list_all_devcontainers() -> list[tuple[str, str, str]]:
+def list_all_devcontainers() -> list[tuple[str, str, str, str]]:
     """List all running devcontainers globally.
 
-    Returns list of tuples: (container_name, workspace_folder, status)
+    Returns list of tuples: (container_name, workspace_folder, status, image_id)
     """
     runtime = get_container_runtime()
     if runtime is None:
@@ -164,7 +164,7 @@ def list_all_devcontainers() -> list[tuple[str, str, str]]:
             "--filter",
             "label=devcontainer.local_folder",
             "--format",
-            '{{.Names}}\t{{.Label "devcontainer.local_folder"}}\t{{.State}}',
+            '{{.Names}}\t{{.Label "devcontainer.local_folder"}}\t{{.State}}\t{{.ImageID}}',
         ],
         capture_output=True,
         text=True,
@@ -178,9 +178,9 @@ def list_all_devcontainers() -> list[tuple[str, str, str]]:
         if not line:
             continue
         parts = line.split("\t")
-        if len(parts) >= 3:
-            name, folder, state = parts[0], parts[1], parts[2]
-            containers.append((name, folder, state))
+        if len(parts) >= 4:
+            name, folder, state, image_id = parts[0], parts[1], parts[2], parts[3]
+            containers.append((name, folder, state, image_id))
 
     return containers
 
@@ -247,7 +247,7 @@ def stop_container(workspace_dir: Path) -> bool:
 
 def find_containers_for_project(
     git_root: Path, state_filter: str | None = None
-) -> list[tuple[str, str, str]]:
+) -> list[tuple[str, str, str, str]]:
     """Find containers for a project.
 
     Args:
@@ -255,7 +255,7 @@ def find_containers_for_project(
         state_filter: If set, only return containers in this state (e.g., "running")
                       If None, return all containers
 
-    Returns list of tuples: (container_name, workspace_folder, state)
+    Returns list of tuples: (container_name, workspace_folder, state, image_id)
     """
     runtime = get_container_runtime()
     if runtime is None:
@@ -268,7 +268,7 @@ def find_containers_for_project(
 
     # Filter to containers that match this project
     matched = []
-    for name, folder, state in all_containers:
+    for name, folder, state, image_id in all_containers:
         # Check if folder is under this project or its worktrees
         folder_path = Path(folder)
         if (
@@ -276,18 +276,18 @@ def find_containers_for_project(
             or folder_path.parent.name == f"{project_name}-worktrees"
         ):
             if state_filter is None or state == state_filter:
-                matched.append((name, folder, state))
+                matched.append((name, folder, state, image_id))
 
     return matched
 
 
-def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str]]:
+def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str, str]]:
     """Find stopped containers for a project.
 
-    Returns list of tuples: (container_name, workspace_folder)
+    Returns list of tuples: (container_name, workspace_folder, image_id)
     """
     containers = find_containers_for_project(git_root)
-    return [(name, folder) for name, folder, state in containers if state != "running"]
+    return [(name, folder, image_id) for name, folder, state, image_id in containers if state != "running"]
 
 
 def remove_container(container_name: str) -> bool:
@@ -297,6 +297,18 @@ def remove_container(container_name: str) -> bool:
         return False
 
     cmd = [runtime, "rm", container_name]
+    verbose_cmd(cmd)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0
+
+
+def remove_image(image_id: str) -> bool:
+    """Remove an image."""
+    runtime = get_container_runtime()
+    if runtime is None:
+        return False
+
+    cmd = [runtime, "rmi", image_id]
     verbose_cmd(cmd)
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.returncode == 0

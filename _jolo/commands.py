@@ -33,6 +33,7 @@ from _jolo.container import (
     is_container_running,
     list_all_devcontainers,
     remove_container,
+    remove_image,
     stop_container,
 )
 from _jolo.setup import (
@@ -152,21 +153,21 @@ def run_list_global_mode() -> None:
     print("Running devcontainers:")
     print()
 
-    running_containers = [(n, f, s) for n, f, s in containers if s == "running"]
+    running_containers = [(n, f, s, i) for n, f, s, i in containers if s == "running"]
 
     if not running_containers:
         print("  (none)")
     else:
-        for name, folder, _ in running_containers:
+        for name, folder, _, _ in running_containers:
             print(f"  {name:<24} {folder}")
 
     # Also show stopped containers
-    stopped_containers = [(n, f, s) for n, f, s in containers if s != "running"]
+    stopped_containers = [(n, f, s, i) for n, f, s, i in containers if s != "running"]
     if stopped_containers:
         print()
         print("Stopped devcontainers:")
         print()
-        for name, folder, state in stopped_containers:
+        for name, folder, state, _ in stopped_containers:
             print(f"  {name:<24} {folder}  ({state})")
 
 
@@ -208,10 +209,10 @@ def run_prune_global_mode() -> None:
 
     all_containers = list_all_devcontainers()
     stopped_containers = [
-        (name, folder) for name, folder, state in all_containers if state != "running"
+        (name, folder, image_id) for name, folder, state, image_id in all_containers if state != "running"
     ]
     orphan_containers = [
-        (name, folder) for name, folder, state in all_containers
+        (name, folder, image_id) for name, folder, state, image_id in all_containers
         if state == "running" and not Path(folder).exists()
     ]
 
@@ -221,14 +222,23 @@ def run_prune_global_mode() -> None:
 
     if stopped_containers:
         print("Stopped containers:")
-        for name, folder in stopped_containers:
+        for name, folder, _ in stopped_containers:
             print(f"  {name:<24} {folder}")
         print()
 
     if orphan_containers:
         print("Orphan containers (workspace dir missing):")
-        for name, folder in orphan_containers:
+        for name, folder, _ in orphan_containers:
             print(f"  {name:<24} {folder}")
+        print()
+
+    # Collect image IDs that might be pruned
+    potential_images = {c[2] for c in stopped_containers + orphan_containers if c[2]}
+    
+    if potential_images:
+        print("Images that may be pruned (if not used by other containers):")
+        for image_id in sorted(potential_images):
+            print(f"  {image_id}")
         print()
 
     # Prompt for confirmation
@@ -243,7 +253,7 @@ def run_prune_global_mode() -> None:
         return
 
     # Stop orphan containers first
-    for name, _ in orphan_containers:
+    for name, _, _ in orphan_containers:
         cmd = [runtime, "stop", name]
         verbose_cmd(cmd)
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -252,11 +262,26 @@ def run_prune_global_mode() -> None:
         else:
             print(f"Failed to stop: {name}", file=sys.stderr)
 
-    for name, _ in stopped_containers + orphan_containers:
+    # Remove containers
+    for name, _, _ in stopped_containers + orphan_containers:
         if remove_container(name):
             print(f"Removed: {name}")
         else:
             print(f"Failed to remove: {name}", file=sys.stderr)
+
+    # Prune unused images
+    if potential_images:
+        print("\nPruning images...")
+        remaining_containers = list_all_devcontainers()
+        in_use_images = {c[3] for c in remaining_containers if c[3]}
+
+        for image_id in potential_images:
+            if image_id not in in_use_images:
+                if remove_image(image_id):
+                    print(f"Removed image: {image_id}")
+                else:
+                    # Ignore failures (image might be used by non-devcontainer)
+                    pass
 
 
 def run_prune_mode(args: argparse.Namespace) -> None:
@@ -278,7 +303,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
     # Find orphan containers (running but workspace dir missing)
     all_project = find_containers_for_project(git_root)
     orphan_containers = [
-        (name, folder) for name, folder, state in all_project
+        (name, folder, image_id) for name, folder, state, image_id in all_project
         if state == "running" and not Path(folder).exists()
     ]
 
@@ -292,13 +317,13 @@ def run_prune_mode(args: argparse.Namespace) -> None:
     # Show what will be pruned
     if stopped_containers:
         print("Stopped containers:")
-        for name, folder in stopped_containers:
+        for name, folder, _ in stopped_containers:
             print(f"  {name:<24} {folder}")
         print()
 
     if orphan_containers:
         print("Orphan containers (workspace dir missing):")
-        for name, folder in orphan_containers:
+        for name, folder, _ in orphan_containers:
             print(f"  {name:<24} {folder}")
         print()
 
@@ -306,6 +331,15 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         print("Stale worktrees:")
         for wt_path, branch in stale_worktrees:
             print(f"  {wt_path.name:<24} ({branch})")
+        print()
+
+    # Collect image IDs that might be pruned
+    potential_images = {c[2] for c in stopped_containers + orphan_containers if c[2]}
+
+    if potential_images:
+        print("Images that may be pruned (if not used by other containers):")
+        for image_id in sorted(potential_images):
+            print(f"  {image_id}")
         print()
 
     # Prompt for confirmation
@@ -320,7 +354,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         return
 
     # Stop orphan containers first
-    for name, _ in orphan_containers:
+    for name, _, _ in orphan_containers:
         cmd = [runtime, "stop", name]
         verbose_cmd(cmd)
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -330,7 +364,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
             print(f"Failed to stop: {name}", file=sys.stderr)
 
     # Remove containers
-    for name, _ in stopped_containers + orphan_containers:
+    for name, _, _ in stopped_containers + orphan_containers:
         if remove_container(name):
             print(f"Removed container: {name}")
         else:
@@ -342,6 +376,20 @@ def run_prune_mode(args: argparse.Namespace) -> None:
             print(f"Removed worktree: {wt_path.name}")
         else:
             print(f"Failed to remove worktree: {wt_path.name}", file=sys.stderr)
+
+    # Prune unused images
+    if potential_images:
+        print("\nPruning images...")
+        remaining_containers = list_all_devcontainers()
+        in_use_images = {c[3] for c in remaining_containers if c[3]}
+
+        for image_id in potential_images:
+            if image_id not in in_use_images:
+                if remove_image(image_id):
+                    print(f"Removed image: {image_id}")
+                else:
+                    # Ignore failures
+                    pass
 
 
 
@@ -372,7 +420,7 @@ def run_open_mode(args: argparse.Namespace) -> None:
     """Run --open mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
     running = [
-        (name, folder) for name, folder, state in containers
+        (name, folder) for name, folder, state, image_id in containers
         if state == "running" and Path(folder).exists()
     ]
 
@@ -1120,7 +1168,7 @@ def _build_delete_picker_items() -> list[dict]:
     seen_roots: set[Path] = set()
     items: list[dict] = []
 
-    for _, folder, _ in containers:
+    for _, folder, _, _ in containers:
         folder_path = Path(folder)
         if not folder_path.exists():
             continue
@@ -1193,7 +1241,7 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
 
     # Find and remove containers for the main project
     containers = find_containers_for_project(git_root)
-    for name, folder, state in containers:
+    for name, folder, state, image_id in containers:
         if state == "running":
             cmd = [runtime, "stop", name]
             verbose_cmd(cmd)
@@ -1203,7 +1251,7 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
             else:
                 print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
 
-    for name, folder, state in containers:
+    for name, folder, state, image_id in containers:
         if remove_container(name):
             print(f"Removed container: {name}")
         else:

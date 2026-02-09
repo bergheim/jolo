@@ -179,6 +179,64 @@ class TestPruneMode(unittest.TestCase):
         self.assertIsNone(args.command)
 
 
+class TestPruneGlobalImages(unittest.TestCase):
+    """Test image pruning in global mode."""
+
+    @mock.patch('_jolo.commands.get_container_runtime', return_value='podman')
+    @mock.patch('_jolo.commands.list_all_devcontainers')
+    @mock.patch('_jolo.commands.remove_container', return_value=True)
+    @mock.patch('_jolo.commands.remove_image', return_value=True)
+    @mock.patch('builtins.input', return_value='y')
+    @mock.patch('subprocess.run')
+    @mock.patch('os.path.exists', return_value=True)
+    def test_prune_global_removes_unused_images(
+        self, mock_exists, mock_run, mock_input, mock_remove_image, mock_remove_container,
+        mock_list, mock_runtime
+    ):
+        """Should remove images not used by remaining containers."""
+        # Initial list: one stopped container with an image
+        mock_list.side_effect = [
+            [("stopped-c", "/path/to/proj", "exited", "img123")],  # first call
+            []  # second call (remaining containers)
+        ]
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        # Mock Path.exists to return True so it's not orphan
+        with mock.patch('_jolo.commands.Path.exists', return_value=True):
+            jolo.run_prune_global_mode()
+
+        mock_remove_container.assert_called_with("stopped-c")
+        mock_remove_image.assert_called_with("img123")
+
+    @mock.patch('_jolo.commands.get_container_runtime', return_value='podman')
+    @mock.patch('_jolo.commands.list_all_devcontainers')
+    @mock.patch('_jolo.commands.remove_container', return_value=True)
+    @mock.patch('_jolo.commands.remove_image')
+    @mock.patch('builtins.input', return_value='y')
+    @mock.patch('subprocess.run')
+    def test_prune_global_skips_in_use_images(
+        self, mock_run, mock_input, mock_remove_image, mock_remove_container,
+        mock_list, mock_runtime
+    ):
+        """Should NOT remove images still used by other containers."""
+        # Initial list: one stopped, one running, both using same image
+        mock_list.side_effect = [
+            [
+                ("stopped-c", "/path/1", "exited", "img123"),
+                ("running-c", "/path/2", "running", "img123")
+            ],
+            [("running-c", "/path/2", "running", "img123")]
+        ]
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        # Mock Path.exists to return True so running-c is not orphan
+        with mock.patch('_jolo.commands.Path.exists', return_value=True):
+            jolo.run_prune_global_mode()
+
+        mock_remove_container.assert_called_with("stopped-c")
+        mock_remove_image.assert_not_called()
+
+
 
 if __name__ == '__main__':
     unittest.main()
