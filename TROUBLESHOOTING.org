@@ -1,0 +1,139 @@
+#+TITLE: Troubleshooting Guide
+#+STARTUP: showall
+
+* Devcontainer Hangs After "Container Started"
+
+** Symptom
+
+~jolo create~, ~jolo up --new~, or ~jolo up --sync --new~ prints "Container
+started" and then hangs indefinitely. The terminal sits there doing nothing.
+
+** Quick Fix
+
+Set ~"userEnvProbe": "none"~ in ~devcontainer.json~. If using jolo, this is
+set in ~_jolo/container.py~ in ~build_devcontainer_json()~.
+
+For existing containers: ~jolo up --sync~ to regenerate the config.
+
+** What's Actually Happening
+
+The ~devcontainer up~ CLI (Node.js) does this after starting the container:
+
+1. Starts container (prints "Container started")
+2. Execs into container to probe OS, user info
+3. Patches ~/etc/environment~ and ~/etc/profile~
+4. Runs ~userEnvProbe~ — execs ~/bin/zsh -lc <command>~ to discover PATH and env vars
+5. Runs lifecycle commands (postCreateCommand, etc.)
+6. Outputs JSON result and exits
+
+Step 4 is where it hangs. The ~userEnvProbe~ runs a login shell inside the
+container to read environment variables. On fresh Alpine containers, zsh
+initialization (compinit, plugins, etc.) can hang intermittently. It's a race
+condition — sometimes it works, sometimes it doesn't.
+
+Since we set all env vars explicitly in ~containerEnv~, the probe is redundant.
+Setting it to ~"none"~ skips step 4 entirely.
+
+** Debugging Playbook
+
+If this happens again (or a similar hang), here's the step-by-step:
+
+*** Step 1: Confirm the container is actually running
+
+#+begin_src bash
+podman ps -a --filter name=<container-name>
+podman logs <container-name>
+podman inspect <container-name> --format '{{.State.Status}} exit={{.State.ExitCode}}'
+#+end_src
+
+If the container is running with exit=0, the container itself is fine.
+
+*** Step 2: Check if you can get into it
+
+#+begin_src bash
+podman exec -it <container-name> bash
+#+end_src
+
+If this works, the issue is NOT the container — it's the devcontainer CLI or jolo.
+
+*** Step 3: Find the stuck process
+
+#+begin_src bash
+ps aux | grep -E 'jolo|devcontainer' | grep -v grep
+#+end_src
+
+Look at the process chain:
+- ~python3 jolo create ...~ → ~node devcontainer up ...~ → ~podman run ...~
+
+If the ~node devcontainer up~ process is still running, the devcontainer CLI
+itself is stuck (not jolo code after it).
+
+*** Step 4: Get trace logs (the money shot)
+
+Kill the stuck chain and re-run devcontainer directly with trace logging:
+
+#+begin_src bash
+# Kill the stuck jolo process
+kill $(pgrep -f 'jolo create <name>')
+# OR
+kill $(pgrep -f 'jolo up')
+
+# Don't remove the container — we want to test against the existing one first
+# to confirm devcontainer can talk to it at all
+devcontainer up --workspace-folder /path/to/project \
+    --log-level trace --log-format text 2>&1 | tee /tmp/dc-debug.log
+#+end_src
+
+When it hangs (or succeeds), check the log:
+
+#+begin_src bash
+tail -30 /tmp/dc-debug.log
+#+end_src
+
+*The last ~Start:~ line without a matching ~Stop:~ is your culprit.*
+
+Example from our debugging session — this was the hanging line:
+#+begin_example
+userEnvProbe: loginInteractiveShell (default)
+Start: Run in container: /bin/zsh -lic echo -n <uuid>; cat /proc/self/environ; echo -n <uuid>
+#+end_example
+
+*** Step 5: Test the probe command manually
+
+If the trace shows it's stuck on ~userEnvProbe~, test the exact command:
+
+#+begin_src bash
+# Interactive login shell (default if not configured)
+podman exec -it <name> /bin/zsh -lic 'echo probe-ok'
+
+# Login shell (loginShell setting)
+podman exec -it <name> /bin/zsh -lc 'echo probe-ok'
+#+end_src
+
+If these work interactively but hang during devcontainer up, it's a race
+condition with container startup.
+
+** Gotchas and False Positives
+
+- *Testing without ~--remove-existing-container~ gives false positives:* Running
+  ~devcontainer up~ against an already-running container connects to the warm
+  container instantly. The hang only happens when creating a fresh container.
+  Always test with ~--remove-existing-container~ to reproduce the real issue.
+
+- *The hang is intermittent:* It's a race condition, not 100% reproducible.
+  Sometimes the container starts fast enough that the probe works. Other times
+  zsh initialization is slow and it hangs forever.
+
+- *~loginShell~ mode is not sufficient:* We first tried ~"userEnvProbe":
+  "loginShell"~ (non-interactive). It still hung intermittently. Only ~"none"~
+  is reliable.
+
+- *The devcontainer CLI has no timeout:* The env probe will wait forever. There
+  is no built-in timeout, so a hanging probe means a permanently stuck process.
+
+** History
+
+- 2026-02-09: First hit this during ~jolo create p2 --lang go~. Traced to
+  ~userEnvProbe: loginInteractiveShell~ (the default). Changed to ~loginShell~,
+  still intermittently hung. Changed to ~none~ which is reliable. Fix is in
+  ~_jolo/container.py:build_devcontainer_json()~.
