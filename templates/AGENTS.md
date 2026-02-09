@@ -4,9 +4,20 @@ Guidelines for AI coding assistants working on this project.
 
 Generated: <YYYY-MM-DD>
 
-## Task Tracking
+## Project Memory
 
-All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Check it before starting work and update it as tasks are completed or new ones arise.
+Shared knowledge lives in org-mode files that all agents read and write:
+
+| File | Purpose | Content |
+|------|---------|---------|
+| `TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
+| `RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
+
+**On session start:** Read both files to pick up where others left off.
+
+**On "save state":** Write what you learned this session — tasks to TODO.org, findings to RESEARCH.org, agent-private learnings to your own memory system. Tag entries with keywords (e.g., `:musl:auth:perf:`) for searchability.
+
+Agent-private memory (workflow preferences, mistake patterns) goes to each agent's own system — not shared files.
 
 ## Port Configuration
 
