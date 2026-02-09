@@ -46,6 +46,7 @@ from _jolo.setup import (
     setup_emacs_config,
     setup_notification_hooks,
     sync_devcontainer,
+    sync_skill_templates,
     write_prompt_file,
 )
 from _jolo.templates import (
@@ -548,6 +549,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
     # Sync or scaffold .devcontainer
     if args.sync:
         sync_devcontainer(project_name, config=config)
+        sync_skill_templates(git_root)
     else:
         scaffold_devcontainer(project_name, config=config)
 
@@ -632,6 +634,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     # Sync .devcontainer if requested
     if args.sync:
         sync_devcontainer(worktree_name, target_dir=worktree_path, config=config)
+        sync_skill_templates(worktree_path)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -890,6 +893,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Sync or scaffold .devcontainer
     if args.sync:
         sync_devcontainer(project_name, project_path, config=config)
+        sync_skill_templates(project_path)
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
@@ -1006,6 +1010,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         # Sync .devcontainer if requested
         if args.sync:
             sync_devcontainer(name, target_dir=worktree_path, config=config, port=port)
+            sync_skill_templates(worktree_path)
 
         # Update devcontainer.json with correct port if not syncing (sync handles it)
         devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
