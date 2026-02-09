@@ -641,3 +641,52 @@ Tradeoffs:
 Exclude cache-like directories from ~setup_emacs_config()~ copy to avoid
 copying multi-GB Emacs caches into workspace.
 
+* DONE Pre-install zimfw in Containerfile                  :zsh:perf:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Bake zimfw + modules into the image so shells don't race on first boot.
+Previously, 5 tmux windows all ran ~zimfw init~ simultaneously, causing
+sporadic ~git symbolic-ref~ errors. Now ~init.zsh~ is pre-built and shells
+skip init entirely.
+
+* TODO Cache zoxide/mise init scripts                      :zsh:perf:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+~eval "$(zoxide init zsh)"~ and ~eval "$(mise activate zsh)"~ run on every
+shell startup, generating and evaling shell code each time. Cache the output
+to a file and source it instead. Regenerate when the tool version changes.
+
+#+begin_example
+# Instead of: eval "$(zoxide init zsh)"
+_zoxide_cache="$HOME/.cache/zoxide-init.zsh"
+if [[ ! -f "$_zoxide_cache" ]]; then
+    zoxide init zsh > "$_zoxide_cache"
+fi
+source "$_zoxide_cache"
+#+end_example
+
+* TODO Run motd only in the shell window                   :tmux:perf:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+~motd~ runs in every tmux pane (including claude, gemini, codex windows) but
+the output is only visible in the shell window. It spawns ~git~, ~gum~, and
+~just --list~ each time. Options:
+
+- Guard with an env var: set ~SHOW_MOTD=1~ only in the shell window via
+  tmuxinator ~pre_window~ or per-window env
+- Check ~$TMUX_PANE~ or window name to conditionally skip
+- Move motd from ~.zshrc.container~ to the shell window command in ~dev.yml~
+
+
+* DONE Add review skill for cross-agent checks            :skills:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Create a skill to run pragmatic tests and delegate diff review to a different agent.
