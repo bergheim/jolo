@@ -6,16 +6,16 @@ Generated: <YYYY-MM-DD>
 
 ## Project Memory
 
-Shared knowledge lives in org-mode files that all agents read and write:
+Shared knowledge lives in org-mode files under `docs/` that all agents read and write:
 
 | File | Purpose | Content |
 |------|---------|---------|
-| `TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
-| `RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
+| `docs/TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
+| `docs/RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
 
 **On session start:** Read both files to pick up where others left off.
 
-**On "save state":** Write what you learned this session — tasks to TODO.org, findings to RESEARCH.org, agent-private learnings to your own memory system. Tag entries with keywords (e.g., `:musl:auth:perf:`) for searchability.
+**On "save state":** Write what you learned this session — tasks to docs/TODO.org, findings to docs/RESEARCH.org, agent-private learnings to your own memory system. Tag entries with keywords (e.g., `:musl:auth:perf:`) for searchability.
 
 Agent-private memory (workflow preferences, mistake patterns) goes to each agent's own system — not shared files.
 

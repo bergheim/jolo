@@ -117,11 +117,16 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # Disable node-pty in container — it crashes on Alpine/musl (forkpty segfault).
     # Gemini falls back to child_process which works fine.
     settings_path = gemini_cache / "settings.json"
+
     if settings_path.exists():
         settings = json.loads(settings_path.read_text())
     else:
         settings = {}
-    settings.setdefault("tools", {}).setdefault("shell", {})["enableInteractiveShell"] = False
+
+    # FIXME: waiting for https://github.com/google-gemini/gemini-cli/issues/14087
+    settings.setdefault("tools", {}).setdefault("shell", {})[
+        "enableInteractiveShell"
+    ] = False
     settings_path.write_text(json.dumps(settings, indent="\t"))
 
     # Codex credentials
@@ -141,8 +146,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
-    Copies AGENTS.md, CLAUDE.md, GEMINI.md, TODO.org, .gitignore, and .editorconfig
-    from the templates/ directory relative to jolo.py.
+    Copies AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore, and .editorconfig
+    from the templates/ directory, plus docs/ directory (TODO.org, RESEARCH.org).
 
     Note: .pre-commit-config.yaml is generated dynamically based on language selection,
     not copied from templates.
@@ -152,10 +157,18 @@ def copy_template_files(target_dir: Path) -> None:
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
 
     if not templates_dir.exists():
-        print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
+        print(
+            f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr
+        )
         return
 
-    template_files = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "TODO.org", ".gitignore", ".editorconfig"]
+    template_files = [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "GEMINI.md",
+        ".gitignore",
+        ".editorconfig",
+    ]
 
     for filename in template_files:
         src = templates_dir / filename
@@ -164,8 +177,8 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
 
-    # Copy template directories (skills, agent config)
-    template_dirs = [".agents", ".claude", ".gemini"]
+    # Copy template directories (skills, agent config, docs)
+    template_dirs = [".agents", ".claude", ".gemini", "docs"]
     for dirname in template_dirs:
         src = templates_dir / dirname
         if src.exists():
@@ -207,7 +220,9 @@ def scaffold_devcontainer(
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
-    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace("BASE_IMAGE", config["base_image"])
+    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace(
+        "BASE_IMAGE", config["base_image"]
+    )
     dockerfile_content = dockerfile_content.replace("CONTAINER_USER", username)
     (devcontainer_dir / "Dockerfile").write_text(dockerfile_content)
 
@@ -246,7 +261,9 @@ def sync_devcontainer(
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     # Write Dockerfile with substituted base image and username
-    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace("BASE_IMAGE", config["base_image"])
+    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace(
+        "BASE_IMAGE", config["base_image"]
+    )
     dockerfile_content = dockerfile_content.replace("CONTAINER_USER", username)
     (devcontainer_dir / "Dockerfile").write_text(dockerfile_content)
 
