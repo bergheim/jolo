@@ -34,19 +34,16 @@ class TestSyncDevcontainer(unittest.TestCase):
         devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
         devcontainer_dir.mkdir()
         (devcontainer_dir / 'devcontainer.json').write_text('{"old": "content"}')
-        (devcontainer_dir / 'Dockerfile').write_text('FROM old/image:v1')
 
         # Sync with new config
         config = {'base_image': 'new/image:v2'}
         jolo.sync_devcontainer('myproject', config=config)
 
         # Verify new content
-        dockerfile = (devcontainer_dir / 'Dockerfile').read_text()
-        self.assertIn('FROM new/image:v2', dockerfile)
-        self.assertNotIn('old/image', dockerfile)
-
         json_content = (devcontainer_dir / 'devcontainer.json').read_text()
         self.assertIn('"name": "myproject"', json_content)
+        self.assertIn('"image": "new/image:v2"', json_content)
+        self.assertNotIn('old/image', json_content)
 
     def test_sync_creates_if_missing(self):
         """--sync should create .devcontainer if it doesn't exist."""
@@ -57,7 +54,6 @@ class TestSyncDevcontainer(unittest.TestCase):
 
         devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
         self.assertTrue(devcontainer_dir.exists())
-        self.assertTrue((devcontainer_dir / 'Dockerfile').exists())
         self.assertTrue((devcontainer_dir / 'devcontainer.json').exists())
 
 

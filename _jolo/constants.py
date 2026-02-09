@@ -156,12 +156,3 @@ BASE_MOUNTS = [
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"
-
-DOCKERFILE_TEMPLATE = """FROM BASE_IMAGE
-
-USER root
-RUN apk add --no-cache nodejs npm
-LABEL devcontainer.metadata='[{"remoteUser":"CONTAINER_USER"}]'
-
-USER CONTAINER_USER
-"""

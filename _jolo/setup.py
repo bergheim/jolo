@@ -53,12 +53,17 @@ def setup_emacs_config(workspace_dir: Path) -> None:
     (container_cache / "elpaca").mkdir(parents=True, exist_ok=True)
     (container_cache / "tree-sitter").mkdir(parents=True, exist_ok=True)
 
-    # Copy entire config directory, preserving the directory itself for bind mounts
+    # Copy entire config directory, excluding heavy/redundant dirs
+    ignore_func = shutil.ignore_patterns(
+        ".git", "elpaca", "straight", "eln-cache", "tree-sitter",
+        "elpa", "auto-save-list", "tramp", "server"
+    )
+
     if emacs_dst.exists():
         clear_directory_contents(emacs_dst)
-        shutil.copytree(emacs_src, emacs_dst, symlinks=True, dirs_exist_ok=True)
+        shutil.copytree(emacs_src, emacs_dst, symlinks=True, dirs_exist_ok=True, ignore=ignore_func)
     else:
-        shutil.copytree(emacs_src, emacs_dst, symlinks=True)
+        shutil.copytree(emacs_src, emacs_dst, symlinks=True, ignore=ignore_func)
 
 
 def setup_credential_cache(workspace_dir: Path) -> None:
@@ -86,12 +91,15 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         if src.exists():
             shutil.copy2(src, claude_cache / filename)
 
+    # Only copy statsig if it's not a huge directory
     statsig_src = claude_dir / "statsig"
     statsig_dst = claude_cache / "statsig"
     if statsig_src.exists():
         if statsig_dst.exists():
             shutil.rmtree(statsig_dst)
-        shutil.copytree(statsig_src, statsig_dst)
+        # Use rsync-like copy if statsig is large? 
+        # For now, just copy but avoid nested big things if any
+        shutil.copytree(statsig_src, statsig_dst, ignore=shutil.ignore_patterns("logs", "cache"))
 
     claude_json_src = home / ".claude.json"
     claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"
@@ -212,19 +220,14 @@ def scaffold_devcontainer(
 
     devcontainer_dir.mkdir(parents=True)
 
-    # Get current username for Dockerfile
-    username = os.environ.get("USER", "dev")
-
     # Write devcontainer.json (dynamically built based on environment)
-    json_content = build_devcontainer_json(project_name, port=port)
-    (devcontainer_dir / "devcontainer.json").write_text(json_content)
-
-    # Write Dockerfile with substituted base image and username
-    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace(
-        "BASE_IMAGE", config["base_image"]
+    json_content = build_devcontainer_json(
+        project_name,
+        port=port,
+        base_image=config["base_image"],
+        remote_user=os.environ.get("USER", "dev"),
     )
-    dockerfile_content = dockerfile_content.replace("CONTAINER_USER", username)
-    (devcontainer_dir / "Dockerfile").write_text(dockerfile_content)
+    (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     return True
 
@@ -253,19 +256,14 @@ def sync_devcontainer(
     devcontainer_dir = target_dir / ".devcontainer"
     devcontainer_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get current username for Dockerfile
-    username = os.environ.get("USER", "dev")
-
     # Write devcontainer.json (dynamically built based on environment)
-    json_content = build_devcontainer_json(project_name, port=port)
-    (devcontainer_dir / "devcontainer.json").write_text(json_content)
-
-    # Write Dockerfile with substituted base image and username
-    dockerfile_content = constants.DOCKERFILE_TEMPLATE.replace(
-        "BASE_IMAGE", config["base_image"]
+    json_content = build_devcontainer_json(
+        project_name,
+        port=port,
+        base_image=config["base_image"],
+        remote_user=os.environ.get("USER", "dev"),
     )
-    dockerfile_content = dockerfile_content.replace("CONTAINER_USER", username)
-    (devcontainer_dir / "Dockerfile").write_text(dockerfile_content)
+    (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     print("Synced .devcontainer/ with current config")
 
