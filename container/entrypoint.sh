@@ -20,16 +20,6 @@ if [ -S "$GPG_SOCKET" ]; then
     mkdir -p "$HOME/.gnupg"
     chmod 700 "$HOME/.gnupg"
     ln -sf "$GPG_SOCKET" "$HOME/.gnupg/S.gpg-agent"
-
-    # Import public key from keyserver if not present
-    SIGNING_KEY=$(git config --global user.signingkey 2>/dev/null || true)
-    if [ -n "$SIGNING_KEY" ]; then
-        if ! gpg --list-keys "$SIGNING_KEY" >/dev/null 2>&1; then
-            echo "GPG: Importing signing key $SIGNING_KEY from keyserver..."
-            gpg --keyserver keys.openpgp.org --recv-keys "$SIGNING_KEY" 2>/dev/null || \
-                echo "GPG: Warning - could not import key from keyserver"
-        fi
-    fi
     echo "GPG: Ready for signing"
 else
     echo "GPG: No forwarded agent at $GPG_SOCKET - signing won't work"

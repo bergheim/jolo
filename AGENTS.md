@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > It is NOT meant for general development. For projects created with `jolo create`,
 > see `templates/AGENTS.md` which gets copied to new projects.
 
+## Planning Before Acting
+
+**NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute. The only exception is if the user explicitly says to go ahead without planning.
+
+This applies even when the problem is obvious. Diagnosing a problem is not the same as having permission to fix it.
+
 ## Backward Compatibility
 
 This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly. No aliases, shims, deprecation warnings, or re-exports for old names.
