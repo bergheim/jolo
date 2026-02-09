@@ -103,6 +103,11 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `PNPM_HOME` - pnpm global package path (no sudo needed)
 
+## Notifications
+
+Completion notifications use `ntfy.sh` with a default topic of `jolo`.
+Use `test` only for ad-hoc/manual test pings (e.g., `NTFY_TOPIC=test`).
+
 **Networking:**
 - Each project gets a random port in 4000-5000 assigned at creation time, forwarded from container to host
 - Use `$PORT` for dev servers - it's set in the container environment and accessible via Tailscale
