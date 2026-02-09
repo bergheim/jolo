@@ -443,7 +443,7 @@ def sync_skill_templates(target_dir: Path) -> None:
         link_dir = target_dir / agent_dir
         link_dir.mkdir(parents=True, exist_ok=True)
         link_path = link_dir / "skills"
-        if not link_path.exists():
+        if not link_path.exists() and not link_path.is_symlink():
             os.symlink("../.agents/skills", link_path)
             verbose_print(f"Created {agent_dir}/skills symlink")
 
