@@ -481,6 +481,23 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
         if key not in secrets:
             secrets[key] = os.environ.get(key, "")
 
+    # Get GitHub token from gh CLI or environment
+    if "GH_TOKEN" not in secrets:
+        gh_token = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+        if not gh_token and shutil.which("gh"):
+            try:
+                result = subprocess.run(
+                    ["gh", "auth", "token"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    gh_token = result.stdout.strip()
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+        secrets["GH_TOKEN"] = gh_token
+
     return secrets
 
 

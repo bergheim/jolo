@@ -72,6 +72,7 @@ def build_devcontainer_json(
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+            "GH_TOKEN": "${localEnv:GH_TOKEN}",
             "PORT": str(port),
             "DEV_HOST": hostname,
             "WORKSPACE_FOLDER": workspace_folder,
