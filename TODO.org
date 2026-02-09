@@ -683,6 +683,13 @@ the output is only visible in the shell window. It spawns ~git~, ~gum~, and
 - Check ~$TMUX_PANE~ or window name to conditionally skip
 - Move motd from ~.zshrc.container~ to the shell window command in ~dev.yml~
 
+* DONE Enable sixel image display in terminal             :terminal:graphics:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Install libsixel utilities and enable tmux sixel passthrough so WezTerm can render images.
+
 
 * DONE Add review skill for cross-agent checks            :skills:
 :PROPERTIES:
