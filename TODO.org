@@ -632,3 +632,12 @@ container (not mounted on host). Fast, but it disappears on =jolo down=.
 Tradeoffs:
 - Pros: instant, no new container, easy scratch work
 - Cons: not host-visible, must merge/export before shutdown, less isolation control
+
+* DONE Speed up Emacs config staging                     :emacs:perf:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Exclude cache-like directories from ~setup_emacs_config()~ copy to avoid
+copying multi-GB Emacs caches into workspace.
+

@@ -174,4 +174,10 @@ RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh
 RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
 
+# zimfw: pre-install so shells don't race on first boot
+COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
+RUN curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \
+        https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh && \
+    zsh -c "ZIM_HOME=$HOME/.zim source $HOME/.zim/zimfw.zsh init -q"
+
 ENTRYPOINT ["sh", "-c", "exec \"$HOME/entrypoint.sh\" \"$@\"", "--"]
