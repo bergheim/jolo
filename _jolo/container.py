@@ -57,9 +57,12 @@ def build_devcontainer_json(
         "remoteUser": remote_user,
         "updateRemoteUserUID": False,
         "runArgs": [
-            "--hostname", project_name,
-            "--name", project_name,
-            "-p", f"{port}:{port}",
+            "--hostname",
+            project_name,
+            "--name",
+            project_name,
+            "-p",
+            f"{port}:{port}",
         ],
         "mounts": mounts,
         "containerEnv": {
@@ -131,9 +134,7 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
     return result.returncode == 0
 
 
-def _runtime_exec(
-    workspace_dir: Path, command: str, interactive: bool = False
-) -> bool:
+def _runtime_exec(workspace_dir: Path, command: str, interactive: bool = False) -> bool:
     """Try executing a command via the container runtime directly.
 
     Returns True if successful, False if we should fall back to devcontainer CLI.
@@ -161,7 +162,7 @@ def _runtime_exec(
 def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     """Execute into container and attach/create tmux session."""
     shell_cmd = (
-        "if [ -x \"$HOME/tmux-layout.sh\" ]; then exec \"$HOME/tmux-layout.sh\"; "
+        'if [ -x "$HOME/tmux-layout.sh" ]; then exec "$HOME/tmux-layout.sh"; '
         "else tmux attach-session -d -t dev || tmux new-session -s dev; fi"
     )
 
@@ -279,13 +280,13 @@ def get_container_for_workspace(workspace_dir: Path) -> str | None:
         return None
 
     lines = result.stdout.strip().split("\n")
-    
+
     # Check for running ones first
     for line in lines:
         parts = line.split("\t")
         if len(parts) >= 2 and parts[1] == "running":
             return parts[0]
-            
+
     # Fall back to first available (stopped)
     return lines[0].split("\t")[0]
 
@@ -320,9 +321,7 @@ def stop_container(workspace_dir: Path) -> bool:
         return False
 
 
-def find_containers_for_project(
-    git_root: Path, state_filter: str | None = None
-) -> list[tuple[str, str, str, str]]:
+def find_containers_for_project(git_root: Path, state_filter: str | None = None) -> list[tuple[str, str, str, str]]:
     """Find containers for a project.
 
     Args:
@@ -346,10 +345,7 @@ def find_containers_for_project(
     for name, folder, state, image_id in all_containers:
         # Check if folder is under this project or its worktrees
         folder_path = Path(folder)
-        if (
-            folder_path == git_root
-            or folder_path.parent.name == f"{project_name}-worktrees"
-        ):
+        if folder_path == git_root or folder_path.parent.name == f"{project_name}-worktrees":
             if state_filter is None or state == state_filter:
                 matched.append((name, folder, state, image_id))
 

@@ -27,7 +27,6 @@ from _jolo.commands import (  # noqa: F401
     main,
     run_attach_mode,
     run_create_mode,
-    run_up_mode,
     run_delete_mode,
     run_init_mode,
     run_list_global_mode,
@@ -38,6 +37,7 @@ from _jolo.commands import (  # noqa: F401
     run_spawn_mode,
     run_stop_mode,
     run_tree_mode,
+    run_up_mode,
     spawn_tmux_multipane,
 )
 from _jolo.constants import (  # noqa: F401

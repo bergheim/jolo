@@ -1,11 +1,8 @@
 """Constants for the jolo devcontainer launcher."""
 
-try:
-    import argcomplete
+import importlib.util
 
-    HAVE_ARGCOMPLETE = True
-except ImportError:
-    HAVE_ARGCOMPLETE = False
+HAVE_ARGCOMPLETE = importlib.util.find_spec("argcomplete") is not None
 
 # Word lists for random name generation
 ADJECTIVES = [

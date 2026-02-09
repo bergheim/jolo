@@ -186,7 +186,7 @@ def run_stop_mode(args: argparse.Namespace) -> None:
         main = [(p, t) for p, t in workspaces if t == "main"]
 
         any_stopped = False
-        for ws_path, ws_type in worktrees + main:
+        for ws_path, _ws_type in worktrees + main:
             # Skip if directory doesn't exist (stale worktree)
             if not ws_path.exists():
                 continue
@@ -212,7 +212,8 @@ def run_prune_global_mode() -> None:
         (name, folder, image_id) for name, folder, state, image_id in all_containers if state != "running"
     ]
     orphan_containers = [
-        (name, folder, image_id) for name, folder, state, image_id in all_containers
+        (name, folder, image_id)
+        for name, folder, state, image_id in all_containers
         if state == "running" and not Path(folder).exists()
     ]
 
@@ -234,7 +235,7 @@ def run_prune_global_mode() -> None:
 
     # Collect image IDs that might be pruned
     potential_images = {c[2] for c in stopped_containers + orphan_containers if c[2]}
-    
+
     if potential_images:
         print("Images that may be pruned (if not used by other containers):")
         for image_id in sorted(potential_images):
@@ -303,7 +304,8 @@ def run_prune_mode(args: argparse.Namespace) -> None:
     # Find orphan containers (running but workspace dir missing)
     all_project = find_containers_for_project(git_root)
     orphan_containers = [
-        (name, folder, image_id) for name, folder, state, image_id in all_project
+        (name, folder, image_id)
+        for name, folder, state, image_id in all_project
         if state == "running" and not Path(folder).exists()
     ]
 
@@ -392,7 +394,6 @@ def run_prune_mode(args: argparse.Namespace) -> None:
                     pass
 
 
-
 def run_attach_mode(args: argparse.Namespace) -> None:
     """Run --attach mode: attach to running container."""
     git_root = find_git_root()
@@ -420,8 +421,7 @@ def run_open_mode(args: argparse.Namespace) -> None:
     """Run --open mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
     running = [
-        (name, folder) for name, folder, state, image_id in containers
-        if state == "running" and Path(folder).exists()
+        (name, folder) for name, folder, state, image_id in containers if state == "running" and Path(folder).exists()
     ]
 
     if not running:
@@ -443,8 +443,7 @@ def run_open_mode(args: argparse.Namespace) -> None:
     if shutil.which("fzf"):
         try:
             result = subprocess.run(
-                ["fzf", "--header", "Pick a container:", "--height", "~10",
-                 "--layout", "reverse", "--no-multi"],
+                ["fzf", "--header", "Pick a container:", "--height", "~10", "--layout", "reverse", "--no-multi"],
                 input="\n".join(labels),
                 capture_output=True,
                 text=True,
@@ -683,7 +682,6 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(worktree_path)
 
 
-
 def run_create_mode(args: argparse.Namespace) -> None:
     """Run --create mode: create new project with devcontainer."""
     validate_create_mode(args.name)
@@ -705,7 +703,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     # Primary language is the first in the list
-    primary_language = languages[0] if languages else 'other'
+    primary_language = languages[0] if languages else "other"
 
     # Create project directory
     project_path.mkdir()
@@ -734,9 +732,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
     module_name = project_name.replace("-", "_")
 
     def replace_placeholders(text: str) -> str:
-        return text.replace("{{PROJECT_NAME}}", project_name).replace(
-            "{{PROJECT_NAME_UNDERSCORE}}", module_name
-        )
+        return text.replace("{{PROJECT_NAME}}", project_name).replace("{{PROJECT_NAME_UNDERSCORE}}", module_name)
 
     if test_config.get("config_file"):
         config_file = project_path / test_config["config_file"]
@@ -1049,7 +1045,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         verbose_cmd(cmd)
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         processes.append((path, proc))
-        print(f"  [{i+1}/{n}] Launched: {path.name}")
+        print(f"  [{i + 1}/{n}] Launched: {path.name}")
 
     # Wait for all containers to start
     print(f"Waiting for {n} containers to be ready...")
@@ -1061,7 +1057,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             print(f"  Failed: {path.name}", file=sys.stderr)
             if stderr:
                 # Show last few lines of error
-                err_lines = stderr.decode().strip().split('\n')
+                err_lines = stderr.decode().strip().split("\n")
                 for line in err_lines[-5:]:
                     print(f"    {line}", file=sys.stderr)
         else:
@@ -1118,8 +1114,6 @@ def spawn_tmux_multipane(
     # Create new session with first pane
     first_path = worktree_paths[0]
     first_agent_cmd = get_agent_command(config, agent_override, index=0)
-    first_agent_name = get_agent_name(config, agent_override, index=0)
-
     quoted_prompt = shlex.quote(prompt)
 
     # Build exec command using sh -c to properly handle agent flags
@@ -1129,12 +1123,18 @@ def spawn_tmux_multipane(
 
     # Create new session with first window
     first_exec_cmd = build_exec_cmd(first_path, first_agent_cmd)
-    subprocess.run([
-        "tmux", "new-session", "-d", "-s", session_name, "-n", worktree_names[0],
-    ])
-    subprocess.run([
-        "tmux", "send-keys", "-t", f"{session_name}:{worktree_names[0]}", first_exec_cmd, "Enter"
-    ])
+    subprocess.run(
+        [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            session_name,
+            "-n",
+            worktree_names[0],
+        ]
+    )
+    subprocess.run(["tmux", "send-keys", "-t", f"{session_name}:{worktree_names[0]}", first_exec_cmd, "Enter"])
 
     # Create additional windows (not panes - full screen each)
     for i in range(1, n):
@@ -1145,12 +1145,8 @@ def spawn_tmux_multipane(
         exec_cmd = build_exec_cmd(path, agent_cmd)
 
         # Create new window (full screen) and send command
-        subprocess.run([
-            "tmux", "new-window", "-t", session_name, "-n", name
-        ])
-        subprocess.run([
-            "tmux", "send-keys", "-t", f"{session_name}:{name}", exec_cmd, "Enter"
-        ])
+        subprocess.run(["tmux", "new-window", "-t", session_name, "-n", name])
+        subprocess.run(["tmux", "send-keys", "-t", f"{session_name}:{name}", exec_cmd, "Enter"])
 
     print(f"\nStarted {n} agents in tmux session '{session_name}'")
     print(f"Agents: {', '.join(get_agent_name(config, agent_override, i) for i in range(n))}")
@@ -1193,23 +1189,27 @@ def _build_delete_picker_items() -> list[dict]:
         seen_roots.add(root)
 
         # Add the main project
-        items.append({
-            "path": root,
-            "label": f"{root.name:<24} (project)",
-            "type": "project",
-            "git_root": root,
-            "branch": None,
-        })
+        items.append(
+            {
+                "path": root,
+                "label": f"{root.name:<24} (project)",
+                "type": "project",
+                "git_root": root,
+                "branch": None,
+            }
+        )
 
         # Add worktrees
         for wt_path, commit, branch in _find_deletable_worktrees(root):
-            items.append({
-                "path": wt_path,
-                "label": f"  {wt_path.name:<22} ({branch}) [{commit[:7]}]",
-                "type": "worktree",
-                "git_root": root,
-                "branch": branch,
-            })
+            items.append(
+                {
+                    "path": wt_path,
+                    "label": f"  {wt_path.name:<22} ({branch}) [{commit[:7]}]",
+                    "type": "worktree",
+                    "git_root": root,
+                    "branch": branch,
+                }
+            )
 
     return items
 
@@ -1251,12 +1251,12 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
                 return
 
         # Delete each worktree
-        for wt_path, _, branch in wt_list:
+        for wt_path, _, _branch in wt_list:
             _delete_worktree(wt_path, git_root, yes=yes)
 
     # Find and remove containers for the main project
     containers = find_containers_for_project(git_root)
-    for name, folder, state, image_id in containers:
+    for name, _folder, state, _image_id in containers:
         if state == "running":
             cmd = [runtime, "stop", name]
             verbose_cmd(cmd)
@@ -1266,7 +1266,7 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
             else:
                 print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
 
-    for name, folder, state, image_id in containers:
+    for name, _folder, _state, _image_id in containers:
         if remove_container(name):
             print(f"Removed container: {name}")
         else:
@@ -1325,7 +1325,7 @@ def run_delete_mode(args: argparse.Namespace) -> None:
                 sys.exit("No worktrees found to delete.")
 
             target = None
-            for wt_path, commit, branch in wt_list:
+            for wt_path, _commit, branch in wt_list:
                 if wt_path.name == target_arg:
                     target = (wt_path, branch)
                     break
@@ -1361,8 +1361,7 @@ def run_delete_mode(args: argparse.Namespace) -> None:
         if shutil.which("fzf"):
             try:
                 result = subprocess.run(
-                    ["fzf", "--header", "Pick item to delete:", "--height", "~10",
-                     "--layout", "reverse", "--no-multi"],
+                    ["fzf", "--header", "Pick item to delete:", "--height", "~10", "--layout", "reverse", "--no-multi"],
                     input="\n".join(labels),
                     capture_output=True,
                     text=True,
@@ -1437,7 +1436,6 @@ def main(argv: list[str] | None = None) -> None:
     if cmd == "delete":
         run_delete_mode(args)
         return
-
 
     # No subcommand — show help
     if cmd is None:
