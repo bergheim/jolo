@@ -1,5 +1,25 @@
-#+TITLE: Research Notes
-#+STARTUP: overview
+* devcontainer up hangs on Podman start event                :podman:devcontainer:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Intermittent hangs (~50/50) during =jolo create= / =devcontainer up= after the "Container started" log line.
+
+** Root cause
+The =@devcontainers/cli= uses =podman events --filter event=start= to track readiness. In rootless Podman environments, the default =events_logger= is often =journald=, which can silently drop events or have delivery delays. If the container starts before the listener is attached or the event is dropped, the CLI hangs indefinitely.
+
+** Fix/Workaround
+1. Switch Podman to file-based logging in =~/.config/containers/containers.conf=:
+   #+begin_src toml
+   [engine]
+   events_logger = "file"
+   #+end_src
+2. Implement a timeout + =podman inspect= readiness check in the =jolo= wrapper as a fail-safe.
+
+** Refs
+- [[https://github.com/microsoft/vscode-remote-release/issues/7980][microsoft/vscode-remote-release#7980]]
+- [[https://github.com/devcontainers/cli/issues/816][devcontainers/cli #816]]
+- [[https://github.com/containers/podman/issues/21685][containers/podman#21685]]
 
 * Gemini CLI crashes on Alpine/musl                        :musl:nodejs:gemini:
 :PROPERTIES:
@@ -38,6 +58,25 @@ into gemini's settings.json when copying credentials to container.
 - https://github.com/google-gemini/gemini-cli/issues/14087 (Alpine crash, open)
 - https://github.com/google-gemini/gemini-cli/issues/4676 (Alpine shell hang)
 - https://github.com/google-gemini/gemini-cli/issues/3448 (bash not found)
+
+* jolo --sync now refreshes template skills               :jolo:skills:sync:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Added template skill syncing to all --sync flows so projects created earlier
+can pick up new skills (e.g., research, feature-workflow) without re-creating.
+Also handles dangling .claude/.gemini skills symlinks by checking for symlink
+existence before creating new ones.
+
+** Behavior
+- `jolo up --sync`, `jolo tree --sync`, `jolo init --sync`, `jolo spawn --sync`
+  call `sync_skill_templates()` to copy template skills into `.agents/skills`.
+- Ensures `.claude/skills` and `.gemini/skills` symlinks exist.
+
+** Key files
+- `_jolo/setup.py` — `sync_skill_templates()` implementation
+- `_jolo/commands.py` — hook in --sync paths
 
 ** What ~enableInteractiveShell: false~ loses
 
@@ -394,3 +433,38 @@ Eglot prompts for Python server selection when multiple servers are available
 Pin Eglot to a single Python LSP (e.g. ~pyright-langserver~) to avoid prompts.
 If using Apheleia for Python formatting (e.g. ~ruff format~), add a Python
 formatter mapping in ~formating.el~ to avoid conflicts with LSP formatting.
+
+* gh auth token not available in devcontainers             :gh:credentials:jolo:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+~gh auth token~ fails inside jolo devcontainers even though ~/.config/gh~ is
+mounted read-only from host.
+
+** Root cause
+
+Newer ~gh~ versions store OAuth tokens in the OS keyring (e.g. ~gnome-keyring~,
+~kwallet~, macOS Keychain) instead of writing them to ~hosts.yml~. The mounted
+~hosts.yml~ contains user/protocol info but no ~oauth_token~ field. The container
+has no access to the host keyring.
+
+** Fix
+
+Pass ~GH_TOKEN~ as a ~containerEnv~ variable, populated by ~get_secrets()~ which
+tries (in order):
+1. ~GH_TOKEN~ env var
+2. ~GITHUB_TOKEN~ env var
+3. ~gh auth token~ CLI output (reads from host keyring)
+
+The ~${localEnv:GH_TOKEN}~ in devcontainer.json picks up the value set by
+~os.environ.update(secrets)~ in the jolo launch flow.
+
+** Key files
+- ~_jolo/container.py~ — added ~GH_TOKEN~ to ~containerEnv~
+- ~_jolo/setup.py~ — ~get_secrets()~ fetches token via ~gh auth token~
+- ~.devcontainer/devcontainer.json~ — added ~GH_TOKEN~ entry
+
+** Note
+Existing containers need ~jolo up --sync --new~ to pick up the change.
+The ~gh~ config mount (~~/.config/gh~ readonly) is kept for non-token config.

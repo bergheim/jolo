@@ -751,6 +751,32 @@ pre-commit hooks were never installed. Code had 29 lint violations and
 - [X] Installed pre-commit hooks (=pre-commit install=)
 - [X] All 280 tests pass, all hooks pass
 
+* DONE Rework GitHub Actions CI workflow                     :ci:github:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Split single build-on-every-push workflow into two with native path filters:
+- =test.yml= — lint (ruff), format check, pytest on Python/test file changes
+- =build.yml= — podman build + push to ghcr.io on Containerfile/container changes
+
+* DONE Add terminal bell to notify-done                       :notifications:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+=printf '\a'= at the end of =container/notify-done=. Bell propagates through
+tmux to host terminal, setting URGENT flag on the window.
+
+* DONE Tighten comment policy in AGENTS.md                    :docs:style:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Added explicit rule: comments explain /why/ not /what/, don't narrate
+conversation context, keep to a few words. Updated both =AGENTS.md= and
+=templates/AGENTS.md=.
+
 * TODO =jolo up --new --sync= fails when port already in use :jolo:bug:
 :PROPERTIES:
 :DATE: 2026-02-09
