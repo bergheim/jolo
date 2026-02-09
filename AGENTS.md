@@ -16,6 +16,10 @@ This applies even when the problem is obvious. Diagnosing a problem is not the s
 
 This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly. No aliases, shims, deprecation warnings, or re-exports for old names.
 
+## Comments
+
+Only comment *why*, never *what*. Do not add comments that restate the code. Do not add comments that narrate the conversation or explain context that is obvious from reading the code. `printf '\a'` does not need a comment explaining what a terminal bell is, or if it works through tmux (which was in  the agent conversation). If a comment is needed at all, keep it to a few words — not a sentence.
+
 ## Project Overview
 
 This repo builds and maintains the containerized Emacs GUI environment on Alpine Linux (musl-based), designed as a devcontainer for AI-assisted development. Alpine provides excellent package coverage and small image size. Browser automation uses Playwright with system Chromium. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).

@@ -71,3 +71,6 @@ curl -sf --max-time 5 \
     -d "${BODY}" \
     "${SERVER}/${TOPIC}" \
     >/dev/null 2>&1 || true
+
+# Terminal bell — sets URGENT flag on host window
+printf '\a'

@@ -77,7 +77,7 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 
 **Error handling:** Follow the language's idioms. Rust → `Result`, Python → exceptions, Go → error returns. Don't fight the language.
 
-**Comments:** Code should be self-documenting. Comments explain *why*, never *what*. No docstrings on functions where the name and types tell the whole story. When interleaving comments with code, you MUST use the comment syntax of that language (e.g., `#` for Python/shell, `//` for JS/Go/Rust, `--` for SQL/Lua). Never use markdown or other formatting in code comments.
+**Comments:** Code should be self-documenting. Comments explain *why*, never *what*. Do not add comments that restate the code or narrate context from the conversation — if a comment is needed at all, keep it to a few words. No docstrings on functions where the name and types tell the whole story. When interleaving comments with code, you MUST use the comment syntax of that language (e.g., `#` for Python/shell, `//` for JS/Go/Rust, `--` for SQL/Lua). Never use markdown or other formatting in code comments.
 
 **Testing:** Unit tests for pure logic, integration tests for workflows. Test the public contract, not implementation details. Avoid mocking unless you need to isolate from external systems (network, filesystem, databases).
 
