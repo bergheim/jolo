@@ -414,6 +414,40 @@ def sync_devcontainer(
     print("Synced .devcontainer/ with current config")
 
 
+def sync_skill_templates(target_dir: Path) -> None:
+    """Sync template skills into an existing project.
+
+    Copies each skill directory from templates/.agents/skills into
+    .agents/skills, overwriting matching skills but preserving any
+    extra skills the project may have added.
+    """
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    skills_src = templates_dir / ".agents" / "skills"
+    if not skills_src.exists():
+        return
+
+    skills_dst = target_dir / ".agents" / "skills"
+    skills_dst.mkdir(parents=True, exist_ok=True)
+
+    for entry in skills_src.iterdir():
+        if not entry.is_dir():
+            continue
+        dst = skills_dst / entry.name
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(entry, dst, symlinks=True)
+        verbose_print(f"Synced skill: {entry.name}")
+
+    # Ensure agent skill symlinks exist
+    for agent_dir in [".claude", ".gemini"]:
+        link_dir = target_dir / agent_dir
+        link_dir.mkdir(parents=True, exist_ok=True)
+        link_path = link_dir / "skills"
+        if not link_path.exists():
+            os.symlink("../.agents/skills", link_path)
+            verbose_print(f"Created {agent_dir}/skills symlink")
+
+
 def get_secrets(config: dict | None = None) -> dict[str, str]:
     """Get API secrets from pass or environment variables."""
     if config is None:
