@@ -343,7 +343,7 @@ jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
 - Claude history/state is ephemeral per-project (no cross-project contamination)
 - GPG keyring (`pubring.kbx`, `trustdb.gpg`) mounted read-only; the agent socket is forwarded for signing. The `trustdb not writable` warning is expected and harmless.
 - Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/
-- Shell history persisted per-project in `.devcontainer/.histfile`
+- Shell history persisted per-project in `.devcontainer/.zsh-state/`
 
 **Emacs config isolation:**
 - Config (~/.config/emacs) copied to `.devcontainer/.emacs-config/` - writable
