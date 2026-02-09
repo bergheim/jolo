@@ -11,7 +11,7 @@ Persist what you've learned this session so it survives context loss and is avai
 
 ### 1. Shared project state (for all agents)
 
-**`RESEARCH.org`** (repo root) — findings, investigations, technical knowledge:
+**`RESEARCH.org`** — findings, investigations, technical knowledge:
 
 - Create the file if it doesn't exist (use the template below)
 - Add a new top-level heading with a descriptive title
@@ -47,7 +47,7 @@ This bypasses node-pty and uses ~child_process~ fallback.
 - https://github.com/google-gemini/gemini-cli/issues/14087
 ```
 
-**`TODO.org`** (repo root) — tasks, plans, action items:
+**`TODO.org`** — tasks, plans, action items:
 
 - Add new tasks discovered during the session as `TODO` headings
 - Mark completed tasks as `DONE`
