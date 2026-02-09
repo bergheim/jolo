@@ -4,7 +4,7 @@ run:
 
 # Run with auto-reload
 dev:
-    fd -e go | entr -rn go run .
+    air
 
 # Run tests
 test:
