@@ -37,6 +37,20 @@ The hang occurs even when nothing changes between runs and can be reproduced bac
 6. Version note:
    - Observed with =@devcontainers/cli= 0.80.0 (from verbose startup log).
 
+* Research
+
+1. Podman events are **streaming-only by default**.
+   - The Podman docs state that =podman events= prints *new* events as they occur and that previous events require =--since= / =--until=.
+   - This means a start event can be missed if the listener attaches after the container starts.
+   - Source: [[https://docs.podman.io/en/v4.3/markdown/podman-events.1.html][podman-events man page]]
+
+2. The devcontainer CLI does attach a Podman event listener during startup.
+   - An upstream devcontainers/cli issue log shows:
+     - =podman run ... -c echo Container started=
+     - then =podman events --format json --filter event=start=
+   - This ordering matches the race signature we see locally.
+   - Source: [[https://github.com/devcontainers/cli/issues/816][devcontainers/cli #816]]
+
 * Plan For Fix
 
 We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstream a fix to the devcontainer CLI.
