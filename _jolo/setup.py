@@ -243,13 +243,31 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     settings = _load_json_safe(claude_settings_path)
 
     hooks = settings.setdefault("hooks", {})
+
+    # SessionEnd: always notify when agent exits
     session_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
         "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}],
     }
-    # Avoid duplicates on re-run
     if not any("notify-done" in str(h) for h in session_hooks):
         session_hooks.append(notify_hook)
+
+    # UserPromptSubmit: record timestamp for elapsed-time tracking
+    prompt_hooks = hooks.setdefault("UserPromptSubmit", [])
+    stamp_hook = {
+        "hooks": [{"type": "command", "command": "notify-done stamp"}],
+    }
+    if not any("notify-done stamp" in str(h) for h in prompt_hooks):
+        prompt_hooks.append(stamp_hook)
+
+    # Stop: notify only if response took longer than 20 seconds
+    stop_hooks = hooks.setdefault("Stop", [])
+    slow_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=claude notify-done --if-slow 20"}],
+    }
+    if not any("--if-slow" in str(h) for h in stop_hooks):
+        stop_hooks.append(slow_hook)
+
     claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
     claude_settings_path.write_text(json.dumps(settings, indent=2))
 
