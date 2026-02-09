@@ -112,7 +112,8 @@ COPY container/browser-check.js /usr/local/lib/browser-check.js
 RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd && \
     ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
-    chmod +x /usr/local/bin/hadolint
+    chmod +x /usr/local/bin/hadolint && \
+    mkdir -p /workspaces && chown $USERNAME:$USERNAME /workspaces
 
 USER $USERNAME
 ENV HOME=/home/$USERNAME
@@ -142,10 +143,10 @@ RUN mkdir -p $HOME/.local/bin && \
     pids="" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
+    (curl -fsSL https://claude.ai/install.sh | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
-    curl -fsSL https://claude.ai/install.sh | bash && \
     command -v claude >/dev/null && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \

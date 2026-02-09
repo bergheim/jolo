@@ -31,9 +31,9 @@ fmt-check:
 # lint + format + test
 check: lint fmt-check test
 
-# create/switch worktree with tmux session (in-container)
-tree *args:
-    wt new {{args}}
+# worktree manager (in-container): wt new, wt ls, wt rm, wt main
+wt *args:
+    wt {{args}}
 
 # build the container image
 build:
