@@ -46,6 +46,11 @@ We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstre
 
 4. Validate the fix by running =jolo create= repeatedly *without* sleeps and confirming no hangs.
 
+* Suggestions (Codex)
+
+- **Upstream fix (preferred):** patch =@devcontainers/cli= to remove the race by attaching the event listener *before* the container start call, or by seeding the events stream with =--since= anchored just before start. This is proper event handling, not a workaround.
+- **Wrapper-level guard (safe fallback):** if =podman inspect= already reports the container as running, skip waiting for a start event. This avoids the hang without adding sleeps or poll loops, and preserves normal behavior when the event stream works.
+
 * Open Questions
 
 - Is this Podman-specific, or reproducible with Docker? (Docker may buffer events differently.)
