@@ -51,6 +51,20 @@ Port assignment:
 - In spawn mode (`jolo spawn N`), each worktree gets base_port + offset (4000, 4001, ...)
 - Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network
 
+## Git Workflow
+
+Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
+
+For bigger tasks, use TDD and commit frequently on the branch as you make progress.
+
+```bash
+git checkout feature-branch
+git rebase main
+git checkout main
+git merge feature-branch          # fast-forward for single commit
+git merge --no-ff feature-branch  # merge commit for multi-commit branches
+```
+
 ## Build Commands
 
 ```bash
