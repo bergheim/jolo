@@ -61,6 +61,36 @@ We need a workaround in *jolo* (wrapper-side), unless we plan to patch or upstre
   2. Simplify the =Containerfile= ENTRYPOINT to call the script directly (remove the =sh -c= wrapper).
 - **Benefit**: This makes the container "well-behaved" according to the =devcontainer= spec and likely removes the state-mismatch causing the hang.
 
+* Analysis (Claude)
+
+** Gemini's entrypoint suggestion does not apply
+
+The =echo Container started= probe runs via =podman exec= into the already-running container, not as the container's CMD. The ENTRYPOINT (=sh -c "exec $HOME/entrypoint.sh $@"=) correctly keeps the container alive with =exec sleep infinity=. The probe succeeds — "Container started" is printed. The hang occurs /before/ the probe, while the CLI waits for the =podman events= start event that was already emitted.
+
+Changing the entrypoint to =exec "$@"= would make the container exit after the probe (since =echo= returns immediately), which is the opposite of what we want.
+
+** Codex's analysis is correct
+
+The race is definitively: =podman events --filter event=start= listener attaches /after/ =podman start= completes. The event fires before anyone is listening. The CLI waits forever.
+
+The =sleep 1= workaround does not help because it only delays the /next/ create — it does not change the ordering between the container start and the event listener within a single =devcontainer up= invocation.
+
+** What devcontainer up actually does post-start (in our case: nothing)
+
+With our config (=userEnvProbe: "none"=, no lifecycle commands, no features, =updateRemoteUserUID: false=), the CLI has nothing to do after confirming the container is running. It just returns the JSON result. This means if the container IS running, the =devcontainer up= process is safe to kill — no post-start work is lost.
+
+** Recommended fix: timeout with container-running check
+
+Rather than hacking around the race (background restarts, sleeps), use a timeout on =devcontainer up= and verify the container independently:
+
+1. Run =devcontainer up= with a 15-second timeout.
+2. If it completes normally, done.
+3. If it times out, check =podman inspect= for =State.Running == true=.
+4. If running, kill the hung CLI process and return success.
+5. If not running, return failure.
+
+This is not a hack — the container genuinely is ready. We are just not waiting for a buggy event listener to acknowledge something that already happened. The workaround is confined to a single function (=devcontainer_up()=) and does not change the happy path.
+
 * Open Questions
 
 - Is this Podman-specific, or reproducible with Docker? (Docker may buffer events differently.)
