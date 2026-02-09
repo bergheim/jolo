@@ -97,21 +97,14 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Smart emacsclient wrapper (must be before USER switch)
+# Root-level files and setup
 COPY container/e /usr/local/bin/e
 COPY container/motd /usr/local/bin/motd
-RUN chmod +x /usr/local/bin/e /usr/local/bin/motd
-
-# fzf completion.zsh lives in /usr/share/zsh/plugins/fzf/ on Alpine
-# but most configs expect /usr/share/fzf/completion.zsh
-RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh
-
-# hadolint (Dockerfile linter) - static binary works on musl
-RUN wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
-    chmod +x /usr/local/bin/hadolint
-
-# browser-check - Alpine-compatible browser automation CLI
 COPY container/browser-check.js /usr/local/lib/browser-check.js
+RUN chmod +x /usr/local/bin/e /usr/local/bin/motd && \
+    ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
+    wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
+    chmod +x /usr/local/bin/hadolint
 
 USER $USERNAME
 ENV HOME=/home/$USERNAME
@@ -135,13 +128,15 @@ RUN pnpm add -g \
     @openai/codex \
     @google/gemini-cli
 
-# Downloads and installs (cached layer — rarely changes)
+# Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
-    go install github.com/air-verse/air@latest && \
-    curl -fsSL https://bun.sh/install | bash && \
-    curl -fsSL https://claude.ai/install.sh | bash && \
-    curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && \
-    uv tool install ty && \
+    pids="" && \
+    (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
+    (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
+    (curl -fsSL https://claude.ai/install.sh | bash) & pids="$pids $!" && \
+    (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
+    (uv tool install ty) & pids="$pids $!" && \
+    for p in $pids; do wait "$p" || exit 1; done && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
@@ -165,18 +160,13 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
 
 ENV EMACS_CONTAINER=1
 
-# ENTRYPOINT script for GUI launch
-COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh $HOME/
-COPY --chown=$USERNAME:$USERNAME container/tmux-layout.sh $HOME/
-RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh
-
-# tmuxinator layout
+# Container scripts, tmuxinator layout, and zimfw
+COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
 RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
-
-# zimfw: pre-install so shells don't race on first boot
 COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
-RUN curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \
+RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh && \
+    curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \
         https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh && \
     zsh -c "ZIM_HOME=$HOME/.zim source $HOME/.zim/zimfw.zsh init -q"
 
