@@ -272,7 +272,9 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     if codex_config_path.exists():
         config = codex_config_path.read_text()
         # Skip if notify-done already present OR if a notify key already exists
-        if "notify-done" not in config and "\nnotify " not in config and not config.startswith("notify "):
+        # Use regex to catch notify=, notify =, etc.
+        has_notify = any(line.strip().startswith("notify") for line in config.splitlines())
+        if "notify-done" not in config and not has_notify:
             if not config.endswith("\n"):
                 config += "\n"
             config += 'notify = ["sh", "-c", "AGENT=codex notify-done"]\n'
