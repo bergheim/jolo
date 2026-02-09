@@ -12,7 +12,7 @@ test:
 
 # Run tests continuously (on file change)
 test-watch:
-    fd -e go | entr -c go test ./...
+    fd -e go | entr -cn go test ./...
 
 # Add a dependency
 add *packages:

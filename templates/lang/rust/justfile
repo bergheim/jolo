@@ -4,7 +4,7 @@ run:
 
 # Run with auto-reload
 dev:
-    fd -e rs | entr -r cargo run
+    fd -e rs | entr -rn cargo run
 
 # Run tests
 test:
@@ -12,7 +12,7 @@ test:
 
 # Run tests continuously (on file change)
 test-watch:
-    fd -e rs | entr -c cargo test
+    fd -e rs | entr -cn cargo test
 
 # Add a dependency
 add *packages:
