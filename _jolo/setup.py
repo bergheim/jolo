@@ -221,6 +221,49 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         print(f"Warning: Failed to inject MCP configs into Codex config.toml: {e}", file=sys.stderr)
 
 
+def setup_notification_hooks(workspace_dir: Path) -> None:
+    """Inject agent completion notification hooks into cached settings files.
+
+    Adds hooks that call notify-done when agents finish.
+    Merges with existing hooks (does not overwrite).
+    Must be called after setup_credential_cache() so the cache dirs exist.
+    """
+    # Claude: inject Stop hook into .claude-cache/settings.json
+    claude_settings_path = workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
+    if claude_settings_path.exists():
+        settings = json.loads(claude_settings_path.read_text())
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+    stop_hooks = hooks.setdefault("Stop", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}],
+    }
+    # Avoid duplicates on re-run
+    if not any("notify-done" in str(h) for h in stop_hooks):
+        stop_hooks.append(notify_hook)
+    claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    claude_settings_path.write_text(json.dumps(settings, indent=2))
+
+    # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
+    gemini_settings_path = workspace_dir / ".devcontainer" / ".gemini-cache" / "settings.json"
+    if gemini_settings_path.exists():
+        settings = json.loads(gemini_settings_path.read_text())
+    else:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+    session_end_hooks = hooks.setdefault("SessionEnd", [])
+    notify_hook = {
+        "hooks": [{"type": "command", "command": "AGENT=gemini notify-done"}],
+    }
+    if not any("notify-done" in str(h) for h in session_end_hooks):
+        session_end_hooks.append(notify_hook)
+    gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
+
+
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
