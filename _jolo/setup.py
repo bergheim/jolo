@@ -88,14 +88,11 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
 
 
 def setup_credential_cache(workspace_dir: Path) -> None:
-    """Copy AI credentials to workspace for container isolation.
+    """Stage AI credentials for container use.
 
-    Copies only the necessary files from ~/.claude and ~/.gemini to
-    .devcontainer/.claude-cache/ and .devcontainer/.gemini-cache/
-    so the container has working auth but can't write back to host directories.
-
-    Note: We clear contents rather than rmtree to preserve directory inodes,
-    which keeps bind mounts working in running containers.
+    Claude: .credentials.json is mounted RW from the host (token refreshes
+    persist). Only settings.json is copied (for notification hook injection).
+    Gemini/Codex: fully copied to .devcontainer cache dirs.
     """
     home = Path.home()
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -108,21 +105,12 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     else:
         claude_cache.mkdir(parents=True)
 
+    # .credentials.json is mounted RW directly from the host (token refreshes persist).
+    # Only copy settings.json (we inject notification hooks into it).
     claude_dir = home / ".claude"
-    for filename in [".credentials.json", "settings.json"]:
-        src = claude_dir / filename
-        if src.exists():
-            shutil.copy2(src, claude_cache / filename)
-
-    # Only copy statsig if it's not a huge directory
-    statsig_src = claude_dir / "statsig"
-    statsig_dst = claude_cache / "statsig"
-    if statsig_src.exists():
-        if statsig_dst.exists():
-            shutil.rmtree(statsig_dst)
-        # Use rsync-like copy if statsig is large?
-        # For now, just copy but avoid nested big things if any
-        shutil.copytree(statsig_src, statsig_dst, ignore=shutil.ignore_patterns("logs", "cache"))
+    settings_src = claude_dir / "settings.json"
+    if settings_src.exists():
+        shutil.copy2(settings_src, claude_cache / "settings.json")
 
     claude_json_src = home / ".claude.json"
     claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"

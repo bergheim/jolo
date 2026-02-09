@@ -101,7 +101,7 @@ Alpine ships BusyBox which lacks many GNU flags. Tools that break:
 Emacs apheleia uses ~diff --rcs~ for formatting patches — fails silently
 with BusyBox, shows "Output file descriptor of apheleia-diff is closed".
 
-* OAuth token expiration in devcontainers              :oauth:claude:credentials:
+* DONE OAuth token expiration in devcontainers          :oauth:claude:credentials:
 :PROPERTIES:
 :DATE: 2026-02-09
 :END:
@@ -119,10 +119,20 @@ Next =jolo up= overwrites the refreshed token with stale host credentials.
 Additionally, Claude Code has bugs where it doesn't actually use the refresh
 token in several scenarios (copied creds, multi-instance, exit/restart).
 
-** Proposed fix
+** Fix (implemented)
 
-Mount =~/.claude/.credentials.json= directly RW instead of copying.
-Or mount all of =~/.claude= RW (but this exposes =projects/=, =history.jsonl=).
+Replaced the single =.claude-cache= directory mount with selective file mounts:
+- =~/.claude/.credentials.json= — mounted RW from host (token refreshes persist)
+- =~/.claude/statsig/= — mounted RO from host (feature flags)
+- =settings.json= — still copied to =.claude-cache/= (notification hooks injected)
+- =.claude.json= — still copied (MCP config injection)
+
+This keeps =projects/=, =history.jsonl=, =todos/= invisible to the container
+while letting token refreshes write back to the host.
+
+** Key files
+- =_jolo/constants.py= — =BASE_MOUNTS= (3 selective mounts replace 1 dir mount)
+- =_jolo/setup.py= — =setup_credential_cache()= no longer copies credentials
 
 ** Open issues (anthropics/claude-code)
 
@@ -130,6 +140,50 @@ Or mount all of =~/.claude= RW (but this exposes =projects/=, =history.jsonl=).
 - [[https://github.com/anthropics/claude-code/issues/16957][#16957]] — exit-time refresh tokens not persisted
 - [[https://github.com/anthropics/claude-code/issues/22600][#22600]] — multi-instance race condition
 - [[https://github.com/anthropics/claude-code/issues/22602][#22602]] — VS Code reuses expired tokens across windows
+
+* OpenSpec / Spec-Driven Development trial                 :sdd:openspec:workflow:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Tried OpenSpec v1.1.1 as a Spec-Driven Development framework for this project.
+Full cycle on the credential mount change: new → ff → apply → verify → archive.
+
+** What it is
+
+OpenSpec creates structured markdown artifacts (proposal → design → specs → tasks)
+in =openspec/= before implementation. Specs accumulate in =openspec/specs/= as a
+living system description. Supports Claude, Gemini, Codex via slash commands.
+
+Install: =pnpm install -g @fission-ai/openspec@latest=
+Init: =openspec init --tools claude,codex,gemini=
+
+** What we learned
+
+The credential mount change required ~10 lines of code changes. OpenSpec generated
+17KB / 359 lines of spec artifacts across 7 files. 100:1 ceremony-to-code ratio.
+
+The verify step caught one real issue (stale docstring). A =git diff= review
+would have caught the same thing.
+
+** Verdict: not for this project
+
+The existing stack (AGENTS.md + TODO.org + feature-workflow skill) covers 80% of
+the value with zero overhead. The TODO.org entry for this feature already had
+design tradeoffs, upstream issue links, and alternatives — which is most of what
+OpenSpec's proposal + design artifacts provided, just in a different format.
+
+** Where it might earn its keep
+
+- 3+ parallel agents on the same feature needing a shared checklist
+  (=tasks.md= survives context resets, which is genuinely useful)
+- Projects where design rationale needs to survive beyond chat history
+  and is non-obvious from the code
+- Large teams where multiple people need to stay aligned on what to build
+
+** Files
+
+OpenSpec files are in =openspec/= on the =sdd= branch as a reference.
 
 * Generated project docs layout                             :templates:structure:
 :PROPERTIES:
