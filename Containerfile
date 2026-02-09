@@ -118,6 +118,7 @@ ENV PATH="$PNPM_HOME:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/
 RUN pnpm add -g \
     @biomejs/biome \
     playwright \
+    @playwright/mcp \
     typescript-language-server \
     vscode-langservers-extracted \
     bash-language-server \
@@ -133,10 +134,11 @@ RUN mkdir -p $HOME/.local/bin && \
     pids="" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
-    (curl -fsSL https://claude.ai/install.sh | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
+    curl -fsSL https://claude.ai/install.sh | bash && \
+    command -v claude >/dev/null && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
@@ -153,6 +155,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
+    echo 'export EDITOR=nvim' >> $HOME/.zshrc.container && \
     # echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
     echo 'export TERM=tmux-256color' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
