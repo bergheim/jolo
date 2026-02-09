@@ -24,23 +24,24 @@ class TestTemplateSystem(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.original_cwd)
         import shutil
+
         shutil.rmtree(self.tmpdir)
 
     def test_scaffold_devcontainer_creates_directory(self):
         """Should create .devcontainer directory."""
         os.chdir(self.tmpdir)
-        jolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer("testproject")
 
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         self.assertTrue(devcontainer_dir.exists())
         self.assertTrue(devcontainer_dir.is_dir())
 
     def test_scaffold_devcontainer_creates_json(self):
         """Should create devcontainer.json with project name."""
         os.chdir(self.tmpdir)
-        jolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer("testproject")
 
-        json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
+        json_file = Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
         self.assertTrue(json_file.exists())
         content = json_file.read_text()
         self.assertIn('"name": "testproject"', content)
@@ -48,37 +49,37 @@ class TestTemplateSystem(unittest.TestCase):
     def test_scaffold_devcontainer_sets_image(self):
         """Should set image in devcontainer.json with default base image."""
         os.chdir(self.tmpdir)
-        jolo.scaffold_devcontainer('testproject')
+        jolo.scaffold_devcontainer("testproject")
 
-        json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
+        json_file = Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
         content = json_file.read_text()
         self.assertIn('"image": "localhost/emacs-gui:latest"', content)
 
     def test_scaffold_devcontainer_uses_config_base_image(self):
         """Should use base_image from config in devcontainer.json."""
         os.chdir(self.tmpdir)
-        config = {'base_image': 'custom/myimage:v3'}
-        jolo.scaffold_devcontainer('testproject', config=config)
+        config = {"base_image": "custom/myimage:v3"}
+        jolo.scaffold_devcontainer("testproject", config=config)
 
-        json_file = Path(self.tmpdir) / '.devcontainer' / 'devcontainer.json'
+        json_file = Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
         content = json_file.read_text()
         self.assertIn('"image": "custom/myimage:v3"', content)
-        self.assertNotIn('localhost/emacs-gui', content)
+        self.assertNotIn("localhost/emacs-gui", content)
 
     def test_scaffold_warns_if_exists(self):
         """Should warn but not error if .devcontainer exists."""
         os.chdir(self.tmpdir)
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        (devcontainer_dir / 'devcontainer.json').write_text('existing')
+        (devcontainer_dir / "devcontainer.json").write_text("existing")
 
         # Should not raise, should return False (not created)
-        result = jolo.scaffold_devcontainer('testproject')
+        result = jolo.scaffold_devcontainer("testproject")
         self.assertFalse(result)
 
         # Original file should be preserved
-        content = (devcontainer_dir / 'devcontainer.json').read_text()
-        self.assertEqual(content, 'existing')
+        content = (devcontainer_dir / "devcontainer.json").read_text()
+        self.assertEqual(content, "existing")
 
 
 class TestSecretsManagement(unittest.TestCase):
@@ -86,34 +87,32 @@ class TestSecretsManagement(unittest.TestCase):
 
     def test_get_secrets_from_env(self):
         """Should get secrets from environment when pass unavailable."""
-        env = {
-            'ANTHROPIC_API_KEY': 'sk-ant-test123',
-            'OPENAI_API_KEY': 'sk-openai-test456'
-        }
+        env = {"ANTHROPIC_API_KEY": "sk-ant-test123", "OPENAI_API_KEY": "sk-openai-test456"}
         with mock.patch.dict(os.environ, env, clear=True):
-            with mock.patch('shutil.which', return_value=None):
+            with mock.patch("shutil.which", return_value=None):
                 secrets = jolo.get_secrets()
 
-        self.assertEqual(secrets['ANTHROPIC_API_KEY'], 'sk-ant-test123')
-        self.assertEqual(secrets['OPENAI_API_KEY'], 'sk-openai-test456')
+        self.assertEqual(secrets["ANTHROPIC_API_KEY"], "sk-ant-test123")
+        self.assertEqual(secrets["OPENAI_API_KEY"], "sk-openai-test456")
 
     def test_get_secrets_from_pass(self):
         """Should get secrets from pass when available."""
+
         def mock_run(cmd, *args, **kwargs):
             result = mock.Mock()
             result.returncode = 0
-            if 'api/llm/anthropic' in cmd:
-                result.stdout = 'sk-ant-from-pass\n'
-            elif 'api/llm/openai' in cmd:
-                result.stdout = 'sk-openai-from-pass\n'
+            if "api/llm/anthropic" in cmd:
+                result.stdout = "sk-ant-from-pass\n"
+            elif "api/llm/openai" in cmd:
+                result.stdout = "sk-openai-from-pass\n"
             return result
 
-        with mock.patch('shutil.which', return_value='/usr/bin/pass'):
-            with mock.patch('subprocess.run', side_effect=mock_run):
+        with mock.patch("shutil.which", return_value="/usr/bin/pass"):
+            with mock.patch("subprocess.run", side_effect=mock_run):
                 secrets = jolo.get_secrets()
 
-        self.assertEqual(secrets['ANTHROPIC_API_KEY'], 'sk-ant-from-pass')
-        self.assertEqual(secrets['OPENAI_API_KEY'], 'sk-openai-from-pass')
+        self.assertEqual(secrets["ANTHROPIC_API_KEY"], "sk-ant-from-pass")
+        self.assertEqual(secrets["OPENAI_API_KEY"], "sk-openai-from-pass")
 
 
 class TestAddUserMounts(unittest.TestCase):
@@ -126,14 +125,15 @@ class TestAddUserMounts(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.original_cwd)
         import shutil
+
         shutil.rmtree(self.tmpdir)
 
     def test_add_user_mounts_to_devcontainer_json(self):
         """Mount should be added to mounts array in JSON."""
         # Create devcontainer.json
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file = devcontainer_dir / "devcontainer.json"
         json_file.write_text(json.dumps({"name": "test", "mounts": []}))
 
         # Add a mount
@@ -142,29 +142,29 @@ class TestAddUserMounts(unittest.TestCase):
 
         # Verify
         content = json.loads(json_file.read_text())
-        self.assertEqual(len(content['mounts']), 1)
-        self.assertIn('source=/home/user/data', content['mounts'][0])
-        self.assertIn('target=/workspaces/test/data', content['mounts'][0])
-        self.assertIn('type=bind', content['mounts'][0])
+        self.assertEqual(len(content["mounts"]), 1)
+        self.assertIn("source=/home/user/data", content["mounts"][0])
+        self.assertIn("target=/workspaces/test/data", content["mounts"][0])
+        self.assertIn("type=bind", content["mounts"][0])
 
     def test_mount_readonly_format(self):
         """Readonly mount should include ,readonly in mount string."""
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file = devcontainer_dir / "devcontainer.json"
         json_file.write_text(json.dumps({"name": "test", "mounts": []}))
 
         mounts = [{"source": "/data", "target": "/mnt", "readonly": True}]
         jolo.add_user_mounts(json_file, mounts)
 
         content = json.loads(json_file.read_text())
-        self.assertIn(',readonly', content['mounts'][0])
+        self.assertIn(",readonly", content["mounts"][0])
 
     def test_multiple_mounts_in_json(self):
         """Multiple mounts should all be added."""
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file = devcontainer_dir / "devcontainer.json"
         json_file.write_text(json.dumps({"name": "test", "mounts": ["existing"]}))
 
         mounts = [
@@ -174,27 +174,27 @@ class TestAddUserMounts(unittest.TestCase):
         jolo.add_user_mounts(json_file, mounts)
 
         content = json.loads(json_file.read_text())
-        self.assertEqual(len(content['mounts']), 3)  # existing + 2 new
+        self.assertEqual(len(content["mounts"]), 3)  # existing + 2 new
 
     def test_add_user_mounts_creates_mounts_array(self):
         """Should create mounts array if not present."""
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file = devcontainer_dir / "devcontainer.json"
         json_file.write_text(json.dumps({"name": "test"}))
 
         mounts = [{"source": "/data", "target": "/mnt", "readonly": False}]
         jolo.add_user_mounts(json_file, mounts)
 
         content = json.loads(json_file.read_text())
-        self.assertIn('mounts', content)
-        self.assertEqual(len(content['mounts']), 1)
+        self.assertIn("mounts", content)
+        self.assertEqual(len(content["mounts"]), 1)
 
     def test_add_user_mounts_empty_list(self):
         """Empty mounts list should not modify file."""
-        devcontainer_dir = Path(self.tmpdir) / '.devcontainer'
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        json_file = devcontainer_dir / 'devcontainer.json'
+        json_file = devcontainer_dir / "devcontainer.json"
         original = {"name": "test"}
         json_file.write_text(json.dumps(original))
 
@@ -214,58 +214,59 @@ class TestCopyUserFiles(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.original_cwd)
         import shutil
+
         shutil.rmtree(self.tmpdir)
 
     def test_file_copied_to_correct_location(self):
         """File should be copied to target location."""
-        workspace = Path(self.tmpdir) / 'workspace'
+        workspace = Path(self.tmpdir) / "workspace"
         workspace.mkdir()
 
         # Create source file
-        source = Path(self.tmpdir) / 'source.json'
+        source = Path(self.tmpdir) / "source.json"
         source.write_text('{"test": true}')
 
         copies = [{"source": str(source), "target": "/workspaces/myproj/config.json"}]
         jolo.copy_user_files(copies, workspace)
 
-        target = workspace / 'config.json'
+        target = workspace / "config.json"
         self.assertTrue(target.exists())
         self.assertEqual(target.read_text(), '{"test": true}')
 
     def test_parent_directories_created(self):
         """Parent directories should be created if needed."""
-        workspace = Path(self.tmpdir) / 'workspace'
+        workspace = Path(self.tmpdir) / "workspace"
         workspace.mkdir()
 
-        source = Path(self.tmpdir) / 'source.json'
-        source.write_text('test')
+        source = Path(self.tmpdir) / "source.json"
+        source.write_text("test")
 
         copies = [{"source": str(source), "target": "/workspaces/myproj/nested/deep/config.json"}]
         jolo.copy_user_files(copies, workspace)
 
-        target = workspace / 'nested' / 'deep' / 'config.json'
+        target = workspace / "nested" / "deep" / "config.json"
         self.assertTrue(target.exists())
 
     def test_error_on_missing_source(self):
         """Should error if source file doesn't exist."""
-        workspace = Path(self.tmpdir) / 'workspace'
+        workspace = Path(self.tmpdir) / "workspace"
         workspace.mkdir()
 
         copies = [{"source": "/nonexistent/file.json", "target": "/workspaces/myproj/config.json"}]
 
         with self.assertRaises(SystemExit) as cm:
             jolo.copy_user_files(copies, workspace)
-        self.assertIn('does not exist', str(cm.exception.code))
+        self.assertIn("does not exist", str(cm.exception.code))
 
     def test_multiple_copies(self):
         """Multiple files should all be copied."""
-        workspace = Path(self.tmpdir) / 'workspace'
+        workspace = Path(self.tmpdir) / "workspace"
         workspace.mkdir()
 
-        source1 = Path(self.tmpdir) / 'a.json'
-        source1.write_text('a')
-        source2 = Path(self.tmpdir) / 'b.json'
-        source2.write_text('b')
+        source1 = Path(self.tmpdir) / "a.json"
+        source1.write_text("a")
+        source2 = Path(self.tmpdir) / "b.json"
+        source2.write_text("b")
 
         copies = [
             {"source": str(source1), "target": "/workspaces/myproj/a.json"},
@@ -273,9 +274,9 @@ class TestCopyUserFiles(unittest.TestCase):
         ]
         jolo.copy_user_files(copies, workspace)
 
-        self.assertTrue((workspace / 'a.json').exists())
-        self.assertTrue((workspace / 'b.json').exists())
+        self.assertTrue((workspace / "a.json").exists())
+        self.assertTrue((workspace / "b.json").exists())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -109,7 +109,7 @@ def get_precommit_install_command() -> list[str]:
     Returns:
         List of command parts: ['pre-commit', 'install']
     """
-    return ['pre-commit', 'install']
+    return ["pre-commit", "install"]
 
 
 def get_type_checker_config(language: str) -> dict | None:
@@ -397,7 +397,7 @@ python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 """
-        main_content = '''\
+        main_content = """\
 def hello() -> str:
     return "Hello, World!"
 
@@ -408,14 +408,14 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-'''
-        example_test_content = '''\
+"""
+        example_test_content = """\
 from {{PROJECT_NAME_UNDERSCORE}}.main import hello
 
 
 def test_hello():
     assert hello() == "Hello, World!"
-'''
+"""
         return {
             "config_file": "pyproject.toml",
             "config_content": config_content,

@@ -231,4 +231,3 @@ At runtime, ~init.zsh~ is already built and newer than ~.zimrc~, so the
 - ~container/tmux-layout.sh~ — reverted workaround
 - ~~/.zshrc~ lines 121-138 — bootstrap code (bind-mounted from host, readonly)
 - ~~/.zim/zimfw.zsh~ line 877 — the ~git symbolic-ref~ that races
-

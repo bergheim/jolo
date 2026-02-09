@@ -144,9 +144,7 @@ def remove_worktree(git_root: Path, worktree_path: Path) -> bool:
 
 def branch_exists(git_root: Path, branch: str) -> bool:
     """Check if a branch or ref exists in the repository."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", branch], cwd=git_root, capture_output=True
-    )
+    result = subprocess.run(["git", "rev-parse", "--verify", branch], cwd=git_root, capture_output=True)
     return result.returncode == 0
 
 

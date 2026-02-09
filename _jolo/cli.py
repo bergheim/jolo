@@ -48,7 +48,9 @@ def detect_hostname() -> str:
     try:
         result = subprocess.run(
             ["tailscale", "status", "--self", "--json"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             data = json.loads(result.stdout)
@@ -83,8 +85,7 @@ def verbose_print(msg: str) -> None:
 def _select_languages_gum() -> list[str]:
     """Use gum for interactive selection (if available)."""
     result = subprocess.run(
-        ["gum", "choose", "--no-limit", "--header", "Select project languages:"]
-        + constants.LANGUAGE_OPTIONS,
+        ["gum", "choose", "--no-limit", "--header", "Select project languages:"] + constants.LANGUAGE_OPTIONS,
         capture_output=True,
         text=True,
     )
@@ -153,10 +154,7 @@ def parse_lang_arg(value: str) -> list[str]:
     invalid = [lang for lang in languages if lang not in constants.VALID_LANGUAGES]
     if invalid:
         valid_list = ", ".join(sorted(constants.VALID_LANGUAGES))
-        raise argparse.ArgumentTypeError(
-            f"Invalid language(s): {', '.join(invalid)}. "
-            f"Valid options: {valid_list}"
-        )
+        raise argparse.ArgumentTypeError(f"Invalid language(s): {', '.join(invalid)}. Valid options: {valid_list}")
     return languages
 
 
@@ -231,7 +229,7 @@ def parse_copy(arg: str, project_name: str) -> dict:
 def verbose_cmd(cmd: list[str]) -> None:
     """Print command if verbose mode is enabled."""
     if constants.VERBOSE:
-        print(f'[verbose] $ {" ".join(cmd)}', file=sys.stderr)
+        print(f"[verbose] $ {' '.join(cmd)}", file=sys.stderr)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -241,67 +239,89 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     p_verbose = argparse.ArgumentParser(add_help=False)
     p_verbose.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Print commands being executed",
     )
 
     p_prompt = argparse.ArgumentParser(add_help=False)
     p_prompt.add_argument(
-        "--prompt", "-p", metavar="PROMPT",
+        "--prompt",
+        "-p",
+        metavar="PROMPT",
         help="Start AI agent with this prompt (implies --detach)",
     )
     p_prompt.add_argument(
-        "--agent", default="claude", metavar="CMD",
+        "--agent",
+        default="claude",
+        metavar="CMD",
         help="AI agent command (default: claude)",
     )
 
     p_detach = argparse.ArgumentParser(add_help=False)
     p_detach.add_argument(
-        "--detach", "-d", action="store_true",
+        "--detach",
+        "-d",
+        action="store_true",
         help="Start container without attaching",
     )
 
     p_exec = argparse.ArgumentParser(add_help=False)
     p_exec.add_argument(
-        "--shell", action="store_true",
+        "--shell",
+        action="store_true",
         help="Exec into container with zsh (no tmux)",
     )
     p_exec.add_argument(
-        "--run", metavar="CMD",
+        "--run",
+        metavar="CMD",
         help="Exec command directly in container (no tmux)",
     )
 
     p_mounts = argparse.ArgumentParser(add_help=False)
     p_mounts.add_argument(
-        "--mount", action="append", default=[], metavar="SRC:DST[:ro]",
+        "--mount",
+        action="append",
+        default=[],
+        metavar="SRC:DST[:ro]",
         help="Mount host path into container (repeatable)",
     )
     p_mounts.add_argument(
-        "--copy", action="append", default=[], metavar="SRC[:DST]",
+        "--copy",
+        action="append",
+        default=[],
+        metavar="SRC[:DST]",
         help="Copy file to workspace before start (repeatable)",
     )
 
     p_new = argparse.ArgumentParser(add_help=False)
     p_new.add_argument(
-        "--new", action="store_true",
+        "--new",
+        action="store_true",
         help="Remove existing container before starting",
     )
 
     p_sync = argparse.ArgumentParser(add_help=False)
     p_sync.add_argument(
-        "--sync", action="store_true",
+        "--sync",
+        action="store_true",
         help="Regenerate .devcontainer from template",
     )
 
     p_all = argparse.ArgumentParser(add_help=False)
     p_all.add_argument(
-        "--all", "-a", action="store_true",
+        "--all",
+        "-a",
+        action="store_true",
         help="Show/act on all (globally or for project)",
     )
 
     p_yes = argparse.ArgumentParser(add_help=False)
     p_yes.add_argument(
-        "--yes", "-y", action="store_true",
+        "--yes",
+        "-y",
+        action="store_true",
         help="Skip confirmation prompts",
     )
 
@@ -317,85 +337,114 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     # Defaults so attributes exist even when no subcommand is given
     parser.set_defaults(
-        prompt=None, agent="claude", from_branch=None, prefix=None,
-        all=False, new=False, sync=False, detach=False, shell=False, run=None,
-        mount=[], copy=[], lang=None, yes=False, verbose=False,
-        purge=False, target=None,
+        prompt=None,
+        agent="claude",
+        from_branch=None,
+        prefix=None,
+        all=False,
+        new=False,
+        sync=False,
+        detach=False,
+        shell=False,
+        run=None,
+        mount=[],
+        copy=[],
+        lang=None,
+        yes=False,
+        verbose=False,
+        purge=False,
+        target=None,
     )
 
     subparsers = parser.add_subparsers(dest="command", prog="jolo")
 
     # up: prompt, agent, detach, exec, mounts, new, sync, verbose
-    subparsers.add_parser("up",
-                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
-                          help="Start devcontainer in current project")
+    subparsers.add_parser(
+        "up",
+        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
+        help="Start devcontainer in current project",
+    )
 
     # create: prompt, agent, detach, exec, mounts, lang, verbose
-    sub_create = subparsers.add_parser("create",
-                                       parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts],
-                                       help="Create new project with git + devcontainer")
+    sub_create = subparsers.add_parser(
+        "create",
+        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts],
+        help="Create new project with git + devcontainer",
+    )
     sub_create.add_argument("name", help="Project name")
     sub_create.add_argument(
-        "--lang", type=parse_lang_arg, default=None, metavar="LANG[,...]",
+        "--lang",
+        type=parse_lang_arg,
+        default=None,
+        metavar="LANG[,...]",
         help="Project language(s): python, go, typescript, rust, shell, prose, other",
     )
 
     # tree: prompt, agent, detach, exec, mounts, new, sync, from, verbose
-    sub_tree = subparsers.add_parser("tree",
-                                     parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
-                                     help="Create worktree + devcontainer (random name if omitted)")
+    sub_tree = subparsers.add_parser(
+        "tree",
+        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
+        help="Create worktree + devcontainer (random name if omitted)",
+    )
     sub_tree.add_argument("name", nargs="?", default="", help="Worktree name")
     sub_tree.add_argument(
-        "--from", dest="from_branch", metavar="BRANCH",
+        "--from",
+        dest="from_branch",
+        metavar="BRANCH",
         help="Create worktree from specified branch",
     )
 
     # spawn: prompt, agent, from, prefix, mounts, new, sync, verbose
-    sub_spawn = subparsers.add_parser("spawn",
-                                      parents=[p_verbose, p_prompt, p_mounts, p_new, p_sync],
-                                      help="Create N worktrees in parallel, each with its own agent")
+    sub_spawn = subparsers.add_parser(
+        "spawn",
+        parents=[p_verbose, p_prompt, p_mounts, p_new, p_sync],
+        help="Create N worktrees in parallel, each with its own agent",
+    )
     sub_spawn.add_argument("count", type=int, help="Number of worktrees")
     sub_spawn.add_argument(
-        "--from", dest="from_branch", metavar="BRANCH",
+        "--from",
+        dest="from_branch",
+        metavar="BRANCH",
         help="Create worktrees from specified branch",
     )
     sub_spawn.add_argument(
-        "--prefix", metavar="NAME",
+        "--prefix",
+        metavar="NAME",
         help="Prefix for worktree names (feat -> feat-1, feat-2, ...)",
     )
 
     # list: all, verbose
-    subparsers.add_parser("list", parents=[p_verbose, p_all],
-                          help="List running containers and worktrees")
+    subparsers.add_parser("list", parents=[p_verbose, p_all], help="List running containers and worktrees")
 
     # open: verbose
-    subparsers.add_parser("open", parents=[p_verbose],
-                          help="Pick a running container and attach to it")
+    subparsers.add_parser("open", parents=[p_verbose], help="Pick a running container and attach to it")
 
     # down: all, verbose
-    subparsers.add_parser("down", parents=[p_verbose, p_all],
-                          help="Stop the devcontainer")
+    subparsers.add_parser("down", parents=[p_verbose, p_all], help="Stop the devcontainer")
 
     # attach: shell, run, verbose
-    subparsers.add_parser("attach", parents=[p_verbose, p_exec],
-                          help="Attach to running container")
+    subparsers.add_parser("attach", parents=[p_verbose, p_exec], help="Attach to running container")
 
     # init: prompt, agent, detach, exec, mounts, sync, verbose
-    subparsers.add_parser("init",
-                          parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_sync],
-                          help="Initialize git + devcontainer in current directory")
+    subparsers.add_parser(
+        "init",
+        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_sync],
+        help="Initialize git + devcontainer in current directory",
+    )
 
     # prune: all, yes, verbose
-    subparsers.add_parser("prune", parents=[p_verbose, p_all, p_yes],
-                          help="Clean up stopped/orphan containers and stale worktrees")
+    subparsers.add_parser(
+        "prune", parents=[p_verbose, p_all, p_yes], help="Clean up stopped/orphan containers and stale worktrees"
+    )
 
     # delete: target, purge, yes, verbose
-    sub_delete = subparsers.add_parser("delete", parents=[p_verbose, p_yes],
-                                        help="Delete a worktree or project and its container")
-    sub_delete.add_argument("target", nargs="?", default=None,
-                            help="Worktree name or project path (interactive if omitted)")
-    sub_delete.add_argument("--purge", action="store_true",
-                            help="Also remove project directories from disk")
+    sub_delete = subparsers.add_parser(
+        "delete", parents=[p_verbose, p_yes], help="Delete a worktree or project and its container"
+    )
+    sub_delete.add_argument(
+        "target", nargs="?", default=None, help="Worktree name or project path (interactive if omitted)"
+    )
+    sub_delete.add_argument("--purge", action="store_true", help="Also remove project directories from disk")
 
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
