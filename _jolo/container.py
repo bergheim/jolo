@@ -56,6 +56,7 @@ def build_devcontainer_json(
         "workspaceFolder": workspace_folder,
         "remoteUser": remote_user,
         "updateRemoteUserUID": False,
+        "userEnvProbe": "none",
         "runArgs": [
             "--hostname",
             project_name,
