@@ -11,6 +11,7 @@ RUN apk update && apk add --no-cache \
     autoconf \
     automake \
     bash \
+    bat \
     build-base \
     chromium \
     cmake \
