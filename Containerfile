@@ -39,8 +39,9 @@ RUN apk update && apk add --no-cache \
     hunspell-en-us \
     jq \
     just \
+    chafa \
     libsixel \
-    libsixel-utils \
+    libsixel-tools \
     mesa \
     ncurses \
     ncurses-terminfo \
@@ -99,6 +100,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
+# tmux system config (must be written as root)
+RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
+    echo 'set -g terminal-features ",xterm-256color:sixel,wezterm:sixel"' >> /etc/tmux.conf
+
 # Root-level files and setup
 COPY container/e /usr/local/bin/e
 COPY container/wt /usr/local/bin/wt
@@ -150,8 +155,6 @@ RUN mkdir -p $HOME/.local/bin && \
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
     mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
-    echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
-    echo 'set -g terminal-features ",xterm-256color:sixel,wezterm:sixel"' >> /etc/tmux.conf && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
     echo 'set -g base-index 1' >> $HOME/.tmux.conf && \
@@ -160,6 +163,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
+    echo "alias xcat='chafa --format=sixel'" >> $HOME/.zshrc.container && \
     echo 'export EDITOR=nvim' >> $HOME/.zshrc.container && \
     # echo '[ -z "$TERMINFO" ] && [ ! -f "/usr/share/terminfo/t/tmux-direct" ] && export TERM=tmux-256color' >> $HOME/.zshrc.container && \
     echo 'export TERM=tmux-256color' >> $HOME/.zshrc.container && \
