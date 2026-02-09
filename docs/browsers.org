@@ -170,17 +170,29 @@ Playwright CLI cannot:
 
 For programmatic control, you need the JavaScript/Python/C# API or MCP server.
 
-** Playwright MCP Server
+** Playwright MCP Server (Recommended)
 
 The Playwright MCP server exposes browser automation to LLMs via Model Context
-Protocol:
+Protocol. This is the recommended way to perform stateful automation (clicking,
+filling forms).
+
+In this environment, MCP servers are modularly configured via
+=templates/mcp/*.json=. The Playwright configuration is injected into agent
+credentials during =jolo up=.
 
 #+begin_src json
 {
   "mcpServers": {
     "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@playwright/mcp",
+        "--executable-path",
+        "/usr/bin/chromium-browser",
+        "--no-sandbox",
+        "--headless"
+      ]
     }
   }
 }
@@ -367,7 +379,9 @@ agent-browser snapshot -i
 
 ** When to use Playwright MCP
 
-- Building agents with MCP-compatible frameworks
+- Stateful automation (logging in, multi-step flows)
+- Interactive tasks (clicking, typing)
+- Building agents with MCP-compatible frameworks (Gemini CLI, Claude Code, Codex)
 - Need full Playwright capability programmatically
 - Want structured tool interface for LLMs
 - Long-running automation sessions

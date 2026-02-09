@@ -66,6 +66,28 @@ def setup_emacs_config(workspace_dir: Path) -> None:
         shutil.copytree(emacs_src, emacs_dst, symlinks=True, ignore=ignore_func)
 
 
+def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
+    """Merge all MCP JSON templates into the provided config's mcpServers key.
+    
+    This allows for modular MCP configuration by simply dropping JSON files
+    into the templates/mcp/ directory.
+    """
+    if not mcp_templates_dir.exists():
+        return target_config
+        
+    mcp_servers = target_config.setdefault("mcpServers", {})
+    
+    for mcp_file in mcp_templates_dir.glob("*.json"):
+        try:
+            mcp_data = json.loads(mcp_file.read_text())
+            if "mcpServers" in mcp_data:
+                mcp_servers.update(mcp_data["mcpServers"])
+        except Exception as e:
+            print(f"Warning: Failed to load MCP template {mcp_file}: {e}", file=sys.stderr)
+            
+    return target_config
+
+
 def setup_credential_cache(workspace_dir: Path) -> None:
     """Copy AI credentials to workspace for container isolation.
 
@@ -77,6 +99,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     which keeps bind mounts working in running containers.
     """
     home = Path.home()
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    mcp_templates = templates_dir / "mcp"
 
     # Claude credentials
     claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
@@ -105,6 +129,20 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"
     if claude_json_src.exists():
         shutil.copy2(claude_json_src, claude_json_dst)
+        
+        # Inject MCP servers into the copied .claude.json
+        try:
+            claude_config = json.loads(claude_json_dst.read_text())
+            project_name = workspace_dir.name
+            container_path = f"/workspaces/{project_name}"
+            
+            # Inject into the specific project's entry
+            project_entry = claude_config.setdefault("projects", {}).setdefault(container_path, {})
+            merge_mcp_configs(project_entry, mcp_templates)
+            
+            claude_json_dst.write_text(json.dumps(claude_config, indent=2))
+        except Exception as e:
+            print(f"Warning: Failed to inject MCP configs into .claude.json: {e}", file=sys.stderr)
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
@@ -135,6 +173,10 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     settings.setdefault("tools", {}).setdefault("shell", {})[
         "enableInteractiveShell"
     ] = False
+    
+    # Inject MCP servers into Gemini settings
+    merge_mcp_configs(settings, mcp_templates)
+    
     settings_path.write_text(json.dumps(settings, indent="\t"))
 
     # Codex credentials
@@ -149,6 +191,37 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         src = codex_dir / filename
         if src.exists():
             shutil.copy2(src, codex_cache / filename)
+            
+    # Inject MCP servers into Codex config.toml
+    codex_config_path = codex_cache / "config.toml"
+    try:
+        # We need the aggregated MCP config
+        mcp_data = merge_mcp_configs({}, mcp_templates)
+        mcp_servers = mcp_data.get("mcpServers", {})
+        
+        if mcp_servers:
+            # Simple TOML generation for the mcp_servers section
+            toml_lines = []
+            if codex_config_path.exists():
+                toml_content = codex_config_path.read_text()
+                # If mcp_servers already exists, we might overwrite it or append.
+                # For now, we'll append a fresh section if it's missing or update it.
+                toml_lines.append(toml_content)
+                if not toml_content.endswith("\n"):
+                    toml_lines.append("")
+            
+            for name, server in mcp_servers.items():
+                toml_lines.append(f"\n[mcp_servers.{name}]")
+                toml_lines.append(f'command = "{server["command"]}"')
+                args_str = ", ".join(f'"{a}"' for a in server.get("args", []))
+                toml_lines.append(f"args = [{args_str}]")
+                if "env" in server:
+                    for k, v in server["env"].items():
+                        toml_lines.append(f'env.{k} = "{v}"')
+            
+            codex_config_path.write_text("\n".join(toml_lines) + "\n")
+    except Exception as e:
+        print(f"Warning: Failed to inject MCP configs into Codex config.toml: {e}", file=sys.stderr)
 
 
 def copy_template_files(target_dir: Path) -> None:

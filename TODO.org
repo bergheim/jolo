@@ -690,3 +690,46 @@ the output is only visible in the shell window. It spawns ~git~, ~gum~, and
 :END:
 
 Create a skill to run pragmatic tests and delegate diff review to a different agent.
+
+
+* TODO Agent completion notifications via ntfy.sh          :agents:notifications:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Get notified when AI agents finish their work, especially useful for
+~jolo spawn~ and ~jolo up -p~ where agents run unattended.
+
+** Approach: native agent hooks + ntfy.sh
+
+All 3 agents support native completion hooks — no wrapper scripts needed:
+
+- *Claude*: ~Stop~ / ~SessionEnd~ hook in ~settings.json~ (~hooks~ key)
+- *Gemini*: ~SessionEnd~ hook in ~settings.json~
+- *Codex*: ~notify~ setting in =~/.codex/config.toml=
+
+Notification channel: [[https://ntfy.sh][ntfy.sh]] — works remotely over Tailscale,
+has mobile apps (iOS/Android), simple HTTP POST API.
+
+** Implementation
+
+1. Shared notify script (e.g. ~container/notify-done~):
+   #+begin_src bash
+   #!/bin/sh
+   # Posts to ntfy.sh topic with project/agent context
+   curl -s -d "${PROJECT:-unknown} ($AGENT): task complete" \
+     "ntfy.sh/${NTFY_TOPIC:-devcontainer}"
+   #+end_src
+
+2. Per-agent hook configuration — jolo auto-configures at container setup:
+   - Claude: add ~Stop~ hook to ~.claude/settings.json~
+   - Gemini: add ~SessionEnd~ hook to ~.gemini/settings.json~
+   - Codex: set ~notify~ in =~/.codex/config.toml=
+
+3. ~jolo up~ / ~jolo spawn~ sets ~NTFY_TOPIC~, ~PROJECT~, ~AGENT~ env vars
+
+** Considerations
+
+- Topic naming: use project name or container ID for uniqueness
+- Optional: include exit status / summary in notification body
+- Optional: desktop notification fallback via ~notify-send~ when local
