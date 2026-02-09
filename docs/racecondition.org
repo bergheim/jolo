@@ -44,11 +44,12 @@ The hang occurs even when nothing changes between runs and can be reproduced bac
    - This means a start event can be missed if the listener attaches after the container starts.
    - Source: [[https://docs.podman.io/en/v4.3/markdown/podman-events.1.html][podman-events man page]]
 
-2. The devcontainer CLI does attach a Podman event listener during startup.
+2. The devcontainer CLI starts a Podman event listener as part of startup.
    - An upstream devcontainers/cli issue log shows:
-     - =podman run ... -c echo Container started=
-     - then =podman events --format json --filter event=start=
-   - This ordering matches the race signature we see locally.
+     - =podman events --format json --filter event=start=
+     - then =podman run ... -c echo Container started=
+   - This suggests the CLI *intends* to avoid the race by starting the listener first.
+   - The hang we see may therefore be due to the events stream not being ready in time, or Podman not delivering the start event for that run.
    - Source: [[https://github.com/devcontainers/cli/issues/816][devcontainers/cli #816]]
 
 
