@@ -290,3 +290,107 @@ passthrough ~just wt~ recipe that supports all subcommands.
 - ~Containerfile~ — ownership fix
 - ~container/wt~ — worktree manager script
 - ~justfile~ — ~wt~ recipe
+
+* ntfy.sh agent completion notifications                   :ntfy:notifications:hooks:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Push notifications when AI agents finish, via ntfy.sh HTTP API.
+
+** Architecture
+- ~container/notify-done~ — POSIX shell script, POSTs to ntfy.sh
+- Hooks injected into agent settings at container launch time
+- Claude: ~SessionEnd~ hook in ~.claude-cache/settings.json~
+- Gemini: ~SessionEnd~ hook in ~.gemini-cache/settings.json~
+- Codex: ~notify~ key in ~.codex-cache/config.toml~ (undocumented, best-effort)
+- Env vars: ~NTFY_SERVER~ (from host), ~NTFY_TOPIC~ (defaults to project name), ~PROJECT~
+
+** Key decisions
+- ~SessionEnd~ not ~Stop~ for Claude — Stop fires on every response, spamming
+  notifications in interactive sessions. Caught by Codex review.
+- ~set -e~ + ~|| true~ on curl — script must never fail the agent hook
+- ~--max-time 5~ on curl — prevents network hangs stalling agent shutdown
+- ~[ ! -t 0 ]~ guard on stdin — prevents blocking when run manually
+- ~_load_json_safe()~ — corrupt settings.json won't crash jolo up
+- TOML check uses ~line.strip().startswith("notify")~ not substring match
+
+** Self-hosted setup
+User runs ntfy via docker compose on ~burial.ts.glvortex.net:9080~.
+Host env: ~export NTFY_SERVER=http://burial.ts.glvortex.net:9080~
+Phone app: ntfy Android via Obtainium from GitHub releases.
+
+** Key files
+- ~container/notify-done~ — notification script
+- ~_jolo/setup.py~ — ~setup_notification_hooks()~ + ~_load_json_safe()~
+- ~_jolo/container.py~ — NTFY env vars in containerEnv
+- ~_jolo/commands.py~ — wired into all 5 launch flows
+- ~docs/plan-notifications-claude.org~ — full design doc
+
+** Branch Comparison Findings (notify-done vs feat/ntfy-notify-hooks) :musl:json:
+The ~notify-done~ branch was chosen as the production path over ~feat/ntfy-notify-hooks~
+due to several critical technical differences:
+
+- **Hook Structure**: Claude and Gemini require a nested JSON structure for hooks:
+  ~hooks > EventName > [ { hooks: [ { type: "command", command: "..." } ] } ]~.
+  The ~feat~ branch used a flat array which is incompatible with current agent versions.
+- **Script Robustness**: The ~notify-done~ script in the current branch correctly drains
+  ~stdin~. Agents often pipe a JSON context (containing session IDs, etc.) to hooks.
+  If the script doesn't read this, it can cause SIGPIPE or block the agent's exit.
+- **Codex Support**: Both branches implemented Codex support by appending to
+  ~.codex-cache/config.toml~, but the ~notify-done~ implementation uses the same
+  environment variable pattern as the other agents for consistency.
+- **File Permissions**: The ~feat~ branch accidentally changed the notification
+  script to mode 644 (non-executable). Corrected to 755 in this branch.
+
+* Devcontainer "Container started" sleep loop is not root hang :devcontainer:podman:debug:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+When ~devcontainer up~ starts a container, it injects a keep-alive command:
+
+#+begin_src
+/bin/sh -c 'echo Container started; trap "exit 0" 15; exec "$@"; while sleep 1 & wait $!; do :; done -'
+#+end_src
+
+This shows up in ~podman top~ as a ~sleep 1~ loop, but it is *normal* and
+indicates the devcontainer CLI is keeping the container alive for exec/hooks.
+It is not itself the cause of a hang.
+
+** Evidence
+- ~devcontainer up --log-level trace~ completed with ~"outcome":"success"~
+  and ~LifecycleCommandExecutionMap~ empty (no hooks running).
+- ~podman inspect <container> --format '{{.Config.Cmd}}'~ shows the keep-alive loop.
+
+** Where the real hang likely is
+If ~jolo create~ appears to hang after "Container started", the stall is
+likely in the *next step* (e.g. a ~devcontainer exec~ that starts tmux,
+tmuxinator, or shell init). Run the suspected exec with ~--log-level trace~
+to surface the failing command.
+
+** Useful commands
+- ~devcontainer exec --log-level trace --workspace-folder <host-path> -- /bin/sh -lc '...command...'~
+- ~podman exec -it <ctr> sh -lc 'ps -ef'~
+- ~podman logs <ctr>~
+
+* Eglot Python server prompt due to multiple servers        :emacs:eglot:python:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+Eglot prompts for Python server selection when multiple servers are available
+(e.g. ~pyright-langserver~ and ~ruff~). This prevents auto-start on file open.
+
+** Config locations
+- Eglot config: =~/.config/emacs/modules/bergheim-eglot.el~
+- Apheleia config (global mode): =~/.config/emacs/modules/formating.el~
+
+** Current state
+- Apheleia is enabled globally but only maps JS/TS/CSS/JSON to ~biome~.
+- No Python formatter is configured in Apheleia.
+
+** Fix
+Pin Eglot to a single Python LSP (e.g. ~pyright-langserver~) to avoid prompts.
+If using Apheleia for Python formatting (e.g. ~ruff format~), add a Python
+formatter mapping in ~formating.el~ to avoid conflicts with LSP formatting.
