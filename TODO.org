@@ -735,7 +735,25 @@ pre-commit hooks were never installed. Code had 29 lint violations and
 - [X] Installed pre-commit hooks (=pre-commit install=)
 - [X] All 280 tests pass, all hooks pass
 
-* TODO Agent completion notifications via ntfy.sh          :agents:notifications:
+* TODO =jolo up --new --sync= fails when port already in use :jolo:bug:
+:PROPERTIES:
+:DATE: 2026-02-09
+:END:
+
+~jolo up --new --sync~ regenerates devcontainer config then tries to start,
+but fails if the assigned port is already in use. The ~--new~ flag implies
+rebuilding the container, so it should either kill the old container first
+or skip the port check when replacing an existing instance.
+
+#+begin_example
+$ jolo up --new --sync
+Synced .devcontainer/ with current config
+Error: Port 4000 is already in use.
+Either stop the process using it, or change PORT in .devcontainer/devcontainer.json
+Error: Failed to start devcontainer
+#+end_example
+
+* DONE Agent completion notifications via ntfy.sh          :agents:notifications:
 :PROPERTIES:
 :DATE: 2026-02-09
 :END:
