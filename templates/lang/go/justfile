@@ -1,0 +1,23 @@
+# Run the project
+run:
+    go run .
+
+# Run with auto-reload
+dev:
+    air
+
+# Run tests
+test:
+    go test ./...
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e go | entr -c go test ./...
+
+# Add a dependency
+add *packages:
+    go get {{packages}}
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; echo "$u"; xdg-open "$u" 2>/dev/null || true
