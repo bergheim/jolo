@@ -602,6 +602,7 @@ that it removes ALL devcontainer images not currently in use.
 * TODO Mount ~/.claude RW instead of copying credentials
 :PROPERTIES:
 :GITHUB: https://github.com/anthropics/claude-code/issues/21765
+:BLOCKED: Upstream issues #21765, #16957, #22600 all still open (as of 2026-02)
 :END:
 
 Currently =setup_credential_cache()= copies =~/.claude/.credentials.json= to
@@ -627,7 +628,7 @@ token refreshes persist back to the host.
 - [[https://github.com/anthropics/claude-code/issues/16957][#16957]] — exit-time refresh tokens not persisted
 - [[https://github.com/anthropics/claude-code/issues/22600][#22600]] — multi-instance race condition
 
-* TODO Worktree-in-container quick mode (=wt= command)
+* DONE Worktree-in-container quick mode (=wt= command)
 
 Lightweight in-container worktree manager. Creates git worktrees at
 =/workspaces/<name>= (container-only, ephemeral) with dedicated tmux sessions
@@ -673,25 +674,7 @@ Previously, 5 tmux windows all ran ~zimfw init~ simultaneously, causing
 sporadic ~git symbolic-ref~ errors. Now ~init.zsh~ is pre-built and shells
 skip init entirely.
 
-* TODO Cache zoxide/mise init scripts                      :zsh:perf:
-:PROPERTIES:
-:DATE: 2026-02-09
-:END:
-
-~eval "$(zoxide init zsh)"~ and ~eval "$(mise activate zsh)"~ run on every
-shell startup, generating and evaling shell code each time. Cache the output
-to a file and source it instead. Regenerate when the tool version changes.
-
-#+begin_example
-# Instead of: eval "$(zoxide init zsh)"
-_zoxide_cache="$HOME/.cache/zoxide-init.zsh"
-if [[ ! -f "$_zoxide_cache" ]]; then
-    zoxide init zsh > "$_zoxide_cache"
-fi
-source "$_zoxide_cache"
-#+end_example
-
-* TODO Run motd only in the shell window                   :tmux:perf:
+* DONE Run motd only in the shell window                   :tmux:perf:
 :PROPERTIES:
 :DATE: 2026-02-09
 :END:
@@ -780,7 +763,7 @@ Added explicit rule: comments explain /why/ not /what/, don't narrate
 conversation context, keep to a few words. Updated both =AGENTS.md= and
 =templates/AGENTS.md=.
 
-* TODO =jolo up --new --sync= fails when port already in use :jolo:bug:
+* DONE =jolo up --new --sync= fails when port already in use :jolo:bug:
 :PROPERTIES:
 :DATE: 2026-02-09
 :END:

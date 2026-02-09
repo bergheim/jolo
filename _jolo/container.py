@@ -115,9 +115,9 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
 
     Checks port availability before launching. Returns True if successful.
     """
-    # Check port availability before starting
+    # Check port availability before starting (skip when replacing existing container)
     port = read_port_from_devcontainer(workspace_dir)
-    if port is not None and not is_port_available(port):
+    if port is not None and not remove_existing and not is_port_available(port):
         print(
             f"Error: Port {port} is already in use.\n"
             f"Either stop the process using it, or change PORT in "

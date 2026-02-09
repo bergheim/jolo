@@ -580,9 +580,12 @@ def run_up_mode(args: argparse.Namespace) -> None:
         write_prompt_file(git_root, args.agent, args.prompt)
 
     # Start devcontainer only if not already running (or --new forces restart)
-    if args.new or not is_container_running(git_root):
+    already_running = is_container_running(git_root)
+    if args.new or not already_running:
         if not devcontainer_up(git_root, remove_existing=args.new):
             sys.exit("Error: Failed to start devcontainer")
+    elif already_running:
+        print("Container already running, reattaching. Use --new to rebuild.")
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
