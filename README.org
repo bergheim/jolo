@@ -44,9 +44,9 @@ docs/                    # research and status notes
 
 * How It Works
 
-Each ~jolo up~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
+Each ~jolo up~ invocation gets an isolated container with its own port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
 
-~spawn~ mode fans out N worktrees with agents round-robining through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
+~spawn~ mode fans out N worktrees with agents round-robinning through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
 See [[file:AGENTS.md][AGENTS.md]] for the full reference.
 
