@@ -73,6 +73,7 @@ RUN apk update && apk add --no-cache \
     yamllint \
     util-linux-misc \
     yq \
+    poppler-utils \
     zoxide \
     zsh \
     gopls \
