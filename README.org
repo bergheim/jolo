@@ -4,13 +4,13 @@ Jolo - not quite Yolo, but close enough. Program like it's 2026!
 
 Jolo is meant to help you get a project up in minutes. Spin up isolated devcontainers with AI agents that work together (and will let you know when they are done if you have notifications set up). It is designed around being as provider agnostic as possible. So for instance, all agents will get the same skills, and will use the same project based system for long term memory instead of just their own.
 
-This project started as a way to isolate my Emacs config automatically to be able to easily try changes there. But Emacs is just a git repo. So I made it work with any repo, and now Emacs is just there along for the ride. It is still a great fit for the project itself because that means you can use your favorite editor with your own config, and with packages like claude-code-ide or agent-shell.
+This project started as a way to isolate my Emacs config automatically to be able to easily try changes there. But Emacs is just a git repo. So I made it work with any repo, and now Emacs is just there along for the ride. It is still a great fit for the project itself because that means you can use your favorite editor with your own config, and with packages like [[https://github.com/manzaltu/claude-code-ide.el][claude-code-ide]] or [[https://github.com/xenodium/agent-shell][agent-shell]], also without any restrictions set.
 
 Alpine Linux container with Emacs, agents (Claude/Gemini/Codex) without permission checks, language servers, browser automation, lots of guard rails (linters, pre-commit hooks), and all the developer tools I've come to expect on regular systems.
 
-Each ~jolo up~ invocation gets an isolated container with its own port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
+Each ~jolo up~ invocation gets an isolated container with its own (permanent) port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
 
-~spawn~ mode fans out N worktrees with agents round-robinning through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
+~spawn~ mode fans out N worktrees with agents round-robin through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
 See [[file:AGENTS.md][AGENTS.md]] for the full reference.
 
