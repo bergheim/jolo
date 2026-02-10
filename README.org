@@ -1,10 +1,10 @@
 #+TITLE: jolo
 
-Not exatcly like YOLO but close enough - program like it's 2026.
+Jolo - not quite Yolo, but close enough. Program like it's 2026!
 
-YOLO-mode devcontainers for vibe coding. Spin up isolated Emacs environments with AI agents, point them at a problem, walk away.
+Jolo is meant to help you get a project up in minutes. Spin up isolated devcontainers with AI agents that work together (and will let you know when they are done).
 
-Alpine Linux container with Emacs, Claude/Gemini/Codex (all running with permissions skipped), language servers, browser automation, and the usual dev tools.
+Alpine Linux container with Emacs, YOLO-enabled Claude/Gemini/Codex, language servers, browser automation, lots of guard rails (linters, pre-commit hooks), and the usual dev tools.
 
 * Quick Start
 
@@ -13,49 +13,38 @@ Alpine Linux container with Emacs, Claude/Gemini/Codex (all running with permiss
 ln -s $(pwd)/jolo.py ~/.local/bin/jolo
 
 # Start devcontainer in any git project
-cd ~/myproject && jolo start
-
-# Scaffold a new project
-jolo create myapp
-
-# Worktree with its own container
-jolo tree feature-x
+cd ~/myproject && jolo up
 
 # Fire and forget — AI works in background
-jolo tree feat -p "add OAuth login"
+jolo up -p "add OAuth login"
 
-# Spawn 5 parallel agents on the same problem
+# Spawn parallel agents on the same problem
 jolo spawn 5 -p "implement the auth system"
 
 # Jump into a running container (fzf picker)
 jolo open
 
-# Clean up orphaned/stopped containers
+# Clean up orphaned/stopped containers and images
 jolo prune
-#+end_src
 
-* Build
-
-#+begin_src bash
-podman build --build-arg USERNAME=$(whoami) \
-             --build-arg USER_ID=$(id -u) \
-             --build-arg GROUP_ID=$(id -g) \
-             -t emacs-gui .
+# Unified delete for worktrees and projects
+jolo delete myapp
 #+end_src
 
 * Layout
 
 #+begin_example
-Containerfile            # image definition
-jolo.py                  # the CLI
-container/               # scripts baked into the image
-docs/                    # research notes
+jolo.py                  # the CLI launcher
+_jolo/                   # CLI logic package
+container/               # scripts baked into the image (wt, browser-check, motd)
 templates/               # scaffolds for new projects
+openspec/                # structured change workflow
+docs/                    # research and status notes
 #+end_example
 
 * How It Works
 
-Each ~jolo start~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Agents run in detached tmux sessions — attach when you want, ignore when you don't.
+Each ~jolo up~ invocation gets an isolated container with its own git worktree, port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
 
 ~spawn~ mode fans out N worktrees with agents round-robining through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
