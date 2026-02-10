@@ -422,9 +422,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     # down: all, verbose
     subparsers.add_parser("down", parents=[p_verbose, p_all], help="Stop the devcontainer")
 
-    # attach: shell, run, verbose
-    subparsers.add_parser("attach", parents=[p_verbose, p_exec], help="Attach to running container")
-
     # init: prompt, agent, detach, exec, mounts, sync, verbose
     subparsers.add_parser(
         "init",

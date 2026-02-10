@@ -312,7 +312,6 @@ jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
 
 # Other options
 jolo tree feat --from develop     # branch worktree from specific ref
-jolo attach                       # attach to running container
 jolo up -d                        # start detached (no tmux attach)
 jolo up --shell                   # exec zsh directly (no tmux)
 jolo up --run claude              # exec command directly (no tmux)
