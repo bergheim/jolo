@@ -9,8 +9,8 @@ project=$(git remote get-url origin 2>/dev/null | sed 's|.*/||;s|\.git$||')
 branch=$(git symbolic-ref --short HEAD 2>/dev/null)
 if [ -n "$branch" ]; then
     dirty=$(git diff --quiet HEAD 2>/dev/null || echo " *")
-    last_commit=$(git log -1 --format='%s' 2>/dev/null | cut -c1-60)
-    git_line="$branch$dirty  $last_commit"
+    recent=$(git log -3 --format='%ar|%s' 2>/dev/null | sed 's/ seconds\{0,1\} ago/s/;s/ minutes\{0,1\} ago/m/;s/ hours\{0,1\} ago/h/;s/ days\{0,1\} ago/d/;s/ weeks\{0,1\} ago/w/;s/ months\{0,1\} ago/mo/;s/ years\{0,1\} ago/y/;s/|/ /' | cut -c1-60)
+    git_line=$(printf '%s\n%s' "$branch$dirty" "$recent")
 fi
 
 # Build header with full URL
