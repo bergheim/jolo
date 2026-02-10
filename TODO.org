@@ -2,7 +2,10 @@
 #+DESCRIPTION: Practical security assessment - what actually matters vs security theater
 
 * Tasks
+** DONE Add doc-compare skill for narrative version diffs
+** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
+** DONE Draft end-user README for Codex (docs/README-codex.org)
 ** TODO Plan: add `jolo clone <git-url> [dir]` command (devcontainer wrapper)
    - Goal: `jolo clone` clones a repo and immediately brings it up in a devcontainer.
    - Signature: `jolo clone <url> [dir]`

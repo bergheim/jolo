@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -62,6 +63,8 @@ def build_devcontainer_json(
             project_name,
             "--name",
             project_name,
+            "--add-host",
+            f"{socket.gethostname()}:host-gateway",
             "-p",
             f"{port}:{port}",
         ],
