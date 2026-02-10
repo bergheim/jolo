@@ -396,29 +396,6 @@ def run_prune_mode(args: argparse.Namespace) -> None:
                     pass
 
 
-def run_attach_mode(args: argparse.Namespace) -> None:
-    """Run --attach mode: attach to running container."""
-    git_root = find_git_root()
-
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
-
-    if not is_container_running(git_root):
-        sys.exit("Error: Container is not running. Use jolo up to start it.")
-
-    # Direct exec modes (no tmux)
-    if args.shell:
-        devcontainer_exec_command(git_root, "zsh")
-        return
-
-    if args.run:
-        devcontainer_exec_command(git_root, args.run)
-        return
-
-    # Attach to tmux
-    devcontainer_exec_tmux(git_root)
-
-
 def run_open_mode(args: argparse.Namespace) -> None:
     """Run --open mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
@@ -1461,8 +1438,6 @@ def main(argv: list[str] | None = None) -> None:
     # Dispatch to appropriate mode
     if cmd == "open":
         run_open_mode(args)
-    elif cmd == "attach":
-        run_attach_mode(args)
     elif cmd == "spawn":
         run_spawn_mode(args)
     elif cmd == "init":

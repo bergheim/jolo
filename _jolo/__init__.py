@@ -25,7 +25,6 @@ from _jolo.commands import (  # noqa: F401
     get_agent_name,
     load_config,
     main,
-    run_attach_mode,
     run_create_mode,
     run_delete_mode,
     run_init_mode,

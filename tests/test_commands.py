@@ -125,20 +125,6 @@ class TestStopMode(unittest.TestCase):
         self.assertIsNone(args.command)
 
 
-class TestAttachMode(unittest.TestCase):
-    """Test attach functionality."""
-
-    def test_attach_flag(self):
-        """attach should set command to attach."""
-        args = jolo.parse_args(["attach"])
-        self.assertEqual(args.command, "attach")
-
-    def test_attach_default_false(self):
-        """No command should leave command as None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.command)
-
-
 class TestDetachMode(unittest.TestCase):
     """Test --detach functionality."""
 
