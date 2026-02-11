@@ -72,6 +72,13 @@ git merge feature-branch          # fast-forward for single commit
 git merge --no-ff feature-branch  # merge commit for multi-commit branches
 ```
 
+**Worktree awareness:** If `.git` is a file (not a directory), you are in a worktree — you cannot checkout `main` here. Find the main tree and merge there:
+
+```bash
+MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
+git rebase main && git -C "$MAIN" merge $(git branch --show-current)
+```
+
 ## Code Quality
 
 Pre-commit hooks are already installed. They run automatically on `git commit`. If a commit fails, fix the issues and commit again.
