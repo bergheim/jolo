@@ -394,7 +394,7 @@ def copy_template_files(target_dir: Path) -> None:
             verbose_print(f"Copied template: {filename}")
 
     # Copy template directories (skills, agent config, docs)
-    template_dirs = [".agents", ".claude", ".gemini", "docs"]
+    template_dirs = [".agents", ".claude", ".gemini", "docs", "scripts"]
     for dirname in template_dirs:
         src = templates_dir / dirname
         if src.exists():
@@ -403,6 +403,26 @@ def copy_template_files(target_dir: Path) -> None:
                 shutil.rmtree(dst)
             shutil.copytree(src, dst, symlinks=True)
             verbose_print(f"Copied template dir: {dirname}/")
+
+
+def ensure_test_gate_script(target_dir: Path) -> None:
+    """Ensure scripts/test-gate exists in the target project."""
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    src = templates_dir / "scripts" / "test-gate"
+    if not src.exists():
+        print(
+            f"Warning: test-gate template not found: {src}",
+            file=sys.stderr,
+        )
+        return
+
+    dst = target_dir / "scripts" / "test-gate"
+    if dst.exists():
+        return
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    verbose_print("Copied template: scripts/test-gate")
 
 
 def scaffold_devcontainer(

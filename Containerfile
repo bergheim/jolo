@@ -117,11 +117,15 @@ RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd /usr/local/b
     ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint && \
-    mkdir -p /workspaces && chown $USERNAME:$USERNAME /workspaces
+    mkdir -p /workspaces /opt/pre-commit-cache && \
+    chown $USERNAME:$USERNAME /workspaces /opt/pre-commit-cache
 
 USER $USERNAME
 ENV HOME=/home/$USERNAME
 WORKDIR $HOME
+
+# Pre-commit cache primed at build time to avoid first-commit delays
+ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
@@ -140,12 +144,14 @@ RUN pnpm add -g \
     pyright \
     @ansible/ansible-language-server \
     @openai/codex \
-    @google/gemini-cli
+    @google/gemini-cli \
+    markdownlint-cli
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
     pids="" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
+    (go install github.com/gitleaks/gitleaks/v8@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
@@ -155,6 +161,45 @@ RUN mkdir -p $HOME/.local/bin && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
+
+RUN cat > /tmp/pre-commit-hooks.yaml <<'EOF'
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+      - id: ruff-format
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.62.0
+    hooks:
+      - id: golangci-lint
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+EOF
+RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
+    pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
+    cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
 # Config (changes often — keep on its own layer)
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \

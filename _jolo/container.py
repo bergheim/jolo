@@ -83,6 +83,7 @@ def build_devcontainer_json(
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "PROJECT": project_name,
+            "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
         },
     }
 

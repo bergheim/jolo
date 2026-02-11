@@ -1,0 +1,15 @@
+#!/bin/sh
+
+stage="$1"
+if [ -z "$stage" ]; then
+    echo "usage: test-gate <commit|push>" >&2
+    exit 1
+fi
+
+value=$(git config --local --get "hooks.test-on-$stage" 2>/dev/null || true)
+if [ "$value" != "true" ]; then
+    exit 0
+fi
+
+echo "[test-gate] running tests (test-on-$stage)..."
+just test

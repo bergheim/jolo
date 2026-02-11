@@ -772,21 +772,22 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("trailing-whitespace", result)
         self.assertIn("gitleaks", result)
 
-        # Count repos by counting '  - repo:' lines (exactly 2 for base config)
+        # Count repos by counting '  - repo:' lines (base + local hooks)
         repo_count = result.count("  - repo:")
-        self.assertEqual(repo_count, 2)
+        self.assertEqual(repo_count, 3)
 
     def test_empty_languages_returns_base_config(self):
         """Empty language list should return only base hooks."""
         result = jolo.generate_precommit_config([])
 
-        # Count repos by counting '  - repo:' lines (exactly 2 for base config)
+        # Count repos by counting '  - repo:' lines (base + local hooks)
         repo_count = result.count("  - repo:")
-        self.assertEqual(repo_count, 2)
+        self.assertEqual(repo_count, 3)
 
         # Verify they are the expected repos
         self.assertIn("https://github.com/pre-commit/pre-commit-hooks", result)
         self.assertIn("https://github.com/gitleaks/gitleaks", result)
+        self.assertIn("repo: local", result)
 
     def test_no_duplicate_repos(self):
         """Same language specified twice should not duplicate repos."""
@@ -819,9 +820,19 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
         self.assertIsInstance(result, list)
 
     def test_returns_precommit_install_command(self):
-        """Should return ['pre-commit', 'install']."""
+        """Should return pre-commit install command with hook types."""
         result = jolo.get_precommit_install_command()
-        self.assertEqual(result, ["pre-commit", "install"])
+        self.assertEqual(
+            result,
+            [
+                "pre-commit",
+                "install",
+                "--hook-type",
+                "pre-commit",
+                "--hook-type",
+                "pre-push",
+            ],
+        )
 
     def test_returns_list_of_strings(self):
         """Should return a list of strings."""
@@ -830,9 +841,9 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
             self.assertIsInstance(item, str)
 
     def test_list_has_two_elements(self):
-        """Should return a list with exactly two elements."""
+        """Should return a list with expected elements."""
         result = jolo.get_precommit_install_command()
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 6)
 
 
 if __name__ == "__main__":
