@@ -198,6 +198,7 @@ repos:
     hooks:
       - id: codespell
 EOF
+RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
     pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
     cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
