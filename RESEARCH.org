@@ -693,3 +693,29 @@ alias claude="env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions"
 - [[https://github.com/anthropics/claude-code/issues/9880][#9880]] — Add flag to ignore API key (closed as duplicate)
 - [[https://github.com/anthropics/claude-code/issues/8327][#8327]] — API key overrides Max/Pro subscription
 - [[https://github.com/anthropics/claude-code/issues/16489][#16489]] — forceLoginMethod bug (open)
+
+* Pre-commit hook warmup needs git repo in Containerfile      :precommit:container:hooks:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+~pre-commit install-hooks~ fails outside a git repo. Warmup in the image must
+create a temporary git repo before installing hooks.
+
+** Fix
+- Run hook warmup in a temp git repo (pre-commit requires one):
+
+#+begin_src dockerfile
+RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
+    pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
+    cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
+#+end_src
+
+- Remove biome/markdownlint hooks from warmup list — pre-commit's
+  ~language: node~ hardcodes ~npm~ internally, and Alpine has pnpm not npm.
+  ~language_version: system~ avoids the node download but still calls npm.
+- Install ~markdownlint-cli~ via pnpm global instead.
+- Projects use ~repo: local~ with ~language: system~ for node-based hooks.
+
+** Key files
+- ~Containerfile~ (hook warmup, pnpm globals, pre-commit-hooks.yaml)
