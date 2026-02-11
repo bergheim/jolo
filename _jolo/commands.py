@@ -149,6 +149,29 @@ def load_config(global_config_dir: Path | None = None) -> dict:
     return config
 
 
+def infer_repo_name(url: str) -> str:
+    """Infer repo name from a git URL or path."""
+    raw = url.strip().rstrip("/")
+    if raw.endswith(".git"):
+        raw = raw[:-4]
+
+    if "://" in raw:
+        # https://host/org/repo
+        path = raw.split("://", 1)[1]
+        path = path.split("/", 1)[1] if "/" in path else ""
+    elif ":" in raw and "@" in raw.split(":", 1)[0]:
+        # git@host:org/repo
+        path = raw.split(":", 1)[1]
+    else:
+        # local path or already a repo name
+        path = raw
+
+    name = Path(path).name if path else Path(raw).name
+    if not name:
+        sys.exit(f"Error: Unable to infer repo name from URL: {url}")
+    return name
+
+
 def run_list_global_mode() -> None:
     """Run --list --all mode: show all running devcontainers globally."""
     runtime = get_container_runtime()
@@ -927,6 +950,26 @@ def run_create_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(project_path)
 
 
+def run_clone_mode(args: argparse.Namespace) -> None:
+    """Run clone mode: clone repo and start devcontainer."""
+    name = args.name or infer_repo_name(args.url)
+    target = Path.cwd() / name
+
+    if target.exists():
+        sys.exit(f"Error: Target directory exists: {target}")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = ["git", "clone", args.url, str(target)]
+    verbose_cmd(cmd)
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        sys.exit("Error: git clone failed")
+
+    os.chdir(target)
+    run_up_mode(args)
+
+
 def run_init_mode(args: argparse.Namespace) -> None:
     """Run --init mode: initialize git + devcontainer in current directory."""
     validate_init_mode()
@@ -1569,6 +1612,8 @@ def main(argv: list[str] | None = None) -> None:
     # Dispatch to appropriate mode
     if cmd == "open":
         run_open_mode(args)
+    elif cmd == "clone":
+        run_clone_mode(args)
     elif cmd == "spawn":
         run_spawn_mode(args)
     elif cmd == "init":

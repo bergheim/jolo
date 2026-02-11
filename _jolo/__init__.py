@@ -23,8 +23,10 @@ from _jolo.cli import (  # noqa: F401
 from _jolo.commands import (  # noqa: F401
     get_agent_command,
     get_agent_name,
+    infer_repo_name,
     load_config,
     main,
+    run_clone_mode,
     run_create_mode,
     run_delete_mode,
     run_init_mode,

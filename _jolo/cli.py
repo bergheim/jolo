@@ -356,8 +356,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         usage="jolo <command> [options]",
         description="Devcontainer + Git Worktree Launcher",
         epilog="Run 'jolo <command> --help' for command-specific options.\n\n"
-        "Examples: jolo up | jolo create foo | jolo list | jolo tree feat-x | "
-        "jolo down --all | jolo spawn 3 -p 'do thing'",
+        "Examples: jolo up | jolo create foo | jolo clone <url> | jolo list | "
+        "jolo tree feat-x | jolo down --all | jolo spawn 3 -p 'do thing'",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     # Defaults so attributes exist even when no subcommand is given
@@ -411,6 +411,28 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         metavar="LANG[,...]",
         help="Project language(s): python, go, typescript, rust, shell, prose, other",
+    )
+
+    # clone: prompt, agent, detach, exec, mounts, new, sync, verbose
+    sub_clone = subparsers.add_parser(
+        "clone",
+        parents=[
+            p_verbose,
+            p_prompt,
+            p_detach,
+            p_exec,
+            p_mounts,
+            p_new,
+            p_sync,
+        ],
+        help="Clone repo and start devcontainer",
+    )
+    sub_clone.add_argument("url", help="Git repository URL")
+    sub_clone.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Directory name (default: inferred from URL)",
     )
 
     # tree: prompt, agent, detach, exec, mounts, new, sync, from, verbose
