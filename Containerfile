@@ -144,7 +144,8 @@ RUN pnpm add -g \
     pyright \
     @ansible/ansible-language-server \
     @openai/codex \
-    @google/gemini-cli
+    @google/gemini-cli \
+    markdownlint-cli
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
@@ -182,13 +183,6 @@ repos:
     rev: v1.62.0
     hooks:
       - id: golangci-lint
-  - repo: https://github.com/biomejs/pre-commit
-    rev: v0.6.0
-    hooks:
-      - id: biome-check
-        additional_dependencies: ["@biomejs/biome@1.9.0"]
-      - id: biome-format
-        additional_dependencies: ["@biomejs/biome@1.9.0"]
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
@@ -198,17 +192,14 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.43.0
-    hooks:
-      - id: markdownlint
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
       - id: codespell
 EOF
-RUN pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
-    rm /tmp/pre-commit-hooks.yaml
+RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
+    pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
+    cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
 # Config (changes often — keep on its own layer)
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
