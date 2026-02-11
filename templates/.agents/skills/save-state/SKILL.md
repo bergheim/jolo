@@ -63,9 +63,13 @@ Write learnings specific to YOUR workflow to your own memory system:
 
 Focus on: mistake patterns, things that worked/failed, codebase quirks, user preferences.
 
-### 3. Summary
+### 3. Commit
 
-After saving, print a brief summary of what was written and where.
+Always `git commit` the changes to RESEARCH.org and TODO.org without waiting for the user to ask. Use a short commit message like "save-state: <brief summary>".
+
+### 4. Summary
+
+After saving and committing, print a brief summary of what was written and where.
 
 ## Rules
 
