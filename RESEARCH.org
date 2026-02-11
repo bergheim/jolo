@@ -763,3 +763,21 @@ host path exists before devcontainer startup, including ~jolo init~.
 - ~_jolo/commands.py~ (call setup_stash in init/up/tree/create/spawn)
 - ~container/motd~ (stash label)
 - ~templates/AGENTS.md~ (stash guidance)
+
+* wt new: single shell window instead of 5-window layout   :wt:tmux:fix:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+~wt new foo~ was cloning the full tmuxinator ~dev.yml~ config (emacs, claude,
+gemini, codex, shell) into every worktree session. This floods the tmux
+window list when creating multiple worktrees.
+
+** Fix
+Replaced tmuxinator-based ~create_session()~ with plain ~tmux new-session~.
+Worktree sessions now get a single shell window. If ~-p~ is passed, the
+window runs ~claude <prompt>~ instead of a shell. The main ~dev~ session
+(created by ~tmux-layout.sh~) keeps the full layout.
+
+** Key files
+- ~container/wt~ (~create_session~ function)
