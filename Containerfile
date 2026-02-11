@@ -117,11 +117,15 @@ RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd /usr/local/b
     ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint && \
-    mkdir -p /workspaces && chown $USERNAME:$USERNAME /workspaces
+    mkdir -p /workspaces /opt/pre-commit-cache && \
+    chown $USERNAME:$USERNAME /workspaces /opt/pre-commit-cache
 
 USER $USERNAME
 ENV HOME=/home/$USERNAME
 WORKDIR $HOME
+
+# Pre-commit cache primed at build time to avoid first-commit delays
+ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
@@ -156,6 +160,55 @@ RUN mkdir -p $HOME/.local/bin && \
     # browser-check wrapper (resolve pnpm global node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
+
+RUN cat > /tmp/pre-commit-hooks.yaml <<'EOF'
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+      - id: ruff-format
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.62.0
+    hooks:
+      - id: golangci-lint
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@1.9.0"]
+      - id: biome-format
+        additional_dependencies: ["@biomejs/biome@1.9.0"]
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+EOF
+RUN pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
+    rm /tmp/pre-commit-hooks.yaml
 
 # Config (changes often — keep on its own layer)
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
