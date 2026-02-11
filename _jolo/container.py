@@ -70,7 +70,7 @@ def build_devcontainer_json(
         ],
         "mounts": mounts,
         "containerEnv": {
-            "TERM": "xterm-256color",
+            "TERM": "tmux-direct",
             "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
