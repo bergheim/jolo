@@ -35,11 +35,12 @@ DEFAULT_CONFIG = {
     "base_image": "localhost/emacs-gui:latest",
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
-    "agents": ["claude", "gemini", "codex"],
+    "agents": ["claude", "gemini", "codex", "pi"],
     "agent_commands": {
         "claude": "claude",
         "gemini": "gemini",
         "codex": "codex",
+        "pi": "pi",
     },
     "base_port": 4000,
 }
@@ -148,6 +149,7 @@ BASE_MOUNTS = [
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.pi-cache,target=/home/${localEnv:USER}/.pi,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",

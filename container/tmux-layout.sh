@@ -22,6 +22,7 @@ if [ -f "$PROMPT_FILE" ]; then
         claude)  CMD="claude" ;;
         gemini)  CMD="gemini" ;;
         codex)   CMD="codex" ;;
+        pi)      CMD="pi" ;;
         *)       CMD="$AGENT" ;;
     esac
 
