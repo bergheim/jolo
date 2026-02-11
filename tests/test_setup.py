@@ -12,6 +12,7 @@ try:
     import jolo
 except ImportError:
     jolo = None
+import _jolo.setup as setup
 
 
 class TestTemplateSystem(unittest.TestCase):
@@ -561,6 +562,51 @@ class TestCredentialMountStrategy(unittest.TestCase):
             if m.endswith("type=bind") and ".claude,target" in m
         ]
         self.assertEqual(len(dir_mounts), 0)
+
+
+class TestPatchJsonWithJq(unittest.TestCase):
+    """Test jq-based JSON patch helper."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_patch_json_with_jq_writes_output(self):
+        """Should write jq output and invoke jq with expected args."""
+        target = Path(self.tmpdir) / "trustedFolders.json"
+        jq_args = [
+            "--arg",
+            "path",
+            "/workspaces/project",
+            "--arg",
+            "value",
+            "TRUST_FOLDER",
+        ]
+        jq_filter = ".[$path] = $value"
+
+        mock_result = mock.Mock(stdout='{"ok":true}\n')
+        with mock.patch("shutil.which", return_value="/usr/bin/jq"):
+            with mock.patch("subprocess.run", return_value=mock_result) as run:
+                setup._patch_json_with_jq(target, jq_args, jq_filter)
+
+        self.assertTrue(target.exists())
+        self.assertEqual(target.read_text(), '{"ok":true}\n')
+
+        expected_cmd = ["jq", "-n", *jq_args, jq_filter]
+        run.assert_called_once_with(
+            expected_cmd, check=True, capture_output=True, text=True
+        )
+
+    def test_patch_json_with_jq_requires_jq(self):
+        """Should raise if jq is missing."""
+        target = Path(self.tmpdir) / "trustedFolders.json"
+        with mock.patch("shutil.which", return_value=None):
+            with self.assertRaises(RuntimeError):
+                setup._patch_json_with_jq(target, [], ".")
 
 
 if __name__ == "__main__":
