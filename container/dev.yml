@@ -5,4 +5,5 @@ windows:
   - claude: claude
   - gemini: gemini
   - codex: codex
+  - pi: pi
   - shell:

@@ -129,7 +129,7 @@ just test-v            # verbose output
 - `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
 - `container/entrypoint.sh` - Container startup: GPG agent setup, DBus, keeps container alive
 - `container/tmux-layout.sh` - Tmux session wrapper: starts tmuxinator layout, handles reattach and prompt mode
-- `container/dev.yml` - Tmuxinator config: 5-window layout (emacs, claude, gemini, codex, shell)
+- `container/dev.yml` - Tmuxinator config: 6-window layout (emacs, claude, gemini, codex, pi, shell)
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
@@ -141,7 +141,7 @@ The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyr
 
 **Environment:**
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
-- `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise tmuxinator creates 5-window layout (emacs, claude, gemini, codex, shell)
+- `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise tmuxinator creates 6-window layout (emacs, claude, gemini, codex, pi, shell)
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `PNPM_HOME` - pnpm global package path (no sudo needed)
 
@@ -163,7 +163,7 @@ Runtimes: Go, Rust, Python, Ruby, Node.js, Bun, pnpm, mise (version manager)
 
 CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload)
 
-AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli)
+AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli), pi (@mariozechner/pi-coding-agent)
 
 Spell-checking: aspell, hunspell, enchant2
 
@@ -331,7 +331,7 @@ jolo up --agent gemini -p "..."  # use different agent (default: claude)
 # Spawn mode (multiple parallel agents)
 jolo spawn 5 -p "implement X"          # 5 random-named worktrees
 jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
-# Agents round-robin through configured list (claude, gemini, codex)
+# Agents round-robin through configured list (claude, gemini, codex, pi)
 # Each gets unique PORT (4000, 4001, 4002, ...)
 
 # Other options
@@ -363,6 +363,7 @@ jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
   - Claude credentials: `.credentials.json` mounted RW from host (token refreshes persist), `settings.json` copied to `.claude-cache/` (container-specific hooks), `statsig/` mounted RO from host, `.claude.json` copied (MCP injection)
   - Gemini: `.gemini-cache/` copied
   - Codex: `.codex-cache/` copied
+  - Pi: `.pi-cache/` copied
 - Claude history/state is ephemeral per-project (no cross-project contamination)
 - GPG keyring (`pubring.kbx`, `trustdb.gpg`) mounted read-only; the agent socket is forwarded for signing. The `trustdb not writable` warning is expected and harmless.
 - Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/

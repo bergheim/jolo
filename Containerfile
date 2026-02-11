@@ -145,6 +145,7 @@ RUN pnpm add -g \
     @ansible/ansible-language-server \
     @openai/codex \
     @google/gemini-cli \
+    @mariozechner/pi-coding-agent \
     markdownlint-cli
 
 # Downloads and installs (parallel — cached layer, rarely changes)
@@ -202,7 +203,7 @@ RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
     cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
 # Config (changes often — keep on its own layer)
-RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex && \
+RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.pi && \
     mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \

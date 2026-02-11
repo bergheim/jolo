@@ -129,7 +129,7 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
     Claude: .credentials.json is mounted RW from the host (token refreshes
     persist). Only settings.json is copied (for notification hook injection).
-    Gemini/Codex: fully copied to .devcontainer cache dirs.
+    Gemini/Codex/Pi: fully copied to .devcontainer cache dirs.
     """
     home = Path.home()
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -271,6 +271,24 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             file=sys.stderr,
         )
 
+    # Pi credentials
+    pi_cache = workspace_dir / ".devcontainer" / ".pi-cache"
+    if pi_cache.exists():
+        clear_directory_contents(pi_cache)
+    else:
+        pi_cache.mkdir(parents=True)
+
+    pi_dir = home / ".pi"
+    if pi_dir.exists():
+        for item in pi_dir.iterdir():
+            dst = pi_cache / item.name
+            if item.is_dir():
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(item, dst, symlinks=True)
+            else:
+                shutil.copy2(item, dst)
+
 
 def _load_json_safe(path: Path) -> dict:
     """Load JSON from a file, returning empty dict on missing/corrupt files."""
@@ -399,7 +417,7 @@ def copy_template_files(target_dir: Path) -> None:
             verbose_print(f"Copied template: {filename}")
 
     # Copy template directories (skills, agent config, docs)
-    template_dirs = [".agents", ".claude", ".gemini", "docs", "scripts"]
+    template_dirs = [".agents", ".claude", ".gemini", ".pi", "docs", "scripts"]
     for dirname in template_dirs:
         src = templates_dir / dirname
         if src.exists():
@@ -530,7 +548,7 @@ def sync_skill_templates(target_dir: Path) -> None:
         verbose_print(f"Synced skill: {entry.name}")
 
     # Ensure agent skill symlinks exist
-    for agent_dir in [".claude", ".gemini"]:
+    for agent_dir in [".claude", ".gemini", ".pi"]:
         link_dir = target_dir / agent_dir
         link_dir.mkdir(parents=True, exist_ok=True)
         link_path = link_dir / "skills"
