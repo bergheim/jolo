@@ -137,7 +137,9 @@ def reassign_port(workspace_dir: Path) -> int:
     return new_port
 
 
-def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
+def devcontainer_up(
+    workspace_dir: Path, remove_existing: bool = False
+) -> bool:
     """Start devcontainer with devcontainer up.
 
     Checks port availability before launching. Returns True if successful.
@@ -149,7 +151,9 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
             pass
         elif sys.stdin.isatty():
             try:
-                answer = input(f"Port {port} is in use. Assign a new random port? [Y/n] ")
+                answer = input(
+                    f"Port {port} is in use. Assign a new random port? [Y/n] "
+                )
             except (KeyboardInterrupt, EOFError):
                 return False
             if answer.strip().lower() not in ("", "y", "yes"):
@@ -174,7 +178,9 @@ def devcontainer_up(workspace_dir: Path, remove_existing: bool = False) -> bool:
     return result.returncode == 0
 
 
-def _runtime_exec(workspace_dir: Path, command: str, interactive: bool = False) -> bool:
+def _runtime_exec(
+    workspace_dir: Path, command: str, interactive: bool = False
+) -> bool:
     """Try executing a command via the container runtime directly.
 
     Returns True if successful, False if we should fall back to devcontainer CLI.
@@ -192,7 +198,18 @@ def _runtime_exec(workspace_dir: Path, command: str, interactive: bool = False) 
     cmd = [runtime, "exec"]
     if interactive:
         cmd.append("-it")
-    cmd.extend(["-u", user, "-w", workspace_folder, container_name, "sh", "-c", command])
+    cmd.extend(
+        [
+            "-u",
+            user,
+            "-w",
+            workspace_folder,
+            container_name,
+            "sh",
+            "-c",
+            command,
+        ]
+    )
 
     verbose_cmd(cmd)
     result = subprocess.run(cmd)
@@ -286,7 +303,12 @@ def list_all_devcontainers() -> list[tuple[str, str, str, str]]:
             continue
         parts = line.split("\t")
         if len(parts) >= 4:
-            name, folder, state, image_id = parts[0], parts[1], parts[2], parts[3]
+            name, folder, state, image_id = (
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+            )
             containers.append((name, folder, state, image_id))
 
     return containers
@@ -357,11 +379,16 @@ def stop_container(workspace_dir: Path) -> bool:
         print(f"Stopped: {container_name}")
         return True
     else:
-        print(f"Failed to stop {container_name}: {result.stderr}", file=sys.stderr)
+        print(
+            f"Failed to stop {container_name}: {result.stderr}",
+            file=sys.stderr,
+        )
         return False
 
 
-def find_containers_for_project(git_root: Path, state_filter: str | None = None) -> list[tuple[str, str, str, str]]:
+def find_containers_for_project(
+    git_root: Path, state_filter: str | None = None
+) -> list[tuple[str, str, str, str]]:
     """Find containers for a project.
 
     Args:
@@ -385,20 +412,29 @@ def find_containers_for_project(git_root: Path, state_filter: str | None = None)
     for name, folder, state, image_id in all_containers:
         # Check if folder is under this project or its worktrees
         folder_path = Path(folder)
-        if folder_path == git_root or folder_path.parent.name == f"{project_name}-worktrees":
+        if (
+            folder_path == git_root
+            or folder_path.parent.name == f"{project_name}-worktrees"
+        ):
             if state_filter is None or state == state_filter:
                 matched.append((name, folder, state, image_id))
 
     return matched
 
 
-def find_stopped_containers_for_project(git_root: Path) -> list[tuple[str, str, str]]:
+def find_stopped_containers_for_project(
+    git_root: Path,
+) -> list[tuple[str, str, str]]:
     """Find stopped containers for a project.
 
     Returns list of tuples: (container_name, workspace_folder, image_id)
     """
     containers = find_containers_for_project(git_root)
-    return [(name, folder, image_id) for name, folder, state, image_id in containers if state != "running"]
+    return [
+        (name, folder, image_id)
+        for name, folder, state, image_id in containers
+        if state != "running"
+    ]
 
 
 def remove_container(container_name: str) -> bool:

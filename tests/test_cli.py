@@ -85,7 +85,9 @@ class TestGuards(unittest.TestCase):
 
     def test_tmux_guard_raises_when_in_tmux(self):
         """Should error when TMUX env var is set."""
-        with mock.patch.dict(os.environ, {"TMUX": "/tmp/tmux-1000/default,12345,0"}):
+        with mock.patch.dict(
+            os.environ, {"TMUX": "/tmp/tmux-1000/default,12345,0"}
+        ):
             with self.assertRaises(SystemExit) as cm:
                 jolo.check_tmux_guard()
             self.assertIn("tmux", str(cm.exception.code).lower())
@@ -272,14 +274,18 @@ class TestAgentHelpers(unittest.TestCase):
         self.assertEqual(jolo.get_agent_command(config, index=0), "claude-cmd")
         self.assertEqual(jolo.get_agent_command(config, index=1), "gemini-cmd")
         self.assertEqual(jolo.get_agent_command(config, index=2), "codex-cmd")
-        self.assertEqual(jolo.get_agent_command(config, index=3), "claude-cmd")  # wraps
+        self.assertEqual(
+            jolo.get_agent_command(config, index=3), "claude-cmd"
+        )  # wraps
 
     def test_get_agent_name_round_robin(self):
         """Should return agent name by index."""
         config = {"agents": ["claude", "gemini", "codex"]}
         self.assertEqual(jolo.get_agent_name(config, index=0), "claude")
         self.assertEqual(jolo.get_agent_name(config, index=1), "gemini")
-        self.assertEqual(jolo.get_agent_name(config, index=4), "gemini")  # 4 % 3 = 1
+        self.assertEqual(
+            jolo.get_agent_name(config, index=4), "gemini"
+        )  # 4 % 3 = 1
 
     def test_get_agent_command_fallback(self):
         """Should fall back to agent name if no command configured."""
@@ -344,7 +350,9 @@ class TestCopyArgParsing(unittest.TestCase):
 
     def test_copy_flag_multiple(self):
         """--copy can be specified multiple times."""
-        args = jolo.parse_args(["up", "--copy", "~/a.json", "--copy", "~/b.json:b.json"])
+        args = jolo.parse_args(
+            ["up", "--copy", "~/a.json", "--copy", "~/b.json:b.json"]
+        )
         self.assertEqual(args.copy, ["~/a.json", "~/b.json:b.json"])
 
     def test_copy_default_empty(self):
@@ -379,7 +387,9 @@ class TestMountAndCopyTogether(unittest.TestCase):
         self.assertEqual(len(args.mount), 2)
         self.assertEqual(len(args.copy), 2)
         self.assertEqual(args.mount, ["~/data:data", "~/other:other:ro"])
-        self.assertEqual(args.copy, ["~/config.json", "~/secrets.json:secrets/keys.json"])
+        self.assertEqual(
+            args.copy, ["~/config.json", "~/secrets.json:secrets/keys.json"]
+        )
 
 
 class TestMountParsing(unittest.TestCase):
@@ -422,7 +432,9 @@ class TestMountParsing(unittest.TestCase):
     def test_parse_mount_nested_target(self):
         """Nested relative target should work."""
         result = jolo.parse_mount("~/data:some/nested/path", "myproj")
-        self.assertEqual(result["target"], "/workspaces/myproj/some/nested/path")
+        self.assertEqual(
+            result["target"], "/workspaces/myproj/some/nested/path"
+        )
 
 
 class TestCopyParsing(unittest.TestCase):
@@ -431,7 +443,9 @@ class TestCopyParsing(unittest.TestCase):
     def test_parse_copy_with_target(self):
         """Copy with target should resolve correctly."""
         result = jolo.parse_copy("~/config.json:app/config.json", "myproj")
-        self.assertEqual(result["target"], "/workspaces/myproj/app/config.json")
+        self.assertEqual(
+            result["target"], "/workspaces/myproj/app/config.json"
+        )
 
     def test_parse_copy_basename_only(self):
         """Copy without target should use basename."""
@@ -466,7 +480,9 @@ class TestLangArgParsing(unittest.TestCase):
 
     def test_lang_flag_comma_separated(self):
         """--lang should accept comma-separated values."""
-        args = jolo.parse_args(["create", "test", "--lang", "python,typescript"])
+        args = jolo.parse_args(
+            ["create", "test", "--lang", "python,typescript"]
+        )
         self.assertEqual(args.lang, ["python", "typescript"])
 
     def test_lang_flag_multiple_values(self):
@@ -481,7 +497,15 @@ class TestLangArgParsing(unittest.TestCase):
 
     def test_lang_valid_values(self):
         """--lang should accept all valid language values."""
-        valid_langs = ["python", "go", "typescript", "rust", "shell", "prose", "other"]
+        valid_langs = [
+            "python",
+            "go",
+            "typescript",
+            "rust",
+            "shell",
+            "prose",
+            "other",
+        ]
         for lang in valid_langs:
             args = jolo.parse_args(["create", "test", "--lang", lang])
             self.assertEqual(args.lang, [lang])
@@ -498,7 +522,9 @@ class TestLangArgParsing(unittest.TestCase):
 
     def test_lang_with_create(self):
         """--lang can combine with create."""
-        args = jolo.parse_args(["create", "myproject", "--lang", "python,typescript"])
+        args = jolo.parse_args(
+            ["create", "myproject", "--lang", "python,typescript"]
+        )
         self.assertEqual(args.name, "myproject")
         self.assertEqual(args.lang, ["python", "typescript"])
 
@@ -510,7 +536,9 @@ class TestLangArgParsing(unittest.TestCase):
 
     def test_lang_whitespace_handling(self):
         """--lang should handle values with whitespace around commas."""
-        args = jolo.parse_args(["create", "test", "--lang", "python, typescript, go"])
+        args = jolo.parse_args(
+            ["create", "test", "--lang", "python, typescript, go"]
+        )
         self.assertEqual(args.lang, ["python", "typescript", "go"])
 
 
@@ -524,12 +552,18 @@ class TestLanguageCodeMapping(unittest.TestCase):
     def test_all_options_have_mapping(self):
         """Every LANGUAGE_OPTIONS entry should have a code mapping."""
         for option in jolo.LANGUAGE_OPTIONS:
-            self.assertIn(option, jolo.LANGUAGE_CODE_MAP, f"Missing mapping for {option}")
+            self.assertIn(
+                option, jolo.LANGUAGE_CODE_MAP, f"Missing mapping for {option}"
+            )
 
     def test_mapping_values_are_valid(self):
         """All mapped codes should be in VALID_LANGUAGES."""
         for option, code in jolo.LANGUAGE_CODE_MAP.items():
-            self.assertIn(code, jolo.VALID_LANGUAGES, f"Code '{code}' for '{option}' not in VALID_LANGUAGES")
+            self.assertIn(
+                code,
+                jolo.VALID_LANGUAGES,
+                f"Code '{code}' for '{option}' not in VALID_LANGUAGES",
+            )
 
 
 if __name__ == "__main__":

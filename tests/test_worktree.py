@@ -84,7 +84,9 @@ class TestWorktreeExists(unittest.TestCase):
             (worktree_path / ".devcontainer").mkdir()
 
             result = jolo.get_or_create_worktree(
-                git_root=Path(tmpdir), worktree_name="existing-worktree", worktree_path=worktree_path
+                git_root=Path(tmpdir),
+                worktree_name="existing-worktree",
+                worktree_path=worktree_path,
             )
 
             self.assertEqual(result, worktree_path)
@@ -111,7 +113,10 @@ class TestWorktreeDevcontainer(unittest.TestCase):
         devcontainer_dir.mkdir()
         json_file = devcontainer_dir / "devcontainer.json"
 
-        original = {"name": "test", "mounts": ["source=/tmp,target=/tmp,type=bind"]}
+        original = {
+            "name": "test",
+            "mounts": ["source=/tmp,target=/tmp,type=bind"],
+        }
         json_file.write_text(json.dumps(original))
 
         # Add git mount
@@ -168,11 +173,25 @@ class TestListWorktrees(unittest.TestCase):
         os.chdir(self.tmpdir)
         subprocess.run(["git", "init"], cwd=self.tmpdir, capture_output=True)
         # Create an initial commit so git worktree list works
-        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
         Path(self.tmpdir, "README").write_text("test")
-        subprocess.run(["git", "add", "."], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Initial"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=self.tmpdir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Initial"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
 
         result = jolo.list_worktrees(Path(self.tmpdir))
 
@@ -220,11 +239,25 @@ class TestBranchExists(unittest.TestCase):
         self.original_cwd = os.getcwd()
         # Set up a git repo with a commit
         subprocess.run(["git", "init"], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
         Path(self.tmpdir, "README").write_text("test")
-        subprocess.run(["git", "add", "."], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Initial"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=self.tmpdir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Initial"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
 
     def tearDown(self):
         os.chdir(self.original_cwd)
@@ -260,11 +293,25 @@ class TestFindStaleWorktrees(unittest.TestCase):
         """Should return empty list when no stale worktrees."""
         os.chdir(self.tmpdir)
         subprocess.run(["git", "init"], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
         Path(self.tmpdir, "README").write_text("test")
-        subprocess.run(["git", "add", "."], cwd=self.tmpdir, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Initial"], cwd=self.tmpdir, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=self.tmpdir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Initial"],
+            cwd=self.tmpdir,
+            capture_output=True,
+        )
 
         result = jolo.find_stale_worktrees(Path(self.tmpdir))
         self.assertEqual(result, [])
@@ -277,7 +324,9 @@ class TestRemoveWorktree(unittest.TestCase):
         """Should call git worktree remove."""
         with mock.patch("subprocess.run") as mock_run:
             mock_run.return_value = mock.Mock(returncode=0)
-            result = jolo.remove_worktree(Path("/project"), Path("/project-worktrees/foo"))
+            result = jolo.remove_worktree(
+                Path("/project"), Path("/project-worktrees/foo")
+            )
             self.assertTrue(result)
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]

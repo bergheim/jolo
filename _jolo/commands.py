@@ -7,8 +7,9 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 from _jolo import constants
 from _jolo.cli import (
@@ -71,7 +72,9 @@ from _jolo.worktree import (
 )
 
 
-def get_agent_command(config: dict, agent_name: str | None = None, index: int = 0) -> str:
+def get_agent_command(
+    config: dict, agent_name: str | None = None, index: int = 0
+) -> str:
     """Get the command to run an agent.
 
     Args:
@@ -96,7 +99,9 @@ def get_agent_command(config: dict, agent_name: str | None = None, index: int = 
     return agent_commands.get(name, name)
 
 
-def get_agent_name(config: dict, agent_name: str | None = None, index: int = 0) -> str:
+def get_agent_name(
+    config: dict, agent_name: str | None = None, index: int = 0
+) -> str:
     """Get the agent name for a given index.
 
     Args:
@@ -148,14 +153,18 @@ def run_list_global_mode() -> None:
     """Run --list --all mode: show all running devcontainers globally."""
     runtime = get_container_runtime()
     if runtime is None:
-        sys.exit("Error: No container runtime found (docker or podman required)")
+        sys.exit(
+            "Error: No container runtime found (docker or podman required)"
+        )
 
     containers = list_all_devcontainers()
 
     print("Running devcontainers:")
     print()
 
-    running_containers = [(n, f, s, i) for n, f, s, i in containers if s == "running"]
+    running_containers = [
+        (n, f, s, i) for n, f, s, i in containers if s == "running"
+    ]
 
     if not running_containers:
         print("  (none)")
@@ -164,7 +173,9 @@ def run_list_global_mode() -> None:
             print(f"  {name:<24} {folder}")
 
     # Also show stopped containers
-    stopped_containers = [(n, f, s, i) for n, f, s, i in containers if s != "running"]
+    stopped_containers = [
+        (n, f, s, i) for n, f, s, i in containers if s != "running"
+    ]
     if stopped_containers:
         print()
         print("Stopped devcontainers:")
@@ -207,11 +218,15 @@ def run_prune_global_mode() -> None:
     """Run --prune --all mode: clean up all stopped devcontainers globally."""
     runtime = get_container_runtime()
     if runtime is None:
-        sys.exit("Error: No container runtime found (docker or podman required)")
+        sys.exit(
+            "Error: No container runtime found (docker or podman required)"
+        )
 
     all_containers = list_all_devcontainers()
     stopped_containers = [
-        (name, folder, image_id) for name, folder, state, image_id in all_containers if state != "running"
+        (name, folder, image_id)
+        for name, folder, state, image_id in all_containers
+        if state != "running"
     ]
     orphan_containers = [
         (name, folder, image_id)
@@ -236,7 +251,9 @@ def run_prune_global_mode() -> None:
         print()
 
     # Collect image IDs that might be pruned
-    potential_images = {c[2] for c in stopped_containers + orphan_containers if c[2]}
+    potential_images = {
+        c[2] for c in stopped_containers + orphan_containers if c[2]
+    }
 
     if potential_images:
         print("Images that may be pruned (if not used by other containers):")
@@ -298,7 +315,9 @@ def run_prune_mode(args: argparse.Namespace) -> None:
 
     runtime = get_container_runtime()
     if runtime is None:
-        sys.exit("Error: No container runtime found (docker or podman required)")
+        sys.exit(
+            "Error: No container runtime found (docker or podman required)"
+        )
 
     # Find stopped containers
     stopped_containers = find_stopped_containers_for_project(git_root)
@@ -314,7 +333,11 @@ def run_prune_mode(args: argparse.Namespace) -> None:
     # Find stale worktrees
     stale_worktrees = find_stale_worktrees(git_root)
 
-    if not stopped_containers and not orphan_containers and not stale_worktrees:
+    if (
+        not stopped_containers
+        and not orphan_containers
+        and not stale_worktrees
+    ):
         print("Nothing to prune.")
         return
 
@@ -338,7 +361,9 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         print()
 
     # Collect image IDs that might be pruned
-    potential_images = {c[2] for c in stopped_containers + orphan_containers if c[2]}
+    potential_images = {
+        c[2] for c in stopped_containers + orphan_containers if c[2]
+    }
 
     if potential_images:
         print("Images that may be pruned (if not used by other containers):")
@@ -379,7 +404,9 @@ def run_prune_mode(args: argparse.Namespace) -> None:
         if remove_worktree(git_root, wt_path):
             print(f"Removed worktree: {wt_path.name}")
         else:
-            print(f"Failed to remove worktree: {wt_path.name}", file=sys.stderr)
+            print(
+                f"Failed to remove worktree: {wt_path.name}", file=sys.stderr
+            )
 
     # Prune unused images
     if potential_images:
@@ -400,7 +427,9 @@ def run_open_mode(args: argparse.Namespace) -> None:
     """Run --open mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
     running = [
-        (name, folder) for name, folder, state, image_id in containers if state == "running" and Path(folder).exists()
+        (name, folder)
+        for name, folder, state, image_id in containers
+        if state == "running" and Path(folder).exists()
     ]
 
     if not running:
@@ -422,7 +451,16 @@ def run_open_mode(args: argparse.Namespace) -> None:
     if shutil.which("fzf"):
         try:
             result = subprocess.run(
-                ["fzf", "--header", "Pick a container:", "--height", "~10", "--layout", "reverse", "--no-multi"],
+                [
+                    "fzf",
+                    "--header",
+                    "Pick a container:",
+                    "--height",
+                    "~10",
+                    "--layout",
+                    "reverse",
+                    "--no-multi",
+                ],
                 input="\n".join(labels),
                 capture_output=True,
                 text=True,
@@ -490,7 +528,9 @@ def run_list_mode(args: argparse.Namespace) -> None:
             running = is_container_running(ws_path)
             status = "running" if running else "stopped"
             status_marker = "*" if running else " "
-            print(f"  {status_marker} {ws_path.name:<20} {status:<10} ({ws_type})")
+            print(
+                f"  {status_marker} {ws_path.name:<20} {status:<10} ({ws_type})"
+            )
             if running:
                 any_running = True
 
@@ -515,7 +555,9 @@ def run_up_mode(args: argparse.Namespace) -> None:
     git_root = find_git_root()
 
     if git_root is None:
-        sys.exit("Error: Not in a git repository. Use --init to initialize here.")
+        sys.exit(
+            "Error: Not in a git repository. Use --init to initialize here."
+        )
 
     os.chdir(git_root)
     project_name = git_root.name
@@ -613,13 +655,17 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Sync .devcontainer if requested
     if args.sync:
-        sync_devcontainer(worktree_name, target_dir=worktree_path, config=config)
+        sync_devcontainer(
+            worktree_name, target_dir=worktree_path, config=config
+        )
         sync_skill_templates(worktree_path)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
         parsed_mounts = [parse_mount(m, worktree_name) for m in args.mount]
-        devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
+        devcontainer_json = (
+            worktree_path / ".devcontainer" / "devcontainer.json"
+        )
         add_user_mounts(devcontainer_json, parsed_mounts)
 
     # Copy user-specified files
@@ -710,7 +756,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Generate and write .pre-commit-config.yaml based on selected languages
     precommit_content = generate_precommit_config(languages)
     (project_path / ".pre-commit-config.yaml").write_text(precommit_content)
-    verbose_print(f"Generated .pre-commit-config.yaml for languages: {', '.join(languages)}")
+    verbose_print(
+        f"Generated .pre-commit-config.yaml for languages: {', '.join(languages)}"
+    )
 
     # Write test framework config for primary language
     test_config = get_test_framework_config(primary_language)
@@ -718,7 +766,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     module_name = project_name.replace("-", "_")
 
     def replace_placeholders(text: str) -> str:
-        return text.replace("{{PROJECT_NAME}}", project_name).replace("{{PROJECT_NAME_UNDERSCORE}}", module_name)
+        return text.replace("{{PROJECT_NAME}}", project_name).replace(
+            "{{PROJECT_NAME_UNDERSCORE}}", module_name
+        )
 
     if test_config.get("config_file"):
         config_file = project_path / test_config["config_file"]
@@ -729,35 +779,53 @@ def run_create_mode(args: argparse.Namespace) -> None:
             config_file.write_text(existing + "\n" + content)
         else:
             config_file.write_text(content)
-        verbose_print(f"Wrote test framework config: {test_config['config_file']}")
+        verbose_print(
+            f"Wrote test framework config: {test_config['config_file']}"
+        )
 
     # Write main module file (Python src layout)
     if test_config.get("main_file") and test_config.get("main_content"):
-        main_path = project_path / replace_placeholders(test_config["main_file"])
+        main_path = project_path / replace_placeholders(
+            test_config["main_file"]
+        )
         main_path.parent.mkdir(parents=True, exist_ok=True)
         main_path.write_text(test_config["main_content"])
-        verbose_print(f"Wrote main module: {main_path.relative_to(project_path)}")
+        verbose_print(
+            f"Wrote main module: {main_path.relative_to(project_path)}"
+        )
 
     # Write __init__.py for Python packages
     if test_config.get("init_file"):
-        init_path = project_path / replace_placeholders(test_config["init_file"])
+        init_path = project_path / replace_placeholders(
+            test_config["init_file"]
+        )
         init_path.parent.mkdir(parents=True, exist_ok=True)
         init_path.write_text("")
-        verbose_print(f"Wrote package init: {init_path.relative_to(project_path)}")
+        verbose_print(
+            f"Wrote package init: {init_path.relative_to(project_path)}"
+        )
 
     # Write tests/__init__.py for Python test packages
     if test_config.get("tests_init_file"):
         tests_init_path = project_path / test_config["tests_init_file"]
         tests_init_path.parent.mkdir(parents=True, exist_ok=True)
         tests_init_path.write_text("")
-        verbose_print(f"Wrote tests init: {tests_init_path.relative_to(project_path)}")
+        verbose_print(
+            f"Wrote tests init: {tests_init_path.relative_to(project_path)}"
+        )
 
     # Write example test file for primary language
-    if test_config.get("example_test_file") and test_config.get("example_test_content"):
+    if test_config.get("example_test_file") and test_config.get(
+        "example_test_content"
+    ):
         example_test_path = project_path / test_config["example_test_file"]
         example_test_path.parent.mkdir(parents=True, exist_ok=True)
-        example_test_path.write_text(replace_placeholders(test_config["example_test_content"]))
-        verbose_print(f"Wrote example test: {test_config['example_test_file']}")
+        example_test_path.write_text(
+            replace_placeholders(test_config["example_test_content"])
+        )
+        verbose_print(
+            f"Wrote example test: {test_config['example_test_file']}"
+        )
 
     # Write type checker config for primary language
     type_config = get_type_checker_config(primary_language)
@@ -766,10 +834,14 @@ def run_create_mode(args: argparse.Namespace) -> None:
         if config_file.exists():
             # Append to existing file (e.g., pyproject.toml)
             existing = config_file.read_text()
-            config_file.write_text(existing + "\n" + type_config["config_content"])
+            config_file.write_text(
+                existing + "\n" + type_config["config_content"]
+            )
         else:
             config_file.write_text(type_config["config_content"])
-        verbose_print(f"Wrote type checker config: {type_config['config_file']}")
+        verbose_print(
+            f"Wrote type checker config: {type_config['config_file']}"
+        )
 
     # Initialize git repo
     cmd = ["git", "init"]
@@ -798,7 +870,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Add user-specified mounts to devcontainer.json
     if args.mount:
         parsed_mounts = [parse_mount(m, project_name) for m in args.mount]
-        devcontainer_json = project_path / ".devcontainer" / "devcontainer.json"
+        devcontainer_json = (
+            project_path / ".devcontainer" / "devcontainer.json"
+        )
         add_user_mounts(devcontainer_json, parsed_mounts)
 
     # Copy user-specified files
@@ -891,7 +965,9 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Add user-specified mounts to devcontainer.json
     if args.mount:
         parsed_mounts = [parse_mount(m, project_name) for m in args.mount]
-        devcontainer_json = project_path / ".devcontainer" / "devcontainer.json"
+        devcontainer_json = (
+            project_path / ".devcontainer" / "devcontainer.json"
+        )
         add_user_mounts(devcontainer_json, parsed_mounts)
 
     # Copy user-specified files
@@ -989,11 +1065,15 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
 
         # Sync .devcontainer if requested
         if args.sync:
-            sync_devcontainer(name, target_dir=worktree_path, config=config, port=port)
+            sync_devcontainer(
+                name, target_dir=worktree_path, config=config, port=port
+            )
             sync_skill_templates(worktree_path)
 
         # Update devcontainer.json with correct port if not syncing (sync handles it)
-        devcontainer_json = worktree_path / ".devcontainer" / "devcontainer.json"
+        devcontainer_json = (
+            worktree_path / ".devcontainer" / "devcontainer.json"
+        )
         if devcontainer_json.exists() and not args.sync:
             content = json.loads(devcontainer_json.read_text())
             if "containerEnv" not in content:
@@ -1032,7 +1112,9 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         if args.new:
             cmd.append("--remove-existing-container")
         verbose_cmd(cmd)
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         processes.append((path, proc))
         print(f"  [{i + 1}/{n}] Launched: {path.name}")
 
@@ -1053,7 +1135,9 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             print(f"  Ready: {path.name}")
 
     if failed:
-        print(f"Warning: {len(failed)} container(s) failed to start: {', '.join(failed)}")
+        print(
+            f"Warning: {len(failed)} container(s) failed to start: {', '.join(failed)}"
+        )
 
     # If no prompt, just report status
     if not args.prompt:
@@ -1123,7 +1207,16 @@ def spawn_tmux_multipane(
             worktree_names[0],
         ]
     )
-    subprocess.run(["tmux", "send-keys", "-t", f"{session_name}:{worktree_names[0]}", first_exec_cmd, "Enter"])
+    subprocess.run(
+        [
+            "tmux",
+            "send-keys",
+            "-t",
+            f"{session_name}:{worktree_names[0]}",
+            first_exec_cmd,
+            "Enter",
+        ]
+    )
 
     # Create additional windows (not panes - full screen each)
     for i in range(1, n):
@@ -1135,10 +1228,21 @@ def spawn_tmux_multipane(
 
         # Create new window (full screen) and send command
         subprocess.run(["tmux", "new-window", "-t", session_name, "-n", name])
-        subprocess.run(["tmux", "send-keys", "-t", f"{session_name}:{name}", exec_cmd, "Enter"])
+        subprocess.run(
+            [
+                "tmux",
+                "send-keys",
+                "-t",
+                f"{session_name}:{name}",
+                exec_cmd,
+                "Enter",
+            ]
+        )
 
     print(f"\nStarted {n} agents in tmux session '{session_name}'")
-    print(f"Agents: {', '.join(get_agent_name(config, agent_override, i) for i in range(n))}")
+    print(
+        f"Agents: {', '.join(get_agent_name(config, agent_override, i) for i in range(n))}"
+    )
     print("Attaching to tmux session...")
 
     # Attach to session
@@ -1212,7 +1316,9 @@ def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
         print(f"Failed to delete worktree: {wt_path.name}", file=sys.stderr)
 
 
-def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> None:
+def _delete_project(
+    git_root: Path, purge: bool = False, yes: bool = False
+) -> None:
     """Delete a project: stop containers, optionally remove dirs.
 
     1. Find all worktrees under the project
@@ -1222,7 +1328,9 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
     """
     runtime = get_container_runtime()
     if runtime is None:
-        sys.exit("Error: No container runtime found (docker or podman required)")
+        sys.exit(
+            "Error: No container runtime found (docker or podman required)"
+        )
 
     # Find worktrees
     wt_list = _find_deletable_worktrees(git_root)
@@ -1231,7 +1339,9 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
         if not yes:
             try:
                 wt_names = ", ".join(p.name for p, _, _ in wt_list)
-                response = input(f"Project has worktrees: {wt_names}\nAlso delete them? [y/N] ")
+                response = input(
+                    f"Project has worktrees: {wt_names}\nAlso delete them? [y/N] "
+                )
             except (EOFError, KeyboardInterrupt):
                 print()
                 return
@@ -1253,7 +1363,9 @@ def _delete_project(git_root: Path, purge: bool = False, yes: bool = False) -> N
             if result.returncode == 0:
                 print(f"Stopped: {name}")
             else:
-                print(f"Failed to stop {name}: {result.stderr}", file=sys.stderr)
+                print(
+                    f"Failed to stop {name}: {result.stderr}", file=sys.stderr
+                )
 
     for name, _folder, _state, _image_id in containers:
         if remove_container(name):
@@ -1295,7 +1407,9 @@ def run_delete_mode(args: argparse.Namespace) -> None:
             # Confirm
             if not args.yes:
                 try:
-                    response = input(f"Delete project '{project_root.name}'? [y/N] ")
+                    response = input(
+                        f"Delete project '{project_root.name}'? [y/N] "
+                    )
                 except (EOFError, KeyboardInterrupt):
                     print()
                     return
@@ -1307,7 +1421,9 @@ def run_delete_mode(args: argparse.Namespace) -> None:
         else:
             # Name → find worktree in current project
             if git_root is None:
-                sys.exit("Error: Not in a git repository (needed to find worktree by name).")
+                sys.exit(
+                    "Error: Not in a git repository (needed to find worktree by name)."
+                )
 
             wt_list = _find_deletable_worktrees(git_root)
             if not wt_list:
@@ -1321,14 +1437,18 @@ def run_delete_mode(args: argparse.Namespace) -> None:
 
             if target is None:
                 available = ", ".join(p.name for p, _, _ in wt_list)
-                sys.exit(f"Error: Worktree '{target_arg}' not found. Available: {available}")
+                sys.exit(
+                    f"Error: Worktree '{target_arg}' not found. Available: {available}"
+                )
 
             wt_path, branch = target
 
             # Confirm
             if not args.yes:
                 try:
-                    response = input(f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] ")
+                    response = input(
+                        f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] "
+                    )
                 except (EOFError, KeyboardInterrupt):
                     print()
                     return
@@ -1350,7 +1470,16 @@ def run_delete_mode(args: argparse.Namespace) -> None:
         if shutil.which("fzf"):
             try:
                 result = subprocess.run(
-                    ["fzf", "--header", "Pick item to delete:", "--height", "~10", "--layout", "reverse", "--no-multi"],
+                    [
+                        "fzf",
+                        "--header",
+                        "Pick item to delete:",
+                        "--height",
+                        "~10",
+                        "--layout",
+                        "reverse",
+                        "--no-multi",
+                    ],
                     input="\n".join(labels),
                     capture_output=True,
                     text=True,
@@ -1392,7 +1521,9 @@ def run_delete_mode(args: argparse.Namespace) -> None:
                 return
 
         if selected["type"] == "worktree":
-            _delete_worktree(selected["path"], selected["git_root"], yes=args.yes)
+            _delete_worktree(
+                selected["path"], selected["git_root"], yes=args.yes
+            )
         else:
             _delete_project(selected["git_root"], purge=purge, yes=args.yes)
 

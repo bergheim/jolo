@@ -87,7 +87,10 @@ class TestSecretsManagement(unittest.TestCase):
 
     def test_get_secrets_from_env(self):
         """Should get secrets from environment when pass unavailable."""
-        env = {"ANTHROPIC_API_KEY": "sk-ant-test123", "OPENAI_API_KEY": "sk-openai-test456"}
+        env = {
+            "ANTHROPIC_API_KEY": "sk-ant-test123",
+            "OPENAI_API_KEY": "sk-openai-test456",
+        }
         with mock.patch.dict(os.environ, env, clear=True):
             with mock.patch("shutil.which", return_value=None):
                 secrets = jolo.get_secrets()
@@ -137,7 +140,13 @@ class TestAddUserMounts(unittest.TestCase):
         json_file.write_text(json.dumps({"name": "test", "mounts": []}))
 
         # Add a mount
-        mounts = [{"source": "/home/user/data", "target": "/workspaces/test/data", "readonly": False}]
+        mounts = [
+            {
+                "source": "/home/user/data",
+                "target": "/workspaces/test/data",
+                "readonly": False,
+            }
+        ]
         jolo.add_user_mounts(json_file, mounts)
 
         # Verify
@@ -165,7 +174,9 @@ class TestAddUserMounts(unittest.TestCase):
         devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
         json_file = devcontainer_dir / "devcontainer.json"
-        json_file.write_text(json.dumps({"name": "test", "mounts": ["existing"]}))
+        json_file.write_text(
+            json.dumps({"name": "test", "mounts": ["existing"]})
+        )
 
         mounts = [
             {"source": "/a", "target": "/mnt/a", "readonly": False},
@@ -226,7 +237,9 @@ class TestCopyUserFiles(unittest.TestCase):
         source = Path(self.tmpdir) / "source.json"
         source.write_text('{"test": true}')
 
-        copies = [{"source": str(source), "target": "/workspaces/myproj/config.json"}]
+        copies = [
+            {"source": str(source), "target": "/workspaces/myproj/config.json"}
+        ]
         jolo.copy_user_files(copies, workspace)
 
         target = workspace / "config.json"
@@ -241,7 +254,12 @@ class TestCopyUserFiles(unittest.TestCase):
         source = Path(self.tmpdir) / "source.json"
         source.write_text("test")
 
-        copies = [{"source": str(source), "target": "/workspaces/myproj/nested/deep/config.json"}]
+        copies = [
+            {
+                "source": str(source),
+                "target": "/workspaces/myproj/nested/deep/config.json",
+            }
+        ]
         jolo.copy_user_files(copies, workspace)
 
         target = workspace / "nested" / "deep" / "config.json"
@@ -252,7 +270,12 @@ class TestCopyUserFiles(unittest.TestCase):
         workspace = Path(self.tmpdir) / "workspace"
         workspace.mkdir()
 
-        copies = [{"source": "/nonexistent/file.json", "target": "/workspaces/myproj/config.json"}]
+        copies = [
+            {
+                "source": "/nonexistent/file.json",
+                "target": "/workspaces/myproj/config.json",
+            }
+        ]
 
         with self.assertRaises(SystemExit) as cm:
             jolo.copy_user_files(copies, workspace)
@@ -299,7 +322,9 @@ class TestNotificationHooks(unittest.TestCase):
     def test_claude_session_end_hook_injected(self):
         """Should inject SessionEnd hook into Claude settings."""
         ws = self._workspace()
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -313,7 +338,9 @@ class TestNotificationHooks(unittest.TestCase):
     def test_gemini_session_end_hook_injected(self):
         """Should inject SessionEnd hook into Gemini settings."""
         ws = self._workspace()
-        gemini_settings = ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        gemini_settings = (
+            ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        )
         gemini_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -327,10 +354,14 @@ class TestNotificationHooks(unittest.TestCase):
     def test_merges_with_existing_hooks(self):
         """Should not clobber existing hooks in settings."""
         ws = self._workspace()
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
         existing = {
             "hooks": {
-                "SessionEnd": [{"hooks": [{"type": "command", "command": "echo done"}]}],
+                "SessionEnd": [
+                    {"hooks": [{"type": "command", "command": "echo done"}]}
+                ],
             },
             "other_key": "preserved",
         }
@@ -346,7 +377,9 @@ class TestNotificationHooks(unittest.TestCase):
     def test_idempotent_no_duplicates(self):
         """Running twice should not add duplicate hooks."""
         ws = self._workspace()
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -358,7 +391,9 @@ class TestNotificationHooks(unittest.TestCase):
     def test_creates_settings_if_missing(self):
         """Should create settings.json if it doesn't exist."""
         ws = self._workspace()
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
         # Don't create the file — it shouldn't exist yet
 
         jolo.setup_notification_hooks(ws)
@@ -375,8 +410,12 @@ class TestNotificationHooks(unittest.TestCase):
 
         jolo.setup_notification_hooks(ws)
 
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        gemini_settings = ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
+        gemini_settings = (
+            ws / ".devcontainer" / ".gemini-cache" / "settings.json"
+        )
         self.assertTrue(claude_settings.exists())
         self.assertTrue(gemini_settings.exists())
 
@@ -420,7 +459,9 @@ class TestNotificationHooks(unittest.TestCase):
     def test_corrupt_json_does_not_crash(self):
         """Should handle corrupt/empty settings.json gracefully."""
         ws = self._workspace()
-        claude_settings = ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
         claude_settings.write_text("not valid json{{{")
 
         # Should not raise
@@ -493,7 +534,11 @@ class TestCredentialMountStrategy(unittest.TestCase):
         """BASE_MOUNTS should have individual file mounts, not a directory mount."""
         from _jolo.constants import BASE_MOUNTS
 
-        claude_mounts = [m for m in BASE_MOUNTS if ".claude" in m and ".claude.json" not in m]
+        claude_mounts = [
+            m
+            for m in BASE_MOUNTS
+            if ".claude" in m and ".claude.json" not in m
+        ]
 
         # Should have credentials (RW from host), settings (from cache), statsig (RO from host)
         cred_mounts = [m for m in claude_mounts if ".credentials.json" in m]
@@ -510,7 +555,11 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertIn("readonly", statsig_mounts[0])
 
         # Should NOT have the old directory mount
-        dir_mounts = [m for m in claude_mounts if m.endswith("type=bind") and ".claude,target" in m]
+        dir_mounts = [
+            m
+            for m in claude_mounts
+            if m.endswith("type=bind") and ".claude,target" in m
+        ]
         self.assertEqual(len(dir_mounts), 0)
 
 

@@ -16,11 +16,15 @@ class TestGitignoreTemplate(unittest.TestCase):
     """Test universal .gitignore template."""
 
     def setUp(self):
-        self.template_path = Path(__file__).parent.parent / "templates" / ".gitignore"
+        self.template_path = (
+            Path(__file__).parent.parent / "templates" / ".gitignore"
+        )
 
     def test_gitignore_template_exists(self):
         """templates/.gitignore should exist."""
-        self.assertTrue(self.template_path.exists(), f"Missing {self.template_path}")
+        self.assertTrue(
+            self.template_path.exists(), f"Missing {self.template_path}"
+        )
 
     def test_gitignore_contains_python_patterns(self):
         """Should contain Python ignore patterns."""
@@ -53,12 +57,22 @@ class TestPreCommitTemplate(unittest.TestCase):
 
     def test_pre_commit_template_exists(self):
         """templates/.pre-commit-config.yaml should exist."""
-        template_path = Path(__file__).parent.parent / "templates" / ".pre-commit-config.yaml"
-        self.assertTrue(template_path.exists(), f"Template not found at {template_path}")
+        template_path = (
+            Path(__file__).parent.parent
+            / "templates"
+            / ".pre-commit-config.yaml"
+        )
+        self.assertTrue(
+            template_path.exists(), f"Template not found at {template_path}"
+        )
 
     def test_pre_commit_template_contains_gitleaks_hook(self):
         """Template should contain gitleaks hook."""
-        template_path = Path(__file__).parent.parent / "templates" / ".pre-commit-config.yaml"
+        template_path = (
+            Path(__file__).parent.parent
+            / "templates"
+            / ".pre-commit-config.yaml"
+        )
         content = template_path.read_text()
 
         # Check that gitleaks hook is configured
@@ -66,7 +80,11 @@ class TestPreCommitTemplate(unittest.TestCase):
 
     def test_pre_commit_template_gitleaks_repo_url(self):
         """Gitleaks repo URL should be correct."""
-        template_path = Path(__file__).parent.parent / "templates" / ".pre-commit-config.yaml"
+        template_path = (
+            Path(__file__).parent.parent
+            / "templates"
+            / ".pre-commit-config.yaml"
+        )
         content = template_path.read_text()
 
         self.assertIn(
@@ -82,7 +100,9 @@ class TestEditorConfigTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Read the editorconfig file once for all tests."""
-        cls.template_path = Path(__file__).parent.parent / "templates" / ".editorconfig"
+        cls.template_path = (
+            Path(__file__).parent.parent / "templates" / ".editorconfig"
+        )
         if cls.template_path.exists():
             cls.content = cls.template_path.read_text()
             cls.lines = cls.content.strip().split("\n")
@@ -92,7 +112,10 @@ class TestEditorConfigTemplate(unittest.TestCase):
 
     def test_editorconfig_exists(self):
         """templates/.editorconfig should exist."""
-        self.assertTrue(self.template_path.exists(), f"Expected {self.template_path} to exist")
+        self.assertTrue(
+            self.template_path.exists(),
+            f"Expected {self.template_path} to exist",
+        )
 
     def test_root_true(self):
         """Should have root = true."""
@@ -176,7 +199,9 @@ class TestGetProjectInitCommands(unittest.TestCase):
         # Should have at least one directory creation
         has_docs = ["mkdir", "-p", "docs"] in commands
         has_src = ["mkdir", "-p", "src"] in commands
-        self.assertTrue(has_docs or has_src, f"Expected docs or src mkdir, got: {commands}")
+        self.assertTrue(
+            has_docs or has_src, f"Expected docs or src mkdir, got: {commands}"
+        )
 
     def test_other_returns_src_mkdir(self):
         """Other language should create src directory."""
@@ -222,7 +247,15 @@ class TestSelectLanguagesInteractive(unittest.TestCase):
         """All valid languages should be available as options."""
         self.assertTrue(hasattr(jolo, "LANGUAGE_OPTIONS"))
         options = jolo.LANGUAGE_OPTIONS
-        expected = ["Python", "Go", "TypeScript", "Rust", "Shell", "Prose/Docs", "Other"]
+        expected = [
+            "Python",
+            "Go",
+            "TypeScript",
+            "Rust",
+            "Shell",
+            "Prose/Docs",
+            "Other",
+        ]
         self.assertEqual(options, expected)
 
     def test_fallback_parses_comma_separated_numbers(self):
@@ -277,7 +310,12 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
     def test_dict_has_required_keys(self):
         """Return dict should have config_file, config_content, example_test_file, example_test_content."""
         result = jolo.get_test_framework_config("python")
-        required_keys = ["config_file", "config_content", "example_test_file", "example_test_content"]
+        required_keys = [
+            "config_file",
+            "config_content",
+            "example_test_file",
+            "example_test_content",
+        ]
         for key in required_keys:
             self.assertIn(key, result, f"Missing key: {key}")
 
@@ -348,7 +386,8 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         result = jolo.get_test_framework_config("go")
         # Config content can be empty or just explain that no config is needed
         self.assertTrue(
-            result["config_content"] == "" or "built-in" in result["config_content"].lower(),
+            result["config_content"] == ""
+            or "built-in" in result["config_content"].lower(),
             f"Expected empty or built-in info, got: {result['config_content']}",
         )
 
@@ -379,7 +418,8 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         result = jolo.get_test_framework_config("rust")
         # Config content can be empty or just explain that no config is needed
         self.assertTrue(
-            result["config_content"] == "" or "built-in" in result["config_content"].lower(),
+            result["config_content"] == ""
+            or "built-in" in result["config_content"].lower(),
             f"Expected empty or built-in info, got: {result['config_content']}",
         )
 
@@ -388,7 +428,8 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         result = jolo.get_test_framework_config("rust")
         # Rust tests can be in lib.rs, main.rs, or a tests/ directory
         self.assertTrue(
-            "src/" in result["example_test_file"] or "tests/" in result["example_test_file"],
+            "src/" in result["example_test_file"]
+            or "tests/" in result["example_test_file"],
             f"Expected src/ or tests/ path, got: {result['example_test_file']}",
         )
 
@@ -681,7 +722,9 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         """Prose language should add markdownlint and codespell hooks."""
         result = jolo.generate_precommit_config(["prose"])
 
-        self.assertIn("https://github.com/igorshubovych/markdownlint-cli", result)
+        self.assertIn(
+            "https://github.com/igorshubovych/markdownlint-cli", result
+        )
         self.assertIn("id: markdownlint", result)
         self.assertIn("v0.43.0", result)
 
@@ -707,7 +750,9 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_all_languages_combined(self):
         """Should handle all supported languages together."""
-        result = jolo.generate_precommit_config(["python", "go", "typescript", "rust", "shell", "prose"])
+        result = jolo.generate_precommit_config(
+            ["python", "go", "typescript", "rust", "shell", "prose"]
+        )
 
         # Verify all language-specific hooks are present
         self.assertIn("ruff", result)

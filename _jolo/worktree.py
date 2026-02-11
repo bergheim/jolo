@@ -6,7 +6,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _jolo.cli import find_git_root, get_container_name, random_port, verbose_cmd
+from _jolo.cli import (
+    find_git_root,
+    get_container_name,
+    random_port,
+    verbose_cmd,
+)
 from _jolo.setup import add_worktree_git_mount, scaffold_devcontainer
 
 
@@ -25,7 +30,9 @@ def validate_tree_mode() -> Path:
     """
     git_root = find_git_root()
     if git_root is None:
-        sys.exit("Error: Not in a git repository. --tree requires an existing repo.")
+        sys.exit(
+            "Error: Not in a git repository. --tree requires an existing repo."
+        )
     return git_root
 
 
@@ -33,7 +40,9 @@ def validate_create_mode(name: str) -> None:
     """Validate that --create mode is NOT being run inside a git repo."""
     git_root = find_git_root()
     if git_root is not None:
-        sys.exit("Error: Already in a git repository. Use --tree for worktrees.")
+        sys.exit(
+            "Error: Already in a git repository. Use --tree for worktrees."
+        )
 
     target_dir = Path.cwd() / name
     if target_dir.exists():
@@ -44,7 +53,9 @@ def validate_init_mode() -> None:
     """Validate that --init mode is NOT being run inside a git repo."""
     git_root = find_git_root()
     if git_root is not None:
-        sys.exit("Error: Already in a git repository. Use jolo without --init.")
+        sys.exit(
+            "Error: Already in a git repository. Use jolo without --init."
+        )
 
 
 def list_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
@@ -72,7 +83,9 @@ def list_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
                     (
                         Path(current_worktree.get("worktree", "")),
                         current_worktree.get("HEAD", "")[:7],
-                        current_worktree.get("branch", "").replace("refs/heads/", ""),
+                        current_worktree.get("branch", "").replace(
+                            "refs/heads/", ""
+                        ),
                     )
                 )
                 current_worktree = {}
@@ -144,7 +157,11 @@ def remove_worktree(git_root: Path, worktree_path: Path) -> bool:
 
 def branch_exists(git_root: Path, branch: str) -> bool:
     """Check if a branch or ref exists in the repository."""
-    result = subprocess.run(["git", "rev-parse", "--verify", branch], cwd=git_root, capture_output=True)
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", branch],
+        cwd=git_root,
+        capture_output=True,
+    )
     return result.returncode == 0
 
 
