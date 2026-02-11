@@ -1,0 +1,217 @@
+* Spec: Togglable Test Hooks
+
+** Problem
+
+Pre-commit framework is installed but not wired up. The existing
+=.pre-commit-config.yaml= runs fast checks (whitespace, gitleaks,
+golangci-lint) but never runs the test suite. We want tests to run
+automatically at git lifecycle points (commit, push) — but with an
+easy toggle so developers can disable them when the friction outweighs
+the benefit (e.g., WIP commits, slow test suites).
+
+** Goals
+
+- Tests run on =git commit= by default (catch errors early)
+- Tests can also run on =git push= (optional, off by default)
+- Each hook is independently togglable on/off via a simple CLI
+- Language agnostic — delegates to =just test=, works for any stack
+- Zero config for new projects: =jolo create/init= should install hooks and set defaults automatically
+
+** Non-Goals
+
+- CI/CD pipeline (separate concern, can layer on later)
+- Per-test or per-directory granularity
+- Shared/team-wide toggle state (this is per-developer)
+
+** Architecture
+
+#+begin_example
+git commit
+  └─► pre-commit framework
+        └─► local hook: scripts/test-gate commit
+              ├─ reads: git config hooks.test-on-commit
+              ├─ if "true" → runs `just test` → exit code propagates
+              └─ if missing/other → exit 0 (skip silently)
+
+git push
+  └─► pre-push hook (same framework)
+        └─► local hook: scripts/test-gate push
+              ├─ reads: git config hooks.test-on-push
+              └─ same logic
+#+end_example
+
+Toggle state lives in *local git config* (=git config --local=),
+which is stored in =.git/config= and never committed. Each developer
+controls their own toggles.
+
+Default behavior is *on for commit* and *off for push*. This is achieved
+by setting =hooks.test-on-commit=true= as part of the setup flow.
+
+** Components
+
+*** =scripts/test-gate= (new file)
+
+Executable bash script. Single responsibility: check whether tests
+are enabled for the given stage, and if so, run them.
+
+*Interface:*
+#+begin_example
+scripts/test-gate <stage>
+#+end_example
+Where =<stage>= is =commit= or =push=.
+
+*Behavior:*
+
+| git config =hooks.test-on-<stage>= | Action                                           |
+|-------------------------------------+--------------------------------------------------|
+| ="true"=                            | Print banner, run =just test=, exit with its code |
+| ="false"=                           | Exit 0 silently                                  |
+| unset / any other value             | Exit 0 silently                                  |
+
+*Banner output* (only when running tests):
+#+begin_example
+[test-gate] running tests (test-on-commit)...
+#+end_example
+This makes it clear why the commit is taking longer than usual.
+
+*Error handling:*
+- If =just= is not found, print an error and exit 1 (don't silently skip)
+- If =just test= fails (non-zero exit), propagate the exit code so
+  pre-commit blocks the commit/push
+
+*Properties:*
+- No dependencies beyond bash and just
+- No temp files, no state beyond git config
+- Idempotent — safe to call multiple times
+
+*** =.pre-commit-config.yaml= changes
+
+Add a =repo: local= block with two hooks:
+
+#+begin_src yaml
+- repo: local
+  hooks:
+    - id: test
+      name: tests (commit)
+      entry: scripts/test-gate commit
+      language: script
+      pass_filenames: false
+      stages: [pre-commit]
+    - id: test-push
+      name: tests (push)
+      entry: scripts/test-gate push
+      language: script
+      pass_filenames: false
+      stages: [pre-push]
+#+end_src
+
+Key settings:
+- =language: script= — runs the entry as a script directly
+- =pass_filenames: false= — we always run the full test suite, not per-changed-file
+- =stages= — restricts each hook to the correct git lifecycle event
+
+*** =justfile= additions
+
+Three new recipes:
+
+*=just hooks=* — show current toggle state
+#+begin_src just
+hooks:
+    @echo "test-on-commit: $(git config --get hooks.test-on-commit 2>/dev/null || echo false)"
+    @echo "test-on-push:   $(git config --get hooks.test-on-push 2>/dev/null || echo false)"
+#+end_src
+
+*=just hooks-commit <true|false>=* — toggle test-on-commit
+#+begin_src just
+hooks-commit value:
+    @git config --local hooks.test-on-commit {{value}}
+    @echo "test-on-commit → {{value}}"
+#+end_src
+
+*=just hooks-push <true|false>=* — toggle test-on-push
+#+begin_src just
+hooks-push value:
+    @git config --local hooks.test-on-push {{value}}
+    @echo "test-on-push → {{value}}"
+#+end_src
+
+Values are =true= or =false= (strings in git config). No validation
+needed — the gate script treats anything other than ="true"= as off.
+
+*** Setup / installation
+
+Run once after clone (or after adding these hooks). For projects created
+with =jolo create= / =jolo init=, this should be automated.
+#+begin_src bash
+pre-commit install --hook-type pre-commit --hook-type pre-push
+git config --local hooks.test-on-commit true
+git config --local hooks.test-on-push false
+#+end_src
+
+Could be added to a =just setup= recipe.
+
+** CLI Interface Summary
+
+#+begin_src bash
+just hooks                # show status
+just hooks-commit true    # enable tests on commit
+just hooks-commit false   # disable tests on commit
+just hooks-push true      # enable tests on push
+just hooks-push false     # disable tests on push
+#+end_src
+
+Example session:
+#+begin_example
+$ just hooks
+test-on-commit: true
+test-on-push:   false
+
+$ just hooks-commit false
+test-on-commit → false
+
+$ just hooks-push true
+test-on-push → true
+#+end_example
+
+** Files to Create/Modify
+
+| File                       | Action                   | Lines (approx) |
+|----------------------------+--------------------------+-----------------|
+| =scripts/test-gate=       | Create                   | ~20             |
+| =.pre-commit-config.yaml= | Append local hooks block | +14             |
+| =justfile=                 | Append 3 recipes         | +15             |
+
+** Edge Cases
+
+| Scenario                         | Expected behavior                                                        |
+|----------------------------------+--------------------------------------------------------------------------|
+| =just= not installed            | Gate script prints error, exits 1, commit blocked                        |
+| =just test= recipe missing      | =just= prints its own error, exits non-zero, commit blocked             |
+| No git config set (fresh clone)  | Gate treats unset as disabled — tests don't run until toggle set to true |
+| =git commit --no-verify=        | Pre-commit hooks skipped entirely (git built-in)                         |
+| Value set to random string       | Treated as disabled (only ="true"= enables)                             |
+| Running outside a git repo       | =git config --get= fails, gate exits 0                                  |
+
+** Verification Plan
+
+1. *Gate script unit behavior:*
+   - Set =hooks.test-on-commit= to =true=, run =scripts/test-gate commit= → tests execute
+   - Set to =false= → exits 0, no output
+   - Unset → exits 0, no output
+
+2. *Pre-commit integration:*
+   - =pre-commit run test --all-files= with toggle on → tests run
+   - =pre-commit run test --all-files= with toggle off → hook passes (skipped)
+
+3. *End-to-end commit flow:*
+   - Stage a change, =git commit= with test-on-commit=true → tests run before commit
+   - Introduce a failing test, attempt commit → commit blocked
+   - =just hooks-commit false=, retry → commit succeeds (tests skipped)
+
+4. *Just recipes:*
+   - =just hooks= prints current state
+   - =just hooks-commit true= / =false= toggles and confirms
+   - =just hooks-push true= / =false= toggles and confirms
+
+5. *Pre-push (if enabled):*
+   - =just hooks-push true=, =git push= → tests run before push

@@ -169,6 +169,44 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             # Should have pytest config
             self.assertIn("pytest", content.lower())
 
+    def test_create_installs_test_hooks(self):
+        """create should install pre-commit hooks and set test defaults."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--lang", "python", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+            exec_calls = mocks["devcontainer_exec_command"].call_args_list
+            install_called = any(
+                "pre-commit install --hook-type pre-commit --hook-type pre-push"
+                in str(call)
+                for call in exec_calls
+            )
+            commit_default = any(
+                "git config --local hooks.test-on-commit true" in str(call)
+                for call in exec_calls
+            )
+            push_default = any(
+                "git config --local hooks.test-on-push false" in str(call)
+                for call in exec_calls
+            )
+
+            self.assertTrue(
+                install_called,
+                f"Expected pre-commit install, got: {exec_calls}",
+            )
+            self.assertTrue(
+                commit_default,
+                f"Expected commit default, got: {exec_calls}",
+            )
+            self.assertTrue(
+                push_default,
+                f"Expected push default, got: {exec_calls}",
+            )
+
     def test_create_writes_test_framework_config_for_typescript(self):
         """create with typescript should create example test with bun:test."""
         args = jolo.parse_args(
@@ -252,6 +290,72 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         for filename in ["AGENTS.md", "CLAUDE.md", "GEMINI.md"]:
             filepath = project_path / filename
             self.assertTrue(filepath.exists(), f"Expected {filename} to exist")
+
+
+class TestInitModeIntegration(unittest.TestCase):
+    """Integration tests for run_init_mode()."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_init_installs_test_hooks(self):
+        """init should install pre-commit hooks and set test defaults."""
+        args = jolo.parse_args(["init", "-d"])
+
+        def mock_run(*_args, **_kwargs):
+            result = mock.Mock()
+            result.returncode = 0
+            return result
+
+        with mock.patch("_jolo.commands.subprocess.run", side_effect=mock_run):
+            with mock.patch.multiple(
+                "_jolo.commands",
+                devcontainer_up=mock.DEFAULT,
+                devcontainer_exec_command=mock.DEFAULT,
+                devcontainer_exec_tmux=mock.DEFAULT,
+                scaffold_devcontainer=mock.DEFAULT,
+                setup_credential_cache=mock.DEFAULT,
+                setup_notification_hooks=mock.DEFAULT,
+                setup_emacs_config=mock.DEFAULT,
+            ) as mocks:
+                mocks["devcontainer_up"].return_value = True
+                jolo.run_init_mode(args)
+
+                exec_calls = mocks["devcontainer_exec_command"].call_args_list
+                install_called = any(
+                    "pre-commit install --hook-type pre-commit --hook-type pre-push"
+                    in str(call)
+                    for call in exec_calls
+                )
+                commit_default = any(
+                    "git config --local hooks.test-on-commit true" in str(call)
+                    for call in exec_calls
+                )
+                push_default = any(
+                    "git config --local hooks.test-on-push false" in str(call)
+                    for call in exec_calls
+                )
+
+                self.assertTrue(
+                    install_called,
+                    f"Expected pre-commit install, got: {exec_calls}",
+                )
+                self.assertTrue(
+                    commit_default,
+                    f"Expected commit default, got: {exec_calls}",
+                )
+                self.assertTrue(
+                    push_default,
+                    f"Expected push default, got: {exec_calls}",
+                )
 
 
 if __name__ == "__main__":

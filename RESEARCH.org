@@ -641,3 +641,55 @@ translations can break.
 - Ensure /usr/share/terminfo/t/tmux-direct exists in container image
 - If missing, either install terminfo or fallback to tmux-256color
 - Verify tmux default-terminal and terminal-overrides for key passthrough
+
+* Pre-commit hook caching requires PRE_COMMIT_HOME in container  :precommit:hooks:container:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+Warm-cache in the image alone did not prevent first-commit hook downloads.
+Root cause: pre-commit uses =~/.cache/pre-commit= by default unless
+~PRE_COMMIT_HOME~ is set inside the running container.
+
+** Fix
+- Bake hook environments into the image.
+- Set ~PRE_COMMIT_HOME=/opt/pre-commit-cache~ in the devcontainer env
+  so runtime uses the baked cache.
+
+** Key files
+- ~Containerfile~ (pre-commit install-hooks + cache path)
+- ~_jolo/container.py~ (devcontainer.json env)
+
+* DONE Claude CLI uses API key over Max subscription           :claude:auth:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+~claude -p~ returned "Credit balance is too low" because ~ANTHROPIC_API_KEY~
+in the environment takes precedence over Max subscription OAuth.
+
+** Credential precedence (hardcoded, no override)
+
+1. ~ANTHROPIC_API_KEY~ (env var) — highest, always wins
+2. ~CLAUDE_CODE_OAUTH_TOKEN~ (env var)
+3. ~~/.claude/.credentials.json~ (stored OAuth from ~/login~)
+
+No ~--use-subscription~ flag exists. ~forceLoginMethod: "claudeai"~ in
+settings.json only affects the login screen, not runtime auth precedence.
+Multiple GitHub issues requesting this (#12861, #9880, #8327) — all closed
+with no resolution as of Feb 2026.
+
+** Fix
+
+Strip ~ANTHROPIC_API_KEY~ from the claude command via shell alias in
+~Containerfile~. The key stays in the container env for Emacs and other tools.
+
+#+begin_src dockerfile
+alias claude="env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions"
+#+end_src
+
+** Refs
+- [[https://github.com/anthropics/claude-code/issues/12861][#12861]] — Option to prefer subscription auth (closed/stale)
+- [[https://github.com/anthropics/claude-code/issues/9880][#9880]] — Add flag to ignore API key (closed as duplicate)
+- [[https://github.com/anthropics/claude-code/issues/8327][#8327]] — API key overrides Max/Pro subscription
+- [[https://github.com/anthropics/claude-code/issues/16489][#16489]] — forceLoginMethod bug (open)

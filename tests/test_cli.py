@@ -330,6 +330,16 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertEqual(config["containerEnv"]["PORT"], "4005")
 
+    def test_precommit_home_in_json(self):
+        """PRE_COMMIT_HOME should be set for shared hook cache."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        self.assertEqual(
+            config["containerEnv"]["PRE_COMMIT_HOME"], "/opt/pre-commit-cache"
+        )
+
 
 class TestMountArgParsing(unittest.TestCase):
     """Test --mount argument parsing."""
