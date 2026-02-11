@@ -6,6 +6,8 @@
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
 ** TODO Send agent findings via email (or similar async channel)
+** TODO Add `jolo research` command with async report delivery (email or ntfy)
+   Use case: run research prompt, return immediately, send results on completion.
 ** TODO Document Wayland Emacs integration
 ** TODO Verify tmux-direct terminfo and term-keys in devcontainer
 ** DONE Add doc-compare skill for narrative version diffs
