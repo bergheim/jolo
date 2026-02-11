@@ -61,6 +61,17 @@ Keep a rebased, linear history. Work on feature branches, rebase onto `main` bef
 
 For bigger tasks, use TDD and commit frequently on the branch as you make progress.
 
+**Branch naming:**
+- `feat/<slug>`
+- `fix/<slug>`
+- `docs/<slug>`
+- `chore/<slug>`
+- `refactor/<slug>`
+- `test/<slug>`
+
+**Worktree naming:**
+- `wt/<prefix>/<slug>` (example: `wt/feat/auth`, `wt/docs/readme`)
+
 ```bash
 git checkout feature-branch
 git rebase main
