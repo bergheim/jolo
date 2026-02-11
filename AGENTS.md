@@ -17,6 +17,11 @@ instructions.
 **NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute. The only exception is if the user explicitly says to go ahead without planning.
 
 This applies even when the problem is obvious. Diagnosing a problem is not the same as having permission to fix it.
+Non-destructive commands (reads/searches) do not require approval.
+
+## Minimalism
+
+Keep the codebase small. Fewer lines, fewer features, fewer moving parts. Do not add commands, helpers, or abstractions that provide marginal value over existing tools. If `podman logs` already works, we don't need `jolo logs`. Prefer deleting code to adding it.
 
 ## Backward Compatibility
 
