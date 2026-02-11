@@ -743,3 +743,23 @@ for ad-hoc notes and scratch files.
 - ~_jolo/setup.py~ (setup_stash)
 - ~_jolo/commands.py~ (call setup_stash)
 - ~container/motd~ (stash warning)
+
+* Stash default path + init flow guard               :jolo:devcontainer:init:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+Renamed the shared mount from "junk drawer" to "stash" and ensured the
+host path exists before devcontainer startup, including ~jolo init~.
+
+** Decision
+- Host path: ~/stash
+- Container path: /workspaces/stash
+- Always create host path via ~setup_stash()~ before ~devcontainer_up~
+
+** Key files
+- ~_jolo/constants.py~ (BASE_MOUNTS)
+- ~_jolo/setup.py~ (setup_stash)
+- ~_jolo/commands.py~ (call setup_stash in init/up/tree/create/spawn)
+- ~container/motd~ (stash label)
+- ~templates/AGENTS.md~ (stash guidance)
