@@ -57,7 +57,11 @@ def detect_hostname() -> str:
             dns_name = data.get("Self", {}).get("DNSName", "")
             if dns_name:
                 return dns_name.rstrip(".")
-    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+        json.JSONDecodeError,
+    ):
         pass
 
     return "localhost"
@@ -85,14 +89,25 @@ def verbose_print(msg: str) -> None:
 def _select_languages_gum() -> list[str]:
     """Use gum for interactive selection (if available)."""
     result = subprocess.run(
-        ["gum", "choose", "--no-limit", "--header", "Select project languages:"] + constants.LANGUAGE_OPTIONS,
+        [
+            "gum",
+            "choose",
+            "--no-limit",
+            "--header",
+            "Select project languages:",
+        ]
+        + constants.LANGUAGE_OPTIONS,
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         return []
     selected = result.stdout.strip().splitlines()
-    return [constants.LANGUAGE_CODE_MAP[opt] for opt in selected if opt in constants.LANGUAGE_CODE_MAP]
+    return [
+        constants.LANGUAGE_CODE_MAP[opt]
+        for opt in selected
+        if opt in constants.LANGUAGE_CODE_MAP
+    ]
 
 
 def _select_languages_fallback() -> list[str]:
@@ -113,7 +128,11 @@ def _select_languages_fallback() -> list[str]:
         if part.isdigit():
             idx = int(part) - 1
             if 0 <= idx < len(constants.LANGUAGE_OPTIONS):
-                selected.append(constants.LANGUAGE_CODE_MAP[constants.LANGUAGE_OPTIONS[idx]])
+                selected.append(
+                    constants.LANGUAGE_CODE_MAP[
+                        constants.LANGUAGE_OPTIONS[idx]
+                    ]
+                )
     return selected
 
 
@@ -151,10 +170,14 @@ def parse_lang_arg(value: str) -> list[str]:
         argparse.ArgumentTypeError: If any language is invalid
     """
     languages = [lang.strip() for lang in value.split(",")]
-    invalid = [lang for lang in languages if lang not in constants.VALID_LANGUAGES]
+    invalid = [
+        lang for lang in languages if lang not in constants.VALID_LANGUAGES
+    ]
     if invalid:
         valid_list = ", ".join(sorted(constants.VALID_LANGUAGES))
-        raise argparse.ArgumentTypeError(f"Invalid language(s): {', '.join(invalid)}. Valid options: {valid_list}")
+        raise argparse.ArgumentTypeError(
+            f"Invalid language(s): {', '.join(invalid)}. Valid options: {valid_list}"
+        )
     return languages
 
 
@@ -178,7 +201,9 @@ def parse_mount(arg: str, project_name: str) -> dict:
         parts = parts[:-1]
 
     if len(parts) < 2:
-        sys.exit(f"Error: Invalid mount syntax: {arg} (expected source:target)")
+        sys.exit(
+            f"Error: Invalid mount syntax: {arg} (expected source:target)"
+        )
 
     # Handle Windows-style paths or paths with colons
     source = parts[0]
@@ -361,7 +386,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     # up: prompt, agent, detach, exec, mounts, new, sync, verbose
     subparsers.add_parser(
         "up",
-        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
+        parents=[
+            p_verbose,
+            p_prompt,
+            p_detach,
+            p_exec,
+            p_mounts,
+            p_new,
+            p_sync,
+        ],
         help="Start devcontainer in current project",
     )
 
@@ -383,7 +416,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     # tree: prompt, agent, detach, exec, mounts, new, sync, from, verbose
     sub_tree = subparsers.add_parser(
         "tree",
-        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_new, p_sync],
+        parents=[
+            p_verbose,
+            p_prompt,
+            p_detach,
+            p_exec,
+            p_mounts,
+            p_new,
+            p_sync,
+        ],
         help="Create worktree + devcontainer (random name if omitted)",
     )
     sub_tree.add_argument("name", nargs="?", default="", help="Worktree name")
@@ -414,13 +455,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     # list: all, verbose
-    subparsers.add_parser("list", parents=[p_verbose, p_all], help="List running containers and worktrees")
+    subparsers.add_parser(
+        "list",
+        parents=[p_verbose, p_all],
+        help="List running containers and worktrees",
+    )
 
     # open: verbose
-    subparsers.add_parser("open", parents=[p_verbose], help="Pick a running container and attach to it")
+    subparsers.add_parser(
+        "open",
+        parents=[p_verbose],
+        help="Pick a running container and attach to it",
+    )
 
     # down: all, verbose
-    subparsers.add_parser("down", parents=[p_verbose, p_all], help="Stop the devcontainer")
+    subparsers.add_parser(
+        "down", parents=[p_verbose, p_all], help="Stop the devcontainer"
+    )
 
     # init: prompt, agent, detach, exec, mounts, sync, verbose
     subparsers.add_parser(
@@ -431,17 +482,28 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     # prune: all, yes, verbose
     subparsers.add_parser(
-        "prune", parents=[p_verbose, p_all, p_yes], help="Clean up stopped/orphan containers and stale worktrees"
+        "prune",
+        parents=[p_verbose, p_all, p_yes],
+        help="Clean up stopped/orphan containers and stale worktrees",
     )
 
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
-        "delete", parents=[p_verbose, p_yes], help="Delete a worktree or project and its container"
+        "delete",
+        parents=[p_verbose, p_yes],
+        help="Delete a worktree or project and its container",
     )
     sub_delete.add_argument(
-        "target", nargs="?", default=None, help="Worktree name or project path (interactive if omitted)"
+        "target",
+        nargs="?",
+        default=None,
+        help="Worktree name or project path (interactive if omitted)",
     )
-    sub_delete.add_argument("--purge", action="store_true", help="Also remove project directories from disk")
+    sub_delete.add_argument(
+        "--purge",
+        action="store_true",
+        help="Also remove project directories from disk",
+    )
 
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)

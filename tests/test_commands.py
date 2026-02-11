@@ -29,7 +29,9 @@ class TestConfigLoading(unittest.TestCase):
     def test_load_config_returns_defaults_when_no_files(self):
         """Should return default config when no config files exist."""
         os.chdir(self.tmpdir)
-        config = jolo.load_config(global_config_dir=Path(self.tmpdir) / "noexist")
+        config = jolo.load_config(
+            global_config_dir=Path(self.tmpdir) / "noexist"
+        )
 
         self.assertEqual(config["base_image"], "localhost/emacs-gui:latest")
         self.assertEqual(config["pass_path_anthropic"], "api/llm/anthropic")
@@ -39,7 +41,9 @@ class TestConfigLoading(unittest.TestCase):
         """Should load global config from ~/.config/jolo/config.toml."""
         config_dir = Path(self.tmpdir) / ".config" / "jolo"
         config_dir.mkdir(parents=True)
-        (config_dir / "config.toml").write_text('base_image = "custom/image:v1"\n')
+        (config_dir / "config.toml").write_text(
+            'base_image = "custom/image:v1"\n'
+        )
 
         config = jolo.load_config(global_config_dir=config_dir)
 
@@ -48,9 +52,13 @@ class TestConfigLoading(unittest.TestCase):
     def test_load_project_config(self):
         """Should load project config from .jolo.toml."""
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, ".jolo.toml").write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, ".jolo.toml").write_text(
+            'base_image = "project/image:v2"\n'
+        )
 
-        config = jolo.load_config(global_config_dir=Path(self.tmpdir) / "noexist")
+        config = jolo.load_config(
+            global_config_dir=Path(self.tmpdir) / "noexist"
+        )
 
         self.assertEqual(config["base_image"], "project/image:v2")
 
@@ -58,10 +66,14 @@ class TestConfigLoading(unittest.TestCase):
         """Project config should override global config."""
         config_dir = Path(self.tmpdir) / ".config" / "jolo"
         config_dir.mkdir(parents=True)
-        (config_dir / "config.toml").write_text('base_image = "global/image:v1"\n')
+        (config_dir / "config.toml").write_text(
+            'base_image = "global/image:v1"\n'
+        )
 
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, ".jolo.toml").write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, ".jolo.toml").write_text(
+            'base_image = "project/image:v2"\n'
+        )
 
         config = jolo.load_config(global_config_dir=config_dir)
 
@@ -71,10 +83,14 @@ class TestConfigLoading(unittest.TestCase):
         """Project config should only override specified keys."""
         config_dir = Path(self.tmpdir) / ".config" / "jolo"
         config_dir.mkdir(parents=True)
-        (config_dir / "config.toml").write_text('base_image = "global/image:v1"\npass_path_anthropic = "custom/path"\n')
+        (config_dir / "config.toml").write_text(
+            'base_image = "global/image:v1"\npass_path_anthropic = "custom/path"\n'
+        )
 
         os.chdir(self.tmpdir)
-        Path(self.tmpdir, ".jolo.toml").write_text('base_image = "project/image:v2"\n')
+        Path(self.tmpdir, ".jolo.toml").write_text(
+            'base_image = "project/image:v2"\n'
+        )
 
         config = jolo.load_config(global_config_dir=config_dir)
 
@@ -175,7 +191,14 @@ class TestPruneGlobalImages(unittest.TestCase):
     @mock.patch("subprocess.run")
     @mock.patch("os.path.exists", return_value=True)
     def test_prune_global_removes_unused_images(
-        self, mock_exists, mock_run, mock_input, mock_remove_image, mock_remove_container, mock_list, mock_runtime
+        self,
+        mock_exists,
+        mock_run,
+        mock_input,
+        mock_remove_image,
+        mock_remove_container,
+        mock_list,
+        mock_runtime,
     ):
         """Should remove images not used by remaining containers."""
         # Initial list: one stopped container with an image
@@ -199,12 +222,21 @@ class TestPruneGlobalImages(unittest.TestCase):
     @mock.patch("builtins.input", return_value="y")
     @mock.patch("subprocess.run")
     def test_prune_global_skips_in_use_images(
-        self, mock_run, mock_input, mock_remove_image, mock_remove_container, mock_list, mock_runtime
+        self,
+        mock_run,
+        mock_input,
+        mock_remove_image,
+        mock_remove_container,
+        mock_list,
+        mock_runtime,
     ):
         """Should NOT remove images still used by other containers."""
         # Initial list: one stopped, one running, both using same image
         mock_list.side_effect = [
-            [("stopped-c", "/path/1", "exited", "img123"), ("running-c", "/path/2", "running", "img123")],
+            [
+                ("stopped-c", "/path/1", "exited", "img123"),
+                ("running-c", "/path/2", "running", "img123"),
+            ],
             [("running-c", "/path/2", "running", "img123")],
         ]
         mock_run.return_value = mock.Mock(returncode=0)

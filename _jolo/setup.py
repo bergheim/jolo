@@ -55,14 +55,30 @@ def setup_emacs_config(workspace_dir: Path) -> None:
 
     # Copy entire config directory, excluding heavy/redundant dirs
     ignore_func = shutil.ignore_patterns(
-        ".git", "elpaca", "straight", "eln-cache", "tree-sitter", "elpa", "auto-save-list", "tramp", "server"
+        ".git",
+        "elpaca",
+        "straight",
+        "eln-cache",
+        "tree-sitter",
+        "elpa",
+        "auto-save-list",
+        "tramp",
+        "server",
     )
 
     if emacs_dst.exists():
         clear_directory_contents(emacs_dst)
-        shutil.copytree(emacs_src, emacs_dst, symlinks=True, dirs_exist_ok=True, ignore=ignore_func)
+        shutil.copytree(
+            emacs_src,
+            emacs_dst,
+            symlinks=True,
+            dirs_exist_ok=True,
+            ignore=ignore_func,
+        )
     else:
-        shutil.copytree(emacs_src, emacs_dst, symlinks=True, ignore=ignore_func)
+        shutil.copytree(
+            emacs_src, emacs_dst, symlinks=True, ignore=ignore_func
+        )
 
 
 def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
@@ -82,7 +98,10 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
             if "mcpServers" in mcp_data:
                 mcp_servers.update(mcp_data["mcpServers"])
         except Exception as e:
-            print(f"Warning: Failed to load MCP template {mcp_file}: {e}", file=sys.stderr)
+            print(
+                f"Warning: Failed to load MCP template {mcp_file}: {e}",
+                file=sys.stderr,
+            )
 
     return target_config
 
@@ -124,12 +143,17 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             container_path = f"/workspaces/{project_name}"
 
             # Inject into the specific project's entry
-            project_entry = claude_config.setdefault("projects", {}).setdefault(container_path, {})
+            project_entry = claude_config.setdefault(
+                "projects", {}
+            ).setdefault(container_path, {})
             merge_mcp_configs(project_entry, mcp_templates)
 
             claude_json_dst.write_text(json.dumps(claude_config, indent=2))
         except Exception as e:
-            print(f"Warning: Failed to inject MCP configs into .claude.json: {e}", file=sys.stderr)
+            print(
+                f"Warning: Failed to inject MCP configs into .claude.json: {e}",
+                file=sys.stderr,
+            )
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
@@ -139,7 +163,11 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         gemini_cache.mkdir(parents=True)
 
     gemini_dir = home / ".gemini"
-    for filename in ["settings.json", "google_accounts.json", "oauth_creds.json"]:
+    for filename in [
+        "settings.json",
+        "google_accounts.json",
+        "oauth_creds.json",
+    ]:
         src = gemini_dir / filename
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
@@ -157,7 +185,9 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         settings = {}
 
     # FIXME: waiting for https://github.com/google-gemini/gemini-cli/issues/14087
-    settings.setdefault("tools", {}).setdefault("shell", {})["enableInteractiveShell"] = False
+    settings.setdefault("tools", {}).setdefault("shell", {})[
+        "enableInteractiveShell"
+    ] = False
 
     # Inject MCP servers into Gemini settings
     merge_mcp_configs(settings, mcp_templates)
@@ -206,7 +236,10 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
             codex_config_path.write_text("\n".join(toml_lines) + "\n")
     except Exception as e:
-        print(f"Warning: Failed to inject MCP configs into Codex config.toml: {e}", file=sys.stderr)
+        print(
+            f"Warning: Failed to inject MCP configs into Codex config.toml: {e}",
+            file=sys.stderr,
+        )
 
 
 def _load_json_safe(path: Path) -> dict:
@@ -227,7 +260,9 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     Must be called after setup_credential_cache() so the cache dirs exist.
     """
     # Claude: inject SessionEnd hook into .claude-cache/settings.json
-    claude_settings_path = workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
+    claude_settings_path = (
+        workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
+    )
     settings = _load_json_safe(claude_settings_path)
 
     hooks = settings.setdefault("hooks", {})
@@ -251,7 +286,12 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     # Stop: notify only if response took longer than 20 seconds
     stop_hooks = hooks.setdefault("Stop", [])
     slow_hook = {
-        "hooks": [{"type": "command", "command": "AGENT=claude notify-done --if-slow 20"}],
+        "hooks": [
+            {
+                "type": "command",
+                "command": "AGENT=claude notify-done --if-slow 20",
+            }
+        ],
     }
     if not any("--if-slow" in str(h) for h in stop_hooks):
         stop_hooks.append(slow_hook)
@@ -260,7 +300,9 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     claude_settings_path.write_text(json.dumps(settings, indent=2))
 
     # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
-    gemini_settings_path = workspace_dir / ".devcontainer" / ".gemini-cache" / "settings.json"
+    gemini_settings_path = (
+        workspace_dir / ".devcontainer" / ".gemini-cache" / "settings.json"
+    )
     settings = _load_json_safe(gemini_settings_path)
 
     hooks = settings.setdefault("hooks", {})
@@ -274,12 +316,16 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
 
     # Codex: append notify setting to .codex-cache/config.toml (best-effort)
-    codex_config_path = workspace_dir / ".devcontainer" / ".codex-cache" / "config.toml"
+    codex_config_path = (
+        workspace_dir / ".devcontainer" / ".codex-cache" / "config.toml"
+    )
     if codex_config_path.exists():
         config = codex_config_path.read_text()
         # Skip if notify-done already present OR if a notify key already exists
         # Use regex to catch notify=, notify =, etc.
-        has_notify = any(line.strip().startswith("notify") for line in config.splitlines())
+        has_notify = any(
+            line.strip().startswith("notify") for line in config.splitlines()
+        )
         if "notify-done" not in config and not has_notify:
             if not config.endswith("\n"):
                 config += "\n"
@@ -301,7 +347,10 @@ def copy_template_files(target_dir: Path) -> None:
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
 
     if not templates_dir.exists():
-        print(f"Warning: Templates directory not found: {templates_dir}", file=sys.stderr)
+        print(
+            f"Warning: Templates directory not found: {templates_dir}",
+            file=sys.stderr,
+        )
         return
 
     template_files = [
@@ -471,7 +520,9 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
 
     # Get GitHub token from gh CLI or environment
     if "GH_TOKEN" not in secrets:
-        gh_token = os.environ.get("GH_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+        gh_token = os.environ.get("GH_TOKEN", "") or os.environ.get(
+            "GITHUB_TOKEN", ""
+        )
         if not gh_token and shutil.which("gh"):
             try:
                 result = subprocess.run(
@@ -505,7 +556,9 @@ def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
         content["mounts"] = []
 
     for mount in mounts:
-        mount_str = f"source={mount['source']},target={mount['target']},type=bind"
+        mount_str = (
+            f"source={mount['source']},target={mount['target']},type=bind"
+        )
         if mount["readonly"]:
             mount_str += ",readonly"
         content["mounts"].append(mount_str)
@@ -548,7 +601,9 @@ def copy_user_files(copies: list[dict], workspace_dir: Path) -> None:
         verbose_print(f"Copied {source} -> {target}")
 
 
-def add_worktree_git_mount(devcontainer_json_path: Path, main_git_dir: Path) -> None:
+def add_worktree_git_mount(
+    devcontainer_json_path: Path, main_git_dir: Path
+) -> None:
     """Add a mount for the main repo's .git directory to devcontainer.json.
 
     This is needed for worktrees because git worktrees use a .git file that

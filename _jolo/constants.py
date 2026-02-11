@@ -52,10 +52,20 @@ PORT_MAX = 5000
 VERBOSE = False
 
 # Valid languages for --lang flag
-VALID_LANGUAGES = frozenset(["python", "go", "typescript", "rust", "shell", "prose", "other"])
+VALID_LANGUAGES = frozenset(
+    ["python", "go", "typescript", "rust", "shell", "prose", "other"]
+)
 
 # Language options for interactive selector (display names)
-LANGUAGE_OPTIONS = ["Python", "Go", "TypeScript", "Rust", "Shell", "Prose/Docs", "Other"]
+LANGUAGE_OPTIONS = [
+    "Python",
+    "Go",
+    "TypeScript",
+    "Rust",
+    "Shell",
+    "Prose/Docs",
+    "Other",
+]
 
 # Mapping from display names to language codes
 LANGUAGE_CODE_MAP = {
@@ -89,7 +99,10 @@ PRECOMMIT_HOOKS = {
         "repo": "https://github.com/biomejs/pre-commit",
         "rev": "v0.6.0",
         "hooks": [
-            {"id": "biome-check", "additional_dependencies": ["@biomejs/biome@1.9.0"]},
+            {
+                "id": "biome-check",
+                "additional_dependencies": ["@biomejs/biome@1.9.0"],
+            },
         ],
     },
     "rust": {

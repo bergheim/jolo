@@ -33,7 +33,9 @@ class TestSyncDevcontainer(unittest.TestCase):
         # Create existing .devcontainer with old content
         devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
         devcontainer_dir.mkdir()
-        (devcontainer_dir / "devcontainer.json").write_text('{"old": "content"}')
+        (devcontainer_dir / "devcontainer.json").write_text(
+            '{"old": "content"}'
+        )
 
         # Sync with new config
         config = {"base_image": "new/image:v2"}
@@ -63,14 +65,18 @@ class TestContainerRuntime(unittest.TestCase):
     def test_get_container_runtime_finds_docker(self):
         """Should detect docker if available."""
         with mock.patch("shutil.which") as mock_which:
-            mock_which.side_effect = lambda x: "/usr/bin/docker" if x == "docker" else None
+            mock_which.side_effect = (
+                lambda x: "/usr/bin/docker" if x == "docker" else None
+            )
             result = jolo.get_container_runtime()
             self.assertEqual(result, "docker")
 
     def test_get_container_runtime_finds_podman(self):
         """Should detect podman if docker not available."""
         with mock.patch("shutil.which") as mock_which:
-            mock_which.side_effect = lambda x: "/usr/bin/podman" if x == "podman" else None
+            mock_which.side_effect = (
+                lambda x: "/usr/bin/podman" if x == "podman" else None
+            )
             result = jolo.get_container_runtime()
             self.assertEqual(result, "podman")
 
@@ -102,10 +108,15 @@ class TestListAllDevcontainers(unittest.TestCase):
         mock_output = "mycontainer\t/home/user/project\trunning\timg123\n"
         with mock.patch("jolo.get_container_runtime", return_value="docker"):
             with mock.patch("subprocess.run") as mock_run:
-                mock_run.return_value = mock.Mock(returncode=0, stdout=mock_output)
+                mock_run.return_value = mock.Mock(
+                    returncode=0, stdout=mock_output
+                )
                 result = jolo.list_all_devcontainers()
                 self.assertEqual(len(result), 1)
-                self.assertEqual(result[0], ("mycontainer", "/home/user/project", "running", "img123"))
+                self.assertEqual(
+                    result[0],
+                    ("mycontainer", "/home/user/project", "running", "img123"),
+                )
 
 
 class TestGetContainerForWorkspace(unittest.TestCase):
@@ -121,8 +132,12 @@ class TestGetContainerForWorkspace(unittest.TestCase):
         """Should return container name from docker output."""
         with mock.patch("jolo.get_container_runtime", return_value="docker"):
             with mock.patch("subprocess.run") as mock_run:
-                mock_run.return_value = mock.Mock(returncode=0, stdout="my-container\n")
-                result = jolo.get_container_for_workspace(Path("/home/user/project"))
+                mock_run.return_value = mock.Mock(
+                    returncode=0, stdout="my-container\n"
+                )
+                result = jolo.get_container_for_workspace(
+                    Path("/home/user/project")
+                )
                 self.assertEqual(result, "my-container")
 
     def test_returns_none_when_no_container(self):
@@ -130,7 +145,9 @@ class TestGetContainerForWorkspace(unittest.TestCase):
         with mock.patch("jolo.get_container_runtime", return_value="docker"):
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.return_value = mock.Mock(returncode=0, stdout="")
-                result = jolo.get_container_for_workspace(Path("/home/user/project"))
+                result = jolo.get_container_for_workspace(
+                    Path("/home/user/project")
+                )
                 self.assertIsNone(result)
 
 
@@ -145,15 +162,25 @@ class TestStopContainer(unittest.TestCase):
 
     def test_stop_returns_false_when_no_container(self):
         """Should return False when no container found."""
-        with mock.patch("_jolo.container.get_container_runtime", return_value="docker"):
-            with mock.patch("_jolo.container.get_container_for_workspace", return_value=None):
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_for_workspace",
+                return_value=None,
+            ):
                 result = jolo.stop_container(Path("/some/path"))
                 self.assertFalse(result)
 
     def test_stop_returns_true_on_success(self):
         """Should return True when container stopped successfully."""
-        with mock.patch("_jolo.container.get_container_runtime", return_value="docker"):
-            with mock.patch("_jolo.container.get_container_for_workspace", return_value="my-container"):
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_for_workspace",
+                return_value="my-container",
+            ):
                 with mock.patch("subprocess.run") as mock_run:
                     mock_run.return_value = mock.Mock(returncode=0)
                     result = jolo.stop_container(Path("/some/path"))

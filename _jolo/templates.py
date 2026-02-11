@@ -241,9 +241,15 @@ def get_justfile_content(language: str, project_name: str) -> str:
         justfile content string
     """
     module_name = project_name.replace("-", "_")
-    lang = language if language in ("python", "typescript", "go", "rust") else "other"
+    lang = (
+        language
+        if language in ("python", "typescript", "go", "rust")
+        else "other"
+    )
     template = _read_template(f"lang/{lang}/justfile")
-    return _render(template, PROJECT_NAME=project_name, MODULE_NAME=module_name)
+    return _render(
+        template, PROJECT_NAME=project_name, MODULE_NAME=module_name
+    )
 
 
 def get_motd_content(language: str, project_name: str) -> str:
@@ -293,7 +299,9 @@ def get_test_framework_config(language: str) -> dict:
             "config_file": None,
             "config_content": "# Bun has built-in testing. Run tests with: bun test",
             "example_test_file": "src/example.test.ts",
-            "example_test_content": _read_template("lang/typescript/example.test.ts"),
+            "example_test_content": _read_template(
+                "lang/typescript/example.test.ts"
+            ),
         }
 
     elif language == "go":
@@ -323,7 +331,9 @@ def get_test_framework_config(language: str) -> dict:
     }
 
 
-def get_project_init_commands(language: str, project_name: str) -> list[list[str]]:
+def get_project_init_commands(
+    language: str, project_name: str
+) -> list[list[str]]:
     """Get initialization commands for a project based on language.
 
     Returns a list of command lists to execute inside the container.

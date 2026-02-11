@@ -94,7 +94,9 @@ class TestDeleteWorktreeByName(unittest.TestCase):
     @mock.patch("_jolo.commands.stop_container")
     @mock.patch("_jolo.commands.remove_worktree")
     @mock.patch("builtins.input", return_value="y")
-    def test_deletes_worktree_with_confirmation(self, mock_input, mock_remove, mock_stop, mock_list, mock_git_root):
+    def test_deletes_worktree_with_confirmation(
+        self, mock_input, mock_remove, mock_stop, mock_list, mock_git_root
+    ):
         """Should delete worktree after confirmation."""
         mock_git_root.return_value = Path("/fake/project")
         wt_path = Path("/fake/project-worktrees/feature-x")
@@ -114,7 +116,9 @@ class TestDeleteWorktreeByName(unittest.TestCase):
     @mock.patch("_jolo.commands.list_worktrees")
     @mock.patch("_jolo.commands.stop_container")
     @mock.patch("_jolo.commands.remove_worktree")
-    def test_yes_skips_confirmation(self, mock_remove, mock_stop, mock_list, mock_git_root):
+    def test_yes_skips_confirmation(
+        self, mock_remove, mock_stop, mock_list, mock_git_root
+    ):
         """--yes should skip confirmation prompt."""
         mock_git_root.return_value = Path("/fake/project")
         wt_path = Path("/fake/project-worktrees/feature-x")
@@ -176,7 +180,14 @@ class TestDeleteProjectByPath(unittest.TestCase):
     @mock.patch("_jolo.commands.subprocess.run")
     @mock.patch("builtins.input", return_value="y")
     def test_delete_project_stops_and_removes_containers(
-        self, mock_input, mock_subproc, mock_remove, mock_list, mock_find_containers, mock_runtime, mock_git_root
+        self,
+        mock_input,
+        mock_subproc,
+        mock_remove,
+        mock_list,
+        mock_find_containers,
+        mock_runtime,
+        mock_git_root,
     ):
         """Deleting a project should stop and remove its containers."""
         project = Path("/fake/project")
@@ -184,7 +195,9 @@ class TestDeleteProjectByPath(unittest.TestCase):
         mock_git_root.side_effect = [None, project]
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]  # no worktrees
-        mock_find_containers.return_value = [("test-container", "/fake/project", "running", "img123")]
+        mock_find_containers.return_value = [
+            ("test-container", "/fake/project", "running", "img123")
+        ]
         mock_subproc.return_value = mock.MagicMock(returncode=0)
         mock_remove.return_value = True
 
@@ -203,7 +216,14 @@ class TestDeleteProjectByPath(unittest.TestCase):
     @mock.patch("_jolo.commands.subprocess.run")
     @mock.patch("_jolo.commands.shutil.rmtree")
     def test_purge_removes_directories(
-        self, mock_rmtree, mock_subproc, mock_remove, mock_list, mock_find_containers, mock_runtime, mock_git_root
+        self,
+        mock_rmtree,
+        mock_subproc,
+        mock_remove,
+        mock_list,
+        mock_find_containers,
+        mock_runtime,
+        mock_git_root,
     ):
         """--purge should remove project directories."""
         project = Path("/fake/project")
@@ -215,7 +235,9 @@ class TestDeleteProjectByPath(unittest.TestCase):
 
         with mock.patch.object(Path, "exists", return_value=True):
             with mock.patch.object(Path, "resolve", return_value=project):
-                args = jolo.parse_args(["delete", "/fake/project", "--purge", "--yes"])
+                args = jolo.parse_args(
+                    ["delete", "/fake/project", "--purge", "--yes"]
+                )
                 jolo.run_delete_mode(args)
 
         # Should have called rmtree for the project directory
@@ -271,7 +293,12 @@ class TestDeleteProjectWithWorktrees(unittest.TestCase):
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("builtins.input", return_value="n")
     def test_prompt_about_worktrees_without_yes(
-        self, mock_input, mock_find_containers, mock_list, mock_runtime, mock_git_root
+        self,
+        mock_input,
+        mock_find_containers,
+        mock_list,
+        mock_runtime,
+        mock_git_root,
     ):
         """Without --yes, should prompt about worktree deletion and cancel on 'n'."""
         project = Path("/fake/project")
@@ -315,7 +342,14 @@ class TestDeleteInteractivePicker(unittest.TestCase):
     @mock.patch("_jolo.commands.remove_worktree")
     @mock.patch("builtins.input")
     def test_picker_selects_worktree(
-        self, mock_input, mock_remove, mock_stop, mock_which, mock_list, mock_containers, mock_git_root
+        self,
+        mock_input,
+        mock_remove,
+        mock_stop,
+        mock_which,
+        mock_list,
+        mock_containers,
+        mock_git_root,
     ):
         """Interactive picker should allow selecting a worktree."""
         project = Path("/fake/project")
