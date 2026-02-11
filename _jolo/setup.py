@@ -26,6 +26,19 @@ def clear_directory_contents(path: Path) -> None:
             item.unlink()
 
 
+def _patch_json_with_jq(
+    path: Path, jq_args: list[str], jq_filter: str
+) -> None:
+    if not shutil.which("jq"):
+        raise RuntimeError("jq is required but was not found on PATH")
+    if path.exists():
+        cmd = ["jq", *jq_args, jq_filter, str(path)]
+    else:
+        cmd = ["jq", "-n", *jq_args, jq_filter]
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    path.write_text(result.stdout)
+
+
 def setup_emacs_config(workspace_dir: Path) -> None:
     """Set up Emacs config by copying to .devcontainer/.emacs-config/.
 
@@ -189,10 +202,22 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         "enableInteractiveShell"
     ] = False
 
+    settings.setdefault("security", {}).setdefault("folderTrust", {})[
+        "enabled"
+    ] = True
+
     # Inject MCP servers into Gemini settings
     merge_mcp_configs(settings, mcp_templates)
 
     settings_path.write_text(json.dumps(settings, indent="\t"))
+
+    trusted_folders_path = gemini_cache / "trustedFolders.json"
+    project_path = f"/workspaces/{workspace_dir.name}"
+    _patch_json_with_jq(
+        trusted_folders_path,
+        ["--arg", "path", project_path, "--arg", "value", "TRUST_FOLDER"],
+        ".[$path] = $value",
+    )
 
     # Codex credentials
     codex_cache = workspace_dir / ".devcontainer" / ".codex-cache"
