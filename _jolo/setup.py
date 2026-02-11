@@ -466,6 +466,10 @@ def sync_skill_templates(target_dir: Path) -> None:
     skills_dst = target_dir / ".agents" / "skills"
     skills_dst.mkdir(parents=True, exist_ok=True)
 
+    if skills_dst.resolve() == skills_src.resolve():
+        verbose_print("Skills dst is symlinked to src, skipping sync")
+        return
+
     for entry in skills_src.iterdir():
         if not entry.is_dir():
             continue
