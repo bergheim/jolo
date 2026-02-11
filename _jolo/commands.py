@@ -41,6 +41,7 @@ from _jolo.setup import (
     add_user_mounts,
     copy_template_files,
     copy_user_files,
+    ensure_test_gate_script,
     get_secrets,
     scaffold_devcontainer,
     setup_credential_cache,
@@ -54,6 +55,7 @@ from _jolo.templates import (
     generate_precommit_config,
     get_justfile_content,
     get_motd_content,
+    get_precommit_install_command,
     get_project_init_commands,
     get_test_framework_config,
     get_type_checker_config,
@@ -737,6 +739,17 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(worktree_path)
 
 
+def _setup_test_hooks(project_path: Path) -> None:
+    install_cmd = get_precommit_install_command()
+    devcontainer_exec_command(project_path, " ".join(install_cmd))
+    devcontainer_exec_command(
+        project_path, "git config --local hooks.test-on-commit true"
+    )
+    devcontainer_exec_command(
+        project_path, "git config --local hooks.test-on-push false"
+    )
+
+
 def run_create_mode(args: argparse.Namespace) -> None:
     """Run --create mode: create new project with devcontainer."""
     validate_create_mode(args.name)
@@ -922,6 +935,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
 
+    _setup_test_hooks(project_path)
+
     # Run project init commands for primary language inside the container
     init_commands = get_project_init_commands(primary_language, project_name)
     if init_commands:
@@ -994,6 +1009,13 @@ def run_init_mode(args: argparse.Namespace) -> None:
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
+    ensure_test_gate_script(project_path)
+    precommit_path = project_path / ".pre-commit-config.yaml"
+    if not precommit_path.exists():
+        precommit_content = generate_precommit_config([])
+        precommit_path.write_text(precommit_content)
+        verbose_print("Generated .pre-commit-config.yaml for init")
+
     # Initial commit with all generated files
     cmd = ["git", "add", "."]
     verbose_cmd(cmd)
@@ -1036,6 +1058,8 @@ def run_init_mode(args: argparse.Namespace) -> None:
     # Start devcontainer (always remove existing for fresh project)
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
+
+    _setup_test_hooks(project_path)
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
