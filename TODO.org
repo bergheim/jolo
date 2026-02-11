@@ -2,6 +2,10 @@
 #+DESCRIPTION: Practical security assessment - what actually matters vs security theater
 
 * Tasks
+** TODO Tmux copy/paste broken over mosh (works over ssh)
+   Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
+** TODO Send agent findings via email (or similar async channel)
+** TODO Document Wayland Emacs integration
 ** DONE Add doc-compare skill for narrative version diffs
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
