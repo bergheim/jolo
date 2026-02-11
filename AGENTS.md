@@ -30,6 +30,8 @@ Only comment *why*, never *what*. Do not add comments that restate the code. Do 
 
 This repo builds and maintains the containerized Emacs GUI environment on Alpine Linux (musl-based), designed as a devcontainer for AI-assisted development. Alpine provides excellent package coverage and small image size. Browser automation uses Playwright with system Chromium. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
 
+You are encouraged to suggest state-of-the-art CLI tools that could improve development of this environment. We control the full stack in `Containerfile`, so proposals can be evaluated and baked into the image directly.
+
 **What this repo produces:**
 - Container image (`emacs-gui`) with all dev tools pre-installed
 - `jolo.py` + `_jolo/` package — CLI for launching devcontainers with git worktree support
