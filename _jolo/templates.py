@@ -31,6 +31,18 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
         YAML-formatted hook string
     """
     lines = [f"{indent}- id: {hook['id']}"]
+    if "name" in hook:
+        lines.append(f"{indent}  name: {hook['name']}")
+    if "entry" in hook:
+        lines.append(f"{indent}  entry: {hook['entry']}")
+    if "language" in hook:
+        lines.append(f"{indent}  language: {hook['language']}")
+    if "pass_filenames" in hook:
+        value = "true" if hook["pass_filenames"] else "false"
+        lines.append(f"{indent}  pass_filenames: {value}")
+    if "stages" in hook:
+        stages_str = ", ".join(hook["stages"])
+        lines.append(f"{indent}  stages: [{stages_str}]")
     if "args" in hook:
         args_str = ", ".join(hook["args"])
         lines.append(f"{indent}  args: [{args_str}]")
@@ -50,11 +62,10 @@ def _format_repo_yaml(repo_config: dict) -> str:
     Returns:
         YAML-formatted repo string
     """
-    lines = [
-        f"  - repo: {repo_config['repo']}",
-        f"    rev: {repo_config['rev']}",
-        "    hooks:",
-    ]
+    lines = [f"  - repo: {repo_config['repo']}"]
+    if "rev" in repo_config:
+        lines.append(f"    rev: {repo_config['rev']}")
+    lines.append("    hooks:")
     for hook in repo_config["hooks"]:
         lines.append(_format_hook_yaml(hook))
     return "\n".join(lines)
@@ -85,6 +96,27 @@ def generate_precommit_config(languages: list[str]) -> str:
             "rev": "v8.24.2",
             "hooks": [
                 {"id": "gitleaks"},
+            ],
+        },
+        {
+            "repo": "local",
+            "hooks": [
+                {
+                    "id": "test",
+                    "name": "tests (commit)",
+                    "entry": "scripts/test-gate commit",
+                    "language": "script",
+                    "pass_filenames": False,
+                    "stages": ["pre-commit"],
+                },
+                {
+                    "id": "test-push",
+                    "name": "tests (push)",
+                    "entry": "scripts/test-gate push",
+                    "language": "script",
+                    "pass_filenames": False,
+                    "stages": ["pre-push"],
+                },
             ],
         },
     ]
@@ -124,7 +156,14 @@ def get_precommit_install_command() -> list[str]:
     Returns:
         List of command parts: ['pre-commit', 'install']
     """
-    return ["pre-commit", "install"]
+    return [
+        "pre-commit",
+        "install",
+        "--hook-type",
+        "pre-commit",
+        "--hook-type",
+        "pre-push",
+    ]
 
 
 def get_type_checker_config(language: str) -> dict | None:
