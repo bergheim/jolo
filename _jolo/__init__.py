@@ -78,8 +78,8 @@ from _jolo.setup import (  # noqa: F401
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
-    setup_junk_drawer,
     setup_notification_hooks,
+    setup_stash,
     sync_devcontainer,
     write_prompt_file,
 )

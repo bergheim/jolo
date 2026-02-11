@@ -26,10 +26,10 @@ hint=""
 if [ -f justfile ] || [ -f Justfile ]; then
     hint="Run tasks with: just <recipe>"
 fi
-junk="Junk drawer: /workspaces/junk-drawer (non-reproducible)"
+stash="Stash: /workspaces/stash (non-reproducible)"
 
 # Print bordered header
-gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${junk:+"$junk"}
+gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${stash:+"$stash"}
 
 # Show justfile targets, static MOTD, or fallback
 if [ -f justfile ] || [ -f Justfile ]; then

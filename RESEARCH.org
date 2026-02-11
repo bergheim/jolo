@@ -720,26 +720,26 @@ RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
 ** Key files
 - ~Containerfile~ (hook warmup, pnpm globals, pre-commit-hooks.yaml)
 
-* Junk drawer shared mount for devcontainers           :jolo:devcontainer:mounts:
+* Stash shared mount for devcontainers                 :jolo:devcontainer:mounts:
 :PROPERTIES:
 :DATE: 2026-02-11
 :END:
 
-Added a default RW shared mount intended as a non-reproducible "junk drawer"
+Added a default RW shared mount intended as a non-reproducible "stash"
 for ad-hoc notes and scratch files.
 
 ** Decision
-- Host path: ~/jolo
-- Container path: /workspaces/junk-drawer
+- Host path: ~/stash
+- Container path: /workspaces/stash
 - Default-on, explicitly labeled as non-reproducible in MOTD
 
 ** Implementation
 - Added mount to ~BASE_MOUNTS~ (devcontainer.json generation)
 - Ensure host directory exists before container start
-- MOTD banner includes junk drawer warning
+- MOTD banner includes stash warning
 
 ** Key files
 - ~_jolo/constants.py~ (BASE_MOUNTS)
-- ~_jolo/setup.py~ (setup_junk_drawer)
-- ~_jolo/commands.py~ (call setup_junk_drawer)
-- ~container/motd~ (junk drawer warning)
+- ~_jolo/setup.py~ (setup_stash)
+- ~_jolo/commands.py~ (call setup_stash)
+- ~container/motd~ (stash warning)

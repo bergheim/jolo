@@ -94,9 +94,9 @@ def setup_emacs_config(workspace_dir: Path) -> None:
         )
 
 
-def setup_junk_drawer() -> None:
-    junk_drawer = Path.home() / "jolo"
-    junk_drawer.mkdir(parents=True, exist_ok=True)
+def setup_stash() -> None:
+    stash = Path.home() / "stash"
+    stash.mkdir(parents=True, exist_ok=True)
 
 
 def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
