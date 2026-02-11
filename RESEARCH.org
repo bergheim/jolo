@@ -533,3 +533,84 @@ external agent than Review 1 to ensure fresh eyes on correctness.
 
 ** Key files
 - .agents/skills/feature-workflow/SKILL.md
+
+* Skills deduplication via symlink chain                :skills:architecture:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+Eliminated duplication between =.agents/skills/= and =templates/.agents/skills/=.
+Skills are now authored once in =templates/.agents/skills/= and the rest is symlinks.
+
+** Symlink chain
+#+begin_example
+templates/.agents/skills/<name>/SKILL.md   # single source of truth
+.agents/skills -> ../templates/.agents/skills  # project root symlink
+.claude/skills -> ../.agents/skills            # Claude discovery
+.gemini/skills -> ../.agents/skills            # Gemini discovery
+#+end_example
+
+** Decision: AGENTS.md stays separate
+=AGENTS.md= (meta-project) and =templates/AGENTS.md= (generated projects) have
+genuinely different content. No symlink — each maintained independently.
+
+* Ruff vs Apheleia formatting fight                     :ruff:emacs:pre-commit:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+Emacs save-on-format and pre-commit hooks disagreed on Python formatting,
+causing every commit to fail with ruff-format changes.
+
+** Root causes (three layered problems)
+
+1. *Pre-commit used different ruff version*: pinned remote repo had ruff 0.8.6,
+   system had 0.14.9. Fixed by switching to =repo: local= with =language: system=.
+
+2. *Apheleia defaulted to black, not ruff*: =apheleia-mode-alist= maps
+   =python-mode= to =black= by default. Black was installed in Alpine.
+   Fixed by adding =(setf (alist-get 'python-mode apheleia-mode-alist) 'ruff)=
+   to =~/.config/emacs/modules/formating.el=.
+
+3. *Unstaged pyproject.toml caused stash revert*: =pyproject.toml= was changed
+   from =line-length = 120= to =line-length = 79= but not staged. Pre-commit
+   stashes unstaged changes (=git stash --keep-index=) before running hooks,
+   reverting pyproject.toml to the committed 120 value. Emacs ruff read 79
+   from the working tree; pre-commit ruff read 120 from HEAD.
+
+** Fix
+
+- =.pre-commit-config.yaml=: =repo: local=, =language: system= for ruff
+- =formating.el=: explicit ruff mapping for python-mode and python-ts-mode
+- Staged pyproject.toml + all reformatted files together in one commit
+
+** Key insight
+
+=apheleia-formatters-respect-fill-column= defaults to nil. Apheleia does NOT
+pass =--line-length= to ruff. Both Emacs and pre-commit read line-length
+from =pyproject.toml= — the only question is /which version/ of pyproject.toml
+they see (working tree vs stashed HEAD).
+
+** Key files
+- =.pre-commit-config.yaml= — local system ruff hooks
+- =pyproject.toml= — =line-length = 79=
+- =~/.config/emacs/modules/formating.el= — ruff overrides for Python
+
+* TERM/term-keys mismatch in devcontainer                 :tmux:terminfo:emacs:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+User observed that Emacs + term-keys works over SSH but not inside devcontainer.
+Recent local changes forced TERM=tmux-direct in the container and devcontainer env.
+If tmux-direct terminfo is missing in the container, term-keys and Emacs key
+translations can break.
+
+** Current local diff
+- Containerfile: added tmux-direct to terminal-features and set TERM=tmux-direct
+- _jolo/container.py: containerEnv TERM set to tmux-direct
+
+** Next checks
+- Ensure /usr/share/terminfo/t/tmux-direct exists in container image
+- If missing, either install terminfo or fallback to tmux-256color
+- Verify tmux default-terminal and terminal-overrides for key passthrough
