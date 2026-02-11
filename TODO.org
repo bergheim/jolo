@@ -14,7 +14,7 @@
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
 ** DONE Draft end-user README for Codex (docs/README-codex.org)
-** TODO Plan: add `jolo clone <git-url> [dir]` command (devcontainer wrapper)
+** DONE Plan: add `jolo clone <git-url> [dir]` command (devcontainer wrapper)
    - Goal: `jolo clone` clones a repo and immediately brings it up in a devcontainer.
    - Signature: `jolo clone <url> [dir]`
    - Default clone location: `repos/<name>` at workspace root.

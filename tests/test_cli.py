@@ -51,6 +51,21 @@ class TestArgumentParsing(unittest.TestCase):
         with self.assertRaises(SystemExit):
             jolo.parse_args(["create"])
 
+    def test_clone_with_url(self):
+        """clone URL should set url and leave name unset."""
+        args = jolo.parse_args(["clone", "https://github.com/org/repo.git"])
+        self.assertEqual(args.command, "clone")
+        self.assertEqual(args.url, "https://github.com/org/repo.git")
+        self.assertIsNone(args.name)
+
+    def test_clone_with_name(self):
+        """clone URL NAME should set name."""
+        args = jolo.parse_args(
+            ["clone", "https://github.com/org/repo.git", "target"]
+        )
+        self.assertEqual(args.command, "clone")
+        self.assertEqual(args.name, "target")
+
     def test_new_flag(self):
         """--new should set new to True."""
         args = jolo.parse_args(["up", "--new"])

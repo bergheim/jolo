@@ -249,5 +249,68 @@ class TestPruneGlobalImages(unittest.TestCase):
         mock_remove_image.assert_not_called()
 
 
+class TestCloneMode(unittest.TestCase):
+    """Test clone functionality."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_infer_repo_name(self):
+        """Should infer repo name from common URL formats."""
+        self.assertEqual(
+            jolo.infer_repo_name("https://github.com/org/repo.git"), "repo"
+        )
+        self.assertEqual(
+            jolo.infer_repo_name("git@github.com:org/repo.git"), "repo"
+        )
+        self.assertEqual(jolo.infer_repo_name("/path/to/repo"), "repo")
+
+    @mock.patch("_jolo.commands.run_up_mode")
+    @mock.patch("jolo.subprocess.run")
+    def test_clone_default_target(self, mock_run, mock_up):
+        """Should clone into ./<name> and then run up."""
+
+        def _clone_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if cmd[:2] == ["git", "clone"]:
+                target = Path(cmd[-1])
+                target.mkdir(parents=True, exist_ok=True)
+                (target / ".git").mkdir(parents=True, exist_ok=True)
+                return mock.Mock(returncode=0)
+            return mock.Mock(returncode=1, stdout="", stderr="")
+
+        mock_run.side_effect = _clone_side_effect
+        args = jolo.parse_args(["clone", "https://github.com/org/repo.git"])
+
+        jolo.run_clone_mode(args)
+
+        expected_target = Path(self.tmpdir) / "repo"
+        mock_run.assert_called_with(
+            [
+                "git",
+                "clone",
+                "https://github.com/org/repo.git",
+                str(expected_target),
+            ]
+        )
+        mock_up.assert_called_once()
+
+    def test_clone_errors_if_target_exists(self):
+        """Should error if target exists."""
+        target = Path(self.tmpdir) / "repo"
+        target.mkdir(parents=True)
+        args = jolo.parse_args(["clone", "https://github.com/org/repo.git"])
+        with self.assertRaises(SystemExit):
+            jolo.run_clone_mode(args)
+
+
 if __name__ == "__main__":
     unittest.main()

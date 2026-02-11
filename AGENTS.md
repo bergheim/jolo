@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > It is NOT meant for general development. For projects created with `jolo create`,
 > see `templates/AGENTS.md` which gets copied to new projects.
 
+## Cloned Repos
+
+If a repo cloned with `jolo clone` includes its own agent instruction files (AGENTS/CLAUDE),
+those instructions apply only within that repo. They do not override this meta-project’s
+instructions.
+
 ## Planning Before Acting
 
 **NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute. The only exception is if the user explicitly says to go ahead without planning.
@@ -23,6 +29,8 @@ Only comment *why*, never *what*. Do not add comments that restate the code. Do 
 ## Project Overview
 
 This repo builds and maintains the containerized Emacs GUI environment on Alpine Linux (musl-based), designed as a devcontainer for AI-assisted development. Alpine provides excellent package coverage and small image size. Browser automation uses Playwright with system Chromium. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
+
+You are encouraged to suggest state-of-the-art CLI tools that could improve development of this environment. We control the full stack in `Containerfile`, so proposals can be evaluated and baked into the image directly.
 
 **What this repo produces:**
 - Container image (`emacs-gui`) with all dev tools pre-installed

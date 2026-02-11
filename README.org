@@ -23,6 +23,9 @@ ln -s $(pwd)/jolo.py ~/.local/bin/jolo
 # Scaffold a new project
 jolo create myapp
 
+# Clone a repo and start a devcontainer
+jolo clone https://github.com/org/repo.git
+
 # Start devcontainer in any git project
 cd ~/myproject && jolo up
 
