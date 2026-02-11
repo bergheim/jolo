@@ -13,6 +13,18 @@ repos:
         language: system
         types: [python]
         exclude: ^templates/
+      - id: test
+        name: tests (commit)
+        entry: scripts/test-gate commit
+        language: script
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: test-push
+        name: tests (push)
+        entry: scripts/test-gate push
+        language: script
+        pass_filenames: false
+        stages: [pre-push]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
