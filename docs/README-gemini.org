@@ -1,0 +1,69 @@
+#+TITLE: jolo
+
+Jolo - not quite Yolo, but close enough. Program like it's 2026!
+
+Jolo is a high-performance development environment and orchestration harness designed for the effective deployment of autonomous AI agents. It provides a standardized, musl-based Alpine Linux environment where multiple agents can operate in parallel with secure identity persistence, specialized browser automation, and sophisticated workspace management.
+
+* Core Philosophy: An Engineering Harness for Agents
+
+Most AI tools are designed for interactive, chat-based assistance. Jolo is an infrastructure layer designed for **autonomous agent control**.
+
+- **Environment Consistency**: Every agent operates in an identical, isolated container. This eliminates environment-induced failures and ensures that agents have a predictable set of tools (runtimes, LSPs, and linters) at their disposal.
+- **Provider-Agnostic Intelligence**: Jolo abstracts agent capabilities into a unified skill system. Whether using Claude, Gemini, or Codex, agents share the same ~.agents/skills/~ and a project-based long-term memory system.
+- **Authenticated Identity (GPG)**: Jolo mounts the host's ~S.gpg-agent~ socket to the container. This allows agents to sign commits with your GPG key while ensuring that **private key material remains strictly on the host**. The agent can request signatures, but cannot extract keys.
+- **Agent-First Browser Automation**: Built-in ~browser-check~ provides ARIA accessibility tree snapshots, reducing token context by ~93% compared to raw HTML. This allows agents to "see" the page structure and interactive elements without being overwhelmed by DOM noise.
+
+* Quick Start
+
+#+begin_src bash
+# Install
+ln -s $(pwd)/jolo.py ~/.local/bin/jolo
+
+# Scaffold a new project with agent-ready defaults
+jolo create myapp
+
+# Start the harness in any git project
+cd ~/myproject && jolo up
+
+# Execute a task autonomously in the background
+jolo up -p "implement the storage layer using sqlite"
+
+# Spawn parallel agents to explore different solutions
+jolo spawn 5 -p "refactor the auth module for OIDC support"
+
+# Orchestration management
+jolo open    # Interactive fzf picker to attach to a running session
+jolo prune   # Clean up orphaned containers and stale images
+jolo delete  # Unified removal of projects and worktrees
+#+end_src
+
+* Technical Architecture
+
+** The Runtime Environment
+Jolo uses Alpine Linux for its minimal footprint and predictable behavior. Every environment initializes a 5-window tmux session, providing a structured workspace for both agents and human supervisors:
+1. **Emacs**: The primary editor, running with a sandboxed configuration.
+2. **Claude / Gemini / Codex**: Dedicated windows for the three primary agent types.
+3. **Shell**: A zsh instance for manual verification and system tasks.
+
+** Workspace Isolation & Parallelism
+Jolo supports two tiers of isolation to manage agent state:
+- **jolo tree (Host-side)**: Creates a native git worktree and a dedicated container. This provides total separation for large, risky changes or parallel "spawn" runs.
+- **wt (In-container)**: A lightweight command inside the container to manage ephemeral worktrees at ~/workspaces/<name>~. This is the preferred way to handle rapid branching and sub-task exploration without host-side overhead.
+
+** Lifecycle Monitoring
+Jolo integrates with ~ntfy.sh~ for asynchronous monitoring. By setting an ~NTFY_TOPIC~, agents will send lifecycle notifications (start, success, failure) to your desktop or mobile device, allowing you to walk away from long-running autonomous tasks.
+
+* Layout
+
+#+begin_example
+jolo.py                  # CLI orchestrator
+_jolo/                   # Core logic (container lifecycle, worktree management)
+container/               # In-harness tools (wt, browser-check, motd)
+templates/               # Scaffolding for new agent-ready projects
+openspec/                # Specifications for structured agent changes
+#+end_example
+
+See [[file:AGENTS.md][AGENTS.md]] for the full technical reference and agent-specific instructions.
+
+* License
+See [[file:LICENSE][LICENSE]].

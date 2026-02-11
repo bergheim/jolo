@@ -1,0 +1,113 @@
+#+TITLE: jolo (Codex README)
+#+AUTHOR: tsb
+#+OPTIONS: toc:2
+
+* What It Is
+Jolo is a serious autonomous agent harness built around isolated devcontainers. It gives you a clean, repeatable environment with Emacs + multiple LLM agents running in parallel, and a workflow that keeps credentials, history, ports, and state scoped per project.
+
+If you want to spin up worktrees quickly, run agents in parallel, and still keep your host safe, this is the tool.
+
+* Why It Exists
+I wanted to safely iterate on my Emacs config without touching real dotfiles, and I wanted to run multiple agents side-by-side without cross‑contamination. That meant:
+- strong isolation between projects
+- predictable ports
+- a consistent toolchain
+- fast boot, low‑overhead containers
+
+It started as Emacs isolation, then generalized into a full devcontainer harness for any repo.
+
+* How It Works
+Each ~jolo up~ creates a project container with:
+- its own port and history
+- its own agent credentials and caches
+- its own tmux session with 5 windows (Emacs, Claude, Gemini, Codex, Shell)
+
+~jolo spawn N~ creates N worktrees and fans out agents round‑robin through providers, giving you parallel work with clean separation. Each worktree gets a stable port derived from a base range and offset.
+
+* Quick Start
+#+begin_src bash
+# Install
+ln -s $(pwd)/jolo.py ~/.local/bin/jolo
+
+# Scaffold a new project
+jolo create myapp
+
+# Start devcontainer in any git project
+cd ~/myproject && jolo up
+
+# Fire and forget — AI works in background
+jolo up -p "add OAuth login"
+
+# Spawn parallel agents on the same problem
+jolo spawn 5 -p "implement the auth system"
+
+# Jump into a running container (fzf picker)
+jolo open
+
+# Clean up orphaned/stopped containers and images
+jolo prune
+
+# Unified delete for worktrees and projects
+jolo delete myapp
+#+end_src
+
+* Core Features
+- **Isolation by default**: per‑project containers, history, credentials, caches
+- **Parallel agents**: Claude, Gemini, Codex in coordinated tmux layout
+- **Stable ports**: $PORT assigned in 4000‑5000, forwarded to host
+- **Emacs sandbox**: config copied into a sandboxed worktree
+- **GPG signing**: agent socket forwarded for signing without exposing private keys
+- **No X11 in jolo**: containers launched by jolo have no X11 socket access
+- **Alpine base**: fast, small, well‑maintained, great package coverage
+- **Tooling included**: language servers, linters, browser automation, pre‑commit
+
+* Operational Details
+** Ports
+Each project gets a stable ~$PORT~ in the 4000‑5000 range, stored in its devcontainer config. In spawn mode, worktrees get ~base_port + offset~ (4000, 4001, 4002, ...). Ports are forwarded to the host and accessible via Tailscale.
+
+** Tmux Layout
+Every container starts with a 5‑window tmux layout:
+- Emacs
+- Claude
+- Gemini
+- Codex
+- Shell
+
+This keeps agents visible and separated while still sharing the same project context.
+
+** Worktrees and Spawn
+Worktrees are first‑class. ~jolo tree~ creates a new worktree with a matching devcontainer. ~jolo spawn N~ creates N worktrees and runs agents in parallel with round‑robin assignment across providers. This is the fastest way to parallelize a task while keeping results isolated.
+
+** Ntfy Notifications
+Completion notifications are sent via ~ntfy.sh~. Default topic: ~jolo~. For ad‑hoc/manual pings use ~NTFY_TOPIC=test~. Set ~NTFY_TOPIC~ to change the default topic per project or per run.
+
+** GPG Signing (Safe by Design)
+The container never sees your private keys. Instead, it forwards the host’s GPG agent socket and mounts the public keyring read‑only. You get commit signing without leaking keys into the container.
+
+** Emacs Isolation
+When launching GUI Emacs via the host script, your config is copied into a sandbox worktree. Cache dirs are separate from your host Emacs cache to avoid libc/version mismatches. Changes stay inside the project.
+
+** Security Model (Practical)
+- No X11 socket or ~DISPLAY~ for jolo containers (prevents keylogging/screenscraping)
+- Agent credentials are copied or mounted in a controlled way
+- Per‑project history and caches prevent cross‑contamination
+
+* Experimental
+These are included but considered experimental:
+- **OpenSpec**: a structured change workflow stored in ~openspec/~
+- **Beads worktrees**: a secondary worktree workflow used for larger multi‑branch change management
+
+Use them if they fit your workflow, but expect evolution.
+
+* Layout
+#+begin_example
+jolo.py                  # the CLI launcher
+_jolo/                   # CLI logic package
+container/               # scripts baked into the image (wt, browser-check, motd)
+templates/               # scaffolds for new projects
+openspec/                # structured change workflow
+docs/                    # research and status notes
+#+end_example
+
+* License
+See [[file:LICENSE][LICENSE]].

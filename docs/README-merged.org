@@ -1,0 +1,191 @@
+#+TITLE: jolo
+
+Jolo - not quite Yolo, but close enough. Program like it's 2026!
+
+Jolo launches isolated devcontainers with multiple AI agents working in parallel. Each container gets its own port, shell history, credentials, and editor config — fully sandboxed from your host and from each other. Agents share a common skill set and project-level memory so they can pick up where others left off.
+
+It is designed to be provider-agnostic: Claude, Gemini, and Codex all get the same tools, the same pre-commit hooks, and the same structured memory files. You bring the problem, jolo handles the infrastructure.
+
+- *Isolation by default* — per-project containers, history, credentials, caches
+- *Parallel agents* — Claude, Gemini, Codex in a coordinated tmux layout
+- *Worktrees* — host-side (~jolo tree~) and in-container (~wt~) branching
+- *Stable ports* — ~$PORT~ assigned in 4000-5000, forwarded to host, Tailscale-accessible
+- *Notifications* — agents notify on completion via ntfy.sh
+- *GPG signing* — agents can request signatures but cannot extract keys
+- *No X11* — containers have no display access
+- *Browser automation* — ~browser-check~ for ARIA snapshots, Playwright MCP for interactive flows
+- *Pre-commit hooks* — language-specific linters set up automatically
+- *Emacs sandbox* — your config, isolated from your host
+
+* Quick Start
+
+#+begin_src bash
+# Install
+ln -s $(pwd)/jolo.py ~/.local/bin/jolo
+
+# Scaffold a new project
+jolo create myapp
+
+# Start devcontainer in any git project
+cd ~/myproject && jolo up
+
+# Fire and forget — AI works in background
+jolo up -p "add OAuth login"
+
+# Spawn parallel agents on the same problem
+jolo spawn 5 -p "implement the auth system"
+
+# Jump into a running container (fzf picker)
+jolo open
+
+# Clean up
+jolo prune
+#+end_src
+
+* How It Works
+
+Every ~jolo up~ builds a devcontainer from a shared Alpine image, writes a ~devcontainer.json~ with a unique port and environment, stages credentials, then hands off to the ~devcontainer~ CLI. The container runs a tmux session with five windows:
+
+| Window | Contents |
+|--------+----------|
+| emacs  | Emacs GUI or terminal, opens Magit status |
+| claude | Claude Code CLI (permissions skipped) |
+| gemini | Gemini CLI |
+| codex  | Codex CLI |
+| shell  | Spare zsh |
+
+This keeps agents visible and separated while still sharing the same project context. In prompt mode (~jolo up -p "..."~), the agent starts in a detached tmux session and works autonomously. When it finishes, it sends a notification.
+
+** Worktrees
+
+Jolo supports two tiers of workspace isolation:
+
+- ~jolo tree~ (host-side) creates a git worktree with its own ~.devcontainer/~ and launches a full container. Use this for parallel branches, spawn runs, or risky changes that need total separation.
+- ~wt~ (in-container) manages lightweight worktrees at ~/workspaces/<name>~. Use this for quick branching and sub-task exploration without the overhead of a new container.
+
+#+begin_src bash
+jolo tree feat-auth              # named worktree
+jolo tree                        # random name (bold-bear, swift-falcon, ...)
+jolo tree feat --from develop    # branch from specific ref
+#+end_src
+
+** Spawn Mode
+
+~jolo spawn N~ creates N worktrees in parallel, each with its own container. Agents round-robin through Claude, Gemini, and Codex. Each worktree gets a unique port: base port + offset (4000, 4001, 4002, ...).
+
+#+begin_src bash
+jolo spawn 5 -p "implement the auth system"
+jolo spawn 3 --prefix auth -p "add OAuth"    # auth-1, auth-2, auth-3
+#+end_src
+
+** Port Management
+
+Each project gets a random port in 4000-5000, assigned at creation and stored in ~devcontainer.json~. The port is stable for the project's lifetime. Dev servers should bind to ~$PORT~, which is set in the container environment.
+
+Ports 4000-5000 are forwarded from the container to the host and are accessible over Tailscale. The ~DEV_HOST~ environment variable is auto-detected from ~tailscale status~ so agents know how to construct URLs.
+
+If a port conflict is detected at launch, jolo offers to reassign a new random port interactively.
+
+* Notifications
+
+Agents notify on completion via [[https://ntfy.sh][ntfy.sh]]. The default topic is ~jolo~ (configurable via ~NTFY_TOPIC~). Notification hooks are injected into each agent's settings during container setup:
+
+- *Claude:* ~SessionEnd~ hook sends notification; ~Stop~ hook notifies only if the response took longer than 20 seconds; ~UserPromptSubmit~ records timestamps for elapsed-time tracking.
+- *Gemini:* ~SessionEnd~ hook.
+- *Codex:* ~notify~ config in ~config.toml~.
+
+Subscribe to your topic (~ntfy subscribe jolo~) and you'll know when any agent finishes, across any container.
+
+* Security Model
+
+Containers are designed for autonomous agent use, so the security boundary is between the container and the host rather than between you and the agent.
+
+** Credentials
+
+AI credentials are copied (not mounted) into ~.devcontainer/~ at launch. Each container gets its own copy, and there is no cross-project contamination.
+
+The one exception is Claude's ~.credentials.json~, which is mounted read-write so that token refreshes persist back to the host.
+
+** GPG Signing
+
+The GPG public keyring (~pubring.kbx~, ~trustdb.gpg~) is mounted read-only. The agent socket is forwarded so agents can request signatures, but private key material stays on the host. The ~trustdb not writable~ warning is expected and harmless.
+
+** No X11
+
+Jolo containers have no X11 socket and no ~DISPLAY~ variable. This prevents X11-based attacks (keylogging, screenshot capture, input injection) from anything running inside the container. GUI Emacs is only available through ~start-emacs.sh~, which is a separate sandbox path that intentionally grants display access.
+
+** GitHub
+
+~GH_TOKEN~ is passed through so ~gh~ CLI works inside containers. The token comes from ~gh auth token~ on the host or the ~GH_TOKEN~ environment variable.
+
+* Browser Automation
+
+Every container includes ~browser-check~, a CLI tool built on Playwright with system Chromium. It provides ARIA accessibility tree snapshots — roughly 93% less context than raw HTML — so agents can inspect page structure without drowning in DOM noise.
+
+#+begin_src bash
+browser-check http://localhost:$PORT --describe          # what's on the page
+browser-check http://localhost:$PORT --aria --interactive # just buttons, links, inputs
+browser-check http://localhost:$PORT --screenshot         # take a screenshot
+browser-check http://localhost:$PORT --console --errors   # debug JS
+#+end_src
+
+For multi-step interactive flows (clicking, filling forms, navigating), use the Playwright MCP tools which are pre-configured in each agent's settings.
+
+* Emacs Config Isolation
+
+Your Emacs config (~/.config/emacs~) is copied into ~.devcontainer/.emacs-config/~ so the container has a writable, isolated copy. Package directories (elpaca, tree-sitter) live in ~~/.cache/emacs-container/~ on the host — separate from your host's ~~/.cache/emacs/~ to avoid version and libc mismatches (host typically runs Emacs 31 with glibc, container runs 30.x with musl).
+
+First boot is slow because elpaca builds everything for the container's environment. Subsequent boots reuse the shared cache.
+
+This also means you can use Emacs packages like [[https://github.com/manzaltu/claude-code-ide.el][claude-code-ide]] or [[https://github.com/xenodium/agent-shell][agent-shell]] inside the container with your own config, without restrictions.
+
+* Pre-commit Hooks
+
+~jolo create~ sets up pre-commit hooks based on the project language. Every project gets baseline hygiene hooks (trailing whitespace, end-of-file fixer, large file check, gitleaks). Language-specific linters are added automatically:
+
+| Language   | Linter         |
+|------------+----------------|
+| Python     | ruff           |
+| Go         | golangci-lint  |
+| TypeScript | biome          |
+| Rust       | rustfmt/clippy |
+| Shell      | shellcheck     |
+| Prose      | markdownlint, codespell |
+
+Hooks run on every ~git commit~. This is particularly important for AI-assisted development where code is generated quickly.
+
+* Design Choices
+
+** Why Alpine
+
+Alpine provides the smallest base image with the best package coverage for development tools. Everything from language servers to spell checkers to browser automation is available as native packages. The tradeoff is musl libc, which means some things (notably Emacs packages with native compilation) need separate builds from the host.
+
+** Origin
+
+This project started as a way to give Claude a sandboxed copy of an Emacs config to experiment with freely. But an Emacs config is just a git repo, and the isolation mechanism generalizes to any project. Emacs is still included because it makes a good in-container editor with LSP support, and the config sandbox means agents can modify editor settings without affecting your host.
+
+** Provider Agnosticism
+
+Rather than building around one AI provider's API, jolo treats agents as opaque CLI tools. All agents get the same skills (via ~.agents/skills/~), the same shared memory files (~docs/TODO.org~, ~docs/RESEARCH.org~), and the same pre-commit hooks. MCP server configs are injected into each agent's settings from a shared ~templates/mcp/~ directory.
+
+* Experimental
+
+These are included but should be considered unstable:
+
+- *OpenSpec* (~openspec/~) — a structured artifact workflow for planning and implementing changes step by step.
+- *Beads worktrees* — a secondary worktree workflow for larger multi-branch change management.
+
+* Layout
+
+#+begin_example
+jolo.py                  # CLI entry point
+_jolo/                   # CLI package (cli, container, setup, templates, worktree, commands)
+container/               # scripts baked into the image (tmux-layout, browser-check, wt, motd)
+templates/               # scaffolds for new projects (AGENTS.md, .gitignore, skills, MCP configs)
+openspec/                # structured change workflow (experimental)
+docs/                    # research and status notes
+#+end_example
+
+* License
+
+See [[file:../LICENSE][LICENSE]].
