@@ -596,6 +596,33 @@ they see (working tree vs stashed HEAD).
 - =pyproject.toml= — =line-length = 79=
 - =~/.config/emacs/modules/formating.el= — ruff overrides for Python
 
+* sync_skill_templates self-destructs via symlink          :skills:jolo:symlink:
+:PROPERTIES:
+:DATE: 2026-02-11
+:END:
+
+~sync_skill_templates~ in ~_jolo/setup.py~ crashed with ~FileNotFoundError~
+when run on the meta-project (emacs-container itself).
+
+** Root cause
+
+In this repo, ~.agents/skills~ is a symlink to ~../templates/.agents/skills~.
+The sync function's destination (~target_dir/.agents/skills~) resolves through
+the symlink to the same path as the source (~templates/.agents/skills~). The
+loop calls ~shutil.rmtree(dst)~ before ~shutil.copytree(entry, dst)~ — rmtree
+destroys the source through the symlink, then copytree fails on the deleted dir.
+
+** Fix
+
+Resolve both paths and skip sync when they're identical (commit ~8317bc6~).
+
+** Related
+
+Commit ~1ee5d3a~ ("Remove local skills") also dropped ~afk~ and ~db-reset~
+skills. They existed only in ~.agents/skills/~ (local) and were never copied
+to ~templates/.agents/skills/~ before the local copies were deleted. Restored
+in the same fix commit.
+
 * TERM/term-keys mismatch in devcontainer                 :tmux:terminfo:emacs:
 :PROPERTIES:
 :DATE: 2026-02-11
