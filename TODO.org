@@ -9,6 +9,7 @@
 ** TODO Add `jolo research` command with async report delivery (email or ntfy)
    Use case: run research prompt, return immediately, send results on completion.
 ** TODO Decide whether to add a "safe worktree" default for initial jolo setup (keep main repo untouched)
+** TODO Add a shared mounted space between all devcontainers for global resources
 ** TODO Document Wayland Emacs integration
 ** TODO Verify tmux-direct terminfo and term-keys in devcontainer
 ** DONE Add doc-compare skill for narrative version diffs
