@@ -46,6 +46,7 @@ from _jolo.setup import (
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
+    setup_junk_drawer,
     setup_notification_hooks,
     sync_devcontainer,
     sync_skill_templates,
@@ -618,6 +619,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(git_root)
+    setup_junk_drawer()
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
@@ -708,6 +710,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(worktree_path)
+    setup_junk_drawer()
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
@@ -926,6 +929,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
+    setup_junk_drawer()
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
@@ -1162,6 +1166,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         setup_credential_cache(worktree_path)
         setup_notification_hooks(worktree_path)
         setup_emacs_config(worktree_path)
+        setup_junk_drawer()
 
         (worktree_path / ".devcontainer" / ".zsh-state").mkdir(exist_ok=True)
 

@@ -94,6 +94,11 @@ def setup_emacs_config(workspace_dir: Path) -> None:
         )
 
 
+def setup_junk_drawer() -> None:
+    junk_drawer = Path.home() / "jolo"
+    junk_drawer.mkdir(parents=True, exist_ok=True)
+
+
 def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
     """Merge all MCP JSON templates into the provided config's mcpServers key.
 
