@@ -9,7 +9,6 @@ ADJECTIVES="brave swift calm bold keen wild warm cool fair wise"
 NOUNS="panda falcon river mountain oak wolf hawk cedar fox bear"
 
 WS="${WORKSPACE_FOLDER:-$(pwd)}"
-TMUX_CONFIG="$HOME/.config/tmuxinator/dev.yml"
 
 usage() {
     cat <<EOF
@@ -42,24 +41,11 @@ create_session() {
     wt_path="/workspaces/$name"
     sess=$(session_name "$name")
 
-    tmp_config="/tmp/wt-${name}.yml"
-    cp "$TMUX_CONFIG" "$tmp_config"
-
-    # Set session name and root directory
-    sed -i "s|^name:.*|name: $sess|" "$tmp_config"
-    # Add root directive after name line
-    sed -i "/^name:/a root: $wt_path" "$tmp_config"
-
-    # If prompt provided, patch the agent window
     if [ -n "$prompt" ]; then
-        agent="claude"
-        cmd="claude"
-        escaped=$(printf '%s' "$cmd $prompt" | sed 's/[&/\]/\\&/g')
-        sed -i "s|  - $agent:.*|  - $agent: $escaped|" "$tmp_config"
-        sed -i "s|startup_window:.*|startup_window: $agent|" "$tmp_config"
+        tmux new-session -d -s "$sess" -c "$wt_path" "claude $prompt"
+    else
+        tmux new-session -d -s "$sess" -c "$wt_path"
     fi
-
-    tmuxinator start -p "$tmp_config"
 }
 
 cmd_new() {
