@@ -19,6 +19,8 @@ Shared knowledge lives in org-mode files under `docs/` that all agents read and 
 
 Agent-private memory (workflow preferences, mistake patterns) goes to each agent's own system — not shared files.
 
+Shared, non-reproducible resources across projects go in the stash: host `~/stash` is mounted at `/workspaces/stash` in devcontainers.
+
 ## Port Configuration
 
 Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).

@@ -165,7 +165,7 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
     "source=${localEnv:HOME}/.config/gh,target=/home/${localEnv:USER}/.config/gh,type=bind,readonly",
-    "source=${localEnv:HOME}/jolo,target=/workspaces/junk-drawer,type=bind",
+    "source=${localEnv:HOME}/stash,target=/workspaces/stash,type=bind",
 ]
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
