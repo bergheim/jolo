@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import random
 import shlex
 import shutil
 import subprocess
@@ -1321,6 +1322,99 @@ def spawn_tmux_multipane(
     subprocess.run(["tmux", "attach", "-t", session_name])
 
 
+def _spawn_research_watcher(
+    worktree_path: Path,
+    git_root: Path,
+) -> None:
+    """Spawn a background process that cleans up after the research container stops.
+
+    Polls until the container is no longer running, then removes the
+    worktree. The container self-stops when the agent finishes (via
+    kill 1 in tmux-layout.sh research mode).
+    """
+    runtime = get_container_runtime() or "podman"
+
+    script = (
+        f"while {runtime} ps --filter "
+        f"'label=devcontainer.local_folder={worktree_path}' "
+        f"--filter status=running --format '{{{{.Names}}}}' "
+        f"2>/dev/null | grep -q .; do sleep 15; done; "
+        f"sleep 5; "
+        f"git worktree remove --force {shlex.quote(str(worktree_path))} "
+        f"2>/dev/null; "
+        f"echo 'Research cleanup: {worktree_path.name}'"
+    )
+
+    subprocess.Popen(
+        ["setsid", "sh", "-c", script],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+    )
+
+
+def run_research_mode(args: argparse.Namespace) -> None:
+    """Run research mode: ephemeral worktree with agent and auto-cleanup."""
+    git_root = validate_tree_mode()
+
+    config = load_config()
+
+    # Pick agent: round-robin with random start, or explicit override
+    agents = config.get("agents", ["claude"])
+    agent_override = args.agent
+    idx = random.randint(0, len(agents) - 1)
+    agent_name = get_agent_name(config, agent_override, idx)
+
+    # Create ephemeral worktree
+    worktree_name = f"research-{generate_random_name()}"
+    worktree_path = get_worktree_path(str(git_root), worktree_name)
+
+    worktree_path = get_or_create_worktree(
+        git_root,
+        worktree_name,
+        worktree_path,
+        config=config,
+    )
+
+    # Set up secrets
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+
+    # Standard setup (same as tree mode)
+    setup_credential_cache(worktree_path)
+    setup_notification_hooks(worktree_path)
+    setup_emacs_config(worktree_path)
+    setup_stash()
+
+    # Override ntfy topic if specified
+    if args.topic:
+        devcontainer_json = (
+            worktree_path / ".devcontainer" / "devcontainer.json"
+        )
+        content = json.loads(devcontainer_json.read_text())
+        content.setdefault("containerEnv", {})["NTFY_TOPIC"] = args.topic
+        devcontainer_json.write_text(json.dumps(content, indent=4))
+
+    # Write prompt file for tmux-layout.sh
+    prompt_text = f"/research {args.prompt}"
+    write_prompt_file(worktree_path, agent_name, prompt_text)
+
+    # Write research-mode flag so tmux-layout.sh auto-stops container
+    (worktree_path / ".devcontainer" / ".research-mode").write_text("")
+
+    # Start container
+    if not devcontainer_up(worktree_path, remove_existing=True):
+        sys.exit("Error: Failed to start devcontainer")
+
+    # Spawn background watcher for auto-cleanup
+    _spawn_research_watcher(worktree_path, git_root)
+
+    print(f"Research started: {agent_name} → {worktree_name}")
+    print(f"Results will be committed to branch: {worktree_name}")
+    print("ntfy notification when done. Worktree auto-cleans.")
+
+
 def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
     """Find worktrees that can be deleted for a given git root.
 
@@ -1634,8 +1728,14 @@ def main(argv: list[str] | None = None) -> None:
         args._parser.print_help()
         return
 
-    # Check guards (skip tmux guard if detaching, using prompt, shell, or run)
-    if not args.detach and not args.prompt and not args.shell and not args.run:
+    # Check guards (skip for research — always detached)
+    if (
+        cmd != "research"
+        and not getattr(args, "detach", False)
+        and not getattr(args, "prompt", None)
+        and not getattr(args, "shell", False)
+        and not getattr(args, "run", None)
+    ):
         check_tmux_guard()
 
     # Dispatch to appropriate mode
@@ -1645,6 +1745,8 @@ def main(argv: list[str] | None = None) -> None:
         run_clone_mode(args)
     elif cmd == "spawn":
         run_spawn_mode(args)
+    elif cmd == "research":
+        run_research_mode(args)
     elif cmd == "init":
         run_init_mode(args)
     elif cmd == "create":

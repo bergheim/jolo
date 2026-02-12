@@ -26,12 +26,33 @@ if [ -f "$PROMPT_FILE" ]; then
         *)       CMD="$AGENT" ;;
     esac
 
+    RESEARCH_FILE="$WS/.devcontainer/.research-mode"
+    RESEARCH_MODE=false
+    if [ -f "$RESEARCH_FILE" ]; then
+        RESEARCH_MODE=true
+        rm -f "$RESEARCH_FILE"
+    fi
+
     TMP_CONFIG=$(mktemp)
     cp "$CONFIG" "$TMP_CONFIG"
-    ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
-    sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
-    # Focus on the prompted agent's window
-    sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
+
+    if [ "$RESEARCH_MODE" = true ]; then
+        # Wrap command: agent runs, then container self-stops
+        FULL_CMD="sh -c '$CMD $PROMPT ; sleep 5 ; kill 1'"
+        ESCAPED=$(printf '%s' "$FULL_CMD" | sed 's/[&/\]/\\&/g')
+        # Minimal layout: only the agent window
+        cat > "$TMP_CONFIG" <<YAML
+name: dev
+windows:
+  - $AGENT: $ESCAPED
+YAML
+    else
+        ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
+        sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
+        # Focus on the prompted agent's window
+        sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
+    fi
+
     exec tmuxinator start -p "$TMP_CONFIG"
 fi
 

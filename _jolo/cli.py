@@ -357,7 +357,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Devcontainer + Git Worktree Launcher",
         epilog="Run 'jolo <command> --help' for command-specific options.\n\n"
         "Examples: jolo up | jolo create foo | jolo clone <url> | jolo list | "
-        "jolo tree feat-x | jolo down --all | jolo spawn 3 -p 'do thing'",
+        "jolo tree feat-x | jolo down --all | jolo spawn 3 -p 'do thing' | "
+        "jolo research 'topic'",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     # Defaults so attributes exist even when no subcommand is given
@@ -507,6 +508,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "prune",
         parents=[p_verbose, p_all, p_yes],
         help="Clean up stopped/orphan containers and stale worktrees",
+    )
+
+    # research: prompt, agent, verbose
+    sub_research = subparsers.add_parser(
+        "research",
+        parents=[p_verbose],
+        help="Run research in ephemeral worktree with auto-cleanup",
+    )
+    sub_research.add_argument("prompt", help="Research topic or question")
+    sub_research.add_argument(
+        "--agent",
+        default=None,
+        metavar="CMD",
+        help="AI agent to use (default: round-robin)",
+    )
+    sub_research.add_argument(
+        "--topic",
+        default=None,
+        metavar="TOPIC",
+        help="ntfy.sh topic for notification (default: from config)",
     )
 
     # delete: target, purge, yes, verbose
