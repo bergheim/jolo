@@ -125,10 +125,26 @@ class TestEnsureResearchRepo(unittest.TestCase):
         research_home = Path(self.tmpdir) / "research"
         research_home.mkdir()
         (research_home / ".git").mkdir()
+        devcontainer_dir = research_home / ".devcontainer"
+        devcontainer_dir.mkdir()
+        (devcontainer_dir / "devcontainer.json").write_text("{}")
 
         config = {"research_home": str(research_home)}
         result = jolo.ensure_research_repo(config)
         self.assertEqual(result, research_home)
+
+    @mock.patch("_jolo.commands.scaffold_devcontainer")
+    @mock.patch("_jolo.commands.subprocess.run")
+    def test_recreates_after_partial_init(self, mock_run, mock_scaffold):
+        research_home = Path(self.tmpdir) / "broken"
+        research_home.mkdir()
+        (research_home / ".git").mkdir()
+        # No .devcontainer — incomplete
+
+        config = {"research_home": str(research_home)}
+        jolo.ensure_research_repo(config)
+
+        mock_scaffold.assert_called_once()
 
     @mock.patch("_jolo.commands.scaffold_devcontainer")
     @mock.patch("_jolo.commands.subprocess.run")

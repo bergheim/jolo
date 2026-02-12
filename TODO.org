@@ -6,6 +6,11 @@
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
 ** TODO Send agent findings via email (or similar async channel)
+** TODO Add =--deep= flag to =jolo research=
+   Run claude + codex in parallel (both research the same question), wait for both,
+   then gemini compiles findings from both files into a synthesis.
+   Implementation: single =nohup sh -c= wrapper that backgrounds both researchers,
+   =wait=​s, then fires gemini with a compile prompt referencing both org files.
 ** TODO Redesign =jolo research= — standalone research repo, no worktrees
    :PROPERTIES:
    :BRANCH: feat/jolo-research

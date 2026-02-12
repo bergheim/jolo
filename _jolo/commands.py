@@ -1330,7 +1330,11 @@ def ensure_research_repo(config: dict) -> Path:
     ).expanduser()
 
     if (research_home / ".git").exists():
-        return research_home
+        # Verify scaffold is complete (handles partial init failures)
+        if (research_home / ".devcontainer" / "devcontainer.json").exists():
+            return research_home
+        # Incomplete — wipe and re-create
+        shutil.rmtree(research_home)
 
     research_home.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init"], cwd=research_home, check=True)
