@@ -40,7 +40,7 @@ DEFAULT_CONFIG = {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
         "gemini": "gemini --yolo --no-sandbox",
         "codex": "codex --dangerously-bypass-approvals-and-sandbox",
-        "pi": "pi",
+        "pi": "env -u ANTHROPIC_API_KEY pi",
     },
     "base_port": 4000,
     "research_home": "~/jolo/research",
