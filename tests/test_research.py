@@ -318,6 +318,42 @@ class TestResearchMode(unittest.TestCase):
         self.assertEqual(agent_file.read_text(), "gemini")
 
     @mock.patch("_jolo.commands._spawn_research_watcher")
+    @mock.patch("_jolo.commands.devcontainer_up", return_value=True)
+    @mock.patch("_jolo.commands.setup_stash")
+    @mock.patch("_jolo.commands.setup_emacs_config")
+    @mock.patch("_jolo.commands.setup_notification_hooks")
+    @mock.patch("_jolo.commands.setup_credential_cache")
+    @mock.patch("_jolo.commands.get_secrets", return_value={})
+    @mock.patch("_jolo.commands.get_or_create_worktree")
+    @mock.patch("_jolo.commands.load_config")
+    def test_research_empty_agents_falls_back_to_claude(
+        self,
+        mock_config,
+        mock_worktree,
+        mock_secrets,
+        mock_creds,
+        mock_notify,
+        mock_emacs,
+        mock_stash,
+        mock_up,
+        mock_watcher,
+    ):
+        mock_config.return_value = {
+            "agents": [],
+            "agent_commands": {},
+        }
+        wt_path = self.git_root / "wt"
+        wt_path.mkdir()
+        (wt_path / ".devcontainer").mkdir()
+        mock_worktree.return_value = wt_path
+
+        args = jolo.parse_args(["research", "topic"])
+        jolo.run_research_mode(args)
+
+        agent_file = wt_path / ".devcontainer" / ".agent-name"
+        self.assertEqual(agent_file.read_text(), "claude")
+
+    @mock.patch("_jolo.commands._spawn_research_watcher")
     @mock.patch("_jolo.commands.devcontainer_up", return_value=False)
     @mock.patch("_jolo.commands.setup_stash")
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -350,6 +386,44 @@ class TestResearchMode(unittest.TestCase):
         args = jolo.parse_args(["research", "topic"])
         with self.assertRaises(SystemExit):
             jolo.run_research_mode(args)
+
+    @mock.patch("_jolo.commands.remove_worktree")
+    @mock.patch("_jolo.commands._spawn_research_watcher")
+    @mock.patch("_jolo.commands.devcontainer_up", return_value=False)
+    @mock.patch("_jolo.commands.setup_stash")
+    @mock.patch("_jolo.commands.setup_emacs_config")
+    @mock.patch("_jolo.commands.setup_notification_hooks")
+    @mock.patch("_jolo.commands.setup_credential_cache")
+    @mock.patch("_jolo.commands.get_secrets", return_value={})
+    @mock.patch("_jolo.commands.get_or_create_worktree")
+    @mock.patch("_jolo.commands.load_config")
+    def test_research_cleans_up_worktree_on_failure(
+        self,
+        mock_config,
+        mock_worktree,
+        mock_secrets,
+        mock_creds,
+        mock_notify,
+        mock_emacs,
+        mock_stash,
+        mock_up,
+        mock_watcher,
+        mock_remove_wt,
+    ):
+        mock_config.return_value = {
+            "agents": ["claude"],
+            "agent_commands": {"claude": "claude"},
+        }
+        wt_path = self.git_root / "wt"
+        wt_path.mkdir()
+        (wt_path / ".devcontainer").mkdir()
+        mock_worktree.return_value = wt_path
+
+        args = jolo.parse_args(["research", "topic"])
+        with self.assertRaises(SystemExit):
+            jolo.run_research_mode(args)
+
+        mock_remove_wt.assert_called_once_with(self.git_root, wt_path)
 
 
 class TestResearchWatcher(unittest.TestCase):

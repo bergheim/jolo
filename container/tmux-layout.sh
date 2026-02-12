@@ -37,11 +37,11 @@ if [ -f "$PROMPT_FILE" ]; then
     cp "$CONFIG" "$TMP_CONFIG"
 
     if [ "$RESEARCH_MODE" = true ]; then
-        # Write wrapper script to avoid quoting issues with prompt text
+        # Write wrapper script; escape shell metacharacters in prompt
         WRAPPER=$(mktemp)
         printf '#!/bin/sh\n' > "$WRAPPER"
-        # Escape double quotes in prompt, then wrap in double quotes
-        SAFE_PROMPT=$(printf '%s' "$PROMPT" | sed 's/"/\\"/g')
+        # Escape \, $, `, ", ! to prevent expansion inside double quotes
+        SAFE_PROMPT=$(printf '%s' "$PROMPT" | sed -e 's/\\/\\\\/g' -e 's/\$/\\$/g' -e 's/`/\\`/g' -e 's/"/\\"/g' -e 's/!/\\!/g')
         printf '%s "%s"\nsleep 5\nkill 1\n' "$CMD" "$SAFE_PROMPT" >> "$WRAPPER"
         chmod +x "$WRAPPER"
         cat > "$TMP_CONFIG" <<YAML
