@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -589,6 +590,14 @@ def generate_random_name() -> str:
     adj = random.choice(constants.ADJECTIVES)
     noun = random.choice(constants.NOUNS)
     return f"{adj}-{noun}"
+
+
+def slugify_prompt(prompt: str, max_len: int = 50) -> str:
+    """Convert a research prompt to a filename slug."""
+    slug = re.sub(r"[^a-z0-9]+", "-", prompt.lower()).strip("-")
+    if len(slug) > max_len:
+        slug = slug[:max_len].rsplit("-", 1)[0]
+    return slug or "research"
 
 
 def get_container_name(project_path: str, worktree_name: str | None) -> str:

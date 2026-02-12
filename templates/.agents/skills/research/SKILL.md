@@ -1,45 +1,39 @@
 ---
 name: research
-description: Web research workflow for multi-agent runs that collect sources and summarize findings into RESEARCH.org. Use when the user asks to research a topic, compare sources, or gather references, especially for parallel agents that need to avoid merge conflicts while writing notes.
+description: Web research workflow that collects sources and summarizes findings into an org file. Use when the user asks to research a topic, compare sources, or gather references.
 ---
 
 # Research
 
 ## Overview
 
-Use this skill to coordinate parallel web research. Each agent appends its own org heading in `RESEARCH.org`, includes links and source notes, and commits immediately after writing to reduce conflicts.
+Use this skill for web research. Write findings to the file specified in the prompt, or `RESEARCH.org` if none specified.
 
 ## Workflow
 
-1. Define the research question or prompt in one sentence.
-1. Sync your branch/worktree to the latest state and check `git status`.
-1. Gather sources (prefer primary docs, reputable outlets, and official sites).
-1. Append a new top-level heading in `RESEARCH.org` for the current agent.
-1. Write findings under the heading using the standard template.
-1. Save the file and commit immediately.
+1. Parse the prompt. If it specifies a target filename (e.g., "Write findings to 2026-02-11-topic.org"), use that file. Otherwise use `RESEARCH.org`.
+2. Extract the original research question from the prompt.
+3. Gather sources (prefer primary docs, reputable outlets, official sites).
+4. Write findings using the standard template below.
+5. Save and commit immediately.
 
-## Standard Template (append-only)
-
-Use a new top-level heading per agent run. Do not edit or reorder other agents’ sections.
+## Standard Template
 
 ```org
-* <AgentName> — <YYYY-MM-DD>  :research:
-:PROPERTIES:
-:DATE: <YYYY-MM-DD>
-:PROMPT: <one-line research question>
-:END:
+#+TITLE: <research question>
+#+DATE: <YYYY-MM-DD>
+#+PROPERTY: PROMPT <original prompt text>
 
-** Summary
-- <3–6 bullet summary of key findings>
+* Summary
+- <3-6 bullet summary of key findings>
 
-** Findings
+* Findings
 - <concise, sourced points; cite URLs inline>
 
-** Links
-- <org links, one per line>
-  - Example: [[https://example.com][Example — Title]]
+* Links
+- [[https://example.com][Example — Title]]
 
-** Open Questions
+* Open Questions
 - <things to verify or follow up>
 ```
 
@@ -51,19 +45,14 @@ Use a new top-level heading per agent run. Do not edit or reorder other agents�
 
 ## Git Hygiene
 
-- Save `RESEARCH.org` and immediately commit after each agent section.
-- Use a clear commit message, e.g. `research: add <AgentName> notes`.
-- If conflicts appear, rebase and resolve by keeping each agent’s section intact and append-only.
+- Save the file and immediately commit.
+- Use a clear commit message, e.g. `research: <topic>`.
 
 ## File Locations
 
-- Primary output: `RESEARCH.org` at the repo root.
-- If `RESEARCH.org` does not exist, create it with:
-
-```org
-#+TITLE: Research Notes
-#+STARTUP: overview
-```
+- Default output: `RESEARCH.org` at the repo root (for interactive use).
+- If the prompt specifies a filename, write to that file at the repo root instead.
+- If the file does not exist, create it with the template above.
 
 ## Resources
 

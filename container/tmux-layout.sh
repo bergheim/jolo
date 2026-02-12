@@ -26,35 +26,11 @@ if [ -f "$PROMPT_FILE" ]; then
         *)       CMD="$AGENT" ;;
     esac
 
-    RESEARCH_FILE="$WS/.devcontainer/.research-mode"
-    RESEARCH_MODE=false
-    if [ -f "$RESEARCH_FILE" ]; then
-        RESEARCH_MODE=true
-        rm -f "$RESEARCH_FILE"
-    fi
-
     TMP_CONFIG=$(mktemp)
     cp "$CONFIG" "$TMP_CONFIG"
-
-    if [ "$RESEARCH_MODE" = true ]; then
-        # Write wrapper script; escape shell metacharacters in prompt
-        WRAPPER=$(mktemp)
-        printf '#!/bin/sh\n' > "$WRAPPER"
-        # Escape \, $, `, ", ! to prevent expansion inside double quotes
-        SAFE_PROMPT=$(printf '%s' "$PROMPT" | sed -e 's/\\/\\\\/g' -e 's/\$/\\$/g' -e 's/`/\\`/g' -e 's/"/\\"/g' -e 's/!/\\!/g')
-        printf '%s "%s"\nsleep 5\nkill 1\n' "$CMD" "$SAFE_PROMPT" >> "$WRAPPER"
-        chmod +x "$WRAPPER"
-        cat > "$TMP_CONFIG" <<YAML
-name: dev
-windows:
-  - $AGENT: $WRAPPER
-YAML
-    else
-        ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
-        sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
-        # Focus on the prompted agent's window
-        sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
-    fi
+    ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
+    sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
+    sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
 
     exec tmuxinator start -p "$TMP_CONFIG"
 fi
