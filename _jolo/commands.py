@@ -1418,7 +1418,7 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     # Generate filename
     slug = slugify_prompt(prompt)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
     filename = f"{ts}-{slug}.org"
 
     # Setup credentials and hooks (idempotent)
@@ -1439,8 +1439,11 @@ def run_research_mode(args: argparse.Namespace) -> None:
         f"/research Write findings to {filename}. Question: {prompt}"
     )
     logfile = f"/tmp/research-{slug}.log"
+    # codex uses -q for non-interactive; claude/gemini/pi use -p
+    prompt_flag = "-q" if agent_name == "codex" else "-p"
     exec_cmd = (
-        f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)} > {logfile} 2>&1 &"
+        f"nohup {agent_cmd} {prompt_flag} {shlex.quote(agent_prompt)}"
+        f" > {logfile} 2>&1 &"
     )
     devcontainer_exec_command(research_home, exec_cmd)
 
