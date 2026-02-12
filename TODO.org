@@ -6,8 +6,76 @@
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
 ** TODO Send agent findings via email (or similar async channel)
-** TODO Add `jolo research` command with async report delivery (email or ntfy)
-   Use case: run research prompt, return immediately, send results on completion.
+** TODO Add =--deep= flag to =jolo research=
+   Run claude + codex in parallel (both research the same question), wait for both,
+   then gemini compiles findings from both files into a synthesis.
+   Implementation: single =nohup sh -c= wrapper that backgrounds both researchers,
+   =wait=​s, then fires gemini with a compile prompt referencing both org files.
+** TODO Redesign =jolo research= — standalone research repo, no worktrees
+   :PROPERTIES:
+   :BRANCH: feat/jolo-research
+   :END:
+
+   Current implementation requires being in a git repo and uses worktrees.
+   Redesign: fixed research repo at =~/jolo/research/=, persistent container,
+   fire-and-forget agent exec. Works from anywhere.
+
+*** Flow
+    #+begin_example
+    jolo research "what is an apple"
+    #+end_example
+
+    1. =ensure_research_repo(config)= — create =~/jolo/research/= if needed
+    2. Start container if not running (=devcontainer up=, idempotent)
+    3. Pick agent (=--agent= override or round-robin), generate filename =YYYY-MM-DD-slug.org=
+    4. =devcontainer exec= agent in background: =agent -p "/research ..."=
+    5. Agent writes file (prompt at top), commits to main, ntfy fires via hook
+    6. Print confirmation, return immediately
+
+*** What gets deleted
+    - =_spawn_research_watcher()= in commands.py
+    - Research mode block in =container/tmux-layout.sh=
+    - =.research-mode= flag logic
+    - All worktree creation/cleanup in =run_research_mode()=
+
+*** Files to change
+    | File                                  | What                                                          |
+    |---------------------------------------+---------------------------------------------------------------|
+    | =_jolo/constants.py=                  | Add ="research_home": "~/jolo/research"= to DEFAULT_CONFIG    |
+    | =_jolo/cli.py=                        | Add =slugify_prompt()=                                        |
+    | =_jolo/commands.py=                   | Add =ensure_research_repo()=, rewrite =run_research_mode()=,  |
+    |                                       | delete =_spawn_research_watcher()=                            |
+    | =_jolo/__init__.py=                   | Update exports                                                |
+    | =container/tmux-layout.sh=            | Delete research mode block                                    |
+    | =templates/.agents/skills/research/=  | Per-file output support, prompt in file                       |
+    | =tests/test_research.py=              | Rewrite for new behavior                                      |
+
+*** =ensure_research_repo(config)=
+    - Expand =~/jolo/research/=, return path if =.git= exists
+    - =mkdir -p=, =git init=, =scaffold_devcontainer("research", ...)=
+    - Copy just the research skill (=.agents/skills/research/=), not full template
+    - Initial commit
+    - Minimal repo: just org files, devcontainer config, and the research skill
+
+*** =run_research_mode(args)= (rewrite)
+    - No =validate_tree_mode()= — call =ensure_research_repo(config)= instead
+    - =slugify_prompt(args.prompt)= → filename =YYYY-MM-DD-slug.org=
+    - Setup credentials/hooks on the research repo (idempotent)
+    - =is_container_running(research_home)=? If not, =devcontainer_up=
+    - =devcontainer_exec_command= with backgrounded agent: =nohup agent -p "..." &=
+    - Prompt tells agent: write to specific file, include original question
+
+*** Research skill update (=SKILL.md=)
+    - If prompt specifies a target filename, write to that file (not =RESEARCH.org=)
+    - Standalone file with =#+TITLE:=, =#+PROPERTY: PROMPT=
+    - Remove multi-agent append-only language (each file is standalone)
+
+*** Verification
+    #+begin_example
+    cd /tmp && jolo research "what is an apple"
+    # → Research started: claude → 2026-02-11-what-is-an-apple.org
+    # Check ~/jolo/research/ for the org file after agent finishes
+    #+end_example
 ** DONE =wt new= should only create 1 tmux window (shell), not the full 5-window layout
    Worktrees are lightweight throwaway branches. Spawning emacs + claude + gemini + codex
    windows per worktree floods the tmux window list. Just a shell is enough.

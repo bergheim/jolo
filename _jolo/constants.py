@@ -37,12 +37,13 @@ DEFAULT_CONFIG = {
     "pass_path_openai": "api/llm/openai",
     "agents": ["claude", "gemini", "codex", "pi"],
     "agent_commands": {
-        "claude": "claude",
-        "gemini": "gemini",
-        "codex": "codex",
-        "pi": "pi",
+        "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
+        "gemini": "gemini --yolo --no-sandbox",
+        "codex": "codex --dangerously-bypass-approvals-and-sandbox",
+        "pi": "env -u ANTHROPIC_API_KEY pi",
     },
     "base_port": 4000,
+    "research_home": "~/jolo/research",
 }
 
 # Port range for dev servers

@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import random
 import shlex
 import shutil
 import subprocess
@@ -21,6 +22,7 @@ from _jolo.cli import (
     parse_copy,
     parse_mount,
     select_languages_interactive,
+    slugify_prompt,
     verbose_cmd,
     verbose_print,
 )
@@ -1321,6 +1323,134 @@ def spawn_tmux_multipane(
     subprocess.run(["tmux", "attach", "-t", session_name])
 
 
+def ensure_research_repo(config: dict) -> Path:
+    """Ensure the research repo exists, creating it on first use."""
+    research_home = Path(
+        config.get("research_home", "~/jolo/research")
+    ).expanduser()
+
+    if (research_home / ".git").exists():
+        # Verify scaffold is complete (handles partial init failures)
+        if (research_home / ".devcontainer" / "devcontainer.json").exists():
+            return research_home
+        # Incomplete — wipe and re-create
+        shutil.rmtree(research_home)
+
+    research_home.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init"], cwd=research_home, check=True)
+    scaffold_devcontainer("research", research_home, config=config)
+
+    # Copy just the research skill
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    skill_src = templates_dir / ".agents" / "skills" / "research"
+    if skill_src.exists():
+        skill_dst = research_home / ".agents" / "skills" / "research"
+        skill_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(skill_src, skill_dst)
+
+    subprocess.run(["git", "add", "."], cwd=research_home, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial research repo"],
+        cwd=research_home,
+        check=True,
+    )
+
+    return research_home
+
+
+def _resolve_research_prompt(args: argparse.Namespace) -> str:
+    """Resolve the research prompt from args, file, or $EDITOR."""
+    import tempfile
+
+    if args.file:
+        path = Path(args.file).expanduser()
+        if not path.exists():
+            sys.exit(f"Error: File not found: {args.file}")
+        return path.read_text().strip()
+
+    if args.prompt:
+        return args.prompt
+
+    # No prompt and no file — open $VISUAL / $EDITOR
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    with tempfile.NamedTemporaryFile(
+        suffix=".txt", mode="w", delete=False
+    ) as f:
+        f.write(
+            "# Enter your research question below.\n"
+            "# Lines starting with # are ignored.\n"
+        )
+        tmppath = f.name
+
+    try:
+        # Shell=True so EDITOR="emacsclient -w" works
+        result = subprocess.run(f"{editor} {shlex.quote(tmppath)}", shell=True)
+        if result.returncode != 0:
+            sys.exit("Editor exited with error")
+        text = Path(tmppath).read_text()
+    finally:
+        Path(tmppath).unlink(missing_ok=True)
+
+    lines = [line for line in text.splitlines() if not line.startswith("#")]
+    prompt = "\n".join(lines).strip()
+    if not prompt:
+        sys.exit("Error: Empty prompt")
+    return prompt
+
+
+def run_research_mode(args: argparse.Namespace) -> None:
+    """Run research in a persistent container at ~/jolo/research/."""
+    from datetime import datetime, timezone
+
+    prompt = _resolve_research_prompt(args)
+
+    config = load_config()
+    research_home = ensure_research_repo(config)
+
+    # Pick agent
+    agents = config.get("agents", ["claude"])
+    if args.agent:
+        agent_name = args.agent
+    elif agents:
+        agent_name = agents[random.randint(0, len(agents) - 1)]
+    else:
+        agent_name = "claude"
+
+    # Generate filename
+    slug = slugify_prompt(prompt)
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
+    filename = f"{ts}-{slug}.org"
+
+    # Setup credentials and hooks (idempotent)
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+    setup_credential_cache(research_home)
+    setup_notification_hooks(research_home)
+    setup_emacs_config(research_home)
+
+    # Ensure container is running
+    if not is_container_running(research_home):
+        if not devcontainer_up(research_home):
+            sys.exit("Error: Failed to start research container")
+
+    # Fire and forget — log to file for debugging
+    agent_cmd = get_agent_command(config, agent_name)
+    agent_prompt = (
+        f"/research Write findings to {filename}. Question: {prompt}"
+    )
+    logfile = f"/tmp/research-{slug}.log"
+    # codex uses -q for non-interactive; claude/gemini/pi use -p
+    prompt_flag = "-q" if agent_name == "codex" else "-p"
+    exec_cmd = (
+        f"nohup {agent_cmd} {prompt_flag} {shlex.quote(agent_prompt)}"
+        f" > {logfile} 2>&1 &"
+    )
+    devcontainer_exec_command(research_home, exec_cmd)
+
+    print(f"Research started: {agent_name} → {filename}")
+    print(f"Log: podman exec research cat {logfile}")
+
+
 def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
     """Find worktrees that can be deleted for a given git root.
 
@@ -1634,8 +1764,14 @@ def main(argv: list[str] | None = None) -> None:
         args._parser.print_help()
         return
 
-    # Check guards (skip tmux guard if detaching, using prompt, shell, or run)
-    if not args.detach and not args.prompt and not args.shell and not args.run:
+    # Check guards (skip for research — always detached)
+    if (
+        cmd != "research"
+        and not getattr(args, "detach", False)
+        and not getattr(args, "prompt", None)
+        and not getattr(args, "shell", False)
+        and not getattr(args, "run", None)
+    ):
         check_tmux_guard()
 
     # Dispatch to appropriate mode
@@ -1645,6 +1781,8 @@ def main(argv: list[str] | None = None) -> None:
         run_clone_mode(args)
     elif cmd == "spawn":
         run_spawn_mode(args)
+    elif cmd == "research":
+        run_research_mode(args)
     elif cmd == "init":
         run_init_mode(args)
     elif cmd == "create":

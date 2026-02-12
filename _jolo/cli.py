@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -357,7 +358,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Devcontainer + Git Worktree Launcher",
         epilog="Run 'jolo <command> --help' for command-specific options.\n\n"
         "Examples: jolo up | jolo create foo | jolo clone <url> | jolo list | "
-        "jolo tree feat-x | jolo down --all | jolo spawn 3 -p 'do thing'",
+        "jolo tree feat-x | jolo down --all | jolo spawn 3 -p 'do thing' | "
+        "jolo research 'topic'",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     # Defaults so attributes exist even when no subcommand is given
@@ -509,6 +511,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Clean up stopped/orphan containers and stale worktrees",
     )
 
+    # research: prompt, agent, verbose
+    sub_research = subparsers.add_parser(
+        "research",
+        parents=[p_verbose],
+        help="Run research in persistent container",
+    )
+    sub_research.add_argument(
+        "prompt", nargs="?", default=None, help="Research topic or question"
+    )
+    sub_research.add_argument(
+        "--agent",
+        default=None,
+        metavar="CMD",
+        help="AI agent to use (default: random)",
+    )
+    sub_research.add_argument(
+        "--file",
+        default=None,
+        metavar="PATH",
+        help="Read prompt from file",
+    )
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",
@@ -568,6 +591,14 @@ def generate_random_name() -> str:
     adj = random.choice(constants.ADJECTIVES)
     noun = random.choice(constants.NOUNS)
     return f"{adj}-{noun}"
+
+
+def slugify_prompt(prompt: str, max_len: int = 50) -> str:
+    """Convert a research prompt to a filename slug."""
+    slug = re.sub(r"[^a-z0-9]+", "-", prompt.lower()).strip("-")
+    if len(slug) > max_len:
+        slug = slug[:max_len].rsplit("-", 1)[0]
+    return slug or "research"
 
 
 def get_container_name(project_path: str, worktree_name: str | None) -> str:
