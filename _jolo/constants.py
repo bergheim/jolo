@@ -38,7 +38,7 @@ DEFAULT_CONFIG = {
     "agents": ["claude", "gemini", "codex", "pi"],
     "agent_commands": {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
-        "gemini": "gemini",
+        "gemini": "gemini --yolo --no-sandbox",
         "codex": "codex --dangerously-bypass-approvals-and-sandbox",
         "pi": "pi",
     },
