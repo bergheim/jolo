@@ -1439,12 +1439,16 @@ def run_research_mode(args: argparse.Namespace) -> None:
         f"/research Write findings to {filename}. Question: {prompt}"
     )
     logfile = f"/tmp/research-{slug}.log"
-    # codex uses -q for non-interactive; claude/gemini/pi use -p
-    prompt_flag = "-q" if agent_name == "codex" else "-p"
-    exec_cmd = (
-        f"nohup {agent_cmd} {prompt_flag} {shlex.quote(agent_prompt)}"
-        f" > {logfile} 2>&1 &"
-    )
+    # codex takes prompt as positional arg; others use -p
+    if agent_name == "codex":
+        exec_cmd = (
+            f"nohup {agent_cmd} {shlex.quote(agent_prompt)} > {logfile} 2>&1 &"
+        )
+    else:
+        exec_cmd = (
+            f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)}"
+            f" > {logfile} 2>&1 &"
+        )
     devcontainer_exec_command(research_home, exec_cmd)
 
     print(f"Research started: {agent_name} → {filename}")
