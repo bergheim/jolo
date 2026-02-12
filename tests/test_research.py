@@ -192,7 +192,10 @@ class TestResearchMode(unittest.TestCase):
     def _base_config(self):
         return {
             "agents": ["claude", "gemini"],
-            "agent_commands": {"claude": "claude", "gemini": "gemini"},
+            "agent_commands": {
+                "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
+                "gemini": "gemini",
+            },
         }
 
     @mock.patch("datetime.date", wraps=date)
@@ -232,6 +235,9 @@ class TestResearchMode(unittest.TestCase):
         self.assertIn("/research", exec_cmd)
         self.assertIn("what is an apple", exec_cmd)
         self.assertIn("nohup", exec_cmd)
+        self.assertIn("--dangerously-skip-permissions", exec_cmd)
+        self.assertIn("/tmp/research-", exec_cmd)
+        self.assertNotIn("/dev/null", exec_cmd)
 
     @mock.patch("datetime.date", wraps=date)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
