@@ -4,7 +4,7 @@
 import os
 import tempfile
 import unittest
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -13,7 +13,7 @@ try:
 except ImportError:
     jolo = None
 
-FAKE_DATE = date(2026, 2, 11)
+FAKE_DT = datetime(2026, 2, 11, 14, 30, 45, tzinfo=timezone.utc)
 
 
 class TestResearchArgParsing(unittest.TestCase):
@@ -198,7 +198,7 @@ class TestResearchMode(unittest.TestCase):
             },
         }
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -219,7 +219,7 @@ class TestResearchMode(unittest.TestCase):
         mock_exec,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = self._base_config()
         research_home = Path("/tmp/fake-research")
         mock_ensure.return_value = research_home
@@ -231,7 +231,7 @@ class TestResearchMode(unittest.TestCase):
         call_args = mock_exec.call_args[0]
         self.assertEqual(call_args[0], research_home)
         exec_cmd = call_args[1]
-        self.assertIn("2026-02-11-what-is-an-apple.org", exec_cmd)
+        self.assertIn("20260211T143045Z-what-is-an-apple.org", exec_cmd)
         self.assertIn("/research", exec_cmd)
         self.assertIn("what is an apple", exec_cmd)
         self.assertIn("nohup", exec_cmd)
@@ -239,7 +239,7 @@ class TestResearchMode(unittest.TestCase):
         self.assertIn("/tmp/research-", exec_cmd)
         self.assertNotIn("/dev/null", exec_cmd)
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -260,7 +260,7 @@ class TestResearchMode(unittest.TestCase):
         mock_exec,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = self._base_config()
         mock_ensure.return_value = Path("/tmp/fake-research")
 
@@ -270,7 +270,7 @@ class TestResearchMode(unittest.TestCase):
         exec_cmd = mock_exec.call_args[0][1]
         self.assertIn("gemini", exec_cmd)
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -291,7 +291,7 @@ class TestResearchMode(unittest.TestCase):
         mock_exec,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = {"agents": [], "agent_commands": {}}
         mock_ensure.return_value = Path("/tmp/fake-research")
 
@@ -301,7 +301,7 @@ class TestResearchMode(unittest.TestCase):
         exec_cmd = mock_exec.call_args[0][1]
         self.assertIn("claude", exec_cmd)
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.devcontainer_up", return_value=True)
     @mock.patch("_jolo.commands.is_container_running", return_value=False)
@@ -324,7 +324,7 @@ class TestResearchMode(unittest.TestCase):
         mock_exec,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = self._base_config()
         research_home = Path("/tmp/fake-research")
         mock_ensure.return_value = research_home
@@ -335,7 +335,7 @@ class TestResearchMode(unittest.TestCase):
         mock_up.assert_called_once_with(research_home)
         mock_exec.assert_called_once()
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.devcontainer_up")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
@@ -358,7 +358,7 @@ class TestResearchMode(unittest.TestCase):
         mock_exec,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = self._base_config()
         mock_ensure.return_value = Path("/tmp/fake-research")
 
@@ -367,7 +367,7 @@ class TestResearchMode(unittest.TestCase):
 
         mock_up.assert_not_called()
 
-    @mock.patch("datetime.date", wraps=date)
+    @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_up", return_value=False)
     @mock.patch("_jolo.commands.is_container_running", return_value=False)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -388,7 +388,7 @@ class TestResearchMode(unittest.TestCase):
         mock_up,
         mock_dt,
     ):
-        mock_dt.today.return_value = FAKE_DATE
+        mock_dt.now.return_value = FAKE_DT
         mock_config.return_value = self._base_config()
         mock_ensure.return_value = Path("/tmp/fake-research")
 

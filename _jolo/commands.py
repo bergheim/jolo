@@ -1400,7 +1400,7 @@ def _resolve_research_prompt(args: argparse.Namespace) -> str:
 
 def run_research_mode(args: argparse.Namespace) -> None:
     """Run research in a persistent container at ~/jolo/research/."""
-    from datetime import date
+    from datetime import datetime, timezone
 
     prompt = _resolve_research_prompt(args)
 
@@ -1418,7 +1418,8 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     # Generate filename
     slug = slugify_prompt(prompt)
-    filename = f"{date.today().isoformat()}-{slug}.org"
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"{ts}-{slug}.org"
 
     # Setup credentials and hooks (idempotent)
     secrets = get_secrets(config)
