@@ -1432,17 +1432,19 @@ def run_research_mode(args: argparse.Namespace) -> None:
         if not devcontainer_up(research_home):
             sys.exit("Error: Failed to start research container")
 
-    # Fire and forget
+    # Fire and forget — log to file for debugging
     agent_cmd = get_agent_command(config, agent_name)
     agent_prompt = (
         f"/research Write findings to {filename}. Question: {prompt}"
     )
+    logfile = f"/tmp/research-{slug}.log"
     exec_cmd = (
-        f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)} > /dev/null 2>&1 &"
+        f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)} > {logfile} 2>&1 &"
     )
     devcontainer_exec_command(research_home, exec_cmd)
 
     print(f"Research started: {agent_name} → {filename}")
+    print(f"Log: podman exec research cat {logfile}")
 
 
 def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:

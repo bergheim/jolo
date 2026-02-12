@@ -37,9 +37,9 @@ DEFAULT_CONFIG = {
     "pass_path_openai": "api/llm/openai",
     "agents": ["claude", "gemini", "codex", "pi"],
     "agent_commands": {
-        "claude": "claude",
+        "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
         "gemini": "gemini",
-        "codex": "codex",
+        "codex": "codex --dangerously-bypass-approvals-and-sandbox",
         "pi": "pi",
     },
     "base_port": 4000,
