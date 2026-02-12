@@ -37,14 +37,17 @@ if [ -f "$PROMPT_FILE" ]; then
     cp "$CONFIG" "$TMP_CONFIG"
 
     if [ "$RESEARCH_MODE" = true ]; then
-        # Wrap command: agent runs, then container self-stops
-        FULL_CMD="sh -c '$CMD $PROMPT ; sleep 5 ; kill 1'"
-        ESCAPED=$(printf '%s' "$FULL_CMD" | sed 's/[&/\]/\\&/g')
-        # Minimal layout: only the agent window
+        # Write wrapper script to avoid quoting issues with prompt text
+        WRAPPER=$(mktemp)
+        printf '#!/bin/sh\n' > "$WRAPPER"
+        # Escape double quotes in prompt, then wrap in double quotes
+        SAFE_PROMPT=$(printf '%s' "$PROMPT" | sed 's/"/\\"/g')
+        printf '%s "%s"\nsleep 5\nkill 1\n' "$CMD" "$SAFE_PROMPT" >> "$WRAPPER"
+        chmod +x "$WRAPPER"
         cat > "$TMP_CONFIG" <<YAML
 name: dev
 windows:
-  - $AGENT: $ESCAPED
+  - $AGENT: $WRAPPER
 YAML
     else
         ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
