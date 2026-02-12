@@ -517,12 +517,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         parents=[p_verbose],
         help="Run research in persistent container",
     )
-    sub_research.add_argument("prompt", help="Research topic or question")
+    sub_research.add_argument(
+        "prompt", nargs="?", default=None, help="Research topic or question"
+    )
     sub_research.add_argument(
         "--agent",
         default=None,
         metavar="CMD",
         help="AI agent to use (default: random)",
+    )
+    sub_research.add_argument(
+        "--file",
+        default=None,
+        metavar="PATH",
+        help="Read prompt from file",
     )
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
