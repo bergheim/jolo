@@ -1360,11 +1360,15 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     config = load_config()
 
-    # Pick agent: round-robin with random start, or explicit override
-    agents = config.get("agents", ["claude"])
+    # Pick agent: explicit override, or round-robin from config
     agent_override = args.agent
-    idx = random.randint(0, len(agents) - 1)
-    agent_name = get_agent_name(config, agent_override, idx)
+    agents = config.get("agents", ["claude"])
+    if agent_override:
+        agent_name = agent_override
+    elif agents:
+        agent_name = agents[random.randint(0, len(agents) - 1)]
+    else:
+        agent_name = "claude"
 
     # Create ephemeral worktree
     worktree_name = f"research-{generate_random_name()}"
@@ -1403,8 +1407,9 @@ def run_research_mode(args: argparse.Namespace) -> None:
     # Write research-mode flag so tmux-layout.sh auto-stops container
     (worktree_path / ".devcontainer" / ".research-mode").write_text("")
 
-    # Start container
+    # Start container — clean up worktree on failure
     if not devcontainer_up(worktree_path, remove_existing=True):
+        remove_worktree(git_root, worktree_path)
         sys.exit("Error: Failed to start devcontainer")
 
     # Spawn background watcher for auto-cleanup
