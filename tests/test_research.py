@@ -280,7 +280,7 @@ class TestResearchMode(unittest.TestCase):
     @mock.patch("_jolo.commands.get_secrets", return_value={})
     @mock.patch("_jolo.commands.ensure_research_repo")
     @mock.patch("_jolo.commands.load_config")
-    def test_codex_uses_quiet_flag(
+    def test_codex_uses_positional_prompt(
         self,
         mock_config,
         mock_ensure,
@@ -304,8 +304,10 @@ class TestResearchMode(unittest.TestCase):
         jolo.run_research_mode(args)
 
         exec_cmd = mock_exec.call_args[0][1]
-        self.assertIn(" -q ", exec_cmd)
         self.assertNotIn(" -p ", exec_cmd)
+        self.assertNotIn(" -q ", exec_cmd)
+        # codex takes prompt as positional arg directly after the command+flags
+        self.assertIn("--dangerously-bypass-approvals-and-sandbox '", exec_cmd)
 
     @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
