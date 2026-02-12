@@ -1385,15 +1385,6 @@ def run_research_mode(args: argparse.Namespace) -> None:
     setup_notification_hooks(research_home)
     setup_emacs_config(research_home)
 
-    # Override ntfy topic if specified
-    if args.topic:
-        devcontainer_json = (
-            research_home / ".devcontainer" / "devcontainer.json"
-        )
-        content = json.loads(devcontainer_json.read_text())
-        content.setdefault("containerEnv", {})["NTFY_TOPIC"] = args.topic
-        devcontainer_json.write_text(json.dumps(content, indent=4))
-
     # Ensure container is running
     if not is_container_running(research_home):
         if not devcontainer_up(research_home):

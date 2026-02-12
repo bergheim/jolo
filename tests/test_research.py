@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for jolo research command."""
 
-import json
 import tempfile
 import unittest
 from datetime import date
@@ -36,14 +35,6 @@ class TestResearchArgParsing(unittest.TestCase):
         args = jolo.parse_args(["research", "--agent", "gemini", "topic"])
         self.assertEqual(args.agent, "gemini")
 
-    def test_research_topic_default(self):
-        args = jolo.parse_args(["research", "topic"])
-        self.assertIsNone(args.topic)
-
-    def test_research_topic_override(self):
-        args = jolo.parse_args(["research", "--topic", "test-topic", "topic"])
-        self.assertEqual(args.topic, "test-topic")
-
     def test_research_verbose_flag(self):
         args = jolo.parse_args(["research", "-v", "topic"])
         self.assertTrue(args.verbose)
@@ -54,8 +45,6 @@ class TestResearchArgParsing(unittest.TestCase):
                 "research",
                 "--agent",
                 "claude",
-                "--topic",
-                "mytopic",
                 "-v",
                 "research question here",
             ]
@@ -63,7 +52,6 @@ class TestResearchArgParsing(unittest.TestCase):
         self.assertEqual(args.command, "research")
         self.assertEqual(args.prompt, "research question here")
         self.assertEqual(args.agent, "claude")
-        self.assertEqual(args.topic, "mytopic")
         self.assertTrue(args.verbose)
 
 
@@ -191,10 +179,9 @@ class TestEnsureResearchRepo(unittest.TestCase):
 class TestResearchMode(unittest.TestCase):
     """Test run_research_mode logic."""
 
-    def _make_args(self, prompt="test topic", agent=None, topic=None):
+    def _make_args(self, prompt="test topic", agent=None):
         args = jolo.parse_args(["research", prompt])
         args.agent = agent
-        args.topic = topic
         return args
 
     def _base_config(self):
@@ -397,54 +384,6 @@ class TestResearchMode(unittest.TestCase):
         args = self._make_args(agent="claude")
         with self.assertRaises(SystemExit):
             jolo.run_research_mode(args)
-
-    @mock.patch("datetime.date", wraps=date)
-    @mock.patch("_jolo.commands.devcontainer_exec_command")
-    @mock.patch("_jolo.commands.is_container_running", return_value=True)
-    @mock.patch("_jolo.commands.setup_emacs_config")
-    @mock.patch("_jolo.commands.setup_notification_hooks")
-    @mock.patch("_jolo.commands.setup_credential_cache")
-    @mock.patch("_jolo.commands.get_secrets", return_value={})
-    @mock.patch("_jolo.commands.ensure_research_repo")
-    @mock.patch("_jolo.commands.load_config")
-    def test_overrides_ntfy_topic(
-        self,
-        mock_config,
-        mock_ensure,
-        mock_secrets,
-        mock_creds,
-        mock_notify,
-        mock_emacs,
-        mock_running,
-        mock_exec,
-        mock_dt,
-    ):
-        mock_dt.today.return_value = FAKE_DATE
-        tmpdir = tempfile.mkdtemp()
-        try:
-            research_home = Path(tmpdir) / "research"
-            research_home.mkdir()
-            devcontainer_dir = research_home / ".devcontainer"
-            devcontainer_dir.mkdir()
-            devcontainer_json = devcontainer_dir / "devcontainer.json"
-            devcontainer_json.write_text(
-                json.dumps({"containerEnv": {"NTFY_TOPIC": "jolo"}})
-            )
-
-            mock_config.return_value = self._base_config()
-            mock_ensure.return_value = research_home
-
-            args = self._make_args(agent="claude", topic="custom-topic")
-            jolo.run_research_mode(args)
-
-            content = json.loads(devcontainer_json.read_text())
-            self.assertEqual(
-                content["containerEnv"]["NTFY_TOPIC"], "custom-topic"
-            )
-        finally:
-            import shutil
-
-            shutil.rmtree(tmpdir)
 
 
 if __name__ == "__main__":
