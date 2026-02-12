@@ -1439,10 +1439,12 @@ def run_research_mode(args: argparse.Namespace) -> None:
         f"/research Write findings to {filename}. Question: {prompt}"
     )
     logfile = f"/tmp/research-{slug}.log"
-    # codex takes prompt as positional arg; others use -p
+    # codex takes prompt as positional arg and requires a TTY
     if agent_name == "codex":
+        inner = f"{agent_cmd} {shlex.quote(agent_prompt)}"
         exec_cmd = (
-            f"nohup {agent_cmd} {shlex.quote(agent_prompt)} > {logfile} 2>&1 &"
+            f"nohup script -qc {shlex.quote(inner)} /dev/null"
+            f" > {logfile} 2>&1 &"
         )
     else:
         exec_cmd = (
