@@ -515,14 +515,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     sub_research = subparsers.add_parser(
         "research",
         parents=[p_verbose],
-        help="Run research in ephemeral worktree with auto-cleanup",
+        help="Run research in persistent container",
     )
     sub_research.add_argument("prompt", help="Research topic or question")
     sub_research.add_argument(
         "--agent",
         default=None,
         metavar="CMD",
-        help="AI agent to use (default: round-robin)",
+        help="AI agent to use (default: random)",
     )
     sub_research.add_argument(
         "--topic",
