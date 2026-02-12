@@ -231,7 +231,7 @@ class TestResearchMode(unittest.TestCase):
         call_args = mock_exec.call_args[0]
         self.assertEqual(call_args[0], research_home)
         exec_cmd = call_args[1]
-        self.assertIn("20260211T143045Z-what-is-an-apple.org", exec_cmd)
+        self.assertIn("2026-02-11-1430-what-is-an-apple.org", exec_cmd)
         self.assertIn("/research", exec_cmd)
         self.assertIn("what is an apple", exec_cmd)
         self.assertIn("nohup", exec_cmd)
@@ -269,6 +269,43 @@ class TestResearchMode(unittest.TestCase):
 
         exec_cmd = mock_exec.call_args[0][1]
         self.assertIn("gemini", exec_cmd)
+        self.assertIn(" -p ", exec_cmd)
+
+    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    @mock.patch("_jolo.commands.is_container_running", return_value=True)
+    @mock.patch("_jolo.commands.setup_emacs_config")
+    @mock.patch("_jolo.commands.setup_notification_hooks")
+    @mock.patch("_jolo.commands.setup_credential_cache")
+    @mock.patch("_jolo.commands.get_secrets", return_value={})
+    @mock.patch("_jolo.commands.ensure_research_repo")
+    @mock.patch("_jolo.commands.load_config")
+    def test_codex_uses_quiet_flag(
+        self,
+        mock_config,
+        mock_ensure,
+        mock_secrets,
+        mock_creds,
+        mock_notify,
+        mock_emacs,
+        mock_running,
+        mock_exec,
+        mock_dt,
+    ):
+        mock_dt.now.return_value = FAKE_DT
+        config = self._base_config()
+        config["agent_commands"]["codex"] = (
+            "codex --dangerously-bypass-approvals-and-sandbox"
+        )
+        mock_config.return_value = config
+        mock_ensure.return_value = Path("/tmp/fake-research")
+
+        args = self._make_args(agent="codex")
+        jolo.run_research_mode(args)
+
+        exec_cmd = mock_exec.call_args[0][1]
+        self.assertIn(" -q ", exec_cmd)
+        self.assertNotIn(" -p ", exec_cmd)
 
     @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
