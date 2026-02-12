@@ -43,6 +43,7 @@ DEFAULT_CONFIG = {
         "pi": "pi",
     },
     "base_port": 4000,
+    "research_home": "~/jolo/research",
 }
 
 # Port range for dev servers

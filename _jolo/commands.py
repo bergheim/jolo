@@ -22,6 +22,7 @@ from _jolo.cli import (
     parse_copy,
     parse_mount,
     select_languages_interactive,
+    slugify_prompt,
     verbose_cmd,
     verbose_print,
 )
@@ -1322,102 +1323,85 @@ def spawn_tmux_multipane(
     subprocess.run(["tmux", "attach", "-t", session_name])
 
 
-def _spawn_research_watcher(
-    worktree_path: Path,
-    git_root: Path,
-) -> None:
-    """Spawn a background process that cleans up after the research container stops.
+def ensure_research_repo(config: dict) -> Path:
+    """Ensure the research repo exists, creating it on first use."""
+    research_home = Path(
+        config.get("research_home", "~/jolo/research")
+    ).expanduser()
 
-    Polls until the container is no longer running, then removes the
-    worktree. The container self-stops when the agent finishes (via
-    kill 1 in tmux-layout.sh research mode).
-    """
-    runtime = get_container_runtime() or "podman"
+    if (research_home / ".git").exists():
+        return research_home
 
-    script = (
-        f"while {runtime} ps --filter "
-        f"'label=devcontainer.local_folder={worktree_path}' "
-        f"--filter status=running --format '{{{{.Names}}}}' "
-        f"2>/dev/null | grep -q .; do sleep 15; done; "
-        f"sleep 5; "
-        f"git worktree remove --force {shlex.quote(str(worktree_path))} "
-        f"2>/dev/null; "
-        f"echo 'Research cleanup: {worktree_path.name}'"
+    research_home.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init"], cwd=research_home, check=True)
+    scaffold_devcontainer("research", research_home, config=config)
+
+    # Copy just the research skill
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    skill_src = templates_dir / ".agents" / "skills" / "research"
+    if skill_src.exists():
+        skill_dst = research_home / ".agents" / "skills" / "research"
+        skill_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(skill_src, skill_dst)
+
+    subprocess.run(["git", "add", "."], cwd=research_home, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial research repo"],
+        cwd=research_home,
+        check=True,
     )
 
-    subprocess.Popen(
-        ["setsid", "sh", "-c", script],
-        start_new_session=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-    )
+    return research_home
 
 
 def run_research_mode(args: argparse.Namespace) -> None:
-    """Run research mode: ephemeral worktree with agent and auto-cleanup."""
-    git_root = validate_tree_mode()
+    """Run research in a persistent container at ~/jolo/research/."""
+    from datetime import date
 
     config = load_config()
+    research_home = ensure_research_repo(config)
 
-    # Pick agent: explicit override, or round-robin from config
-    agent_override = args.agent
+    # Pick agent
     agents = config.get("agents", ["claude"])
-    if agent_override:
-        agent_name = agent_override
+    if args.agent:
+        agent_name = args.agent
     elif agents:
         agent_name = agents[random.randint(0, len(agents) - 1)]
     else:
         agent_name = "claude"
 
-    # Create ephemeral worktree
-    worktree_name = f"research-{generate_random_name()}"
-    worktree_path = get_worktree_path(str(git_root), worktree_name)
+    # Generate filename
+    slug = slugify_prompt(args.prompt)
+    filename = f"{date.today().isoformat()}-{slug}.org"
 
-    worktree_path = get_or_create_worktree(
-        git_root,
-        worktree_name,
-        worktree_path,
-        config=config,
-    )
-
-    # Set up secrets
+    # Setup credentials and hooks (idempotent)
     secrets = get_secrets(config)
     os.environ.update(secrets)
-
-    # Standard setup (same as tree mode)
-    setup_credential_cache(worktree_path)
-    setup_notification_hooks(worktree_path)
-    setup_emacs_config(worktree_path)
-    setup_stash()
+    setup_credential_cache(research_home)
+    setup_notification_hooks(research_home)
+    setup_emacs_config(research_home)
 
     # Override ntfy topic if specified
     if args.topic:
         devcontainer_json = (
-            worktree_path / ".devcontainer" / "devcontainer.json"
+            research_home / ".devcontainer" / "devcontainer.json"
         )
         content = json.loads(devcontainer_json.read_text())
         content.setdefault("containerEnv", {})["NTFY_TOPIC"] = args.topic
         devcontainer_json.write_text(json.dumps(content, indent=4))
 
-    # Write prompt file for tmux-layout.sh
-    prompt_text = f"/research {args.prompt}"
-    write_prompt_file(worktree_path, agent_name, prompt_text)
+    # Ensure container is running
+    if not is_container_running(research_home):
+        if not devcontainer_up(research_home):
+            sys.exit("Error: Failed to start research container")
 
-    # Write research-mode flag so tmux-layout.sh auto-stops container
-    (worktree_path / ".devcontainer" / ".research-mode").write_text("")
+    # Fire and forget
+    agent_cmd = get_agent_command(config, agent_name)
+    prompt = f"/research Write findings to {filename}. Question: {args.prompt}"
+    exec_cmd = f"nohup {agent_cmd} -p {shlex.quote(prompt)} > /dev/null 2>&1 &"
+    devcontainer_exec_command(research_home, exec_cmd)
 
-    # Start container — clean up worktree on failure
-    if not devcontainer_up(worktree_path, remove_existing=True):
-        remove_worktree(git_root, worktree_path)
-        sys.exit("Error: Failed to start devcontainer")
-
-    # Spawn background watcher for auto-cleanup
-    _spawn_research_watcher(worktree_path, git_root)
-
-    print(f"Research started: {agent_name} → {worktree_name}")
-    print(f"Results will be committed to branch: {worktree_name}")
-    print("ntfy notification when done. Worktree auto-cleans.")
+    print(f"Research started: {agent_name} → {filename}")
 
 
 def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:

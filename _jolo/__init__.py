@@ -17,10 +17,12 @@ from _jolo.cli import (  # noqa: F401
     random_port,
     read_port_from_devcontainer,
     select_languages_interactive,
+    slugify_prompt,
     verbose_cmd,
     verbose_print,
 )
 from _jolo.commands import (  # noqa: F401
+    ensure_research_repo,
     get_agent_command,
     get_agent_name,
     infer_repo_name,

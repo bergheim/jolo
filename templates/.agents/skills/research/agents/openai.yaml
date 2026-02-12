@@ -1,4 +1,4 @@
 interface:
   display_name: "Research"
-  short_description: "Web research with agented org notes"
-  default_prompt: "Use $research to collect sources on <topic> and log them in RESEARCH.org."
+  short_description: "Web research with org-mode output"
+  default_prompt: "Use $research to collect sources on <topic> and write findings to an org file."
