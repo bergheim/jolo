@@ -528,6 +528,63 @@ class TestResolveResearchPrompt(unittest.TestCase):
             # when no prompt given)
             self.assertEqual(_resolve_research_prompt(args), "test")
 
+    @mock.patch("_jolo.commands.subprocess.run")
+    def test_emacsclient_editor_forced_to_terminal_mode(self, mock_run):
+        from _jolo.commands import _resolve_research_prompt
+
+        def write_to_file(cmd, **kwargs):
+            self.assertTrue(cmd.startswith("emacsclient -t "))
+            tmppath = cmd.split()[-1].strip("'")
+            Path(tmppath).write_text("emacs question\n")
+            return mock.Mock(returncode=0)
+
+        mock_run.side_effect = write_to_file
+
+        args = self._make_args()
+        with mock.patch.dict(
+            os.environ, {"EDITOR": "emacsclient -nc"}, clear=False
+        ):
+            result = _resolve_research_prompt(args)
+        self.assertEqual(result, "emacs question")
+
+
+class TestIsEmacsclientEditor(unittest.TestCase):
+    """Test _is_emacsclient_editor detection."""
+
+    def test_direct_emacsclient(self):
+        from _jolo.commands import _is_emacsclient_editor
+
+        self.assertTrue(_is_emacsclient_editor("emacsclient"))
+        self.assertTrue(_is_emacsclient_editor("emacsclient -nc"))
+
+    def test_common_wrapper_names(self):
+        from _jolo.commands import _is_emacsclient_editor
+
+        self.assertTrue(_is_emacsclient_editor("em"))
+        self.assertTrue(_is_emacsclient_editor("e"))
+
+    def test_non_emacs_editors(self):
+        from _jolo.commands import _is_emacsclient_editor
+
+        self.assertFalse(_is_emacsclient_editor("vi"))
+        self.assertFalse(_is_emacsclient_editor("nano"))
+        self.assertFalse(_is_emacsclient_editor("code --wait"))
+
+    def test_script_wrapping_emacsclient(self):
+        from _jolo.commands import _is_emacsclient_editor
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            script = Path(tmpdir) / "my-editor"
+            script.write_text('#!/bin/sh\nemacsclient -t "$@"\n')
+            script.chmod(0o755)
+            with mock.patch("shutil.which", return_value=str(script)):
+                self.assertTrue(_is_emacsclient_editor("my-editor"))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmpdir)
+
 
 if __name__ == "__main__":
     unittest.main()

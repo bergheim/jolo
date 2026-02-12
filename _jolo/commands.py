@@ -1358,6 +1358,22 @@ def ensure_research_repo(config: dict) -> Path:
     return research_home
 
 
+def _is_emacsclient_editor(editor: str) -> bool:
+    """Check if editor command uses emacsclient (possibly non-blocking)."""
+    cmd = Path(editor.split()[0]).name
+    if cmd == "emacsclient" or cmd in ("em", "e"):
+        return True
+    # Resolve scripts that wrap emacsclient
+    resolved = shutil.which(cmd)
+    if not resolved:
+        return False
+    try:
+        content = Path(resolved).read_text()
+        return "emacsclient" in content
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def _resolve_research_prompt(args: argparse.Namespace) -> str:
     """Resolve the research prompt from args, file, or $EDITOR."""
     import tempfile
@@ -1372,7 +1388,10 @@ def _resolve_research_prompt(args: argparse.Namespace) -> str:
         return args.prompt
 
     # No prompt and no file — open $VISUAL / $EDITOR
+    # emacsclient -nc returns immediately; force terminal mode which blocks
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    if _is_emacsclient_editor(editor):
+        editor = "emacsclient -t"
     with tempfile.NamedTemporaryFile(
         suffix=".txt", mode="w", delete=False
     ) as f:
