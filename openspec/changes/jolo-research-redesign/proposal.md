@@ -14,8 +14,8 @@ get results as org files they can browse later.
   `~/jolo/research/` (configurable). Created automatically on first use.
 - **Replace per-task containers with a persistent container** — `devcontainer up`
   once, then `devcontainer exec` for each research task. Container stays running.
-- **Each research task writes to its own file** — `YYYY-MM-DD-slug.org` with the
-  original prompt at the top. Agent commits directly to main.
+- **Each research task writes to its own file** — `YYYY-MM-DD-HHMM-slug.org` (UTC)
+  with the original prompt at the top. Agent commits directly to main.
 - **Delete all worktree/watcher machinery** — no `_spawn_research_watcher()`, no
   `.research-mode` flag, no research mode in `tmux-layout.sh`.
 

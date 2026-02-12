@@ -52,11 +52,11 @@ AGENTS.md, no docs/ directory. Keep it minimal.
 
 ### 4. Filename generation on the host
 
-**Choice:** Host generates `YYYY-MM-DD-slug.org` and passes it in the prompt. Agent
-writes to that file.
+**Choice:** Host generates `YYYY-MM-DD-HHMM-slug.org` (UTC) and passes it in the prompt.
+Agent writes to that file.
 
 **Rationale:** Deterministic naming, no coordination needed. User sees the filename
-immediately in the confirmation message.
+immediately in the confirmation message. UTC timestamp to the minute avoids collisions.
 
 ## Risks / Trade-offs
 
