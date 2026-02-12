@@ -30,8 +30,8 @@ if [ -f "$PROMPT_FILE" ]; then
     cp "$CONFIG" "$TMP_CONFIG"
     ESCAPED=$(printf '%s' "$CMD $PROMPT" | sed 's/[&/\]/\\&/g')
     sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
-    # Focus on the prompted agent's window
     sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
+
     exec tmuxinator start -p "$TMP_CONFIG"
 fi
 

@@ -80,6 +80,8 @@ RUN apk update && apk add --no-cache \
     # Tools that were manually installed in Wolfi
     ansible-lint \
     mise \
+    musl-locales \
+    musl-locales-lang \
     pnpm \
     pre-commit \
     ruff \
@@ -222,6 +224,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo '[ "$(tmux display-message -p "#{window_name}" 2>/dev/null)" = "shell" ] && motd 2>/dev/null' >> $HOME/.zshrc.container
 
 ENV EMACS_CONTAINER=1
+ENV LANG=en_US.UTF-8
 
 # Container scripts, tmuxinator layout, and zimfw
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
