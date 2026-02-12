@@ -1358,9 +1358,50 @@ def ensure_research_repo(config: dict) -> Path:
     return research_home
 
 
+def _resolve_research_prompt(args: argparse.Namespace) -> str:
+    """Resolve the research prompt from args, file, or $EDITOR."""
+    import tempfile
+
+    if args.file:
+        path = Path(args.file).expanduser()
+        if not path.exists():
+            sys.exit(f"Error: File not found: {args.file}")
+        return path.read_text().strip()
+
+    if args.prompt:
+        return args.prompt
+
+    # No prompt and no file — open $EDITOR
+    editor = os.environ.get("EDITOR", "vi")
+    with tempfile.NamedTemporaryFile(
+        suffix=".txt", mode="w", delete=False
+    ) as f:
+        f.write(
+            "# Enter your research question below.\n"
+            "# Lines starting with # are ignored.\n"
+        )
+        tmppath = f.name
+
+    try:
+        result = subprocess.run([editor, tmppath])
+        if result.returncode != 0:
+            sys.exit("Editor exited with error")
+        text = Path(tmppath).read_text()
+    finally:
+        Path(tmppath).unlink(missing_ok=True)
+
+    lines = [line for line in text.splitlines() if not line.startswith("#")]
+    prompt = "\n".join(lines).strip()
+    if not prompt:
+        sys.exit("Error: Empty prompt")
+    return prompt
+
+
 def run_research_mode(args: argparse.Namespace) -> None:
     """Run research in a persistent container at ~/jolo/research/."""
     from datetime import date
+
+    prompt = _resolve_research_prompt(args)
 
     config = load_config()
     research_home = ensure_research_repo(config)
@@ -1375,7 +1416,7 @@ def run_research_mode(args: argparse.Namespace) -> None:
         agent_name = "claude"
 
     # Generate filename
-    slug = slugify_prompt(args.prompt)
+    slug = slugify_prompt(prompt)
     filename = f"{date.today().isoformat()}-{slug}.org"
 
     # Setup credentials and hooks (idempotent)
@@ -1392,8 +1433,12 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     # Fire and forget
     agent_cmd = get_agent_command(config, agent_name)
-    prompt = f"/research Write findings to {filename}. Question: {args.prompt}"
-    exec_cmd = f"nohup {agent_cmd} -p {shlex.quote(prompt)} > /dev/null 2>&1 &"
+    agent_prompt = (
+        f"/research Write findings to {filename}. Question: {prompt}"
+    )
+    exec_cmd = (
+        f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)} > /dev/null 2>&1 &"
+    )
     devcontainer_exec_command(research_home, exec_cmd)
 
     print(f"Research started: {agent_name} → {filename}")

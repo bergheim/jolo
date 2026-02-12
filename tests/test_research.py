@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for jolo research command."""
 
+import os
 import tempfile
 import unittest
 from datetime import date
@@ -23,9 +24,13 @@ class TestResearchArgParsing(unittest.TestCase):
         self.assertEqual(args.command, "research")
         self.assertEqual(args.prompt, "my topic")
 
-    def test_research_requires_prompt(self):
-        with self.assertRaises(SystemExit):
-            jolo.parse_args(["research"])
+    def test_research_prompt_optional(self):
+        args = jolo.parse_args(["research"])
+        self.assertIsNone(args.prompt)
+
+    def test_research_file_flag(self):
+        args = jolo.parse_args(["research", "--file", "notes.txt"])
+        self.assertEqual(args.file, "notes.txt")
 
     def test_research_agent_default(self):
         args = jolo.parse_args(["research", "topic"])
@@ -384,6 +389,90 @@ class TestResearchMode(unittest.TestCase):
         args = self._make_args(agent="claude")
         with self.assertRaises(SystemExit):
             jolo.run_research_mode(args)
+
+
+class TestResolveResearchPrompt(unittest.TestCase):
+    """Test _resolve_research_prompt input modes."""
+
+    def _make_args(self, prompt=None, file=None):
+        args = jolo.parse_args(["research"] + ([prompt] if prompt else []))
+        args.file = file
+        return args
+
+    def test_prompt_from_args(self):
+        from _jolo.commands import _resolve_research_prompt
+
+        args = self._make_args(prompt="what is rust")
+        self.assertEqual(_resolve_research_prompt(args), "what is rust")
+
+    def test_prompt_from_file(self):
+        from _jolo.commands import _resolve_research_prompt
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            f = Path(tmpdir) / "question.txt"
+            f.write_text("how do GPUs work?\n")
+            args = self._make_args(file=str(f))
+            self.assertEqual(
+                _resolve_research_prompt(args), "how do GPUs work?"
+            )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmpdir)
+
+    def test_file_not_found_exits(self):
+        from _jolo.commands import _resolve_research_prompt
+
+        args = self._make_args(file="/nonexistent/path.txt")
+        with self.assertRaises(SystemExit):
+            _resolve_research_prompt(args)
+
+    def test_file_takes_priority_over_prompt(self):
+        from _jolo.commands import _resolve_research_prompt
+
+        tmpdir = tempfile.mkdtemp()
+        try:
+            f = Path(tmpdir) / "q.txt"
+            f.write_text("from file")
+            args = self._make_args(prompt="from args", file=str(f))
+            self.assertEqual(_resolve_research_prompt(args), "from file")
+        finally:
+            import shutil
+
+            shutil.rmtree(tmpdir)
+
+    @mock.patch("_jolo.commands.subprocess.run")
+    def test_editor_fallback(self, mock_run):
+        from _jolo.commands import _resolve_research_prompt
+
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        def write_to_file(cmd):
+            Path(cmd[1]).write_text("# comment\neditor question\n")
+            return mock.Mock(returncode=0)
+
+        mock_run.side_effect = write_to_file
+
+        args = self._make_args()
+        with mock.patch.dict(os.environ, {"EDITOR": "fake-editor"}):
+            result = _resolve_research_prompt(args)
+        self.assertEqual(result, "editor question")
+
+    @mock.patch("_jolo.commands.subprocess.run")
+    def test_editor_empty_exits(self, mock_run):
+        from _jolo.commands import _resolve_research_prompt
+
+        def write_empty(cmd):
+            Path(cmd[1]).write_text("# only comments\n")
+            return mock.Mock(returncode=0)
+
+        mock_run.side_effect = write_empty
+
+        args = self._make_args()
+        with mock.patch.dict(os.environ, {"EDITOR": "fake-editor"}):
+            with self.assertRaises(SystemExit):
+                _resolve_research_prompt(args)
 
 
 if __name__ == "__main__":
