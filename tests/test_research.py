@@ -306,8 +306,9 @@ class TestResearchMode(unittest.TestCase):
         exec_cmd = mock_exec.call_args[0][1]
         self.assertNotIn(" -p ", exec_cmd)
         self.assertNotIn(" -q ", exec_cmd)
-        # codex takes prompt as positional arg directly after the command+flags
-        self.assertIn("--dangerously-bypass-approvals-and-sandbox '", exec_cmd)
+        # codex requires a TTY, so wrapped with script -qc
+        self.assertIn("script -qc", exec_cmd)
+        self.assertIn("--dangerously-bypass-approvals-and-sandbox", exec_cmd)
 
     @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
