@@ -524,13 +524,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         metavar="CMD",
         help="AI agent to use (default: random)",
     )
-    sub_research.add_argument(
-        "--topic",
-        default=None,
-        metavar="TOPIC",
-        help="ntfy.sh topic for notification (default: from config)",
-    )
-
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",
