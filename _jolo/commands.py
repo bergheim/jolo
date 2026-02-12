@@ -1371,8 +1371,8 @@ def _resolve_research_prompt(args: argparse.Namespace) -> str:
     if args.prompt:
         return args.prompt
 
-    # No prompt and no file — open $EDITOR
-    editor = os.environ.get("EDITOR", "vi")
+    # No prompt and no file — open $VISUAL / $EDITOR
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
     with tempfile.NamedTemporaryFile(
         suffix=".txt", mode="w", delete=False
     ) as f:
@@ -1383,7 +1383,8 @@ def _resolve_research_prompt(args: argparse.Namespace) -> str:
         tmppath = f.name
 
     try:
-        result = subprocess.run([editor, tmppath])
+        # Shell=True so EDITOR="emacsclient -w" works
+        result = subprocess.run(f"{editor} {shlex.quote(tmppath)}", shell=True)
         if result.returncode != 0:
             sys.exit("Editor exited with error")
         text = Path(tmppath).read_text()
