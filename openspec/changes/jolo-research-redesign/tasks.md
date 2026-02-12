@@ -12,14 +12,13 @@
 ## 3. Rewrite run_research_mode()
 
 - [ ] 3.1 Remove `validate_tree_mode()` call, replace with `ensure_research_repo(config)`
-- [ ] 3.2 Pick agent: `--agent` override, round-robin from config, or fallback "claude"
-- [ ] 3.3 Generate filename: `date.today().isoformat()-slugify_prompt(args.prompt).org`
+- [ ] 3.2 Pick agent: `--agent` override, random from config, or fallback "claude"
+- [ ] 3.3 Generate filename: `YYYY-MM-DD-HHMM-slugify_prompt(args.prompt).org` (UTC)
 - [ ] 3.4 Run credential/hook/emacs setup on research repo (idempotent)
 - [ ] 3.5 Start container if not running: `is_container_running()` check, then `devcontainer_up()`
 - [ ] 3.6 Build prompt: `/research Write findings to {filename}. Question: {args.prompt}`
-- [ ] 3.7 Fire and forget: `devcontainer_exec_command()` with `nohup agent -p "..." &`
-- [ ] 3.8 Handle `--topic` ntfy override (patch `devcontainer.json` before first container start)
-- [ ] 3.9 Print confirmation with agent name and filename
+- [ ] 3.7 Fire and forget: `devcontainer_exec_command()` with `nohup agent -p/-q "..." &` (codex uses `-q`)
+- [ ] 3.8 Print confirmation with agent name, filename, and log path
 
 ## 4. Delete old machinery
 
