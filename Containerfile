@@ -129,7 +129,6 @@ WORKDIR $HOME
 
 # Pre-commit cache primed at build time to avoid first-commit delays
 ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
-ENV NODEENV_USESYSTEMNODE=1
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
