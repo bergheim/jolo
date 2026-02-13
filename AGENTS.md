@@ -14,7 +14,9 @@ instructions.
 
 ## Planning Before Acting
 
-**NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute. The only exception is if the user explicitly says to go ahead without planning.
+**NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute.
+
+**Trivial changes are allowed without a plan.** Examples: add a TODO, fix a typo, or change a couple of lines in a single file with no behavioral impact. If you're unsure whether it's trivial, treat it as non-trivial and plan.
 
 This applies even when the problem is obvious. Diagnosing a problem is not the same as having permission to fix it.
 Non-destructive commands (reads/searches) do not require approval.
