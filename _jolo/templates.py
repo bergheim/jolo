@@ -129,6 +129,9 @@ def generate_precommit_config(languages: list[str]) -> str:
         if lang not in constants.PRECOMMIT_HOOKS:
             continue
 
+        if lang == "prose" and languages != ["prose"]:
+            continue
+
         hook_config = constants.PRECOMMIT_HOOKS[lang]
 
         # Handle languages with multiple repos (like prose)
