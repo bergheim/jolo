@@ -43,8 +43,9 @@
    yay -S ntfysh-bin
    systemctl --user enable --now ntfy-client
    #+end_example
-** TODO Format ntfy elapsed time as human-readable (e.g. 7m 2s, 1h 15m)
-   Currently shows raw seconds like =(415s)=. Use minutes/hours when applicable.
+** DONE Format ntfy elapsed time as human-readable (e.g. 7m 2s, 1h 15m)
+   Added =format_elapsed()= to =container/notify=. Under 1m: =30s=,
+   under 1h: =6m 55s=, 1h+: =1h 15m=. Shell test suite in =tests/test_notify.sh=.
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
 ** TODO Review /afk branches (5 local, unmerged)
    Branches from autonomous session, need review before merge or delete:
