@@ -180,26 +180,14 @@ def infer_repo_name(url: str) -> str:
 def run_exec_mode(args: argparse.Namespace) -> None:
     """Run exec mode: execute a command in the running devcontainer."""
     git_root = find_git_root()
-
     if git_root is None:
         sys.exit("Error: Not in a git repository.")
 
-    if not is_container_running(git_root):
-        sys.exit(f"Error: No running container for {git_root.name}")
-
-    cmd_parts = args.exec_command
+    cmd_parts = [c for c in args.exec_command if c != "--"]
     if not cmd_parts:
-        sys.exit("Error: No command specified. Usage: jolo exec <command>")
+        sys.exit("Usage: jolo exec <command>")
 
-    # Skip leading "--" if present (argparse REMAINDER artifact)
-    if cmd_parts[0] == "--":
-        cmd_parts = cmd_parts[1:]
-
-    if not cmd_parts:
-        sys.exit("Error: No command specified. Usage: jolo exec <command>")
-
-    command = " ".join(cmd_parts)
-    devcontainer_exec_command(git_root, command)
+    devcontainer_exec_command(git_root, " ".join(cmd_parts))
 
 
 def run_list_global_mode() -> None:
