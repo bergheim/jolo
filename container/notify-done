@@ -42,6 +42,15 @@ if [ "${1:-}" = "--if-slow" ]; then
     ELAPSED_INFO=" (${ELAPSED}s)"
 fi
 
+# If no --if-slow, still include elapsed time when available
+if [ -z "${ELAPSED_INFO:-}" ] && [ -f "$STAMP_FILE" ]; then
+    START=$(cat "$STAMP_FILE")
+    rm -f "$STAMP_FILE"
+    NOW=$(date +%s)
+    ELAPSED=$((NOW - START))
+    ELAPSED_INFO=" (${ELAPSED}s)"
+fi
+
 SERVER="${NTFY_SERVER:-https://ntfy.sh}"
 TOPIC="${NTFY_TOPIC:-jolo}"
 PROJECT="${PROJECT:-unknown}"
