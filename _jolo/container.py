@@ -127,7 +127,11 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
 
     run_args = config.get("runArgs", [])
     for i, arg in enumerate(run_args):
-        if i > 0 and run_args[i - 1] == "-p" and old_port and old_port in arg:
+        if (
+            i > 0
+            and run_args[i - 1] == "-p"
+            and arg == f"{old_port}:{old_port}"
+        ):
             run_args[i] = f"{new_port}:{new_port}"
             break
 
