@@ -43,6 +43,8 @@
    yay -S ntfysh-bin
    systemctl --user enable --now ntfy-client
    #+end_example
+** TODO Format ntfy elapsed time as human-readable (e.g. 7m 2s, 1h 15m)
+   Currently shows raw seconds like =(415s)=. Use minutes/hours when applicable.
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
 ** TODO Research TTS — audio notifications via Kokoro
    :PROPERTIES:
