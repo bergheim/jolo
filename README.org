@@ -35,6 +35,12 @@ jolo up -p "add OAuth login"
 # Spawn parallel agents on the same problem
 jolo spawn 5 -p "implement the auth system"
 
+# Research mode (persistent repo at ~/jolo/research)
+jolo research "what is an apple"
+
+# Deep research: claude + codex in parallel, gemini synthesis
+jolo research --deep "compare sqlite and postgres for local-first apps"
+
 # Jump into a running container (fzf picker)
 jolo attach
 
