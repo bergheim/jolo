@@ -265,6 +265,9 @@ def run_port_mode(args: argparse.Namespace) -> None:
     if git_root is None:
         sys.exit("Error: Not in a git repository.")
 
+    if args.random and args.port is not None:
+        sys.exit("Error: Cannot use --random with a specific port number.")
+
     if args.random:
         new_port = reassign_port(git_root)
         print(f"Port reassigned to {new_port}")
@@ -274,6 +277,8 @@ def run_port_mode(args: argparse.Namespace) -> None:
 
     if args.port is not None:
         port = args.port
+        if not 1 <= port <= 65535:
+            sys.exit(f"Error: Port must be between 1 and 65535, got {port}.")
         if not is_port_available(port):
             print(
                 f"Warning: Port {port} is currently in use.", file=sys.stderr

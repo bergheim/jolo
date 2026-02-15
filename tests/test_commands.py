@@ -438,6 +438,24 @@ class TestRunPortMode(unittest.TestCase):
         config = self._read_config()
         self.assertEqual(config["containerEnv"]["PORT"], "4777")
 
+    def test_port_rejects_invalid_range(self):
+        """jolo port 70000 should error."""
+        self._write_config(
+            {"containerEnv": {"PORT": "4500"}, "runArgs": ["-p", "4500:4500"]}
+        )
+        args = jolo.parse_args(["port", "70000"])
+        with self.assertRaises(SystemExit):
+            jolo.run_port_mode(args)
+
+    def test_port_rejects_random_with_number(self):
+        """jolo port 4200 --random should error."""
+        self._write_config(
+            {"containerEnv": {"PORT": "4500"}, "runArgs": ["-p", "4500:4500"]}
+        )
+        args = jolo.parse_args(["port", "4200", "--random"])
+        with self.assertRaises(SystemExit):
+            jolo.run_port_mode(args)
+
     def test_port_warns_if_in_use(self):
         """jolo port NUMBER should warn if port is in use."""
         self._write_config(
@@ -526,6 +544,16 @@ class TestSetPort(unittest.TestCase):
 
         with self.assertRaises(SystemExit):
             set_port(ws, 4200)
+
+    def test_set_port_creates_container_env_if_missing(self):
+        """Should create containerEnv if not present."""
+        self._write_config({"runArgs": ["-p", "4500:4500"]})
+
+        from _jolo.container import set_port
+
+        set_port(self.ws, 4200)
+        config = self._read_config()
+        self.assertEqual(config["containerEnv"]["PORT"], "4200")
 
     def test_set_port_leaves_other_args_unchanged(self):
         """Should only update PORT and -p flag, not other runArgs."""
