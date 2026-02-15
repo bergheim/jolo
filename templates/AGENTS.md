@@ -10,14 +10,21 @@ Shared knowledge lives in org-mode files under `docs/` that all agents read and 
 
 | File | Purpose | Content |
 |------|---------|---------|
+| `docs/MEMORY.org` | Shared memory | Conventions, patterns, gotchas — tag with keywords |
 | `docs/TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
 | `docs/RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
 
-**On session start:** Read both files to pick up where others left off.
+**On session start:** Read `docs/MEMORY.org` and `docs/TODO.org` to pick up where others left off.
 
-**On "save state":** Write what you learned this session — tasks to docs/TODO.org, findings to docs/RESEARCH.org, agent-private learnings to your own memory system. Tag entries with keywords (e.g., `:musl:auth:perf:`) for searchability.
+**On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:auth:perf:`).
 
-Agent-private memory (workflow preferences, mistake patterns) goes to each agent's own system — not shared files.
+**Personal memory** goes to your agent-specific file (not shared):
+- Claude: `.claude/MEMORY.md`
+- Gemini: `.gemini/MEMORY.md`
+- Codex: `.codex/MEMORY.md`
+- Pi: `.pi/MEMORY.md`
+
+Use personal memory for workflow preferences, mistake patterns, and agent-specific learnings. Use shared memory for anything another agent would benefit from knowing.
 
 Shared, non-reproducible resources across projects go in the stash: host `~/stash` is mounted at `/workspaces/stash` in devcontainers.
 

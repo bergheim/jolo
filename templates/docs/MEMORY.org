@@ -1,0 +1,10 @@
+#+TITLE: Shared Memory
+#+DATE: <YYYY-MM-DD>
+
+Shared knowledge base for all agents working on this project.
+Read on session start. Write discoveries, conventions, and patterns here.
+Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
+
+* Conventions
+* Patterns
+* Gotchas

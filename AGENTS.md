@@ -54,6 +54,27 @@ Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and not
 
 All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties). Always check `TODO.org` for existing tasks before starting work, and update it as tasks are completed or new ones are identified.
 
+## Project Memory
+
+Shared knowledge lives in `docs/MEMORY.org` — all agents read and write this file.
+
+| File | Purpose |
+|------|---------|
+| `docs/MEMORY.org` | Shared conventions, patterns, gotchas — read on session start |
+| `docs/TODO.org` | Actionable tasks (not used in this meta-project; see `TODO.org` at root) |
+
+**On session start:** Read `docs/MEMORY.org` and `TODO.org` for cross-agent knowledge and current tasks.
+
+**On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:jolo:tmux:`).
+
+**Personal memory** goes to your agent-specific file (not shared):
+- Claude: `.claude/MEMORY.md`
+- Gemini: `.gemini/MEMORY.md`
+- Codex: `.codex/MEMORY.md`
+- Pi: `.pi/MEMORY.md`
+
+Use personal memory for workflow preferences, mistake patterns, and agent-specific learnings. Use shared memory for anything another agent would benefit from knowing.
+
 ## Project Defaults
 
 **Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. Each project gets a random port in the 4000-5000 range assigned at creation time.
