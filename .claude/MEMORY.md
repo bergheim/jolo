@@ -1,5 +1,7 @@
 # Claude Agent Memory — emacs-container project
 
+See `docs/MEMORY.org` for shared project knowledge across all agents.
+
 ## Codebase quirks
 
 - Grep tool sometimes fails to find matches in `_jolo/*.py` files — use `bash grep` as fallback
