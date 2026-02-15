@@ -15,6 +15,22 @@
 
 set -e
 
+format_elapsed() {
+    _secs=$1
+    if [ "$_secs" -ge 3600 ]; then
+        printf '%dh %dm' $((_secs / 3600)) $((_secs % 3600 / 60))
+    elif [ "$_secs" -ge 60 ]; then
+        printf '%dm %ds' $((_secs / 60)) $((_secs % 60))
+    else
+        printf '%ds' "$_secs"
+    fi
+}
+
+# Allow sourcing just the functions for testing
+if [ "${1:-}" = "--source-only" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
 STAMP_FILE="$HOME/.notify-prompt-start"
 
 # --- stamp mode: record current time and exit ---
@@ -39,7 +55,7 @@ if [ "${1:-}" = "--if-slow" ]; then
     [ "$ELAPSED" -gt "$THRESHOLD" ] || exit 0
 
     # Fall through to send notification with elapsed info
-    ELAPSED_INFO=" (${ELAPSED}s)"
+    ELAPSED_INFO=" ($(format_elapsed "$ELAPSED"))"
 fi
 
 # If no --if-slow, still include elapsed time when available
@@ -48,7 +64,7 @@ if [ -z "${ELAPSED_INFO:-}" ] && [ -f "$STAMP_FILE" ]; then
     rm -f "$STAMP_FILE"
     NOW=$(date +%s)
     ELAPSED=$((NOW - START))
-    ELAPSED_INFO=" (${ELAPSED}s)"
+    ELAPSED_INFO=" ($(format_elapsed "$ELAPSED"))"
 fi
 
 SERVER="${NTFY_SERVER:-https://ntfy.sh}"
