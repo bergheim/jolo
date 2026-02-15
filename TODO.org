@@ -70,12 +70,10 @@
     4. Phone: text notification (instant) + audio (seconds later)
     5. Unset =KOKORO_URL=, verify text-only still works
 
-** TODO Add =--deep= flag to =jolo research=
-   Run claude + codex in parallel (both research the same question), wait for both,
-   then gemini compiles findings from both files into a synthesis.
-   Implementation: single =nohup sh -c= wrapper that backgrounds both researchers,
-   =wait=​s, then fires gemini with a compile prompt referencing both org files.
-** TODO Redesign =jolo research= — standalone research repo, no worktrees
+** DONE Add =--deep= flag to =jolo research=
+   Implemented in =run_research_mode()= + =_run_research_deep()=:
+   claude and codex run in parallel, then gemini writes synthesis.
+** DONE Redesign =jolo research= — standalone research repo, no worktrees
    :PROPERTIES:
    :BRANCH: feat/jolo-research
    :END:
@@ -96,11 +94,9 @@
     5. Agent writes file (prompt at top), commits to main, ntfy fires via hook
     6. Print confirmation, return immediately
 
-*** What gets deleted
-    - =_spawn_research_watcher()= in commands.py
-    - Research mode block in =container/tmux-layout.sh=
-    - =.research-mode= flag logic
-    - All worktree creation/cleanup in =run_research_mode()=
+*** Outcome
+    Implemented via =ensure_research_repo()= and persistent
+    =~/jolo/research= container flow in =run_research_mode()=.
 
 *** Files to change
     | File                                  | What                                                          |
