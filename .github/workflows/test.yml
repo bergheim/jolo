@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install uv ruff
+      - run: pip install uv ruff==0.14.9
       - name: Lint
         run: ruff check _jolo/ jolo.py
       - name: Format check
