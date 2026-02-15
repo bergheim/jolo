@@ -1,3 +1,39 @@
+* Mixed-language pre-commit config dropped prose hooks     :precommit:prose:dx:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+Generating pre-commit config with mixed languages (example:
+=["prose", "python"]=) omitted prose hooks, so =markdownlint= was missing.
+
+** Root cause
+
+=generate_precommit_config()= had a prose-only guard:
+
+#+begin_src python
+if lang == "prose" and languages != ["prose"]:
+    continue
+#+end_src
+
+That condition skipped prose hooks whenever prose was combined with another
+language.
+
+** Fix
+
+Removed the guard so prose hooks are included whenever =prose= is selected.
+
+** Validation
+
+- Targeted tests:
+  - =tests/test_templates.py::TestGeneratePrecommitConfig::test_all_languages_combined=
+  - =tests/test_templates.py::TestGeneratePrecommitConfig::test_prose_with_python=
+- Full suite: =337 passed=
+
+** Key files
+
+- =_jolo/templates.py=
+- =tests/test_templates.py=
+
 * Rename notify-done to notify                                :notifications:naming:
 :PROPERTIES:
 :DATE: 2026-02-15
