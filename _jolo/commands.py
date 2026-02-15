@@ -268,6 +268,8 @@ def run_port_mode(args: argparse.Namespace) -> None:
     if args.random:
         new_port = reassign_port(git_root)
         print(f"Port reassigned to {new_port}")
+        if is_container_running(git_root):
+            print("Note: restart container to apply (jolo up --new)")
         return
 
     if args.port is not None:
@@ -278,6 +280,8 @@ def run_port_mode(args: argparse.Namespace) -> None:
             )
         set_port(git_root, port)
         print(f"Port set to {port}")
+        if is_container_running(git_root):
+            print("Note: restart container to apply (jolo up --new)")
         return
 
     # Show current port + usage
