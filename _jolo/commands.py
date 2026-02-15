@@ -1265,7 +1265,7 @@ def spawn_tmux_multipane(
 
     # Build exec command using sh -c to properly handle agent flags
     def build_exec_cmd(path: Path, agent_cmd: str) -> str:
-        inner_cmd = f"{agent_cmd} {quoted_prompt}"
+        inner_cmd = f"notify-done stamp && {agent_cmd} {quoted_prompt}"
         return f"devcontainer exec --workspace-folder {path} sh -c {shlex.quote(inner_cmd)}"
 
     # Create new session with first window

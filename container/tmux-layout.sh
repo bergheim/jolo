@@ -25,6 +25,7 @@ if [ -f "$PROMPT_FILE" ]; then
         pi)      CMD="pi" ;;
         *)       CMD="$AGENT" ;;
     esac
+    CMD="notify-done stamp && $CMD"
 
     TMP_CONFIG=$(mktemp)
     cp "$CONFIG" "$TMP_CONFIG"
