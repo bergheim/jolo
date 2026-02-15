@@ -381,7 +381,7 @@ def setup_notification_hooks(
     # Replace existing --if-slow hook (threshold may have changed), or append
     replaced = False
     for i, h in enumerate(stop_hooks):
-        if "--if-slow" in str(h):
+        if "notify --if-slow" in str(h):
             stop_hooks[i] = slow_hook
             replaced = True
             break
