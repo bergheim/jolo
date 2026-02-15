@@ -46,7 +46,9 @@
 ** DONE Format ntfy elapsed time as human-readable (e.g. 7m 2s, 1h 15m)
    Added =format_elapsed()= to =container/notify=. Under 1m: =30s=,
    under 1h: =6m 55s=, 1h+: =1h 15m=. Shell test suite in =tests/test_notify.sh=.
-** TODO Add notification slow-threshold config (default 60s) with local override to 20s
+** DONE Add notification slow-threshold config (default 60s) with local override to 20s
+   =.jolo.toml= with =notify_threshold = 20= overrides the 60s default.
+   Config flows through =load_config()= -> =setup_notification_hooks()= -> Claude =--if-slow= hook.
 ** DONE Review /afk branches (5 local, unmerged)
    Cherry-picked 4 of 5 to main (19 new tests + shellcheck fixes).
    Deleted =yolo/export-remove-image= (dead export, nothing uses it).
