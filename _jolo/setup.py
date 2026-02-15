@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,8 @@ from pathlib import Path
 from _jolo import constants
 from _jolo.cli import read_port_from_devcontainer, verbose_print
 from _jolo.container import build_devcontainer_json
+
+DEFAULT_CODEX_REASONING_EFFORT = "high"
 
 
 def clear_directory_contents(path: Path) -> None:
@@ -122,6 +125,29 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
             )
 
     return target_config
+
+
+def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
+    key_prefix = f"{key} ="
+    if any(
+        line.strip().startswith(key_prefix)
+        for line in toml_content.splitlines()
+    ):
+        return toml_content
+
+    new_setting = f'{key} = "{value}"'
+    table_match = re.search(r"(?m)^\s*\[", toml_content)
+    if table_match:
+        before = toml_content[: table_match.start()]
+        after = toml_content[table_match.start() :]
+        if before and not before.endswith("\n"):
+            before += "\n"
+        return f"{before}{new_setting}\n\n{after}"
+
+    content = toml_content
+    if content and not content.endswith("\n"):
+        content += "\n"
+    return f"{content}{new_setting}\n"
 
 
 def setup_credential_cache(workspace_dir: Path) -> None:
@@ -239,6 +265,15 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
     # Inject MCP servers into Codex config.toml
     codex_config_path = codex_cache / "config.toml"
+    if codex_config_path.exists():
+        config = codex_config_path.read_text()
+        config = _ensure_top_level_toml_key(
+            config,
+            "model_reasoning_effort",
+            DEFAULT_CODEX_REASONING_EFFORT,
+        )
+        codex_config_path.write_text(config)
+
     try:
         # We need the aggregated MCP config
         mcp_data = merge_mcp_configs({}, mcp_templates)
