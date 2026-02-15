@@ -37,6 +37,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             is_container_running=mock.DEFAULT,
             setup_credential_cache=mock.DEFAULT,
             setup_emacs_config=mock.DEFAULT,
+            get_secrets=mock.Mock(return_value={}),
         )
 
     def test_create_with_lang_uses_provided_languages(self):
@@ -325,7 +326,9 @@ class TestInitModeIntegration(unittest.TestCase):
                 setup_credential_cache=mock.DEFAULT,
                 setup_notification_hooks=mock.DEFAULT,
                 setup_emacs_config=mock.DEFAULT,
+                get_secrets=mock.DEFAULT,
             ) as mocks:
+                mocks["get_secrets"].return_value = {}
                 mocks["devcontainer_up"].return_value = True
                 jolo.run_init_mode(args)
 
