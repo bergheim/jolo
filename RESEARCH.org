@@ -920,3 +920,50 @@ Test notification to =/test= topic confirmed working:
 - Git commit message as body (no Session UUID)
 - ~click~ field present in ntfy JSON
 - ~Actions~ header pending (source updated, not yet installed)
+
+* Ruff version drift between container and CI              :ruff:ci:precommit:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+CI format check failed because container had ruff 0.14.9 (Alpine package)
+while CI installed latest (0.15.1 via ~pip install ruff~). Ruff 0.15 changed
+lambda parenthesization rules.
+
+** Root cause
+- Alpine ~ruff~ package lagged behind PyPI (0.14.9 vs 0.15.1)
+- Pre-commit used ~language: system~ (Alpine's stale ruff)
+- CI used ~pip install ruff~ (latest from PyPI)
+- Pre-commit cache in Containerfile had ancient pinned revs (ruff v0.8.6, etc.)
+
+** Fix
+- Removed ~ruff~ from ~apk add~, install via ~uv tool install ruff~ instead
+- Updated all pre-commit cache priming revs to latest
+- Added ~pre-commit autoupdate~ before ~install-hooks~ in Containerfile so
+  builds always resolve latest tags regardless of hardcoded seeds
+- Reformatted ~tests/test_container.py~ for ruff 0.15 lambda style
+
+** Key files
+- ~Containerfile~ — ruff install method, cache priming revs, autoupdate
+- ~.github/workflows/test.yml~ — CI uses unpinned ~pip install ruff~
+- ~tests/test_container.py~ — reformatted lambda parenthesization
+
+* CI test failure: get_secrets mock leak in integration tests  :ci:testing:mock:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+~test_init_installs_test_hooks~ failed in CI but passed locally.
+
+** Root cause
+The test mocked ~subprocess.run~ globally, which intercepted ~get_secrets()~'s
+~pass~ calls. The mock returned Mock objects for ~stdout.strip()~ instead of
+strings. ~os.environ.update(secrets)~ then failed with ~TypeError: str expected,
+not Mock~. Locally, ~pass~ is installed and returns real strings.
+
+** Fix
+Added ~get_secrets=mock.Mock(return_value={})~ to both ~_mock_devcontainer_calls~
+(shared helper for create tests) and the init test's ~mock.patch.multiple~ block.
+
+** Key files
+- ~tests/test_integration.py~

@@ -27,7 +27,7 @@
    Root cause: prose hooks were skipped unless =languages == ["prose"]=.
    Fix: removed the guard in =_jolo/templates.py= so prose hooks are included
    whenever =prose= is selected.
-** TODO Consider adding `jolo exec` command to align with container conventions
+** DONE Consider adding `jolo exec` command to align with container conventions
 ** TODO Rebuild container image to pick up notify fixes
    Image is stale — missing: session-ID removal, Click header, Actions header, rename to notify.
    Run: =podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .=
