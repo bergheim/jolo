@@ -63,7 +63,7 @@ Shared knowledge lives in `docs/MEMORY.org` — all agents read and write this f
 | `docs/MEMORY.org` | Shared conventions, patterns, gotchas — read on session start |
 | `docs/TODO.org` | Actionable tasks (not used in this meta-project; see `TODO.org` at root) |
 
-**On session start:** Read `docs/MEMORY.org` for cross-agent knowledge.
+**On session start:** Read `docs/MEMORY.org` and `TODO.org` for cross-agent knowledge and current tasks.
 
 **On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:jolo:tmux:`).
 
