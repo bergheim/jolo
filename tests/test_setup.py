@@ -515,6 +515,24 @@ class TestNotificationHooks(unittest.TestCase):
         cmd = stop_hooks[0]["hooks"][0]["command"]
         self.assertIn("--if-slow 120", cmd)
 
+    def test_threshold_update_replaces_existing(self):
+        """Calling setup_notification_hooks again with different threshold should update the hook."""
+        ws = self._workspace()
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
+        claude_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws, notify_threshold=60)
+        jolo.setup_notification_hooks(ws, notify_threshold=20)
+
+        settings = json.loads(claude_settings.read_text())
+        stop_hooks = settings["hooks"]["Stop"]
+        self.assertEqual(len(stop_hooks), 1)
+        cmd = stop_hooks[0]["hooks"][0]["command"]
+        self.assertIn("--if-slow 20", cmd)
+        self.assertNotIn("--if-slow 60", cmd)
+
     def test_config_notify_threshold_in_defaults(self):
         """DEFAULT_CONFIG should include notify_threshold."""
         from _jolo.constants import DEFAULT_CONFIG
