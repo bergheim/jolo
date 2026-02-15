@@ -89,7 +89,6 @@ if command -v git >/dev/null 2>&1; then
         esac
     fi
 fi
-[ -n "$COMMIT_URL" ] && BODY="${BODY}\n${COMMIT_URL}"
 CLICK_HEADER=""
 [ -n "$COMMIT_URL" ] && CLICK_HEADER="Click: ${COMMIT_URL}"
 
