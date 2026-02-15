@@ -781,3 +781,29 @@ window runs ~claude <prompt>~ instead of a shell. The main ~dev~ session
 
 ** Key files
 - ~container/wt~ (~create_session~ function)
+* Command naming conventions for dev containers & CLIs          :cli:ux:conventions:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+** Summary
+- Docker and Podman both use =attach= to connect to a running container’s stdio and =exec= to run a new command in a running container, so =attach= is the conventional verb for “connect to existing.”
+- Docker Compose standardizes lifecycle as =up= and =down=, which map cleanly to “start/create” and “stop/remove.”
+- Devcontainer CLI’s core commands are =up=, =build=, and =exec=; “open” is not a core CLI command, but a VS Code-specific =open-in-code= (and sometimes VS Code exposes an =open= alias) to open a devcontainer in the editor.
+
+** Findings
+- Docker CLI documents =docker attach= as attaching local stdin/stdout/stderr to a running container, and =docker exec= as executing a new command in a running container. [[https://docs.docker.com/reference/cli/docker/container/attach/][Docker CLI: attach]] [[https://docs.docker.com/engine/reference/commandline/exec][Docker CLI: exec]]
+- Podman’s official commands list includes =attach= and =exec= for running containers, mirroring Docker’s verbs. [[https://docs.podman.io/en/stable/Commands.html][Podman commands]]
+- Docker Compose standardizes lifecycle with =up= and =down=, where =down= stops and removes containers/networks created by =up=. [[https://docs.docker.com/reference/cli/docker/compose/down/][Docker Compose: down]]
+- Devcontainer CLI help lists =up=, =build=, and =exec= as core commands; the VS Code docs note that =open= is only shown when installed via VS Code, and =open-in-code= is the CLI entry point to open a devcontainer in the editor. [[https://code.visualstudio.com/docs/devcontainers/devcontainer-cli][VS Code devcontainer CLI]] [[https://stuartleeks.github.io/devcontainer-cli/open-in-code.html][devcontainer open-in-code]]
+
+** Links
+- [[https://docs.docker.com/reference/cli/docker/container/attach/][Docker CLI: attach]]
+- [[https://docs.docker.com/engine/reference/commandline/exec][Docker CLI: exec]]
+- [[https://docs.docker.com/reference/cli/docker/compose/down/][Docker Compose: down]]
+- [[https://docs.podman.io/en/stable/Commands.html][Podman commands]]
+- [[https://code.visualstudio.com/docs/devcontainers/devcontainer-cli][VS Code devcontainer CLI]]
+- [[https://stuartleeks.github.io/devcontainer-cli/open-in-code.html][devcontainer open-in-code]]
+
+** Open Questions
+- Should =jolo= add a dedicated =exec= verb (if not present) to align with container CLIs, or keep =up --run= as the primary mechanism?
