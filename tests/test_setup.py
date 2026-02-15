@@ -689,5 +689,54 @@ class TestPatchJsonWithJq(unittest.TestCase):
                 setup._patch_json_with_jq(target, [], ".")
 
 
+class TestEnsureTopLevelTomlKey(unittest.TestCase):
+    """Test TOML key insertion helper."""
+
+    def test_inserts_key_before_first_table(self):
+        """Should insert key before the first [table] header."""
+        content = 'model = "gpt-5"\n\n[mcp_servers.foo]\ncommand = "bar"\n'
+        result = setup._ensure_top_level_toml_key(
+            content, "model_reasoning_effort", "high"
+        )
+        self.assertIn('model_reasoning_effort = "high"', result)
+        # Key should appear before the table
+        self.assertLess(
+            result.find("model_reasoning_effort"),
+            result.find("[mcp_servers.foo]"),
+        )
+
+    def test_appends_key_when_no_tables(self):
+        """Should append key at end when no [table] headers exist."""
+        content = 'model = "gpt-5"\n'
+        result = setup._ensure_top_level_toml_key(
+            content, "model_reasoning_effort", "high"
+        )
+        self.assertIn('model_reasoning_effort = "high"', result)
+        self.assertTrue(result.endswith("\n"))
+
+    def test_preserves_existing_key(self):
+        """Should not overwrite when key already exists."""
+        content = 'model_reasoning_effort = "low"\nmodel = "gpt-5"\n'
+        result = setup._ensure_top_level_toml_key(
+            content, "model_reasoning_effort", "high"
+        )
+        self.assertIn('"low"', result)
+        self.assertNotIn('"high"', result)
+        self.assertEqual(result, content)
+
+    def test_handles_empty_content(self):
+        """Should work with empty string."""
+        result = setup._ensure_top_level_toml_key(
+            "", "model_reasoning_effort", "high"
+        )
+        self.assertIn('model_reasoning_effort = "high"', result)
+
+    def test_adds_newline_before_table_if_missing(self):
+        """Should ensure newline separation before table."""
+        content = 'model = "gpt-5"\n[servers]'
+        result = setup._ensure_top_level_toml_key(content, "effort", "high")
+        self.assertIn('effort = "high"\n\n[servers]', result)
+
+
 if __name__ == "__main__":
     unittest.main()

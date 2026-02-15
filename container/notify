@@ -57,9 +57,8 @@ PROJECT="${PROJECT:-unknown}"
 AGENT="${AGENT:-unknown}"
 
 # Drain stdin (agents pipe JSON context) — skip if interactive terminal
-CONTEXT=""
 if [ ! -t 0 ]; then
-    CONTEXT=$(cat 2>/dev/null || true)
+    cat >/dev/null 2>&1 || true
 fi
 
 TITLE="${PROJECT} - ${AGENT} finished"
