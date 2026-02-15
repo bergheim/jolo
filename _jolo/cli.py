@@ -550,6 +550,24 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Command to run inside the container",
     )
+    # port: port number, random
+    sub_port = subparsers.add_parser(
+        "port",
+        parents=[p_verbose],
+        help="Show or change the project port",
+    )
+    sub_port.add_argument(
+        "port",
+        nargs="?",
+        default=None,
+        type=int,
+        help="Port number to assign",
+    )
+    sub_port.add_argument(
+        "--random",
+        action="store_true",
+        help="Assign a new random port",
+    )
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",

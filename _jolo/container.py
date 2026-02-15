@@ -115,19 +115,16 @@ def is_container_running(workspace_dir: Path) -> bool:
     return bool(result.stdout.strip())
 
 
-def reassign_port(workspace_dir: Path) -> int:
-    """Pick a new available port and rewrite devcontainer.json."""
+def set_port(workspace_dir: Path, new_port: int) -> None:
+    """Set the project port in devcontainer.json."""
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
+    if not devcontainer_json.exists():
+        sys.exit("Error: No .devcontainer/devcontainer.json found.")
     config = json.loads(devcontainer_json.read_text())
 
-    new_port = random_port()
-    while not is_port_available(new_port):
-        new_port = random_port()
-
     old_port = config.get("containerEnv", {}).get("PORT")
-    config["containerEnv"]["PORT"] = str(new_port)
+    config.setdefault("containerEnv", {})["PORT"] = str(new_port)
 
-    # Update the -p runArg
     run_args = config.get("runArgs", [])
     for i, arg in enumerate(run_args):
         if i > 0 and run_args[i - 1] == "-p" and old_port and old_port in arg:
@@ -135,6 +132,15 @@ def reassign_port(workspace_dir: Path) -> int:
             break
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
+
+
+def reassign_port(workspace_dir: Path) -> int:
+    """Pick a new available port and rewrite devcontainer.json."""
+    new_port = random_port()
+    while not is_port_available(new_port):
+        new_port = random_port()
+
+    set_port(workspace_dir, new_port)
     return new_port
 
 

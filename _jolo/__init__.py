@@ -36,6 +36,7 @@ from _jolo.commands import (  # noqa: F401
     run_init_mode,
     run_list_global_mode,
     run_list_mode,
+    run_port_mode,
     run_prune_global_mode,
     run_prune_mode,
     run_research_mode,
@@ -69,7 +70,9 @@ from _jolo.container import (  # noqa: F401
     get_container_runtime,
     is_container_running,
     list_all_devcontainers,
+    reassign_port,
     remove_container,
+    set_port,
     stop_container,
 )
 from _jolo.setup import (  # noqa: F401
