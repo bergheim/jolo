@@ -98,9 +98,13 @@ git merge feature-branch          # fast-forward for single commit
 git merge --no-ff feature-branch  # merge commit for multi-commit branches
 ```
 
-**Worktree awareness:** If `.git` is a file (not a directory), you are in a worktree — you cannot checkout `main` here. Find the main tree and merge there:
+**Worktree awareness:** Check `.git` at session start — if it's a file (not a directory), you are in a worktree. You cannot checkout `main` here. Find the main tree and merge there:
 
 ```bash
+# Detect: file = worktree, directory = main repo
+test -f .git && echo "worktree" || echo "main repo"
+
+# Merge from a worktree
 MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
 git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 ```
