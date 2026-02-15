@@ -1,11 +1,11 @@
 #!/bin/sh
-# notify-done — Send push notification when an AI agent finishes.
+# notify — Send push notification when an AI agent finishes.
 # Called by agent session-end hooks. Receives JSON context on stdin.
 #
 # Usage:
-#   notify-done              — always send notification (original behavior)
-#   notify-done stamp        — record current time to $HOME/.notify-prompt-start
-#   notify-done --if-slow S  — notify only if >S seconds since stamp
+#   notify              — always send notification (original behavior)
+#   notify stamp        — record current time to $HOME/.notify-prompt-start
+#   notify --if-slow S  — notify only if >S seconds since stamp
 #
 # Environment:
 #   NTFY_SERVER  — ntfy server URL (default: https://ntfy.sh)
@@ -25,7 +25,7 @@ fi
 
 # --- --if-slow mode: check elapsed time, notify only if slow ---
 if [ "${1:-}" = "--if-slow" ]; then
-    THRESHOLD="${2:?Usage: notify-done --if-slow SECONDS}"
+    THRESHOLD="${2:?Usage: notify --if-slow SECONDS}"
 
     # Silently exit if no stamp file
     [ -f "$STAMP_FILE" ] || exit 0

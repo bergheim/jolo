@@ -35,7 +35,7 @@ container/                 # Files baked into the container image
   tmux-layout.sh           # Tmux session wrapper (tmuxinator)
   dev.yml                  # Tmuxinator config: 5-window layout
   motd                     # Message of the day script
-  notify-done              # Completion notification (ntfy.sh + bell)
+  notify                   # Completion notification (ntfy.sh + bell + TTS)
   e                        # Smart Emacs launcher
   browser-check.js         # Playwright browser automation
 

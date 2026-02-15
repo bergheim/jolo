@@ -333,7 +333,7 @@ class TestNotificationHooks(unittest.TestCase):
         settings = json.loads(claude_settings.read_text())
         hooks = settings["hooks"]["SessionEnd"]
         self.assertEqual(len(hooks), 1)
-        self.assertIn("notify-done", hooks[0]["hooks"][0]["command"])
+        self.assertIn("notify", hooks[0]["hooks"][0]["command"])
         self.assertIn("AGENT=claude", hooks[0]["hooks"][0]["command"])
 
     def test_gemini_session_end_hook_injected(self):
@@ -349,7 +349,7 @@ class TestNotificationHooks(unittest.TestCase):
         settings = json.loads(gemini_settings.read_text())
         hooks = settings["hooks"]["SessionEnd"]
         self.assertEqual(len(hooks), 1)
-        self.assertIn("notify-done", hooks[0]["hooks"][0]["command"])
+        self.assertIn("notify", hooks[0]["hooks"][0]["command"])
         self.assertIn("AGENT=gemini", hooks[0]["hooks"][0]["command"])
 
     def test_merges_with_existing_hooks(self):
@@ -431,7 +431,7 @@ class TestNotificationHooks(unittest.TestCase):
         jolo.setup_notification_hooks(ws)
 
         config = codex_config.read_text()
-        self.assertIn("notify-done", config)
+        self.assertIn("notify", config)
         self.assertIn("AGENT=codex", config)
 
     def test_codex_notify_idempotent(self):
@@ -446,7 +446,7 @@ class TestNotificationHooks(unittest.TestCase):
         jolo.setup_notification_hooks(ws)
 
         config = codex_config.read_text()
-        self.assertEqual(config.count("notify-done"), 1)
+        self.assertEqual(config.count("AGENT=codex notify"), 1)
 
     def test_codex_skipped_if_no_config(self):
         """Should not create codex config if it doesn't exist."""
@@ -483,7 +483,7 @@ class TestNotificationHooks(unittest.TestCase):
 
         config = codex_config.read_text()
         self.assertEqual(config.count("notify"), 1)
-        self.assertNotIn("notify-done", config)
+        self.assertNotIn("AGENT=codex notify", config)
 
 
 class TestCredentialMountStrategy(unittest.TestCase):
