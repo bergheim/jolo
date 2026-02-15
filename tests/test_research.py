@@ -59,6 +59,14 @@ class TestResearchArgParsing(unittest.TestCase):
         self.assertEqual(args.agent, "claude")
         self.assertTrue(args.verbose)
 
+    def test_research_deep_flag(self):
+        args = jolo.parse_args(["research", "--deep", "topic"])
+        self.assertTrue(args.deep)
+
+    def test_research_deep_default_false(self):
+        args = jolo.parse_args(["research", "topic"])
+        self.assertFalse(args.deep)
+
 
 class TestSlugifyPrompt(unittest.TestCase):
     """Test slugify_prompt utility."""
@@ -530,6 +538,100 @@ class TestResolveResearchPrompt(unittest.TestCase):
             # the prompt passthrough works (VISUAL/EDITOR only matters
             # when no prompt given)
             self.assertEqual(_resolve_research_prompt(args), "test")
+
+
+class TestResearchDeep(unittest.TestCase):
+    """Test --deep research mode."""
+
+    def _base_config(self):
+        return {
+            "agents": ["claude", "gemini", "codex"],
+            "agent_commands": {
+                "claude": "claude --dangerously-skip-permissions",
+                "gemini": "gemini --yolo",
+                "codex": "codex --dangerously-bypass-approvals-and-sandbox",
+            },
+        }
+
+    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    @mock.patch("_jolo.commands._setup_research_container")
+    @mock.patch("_jolo.commands.ensure_research_repo")
+    @mock.patch("_jolo.commands.load_config")
+    def test_deep_launches_compound_command(
+        self,
+        mock_config,
+        mock_ensure,
+        mock_setup,
+        mock_exec,
+        mock_dt,
+    ):
+        mock_dt.now.return_value = FAKE_DT
+        mock_config.return_value = self._base_config()
+        research_home = Path("/tmp/fake-research")
+        mock_ensure.return_value = research_home
+
+        args = jolo.parse_args(["research", "--deep", "what is rust"])
+        jolo.run_research_mode(args)
+
+        mock_exec.assert_called_once()
+        exec_cmd = mock_exec.call_args[0][1]
+        # Should contain nohup sh -c wrapper
+        self.assertIn("nohup sh -c", exec_cmd)
+        # Should reference both agent files
+        self.assertIn("-claude.org", exec_cmd)
+        self.assertIn("-codex.org", exec_cmd)
+        # Should contain wait
+        self.assertIn("wait", exec_cmd)
+        # Should contain synthesis via gemini
+        self.assertIn("synthesis", exec_cmd)
+        self.assertIn("gemini", exec_cmd)
+
+    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    @mock.patch("_jolo.commands._setup_research_container")
+    @mock.patch("_jolo.commands.ensure_research_repo")
+    @mock.patch("_jolo.commands.load_config")
+    def test_deep_uses_claude_and_codex(
+        self,
+        mock_config,
+        mock_ensure,
+        mock_setup,
+        mock_exec,
+        mock_dt,
+    ):
+        mock_dt.now.return_value = FAKE_DT
+        mock_config.return_value = self._base_config()
+        mock_ensure.return_value = Path("/tmp/fake-research")
+
+        args = jolo.parse_args(["research", "--deep", "test topic"])
+        jolo.run_research_mode(args)
+
+        exec_cmd = mock_exec.call_args[0][1]
+        self.assertIn("claude", exec_cmd)
+        self.assertIn("codex", exec_cmd)
+
+    def test_build_research_agent_cmd_codex(self):
+        """codex should use exec subcommand."""
+        from _jolo.commands import _build_research_agent_cmd
+
+        config = self._base_config()
+        cmd = _build_research_agent_cmd(
+            config, "codex", "test prompt", "/tmp/log"
+        )
+        self.assertIn("exec", cmd)
+        self.assertNotIn(" -p ", cmd)
+
+    def test_build_research_agent_cmd_claude(self):
+        """claude should use -p flag."""
+        from _jolo.commands import _build_research_agent_cmd
+
+        config = self._base_config()
+        cmd = _build_research_agent_cmd(
+            config, "claude", "test prompt", "/tmp/log"
+        )
+        self.assertIn(" -p ", cmd)
+        self.assertNotIn(" exec ", cmd)
 
 
 if __name__ == "__main__":

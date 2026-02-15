@@ -381,6 +381,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         verbose=False,
         purge=False,
         target=None,
+        deep=False,
     )
 
     subparsers = parser.add_subparsers(dest="command", prog="jolo")
@@ -532,6 +533,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         metavar="PATH",
         help="Read prompt from file",
     )
+    sub_research.add_argument(
+        "--deep",
+        action="store_true",
+        default=False,
+        help="Run multiple agents in parallel, then synthesize findings",
+    )
     # exec: verbose
     sub_exec = subparsers.add_parser(
         "exec",
@@ -543,7 +550,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Command to run inside the container",
     )
-
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",
