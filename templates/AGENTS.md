@@ -52,6 +52,7 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
 
 For bigger tasks, use TDD and commit frequently on the branch as you make progress.
+**Default workflow: commit and push unless the user explicitly says not to.** If a remote exists, push after each meaningful commit so progress is visible and recoverable.
 
 **Branch naming:**
 - `feat/<slug>`
