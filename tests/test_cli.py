@@ -591,5 +591,35 @@ class TestLanguageCodeMapping(unittest.TestCase):
             )
 
 
+class TestExecArgParsing(unittest.TestCase):
+    """Test exec subcommand argument parsing."""
+
+    def test_exec_command_parsed(self):
+        """exec should set command to exec."""
+        args = jolo.parse_args(["exec", "ls", "-la"])
+        self.assertEqual(args.command, "exec")
+        self.assertEqual(args.exec_command, ["ls", "-la"])
+
+    def test_exec_with_complex_command(self):
+        """exec should capture multi-word commands."""
+        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        self.assertEqual(args.exec_command, ["npm", "run", "dev"])
+
+    def test_exec_with_double_dash(self):
+        """exec should handle -- separator."""
+        args = jolo.parse_args(["exec", "--", "git", "status"])
+        self.assertEqual(args.exec_command, ["--", "git", "status"])
+
+    def test_exec_no_command(self):
+        """exec with no command should give empty list."""
+        args = jolo.parse_args(["exec"])
+        self.assertEqual(args.exec_command, [])
+
+    def test_exec_verbose(self):
+        """exec should support --verbose."""
+        args = jolo.parse_args(["exec", "-v", "ls"])
+        self.assertTrue(args.verbose)
+
+
 if __name__ == "__main__":
     unittest.main()

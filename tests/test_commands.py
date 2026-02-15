@@ -312,5 +312,65 @@ class TestCloneMode(unittest.TestCase):
             jolo.run_clone_mode(args)
 
 
+class TestExecMode(unittest.TestCase):
+    """Test exec command behavior."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        self.git_root = Path(self.tmpdir) / "myproject"
+        self.git_root.mkdir()
+        (self.git_root / ".git").mkdir()
+        os.chdir(self.git_root)
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_exec_errors_when_not_in_git_repo(self):
+        """Should error if not in a git repo."""
+        os.chdir(self.tmpdir)
+        args = jolo.parse_args(["exec", "ls"])
+        with self.assertRaises(SystemExit) as cm:
+            jolo.run_exec_mode(args)
+        self.assertIn("Not in a git repository", str(cm.exception))
+
+    @mock.patch("_jolo.commands.is_container_running", return_value=False)
+    def test_exec_errors_when_container_not_running(self, _mock):
+        """Should error if container isn't running."""
+        args = jolo.parse_args(["exec", "ls"])
+        with self.assertRaises(SystemExit) as cm:
+            jolo.run_exec_mode(args)
+        self.assertIn("No running container", str(cm.exception))
+
+    def test_exec_errors_when_no_command(self):
+        """Should error if no command specified."""
+        args = jolo.parse_args(["exec"])
+        with mock.patch(
+            "_jolo.commands.is_container_running", return_value=True
+        ):
+            with self.assertRaises(SystemExit) as cm:
+                jolo.run_exec_mode(args)
+            self.assertIn("No command specified", str(cm.exception))
+
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    @mock.patch("_jolo.commands.is_container_running", return_value=True)
+    def test_exec_calls_devcontainer_exec(self, _mock_running, mock_exec):
+        """Should call devcontainer_exec_command with the joined command."""
+        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        jolo.run_exec_mode(args)
+        mock_exec.assert_called_once_with(self.git_root, "npm run dev")
+
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    @mock.patch("_jolo.commands.is_container_running", return_value=True)
+    def test_exec_strips_double_dash(self, _mock_running, mock_exec):
+        """Should strip leading -- from command."""
+        args = jolo.parse_args(["exec", "--", "git", "status"])
+        jolo.run_exec_mode(args)
+        mock_exec.assert_called_once_with(self.git_root, "git status")
+
+
 if __name__ == "__main__":
     unittest.main()
