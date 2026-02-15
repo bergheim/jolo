@@ -118,6 +118,8 @@ def is_container_running(workspace_dir: Path) -> bool:
 def set_port(workspace_dir: Path, new_port: int) -> None:
     """Set the project port in devcontainer.json."""
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
+    if not devcontainer_json.exists():
+        sys.exit("Error: No .devcontainer/devcontainer.json found.")
     config = json.loads(devcontainer_json.read_text())
 
     old_port = config.get("containerEnv", {}).get("PORT")

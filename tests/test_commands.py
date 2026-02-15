@@ -516,12 +516,23 @@ class TestSetPort(unittest.TestCase):
         self.assertIn("4200:4200", config["runArgs"])
         self.assertNotIn("4500:4500", config["runArgs"])
 
-    def test_set_port_updates_name_arg(self):
-        """Should update --name arg port suffix if present."""
+    def test_set_port_errors_without_devcontainer(self):
+        """Should exit if devcontainer.json doesn't exist."""
+        ws = Path(self.tmpdir) / "empty"
+        ws.mkdir()
+        (ws / ".devcontainer").mkdir()
+
+        from _jolo.container import set_port
+
+        with self.assertRaises(SystemExit):
+            set_port(ws, 4200)
+
+    def test_set_port_leaves_other_args_unchanged(self):
+        """Should only update PORT and -p flag, not other runArgs."""
         self._write_config(
             {
                 "containerEnv": {"PORT": "4500"},
-                "runArgs": ["--name", "myapp-4500", "-p", "4500:4500"],
+                "runArgs": ["--name", "myapp", "-p", "4500:4500"],
             }
         )
 
@@ -529,9 +540,9 @@ class TestSetPort(unittest.TestCase):
 
         set_port(self.ws, 4200)
         config = self._read_config()
-        # Name shouldn't change — it's the container name, not port-derived
-        # Just verify port fields changed
         self.assertEqual(config["containerEnv"]["PORT"], "4200")
+        self.assertIn("--name", config["runArgs"])
+        self.assertIn("myapp", config["runArgs"])
 
 
 if __name__ == "__main__":
