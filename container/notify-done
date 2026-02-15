@@ -53,15 +53,8 @@ if [ ! -t 0 ]; then
     CONTEXT=$(cat 2>/dev/null || true)
 fi
 
-# Extract session_id from Claude's JSON if available (best-effort)
-SESSION=""
-if command -v jq >/dev/null 2>&1 && [ -n "$CONTEXT" ]; then
-    SESSION=$(echo "$CONTEXT" | jq -r '.session_id // empty' 2>/dev/null || true)
-fi
-
 TITLE="${PROJECT} — ${AGENT} finished"
 BODY="Agent ${AGENT} completed in project ${PROJECT}.${ELAPSED_INFO:-}"
-[ -n "$SESSION" ] && BODY="${BODY} Session: ${SESSION}"
 
 # Fire and forget — don't let notification failure affect the agent
 curl -sf --max-time 5 \
