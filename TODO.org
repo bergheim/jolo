@@ -3,7 +3,7 @@
 
 * Tasks
 ** DONE Set default Codex reasoning effort in generated project config
-** TODO Add shared per-project multi-agent memory + per-agent personal memory
+** DONE Add shared per-project multi-agent memory + per-agent personal memory
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
 ** TODO Send agent findings via email (or similar async channel)

@@ -1,0 +1,24 @@
+#+TITLE: Shared Memory
+#+DATE: 2026-02-15
+
+Shared knowledge base for all agents working on this project.
+Read on session start. Write discoveries, conventions, and patterns here.
+Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
+
+* Conventions
+
+- Org-mode preferred over markdown for project docs                    :docs:
+- Pre-commit hooks must pass before committing                         :workflow:
+- System Python has no pip; use =uv= for everything                   :python:
+
+* Patterns
+
+- Secrets flow: =get_secrets()= -> =os.environ.update()= -> =${localEnv:...}= in devcontainer.json :jolo:
+- =devcontainer_up(remove_existing=True)= tears down old container first — skip port checks :jolo:
+- Motd runs in all tmux panes; per-window commands belong in =dev.yml= :tmux:
+
+* Gotchas
+
+- Grep/Glob tools sometimes miss =_jolo/*.py= — use =**/_jolo/**/*.py= or =ls= :tooling:
+- Alpine uses musl; glibc .so/.elc files are not compatible           :musl:
+- =gh= auth token is in OS keyring, not =hosts.yml= — need =gh auth token= to extract :gh:
