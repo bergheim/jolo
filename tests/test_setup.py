@@ -485,6 +485,43 @@ class TestNotificationHooks(unittest.TestCase):
         self.assertEqual(config.count("notify"), 1)
         self.assertNotIn("AGENT=codex notify", config)
 
+    def test_threshold_default_is_60(self):
+        """Default notify_threshold should be 60 seconds."""
+        ws = self._workspace()
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
+        claude_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads(claude_settings.read_text())
+        stop_hooks = settings["hooks"]["Stop"]
+        cmd = stop_hooks[0]["hooks"][0]["command"]
+        self.assertIn("--if-slow 60", cmd)
+
+    def test_threshold_custom_value(self):
+        """Custom notify_threshold should be used."""
+        ws = self._workspace()
+        claude_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
+        claude_settings.write_text("{}")
+
+        jolo.setup_notification_hooks(ws, notify_threshold=120)
+
+        settings = json.loads(claude_settings.read_text())
+        stop_hooks = settings["hooks"]["Stop"]
+        cmd = stop_hooks[0]["hooks"][0]["command"]
+        self.assertIn("--if-slow 120", cmd)
+
+    def test_config_notify_threshold_in_defaults(self):
+        """DEFAULT_CONFIG should include notify_threshold."""
+        from _jolo.constants import DEFAULT_CONFIG
+
+        self.assertIn("notify_threshold", DEFAULT_CONFIG)
+        self.assertEqual(DEFAULT_CONFIG["notify_threshold"], 60)
+
 
 class TestCredentialMountStrategy(unittest.TestCase):
     """Test that Claude credentials use selective mounts, not directory copy."""
