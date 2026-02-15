@@ -11,7 +11,8 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 
 # Export GPG_TTY for gpg-agent/pinentry communication
-export GPG_TTY=$(tty 2>/dev/null || echo "/dev/console")
+GPG_TTY="$(tty 2>/dev/null || echo "/dev/console")"
+export GPG_TTY
 
 # GPG setup: symlink to forwarded agent socket if available
 GPG_SOCKET="$XDG_RUNTIME_DIR/gnupg/S.gpg-agent"

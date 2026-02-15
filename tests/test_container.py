@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for container lifecycle."""
 
+import json
 import os
 import tempfile
 import unittest
@@ -203,6 +204,272 @@ class TestRemoveContainer(unittest.TestCase):
                 mock_run.return_value = mock.Mock(returncode=0)
                 result = jolo.remove_container("my-container")
                 self.assertTrue(result)
+
+
+class TestRemoveImage(unittest.TestCase):
+    """Test image removal."""
+
+    def test_remove_image_returns_false_without_runtime(self):
+        """Should return False if no container runtime."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value=None
+        ):
+            from _jolo.container import remove_image
+
+            result = remove_image("img123")
+            self.assertFalse(result)
+
+    def test_remove_image_returns_true_on_success(self):
+        """Should return True when image removed successfully."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.Mock(returncode=0)
+                from _jolo.container import remove_image
+
+                result = remove_image("img123")
+                self.assertTrue(result)
+                mock_run.assert_called_once_with(
+                    ["docker", "rmi", "img123"],
+                    capture_output=True,
+                    text=True,
+                )
+
+    def test_remove_image_returns_false_on_failure(self):
+        """Should return False when rmi fails."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.Mock(returncode=1)
+                from _jolo.container import remove_image
+
+                result = remove_image("img123")
+                self.assertFalse(result)
+
+
+class TestIsContainerRunning(unittest.TestCase):
+    """Test container running check."""
+
+    def test_returns_false_without_runtime(self):
+        """Should return False if no container runtime."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value=None
+        ):
+            result = jolo.is_container_running(Path("/some/path"))
+            self.assertFalse(result)
+
+    def test_returns_true_when_running(self):
+        """Should return True when container is running."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.Mock(
+                    returncode=0, stdout="my-container\n"
+                )
+                result = jolo.is_container_running(Path("/home/user/project"))
+                self.assertTrue(result)
+
+    def test_returns_false_when_not_running(self):
+        """Should return False when no container running."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value="docker"
+        ):
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.return_value = mock.Mock(returncode=0, stdout="")
+                result = jolo.is_container_running(Path("/home/user/project"))
+                self.assertFalse(result)
+
+
+class TestFindContainersForProject(unittest.TestCase):
+    """Test project container discovery."""
+
+    def test_returns_empty_without_runtime(self):
+        """Should return empty list if no container runtime."""
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value=None
+        ):
+            result = jolo.find_containers_for_project(Path("/home/user/myapp"))
+            self.assertEqual(result, [])
+
+    def test_finds_main_container(self):
+        """Should find container for the main project directory."""
+        containers = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+            ("other", "/home/user/other", "running", "img2"),
+        ]
+        with mock.patch(
+            "_jolo.container.list_all_devcontainers", return_value=containers
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_runtime", return_value="docker"
+            ):
+                result = jolo.find_containers_for_project(
+                    Path("/home/user/myapp")
+                )
+                self.assertEqual(len(result), 1)
+                self.assertEqual(result[0][0], "myapp")
+
+    def test_finds_worktree_containers(self):
+        """Should find containers for project worktrees."""
+        containers = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+            (
+                "myapp-feat",
+                "/home/user/myapp-worktrees/feat",
+                "running",
+                "img2",
+            ),
+        ]
+        with mock.patch(
+            "_jolo.container.list_all_devcontainers", return_value=containers
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_runtime", return_value="docker"
+            ):
+                result = jolo.find_containers_for_project(
+                    Path("/home/user/myapp")
+                )
+                self.assertEqual(len(result), 2)
+
+    def test_state_filter(self):
+        """Should filter by state when specified."""
+        containers = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+            (
+                "myapp-old",
+                "/home/user/myapp-worktrees/old",
+                "exited",
+                "img2",
+            ),
+        ]
+        with mock.patch(
+            "_jolo.container.list_all_devcontainers", return_value=containers
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_runtime", return_value="docker"
+            ):
+                result = jolo.find_containers_for_project(
+                    Path("/home/user/myapp"), state_filter="running"
+                )
+                self.assertEqual(len(result), 1)
+                self.assertEqual(result[0][0], "myapp")
+
+
+class TestFindStoppedContainersForProject(unittest.TestCase):
+    """Test stopped container discovery."""
+
+    def test_returns_only_stopped(self):
+        """Should return only non-running containers."""
+        containers = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+            (
+                "myapp-old",
+                "/home/user/myapp-worktrees/old",
+                "exited",
+                "img2",
+            ),
+        ]
+        with mock.patch(
+            "_jolo.container.list_all_devcontainers", return_value=containers
+        ):
+            with mock.patch(
+                "_jolo.container.get_container_runtime", return_value="docker"
+            ):
+                result = jolo.find_stopped_containers_for_project(
+                    Path("/home/user/myapp")
+                )
+                self.assertEqual(len(result), 1)
+                self.assertEqual(result[0][0], "myapp-old")
+
+
+class TestReassignPort(unittest.TestCase):
+    """Test port reassignment."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.ws = Path(self.tmpdir) / "project"
+        self.ws.mkdir()
+        (self.ws / ".devcontainer").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _write_config(self, config):
+        path = self.ws / ".devcontainer" / "devcontainer.json"
+        path.write_text(json.dumps(config, indent=4) + "\n")
+
+    def _read_config(self):
+        path = self.ws / ".devcontainer" / "devcontainer.json"
+        return json.loads(path.read_text())
+
+    def test_reassign_updates_port_in_env(self):
+        """Should update PORT in containerEnv."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import reassign_port
+
+        with mock.patch("_jolo.container.random_port", return_value=4777):
+            with mock.patch(
+                "_jolo.container.is_port_available", return_value=True
+            ):
+                result = reassign_port(self.ws)
+
+        self.assertEqual(result, 4777)
+        config = self._read_config()
+        self.assertEqual(config["containerEnv"]["PORT"], "4777")
+
+    def test_reassign_updates_run_args(self):
+        """Should update -p flag in runArgs."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["--name", "myapp", "-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import reassign_port
+
+        with mock.patch("_jolo.container.random_port", return_value=4888):
+            with mock.patch(
+                "_jolo.container.is_port_available", return_value=True
+            ):
+                reassign_port(self.ws)
+
+        config = self._read_config()
+        self.assertIn("4888:4888", config["runArgs"])
+        self.assertNotIn("4500:4500", config["runArgs"])
+
+    def test_reassign_retries_until_available(self):
+        """Should retry random_port when port is unavailable."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import reassign_port
+
+        with mock.patch(
+            "_jolo.container.random_port", side_effect=[4001, 4002, 4003]
+        ):
+            with mock.patch(
+                "_jolo.container.is_port_available",
+                side_effect=[False, False, True],
+            ):
+                result = reassign_port(self.ws)
+
+        self.assertEqual(result, 4003)
 
 
 if __name__ == "__main__":
