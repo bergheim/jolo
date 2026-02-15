@@ -2,6 +2,7 @@
 #+DESCRIPTION: Practical security assessment - what actually matters vs security theater
 
 * Tasks
+** DONE Set default Codex reasoning effort in generated project config
 ** TODO Add shared per-project multi-agent memory + per-agent personal memory
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
@@ -30,6 +31,18 @@
 ** TODO Rebuild container image to pick up notify fixes
    Image is stale — missing: session-ID removal, Click header, Actions header, rename to notify.
    Run: =podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .=
+** TODO Add ntfy desktop notifications on Linux
+   Install =ntfysh-bin= (AUR), configure =~/.config/ntfy/client.yml= to subscribe
+   to the =jolo= topic and pipe to =notify-send=, enable =ntfy-client= user service.
+   #+begin_src yaml
+   subscribe:
+     - topic: jolo
+       command: 'notify-send -a ntfy "$t" "$m"'
+   #+end_src
+   #+begin_example
+   yay -S ntfysh-bin
+   systemctl --user enable --now ntfy-client
+   #+end_example
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
 ** TODO Research TTS — audio notifications via Kokoro
    :PROPERTIES:

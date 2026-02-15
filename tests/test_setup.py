@@ -531,6 +531,49 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertTrue((cache / "settings.json").exists())
         self.assertIn("dark", (cache / "settings.json").read_text())
 
+    def test_codex_reasoning_effort_default_injected(self):
+        """setup_credential_cache() should inject model_reasoning_effort when missing."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+
+        home = Path(self.tmpdir) / "home"
+        codex_dir = home / ".codex"
+        codex_dir.mkdir(parents=True)
+        (codex_dir / "config.toml").write_text(
+            'model = "gpt-5.3-codex"\n\n[mcp_servers.playwright]\ncommand = "pnpm"\n'
+        )
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        codex_config = ws / ".devcontainer" / ".codex-cache" / "config.toml"
+        content = codex_config.read_text()
+        self.assertIn('model_reasoning_effort = "high"', content)
+        self.assertLess(
+            content.find('model_reasoning_effort = "high"'),
+            content.find("[mcp_servers.playwright]"),
+        )
+
+    def test_codex_reasoning_effort_not_overwritten(self):
+        """setup_credential_cache() should preserve existing model_reasoning_effort."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+
+        home = Path(self.tmpdir) / "home"
+        codex_dir = home / ".codex"
+        codex_dir.mkdir(parents=True)
+        (codex_dir / "config.toml").write_text(
+            'model = "gpt-5.3-codex"\nmodel_reasoning_effort = "xhigh"\n'
+        )
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        codex_config = ws / ".devcontainer" / ".codex-cache" / "config.toml"
+        content = codex_config.read_text()
+        self.assertIn('model_reasoning_effort = "xhigh"', content)
+        self.assertEqual(content.count("model_reasoning_effort"), 1)
+
     def test_base_mounts_has_selective_claude_mounts(self):
         """BASE_MOUNTS should have individual file mounts, not a directory mount."""
         from _jolo.constants import BASE_MOUNTS
