@@ -71,11 +71,34 @@ if command -v git >/dev/null 2>&1; then
 fi
 [ -n "$LAST_COMMIT" ] && BODY="${LAST_COMMIT}${ELAPSED_INFO:-}"
 
+COMMIT_URL=""
+if command -v git >/dev/null 2>&1; then
+    REPO_URL=$(git -C "${WORKSPACE:-$PWD}" remote get-url origin 2>/dev/null || true)
+    SHA=$(git -C "${WORKSPACE:-$PWD}" rev-parse HEAD 2>/dev/null || true)
+    if [ -n "$REPO_URL" ] && [ -n "$SHA" ]; then
+        REPO_URL=${REPO_URL%.git}
+        case "$REPO_URL" in
+            git@github.com:*)
+                REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
+                ;;
+        esac
+        case "$REPO_URL" in
+            https://github.com/*)
+                COMMIT_URL="${REPO_URL}/commit/${SHA}"
+                ;;
+        esac
+    fi
+fi
+[ -n "$COMMIT_URL" ] && BODY="${BODY}\n${COMMIT_URL}"
+CLICK_HEADER=""
+[ -n "$COMMIT_URL" ] && CLICK_HEADER="Click: ${COMMIT_URL}"
+
 # Fire and forget — don't let notification failure affect the agent
 curl -sf --max-time 5 \
     -H "Title: ${TITLE}" \
     -H "Priority: default" \
     -H "Tags: robot,checkmark" \
+    ${CLICK_HEADER:+-H "$CLICK_HEADER"} \
     -d "${BODY}" \
     "${SERVER}/${TOPIC}" \
     >/dev/null 2>&1 || true
