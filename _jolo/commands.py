@@ -1398,6 +1398,30 @@ def _resolve_research_prompt(args: argparse.Namespace) -> str:
     return prompt
 
 
+def _build_research_agent_cmd(
+    config: dict, agent_name: str, agent_prompt: str, logfile: str
+) -> str:
+    """Build a nohup command string to run an agent in the background."""
+    agent_cmd = get_agent_command(config, agent_name)
+    quoted_prompt = shlex.quote(agent_prompt)
+    if agent_name == "codex":
+        return f"nohup {agent_cmd} exec {quoted_prompt} > {logfile} 2>&1 &"
+    return f"nohup {agent_cmd} -p {quoted_prompt} > {logfile} 2>&1 &"
+
+
+def _setup_research_container(config: dict, research_home: Path) -> None:
+    """Common setup: credentials, hooks, emacs, and ensure container runs."""
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+    setup_credential_cache(research_home)
+    setup_notification_hooks(research_home)
+    setup_emacs_config(research_home)
+
+    if not is_container_running(research_home):
+        if not devcontainer_up(research_home):
+            sys.exit("Error: Failed to start research container")
+
+
 def run_research_mode(args: argparse.Namespace) -> None:
     """Run research in a persistent container at ~/jolo/research/."""
     from datetime import datetime, timezone
@@ -1406,6 +1430,15 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     config = load_config()
     research_home = ensure_research_repo(config)
+
+    slug = slugify_prompt(prompt)
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
+
+    _setup_research_container(config, research_home)
+
+    if getattr(args, "deep", False):
+        _run_research_deep(config, research_home, prompt, slug, ts)
+        return
 
     # Pick agent
     agents = config.get("agents", ["claude"])
@@ -1416,44 +1449,68 @@ def run_research_mode(args: argparse.Namespace) -> None:
     else:
         agent_name = "claude"
 
-    # Generate filename
-    slug = slugify_prompt(prompt)
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
     filename = f"{ts}-{slug}.org"
-
-    # Setup credentials and hooks (idempotent)
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-    setup_credential_cache(research_home)
-    setup_notification_hooks(research_home)
-    setup_emacs_config(research_home)
-
-    # Ensure container is running
-    if not is_container_running(research_home):
-        if not devcontainer_up(research_home):
-            sys.exit("Error: Failed to start research container")
-
-    # Fire and forget — log to file for debugging
-    agent_cmd = get_agent_command(config, agent_name)
     agent_prompt = (
         f"/research Write findings to {filename}. Question: {prompt}"
     )
     logfile = f"/tmp/research-{slug}.log"
-    # codex uses "exec" subcommand for non-interactive; others use -p
-    if agent_name == "codex":
-        exec_cmd = (
-            f"nohup {agent_cmd} exec {shlex.quote(agent_prompt)}"
-            f" > {logfile} 2>&1 &"
-        )
-    else:
-        exec_cmd = (
-            f"nohup {agent_cmd} -p {shlex.quote(agent_prompt)}"
-            f" > {logfile} 2>&1 &"
-        )
+    exec_cmd = _build_research_agent_cmd(
+        config, agent_name, agent_prompt, logfile
+    )
     devcontainer_exec_command(research_home, exec_cmd)
 
     print(f"Research started: {agent_name} → {filename}")
     print(f"Log: podman exec research cat {logfile}")
+
+
+def _run_research_deep(
+    config: dict, research_home: Path, prompt: str, slug: str, ts: str
+) -> None:
+    """Run two agents in parallel, then synthesize with a third.
+
+    Launches claude and codex to research the same question independently,
+    waits for both, then runs gemini to compile findings into a synthesis.
+    """
+    file_a = f"{ts}-{slug}-claude.org"
+    file_b = f"{ts}-{slug}-codex.org"
+    file_synth = f"{ts}-{slug}-synthesis.org"
+    log_a = f"/tmp/research-{slug}-claude.log"
+    log_b = f"/tmp/research-{slug}-codex.log"
+    log_synth = f"/tmp/research-{slug}-synthesis.log"
+
+    prompt_a = f"/research Write findings to {file_a}. Question: {prompt}"
+    prompt_b = f"/research Write findings to {file_b}. Question: {prompt}"
+
+    cmd_a = get_agent_command(config, "claude")
+    cmd_b = get_agent_command(config, "codex")
+    cmd_synth = get_agent_command(config, "gemini")
+
+    quoted_a = shlex.quote(prompt_a)
+    quoted_b = shlex.quote(prompt_b)
+    synth_prompt = (
+        f"Read {file_a} and {file_b}, then write a synthesis combining "
+        f"the best findings from both into {file_synth}. "
+        f"Original question: {prompt}"
+    )
+    quoted_synth = shlex.quote(synth_prompt)
+
+    # Single shell script: background both researchers, wait, then synthesize
+    script = (
+        f"{cmd_a} -p {quoted_a} > {log_a} 2>&1 &\n"
+        f"PID_A=$!\n"
+        f"{cmd_b} exec {quoted_b} > {log_b} 2>&1 &\n"
+        f"PID_B=$!\n"
+        f"wait $PID_A $PID_B\n"
+        f"{cmd_synth} -p {quoted_synth} > {log_synth} 2>&1"
+    )
+
+    exec_cmd = f"nohup sh -c {shlex.quote(script)} > /dev/null 2>&1 &"
+    devcontainer_exec_command(research_home, exec_cmd)
+
+    print("Deep research started: claude + codex → gemini synthesis")
+    print(f"  Claude → {file_a}")
+    print(f"  Codex  → {file_b}")
+    print(f"  Synthesis → {file_synth}")
 
 
 def _find_deletable_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
