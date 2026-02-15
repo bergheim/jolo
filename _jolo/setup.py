@@ -452,7 +452,15 @@ def copy_template_files(target_dir: Path) -> None:
             verbose_print(f"Copied template: {filename}")
 
     # Copy template directories (skills, agent config, docs)
-    template_dirs = [".agents", ".claude", ".gemini", ".pi", "docs", "scripts"]
+    template_dirs = [
+        ".agents",
+        ".claude",
+        ".codex",
+        ".gemini",
+        ".pi",
+        "docs",
+        "scripts",
+    ]
     for dirname in template_dirs:
         src = templates_dir / dirname
         if src.exists():
@@ -583,7 +591,7 @@ def sync_skill_templates(target_dir: Path) -> None:
         verbose_print(f"Synced skill: {entry.name}")
 
     # Ensure agent skill symlinks exist
-    for agent_dir in [".claude", ".gemini", ".pi"]:
+    for agent_dir in [".claude", ".codex", ".gemini", ".pi"]:
         link_dir = target_dir / agent_dir
         link_dir.mkdir(parents=True, exist_ok=True)
         link_path = link_dir / "skills"
