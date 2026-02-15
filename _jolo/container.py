@@ -123,7 +123,7 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
     config = json.loads(devcontainer_json.read_text())
 
     old_port = config.get("containerEnv", {}).get("PORT")
-    config["containerEnv"]["PORT"] = str(new_port)
+    config.setdefault("containerEnv", {})["PORT"] = str(new_port)
 
     run_args = config.get("runArgs", [])
     for i, arg in enumerate(run_args):
