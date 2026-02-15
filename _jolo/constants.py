@@ -43,6 +43,7 @@ DEFAULT_CONFIG = {
         "pi": "env -u ANTHROPIC_API_KEY pi",
     },
     "base_port": 4000,
+    "notify_threshold": 60,
     "research_home": "~/jolo/research",
 }
 
