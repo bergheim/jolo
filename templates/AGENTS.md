@@ -73,9 +73,13 @@ git merge feature-branch          # fast-forward for single commit
 git merge --no-ff feature-branch  # merge commit for multi-commit branches
 ```
 
-**Worktree awareness:** If `.git` is a file (not a directory), you are in a worktree — you cannot checkout `main` here. Find the main tree and merge there:
+**Worktree awareness:** Check `.git` at session start — if it's a file (not a directory), you are in a worktree. You cannot checkout `main` here. Find the main tree and merge there:
 
 ```bash
+# Detect: file = worktree, directory = main repo
+test -f .git && echo "worktree" || echo "main repo"
+
+# Merge from a worktree
 MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
 git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 ```
@@ -109,6 +113,7 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 - Over-engineering — no interfaces for single implementations, no DI containers, no config-driven everything
 - Magic and implicit behavior — no decorators that hide control flow, no monkey-patching, no metaclass tricks
 - Premature abstraction — three similar lines of code is better than a generic helper used once
+- Defensive duplication — if a called function already validates or errors, don't re-check in the caller
 
 **When uncertain:** Ask rather than guess. A quick question is cheaper than a wrong assumption baked into the code.
 

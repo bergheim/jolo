@@ -335,7 +335,9 @@ def _load_json_safe(path: Path) -> dict:
         return {}
 
 
-def setup_notification_hooks(workspace_dir: Path) -> None:
+def setup_notification_hooks(
+    workspace_dir: Path, notify_threshold: int = 60
+) -> None:
     """Inject agent completion notification hooks into cached settings files.
 
     Adds hooks that call notify when agents finish.
@@ -366,13 +368,13 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     if not any("notify stamp" in str(h) for h in prompt_hooks):
         prompt_hooks.append(stamp_hook)
 
-    # Stop: notify only if response took longer than 20 seconds
+    # Stop: notify only if response took longer than threshold
     stop_hooks = hooks.setdefault("Stop", [])
     slow_hook = {
         "hooks": [
             {
                 "type": "command",
-                "command": "AGENT=claude notify --if-slow 20",
+                "command": f"AGENT=claude notify --if-slow {notify_threshold}",
             }
         ],
     }

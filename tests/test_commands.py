@@ -312,5 +312,37 @@ class TestCloneMode(unittest.TestCase):
             jolo.run_clone_mode(args)
 
 
+class TestExecMode(unittest.TestCase):
+    """Test exec command behavior."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        self.git_root = Path(self.tmpdir) / "myproject"
+        self.git_root.mkdir()
+        (self.git_root / ".git").mkdir()
+        os.chdir(self.git_root)
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    def test_exec_calls_devcontainer_exec(self, mock_exec):
+        """Should call devcontainer_exec_command with the joined command."""
+        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        jolo.run_exec_mode(args)
+        mock_exec.assert_called_once_with(self.git_root, "npm run dev")
+
+    @mock.patch("_jolo.commands.devcontainer_exec_command")
+    def test_exec_strips_double_dash(self, mock_exec):
+        """Should strip -- from command."""
+        args = jolo.parse_args(["exec", "--", "git", "status"])
+        jolo.run_exec_mode(args)
+        mock_exec.assert_called_once_with(self.git_root, "git status")
+
+
 if __name__ == "__main__":
     unittest.main()

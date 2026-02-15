@@ -591,5 +591,14 @@ class TestLanguageCodeMapping(unittest.TestCase):
             )
 
 
+class TestExecArgParsing(unittest.TestCase):
+    """Test exec subcommand argument parsing."""
+
+    def test_exec_command_parsed(self):
+        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        self.assertEqual(args.command, "exec")
+        self.assertEqual(args.exec_command, ["npm", "run", "dev"])
+
+
 if __name__ == "__main__":
     unittest.main()
