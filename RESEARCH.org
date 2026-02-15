@@ -1,3 +1,28 @@
+* Rename notify-done to notify                                :notifications:naming:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+Renamed =container/notify-done= to =container/notify=. Installed at
+=/usr/local/bin/notify=. No collision with =notify-send= (the system
+desktop notification tool).
+
+** Scope of rename
+All references updated: Containerfile, tmux-layout.sh, setup.py hook
+injection, commands.py spawn logic, tests. Historical docs (RESEARCH.org
+archive entries, openspec archive) left as-is.
+
+** Idempotency guards updated
+The =setup_notification_hooks()= guards now check for ="notify"= substring
+instead of ="notify-done"=. This means existing containers with old
+=notify-done= hooks will get duplicate hooks on next =jolo up --sync=.
+Acceptable since the old binary won't exist after image rebuild.
+
+** Image rebuild required
+The installed binary in the container image is stale — still the old version
+without the =Click:= header (commit URL click-through). Rename + click URL
+feature both require an image rebuild.
+
 * devcontainer up hangs on Podman start event                :podman:devcontainer:
 :PROPERTIES:
 :DATE: 2026-02-09
