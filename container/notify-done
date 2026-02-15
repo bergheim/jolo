@@ -53,14 +53,14 @@ if [ ! -t 0 ]; then
     CONTEXT=$(cat 2>/dev/null || true)
 fi
 
-TITLE="${PROJECT} — ${AGENT} finished"
-BODY="Agent ${AGENT} completed in project ${PROJECT}.${ELAPSED_INFO:-}"
+TITLE="${PROJECT} - ${AGENT} finished"
+BODY=""
 
 LAST_COMMIT=""
 if command -v git >/dev/null 2>&1; then
     LAST_COMMIT=$(git -C "${WORKSPACE:-$PWD}" log -1 --pretty=%s 2>/dev/null || true)
 fi
-[ -n "$LAST_COMMIT" ] && BODY="${BODY} Last commit: ${LAST_COMMIT}"
+[ -n "$LAST_COMMIT" ] && BODY="${LAST_COMMIT}${ELAPSED_INFO:-}"
 
 # Fire and forget — don't let notification failure affect the agent
 curl -sf --max-time 5 \
