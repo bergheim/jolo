@@ -18,9 +18,11 @@ from _jolo.cli import (
     check_tmux_guard,
     find_git_root,
     generate_random_name,
+    is_port_available,
     parse_args,
     parse_copy,
     parse_mount,
+    read_port_from_devcontainer,
     select_languages_interactive,
     slugify_prompt,
     verbose_cmd,
@@ -35,8 +37,10 @@ from _jolo.container import (
     get_container_runtime,
     is_container_running,
     list_all_devcontainers,
+    reassign_port,
     remove_container,
     remove_image,
+    set_port,
     stop_container,
 )
 from _jolo.setup import (
@@ -253,6 +257,36 @@ def run_stop_mode(args: argparse.Namespace) -> None:
     else:
         if not stop_container(git_root):
             sys.exit(1)
+
+
+def run_port_mode(args: argparse.Namespace) -> None:
+    """Show or change the project port."""
+    git_root = find_git_root()
+    if git_root is None:
+        sys.exit("Error: Not in a git repository.")
+
+    if args.random:
+        new_port = reassign_port(git_root)
+        print(f"Port reassigned to {new_port}")
+        return
+
+    if args.port is not None:
+        port = args.port
+        if not is_port_available(port):
+            print(
+                f"Warning: Port {port} is currently in use.", file=sys.stderr
+            )
+        set_port(git_root, port)
+        print(f"Port set to {port}")
+        return
+
+    # Show current port + usage
+    port = read_port_from_devcontainer(git_root)
+    if port is None:
+        sys.exit("No port configured. Run 'jolo up' first.")
+    print(f"{port}")
+    print("\nUsage: jolo port NUMBER   assign a specific port")
+    print("       jolo port --random assign a random port")
 
 
 def run_prune_global_mode() -> None:
@@ -1838,6 +1872,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "exec":
         run_exec_mode(args)
+        return
+
+    if cmd == "port":
+        run_port_mode(args)
         return
 
     # No subcommand — show help
