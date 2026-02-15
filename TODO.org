@@ -46,6 +46,13 @@
 ** TODO Format ntfy elapsed time as human-readable (e.g. 7m 2s, 1h 15m)
    Currently shows raw seconds like =(415s)=. Use minutes/hours when applicable.
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
+** TODO Review /afk branches (5 local, unmerged)
+   Branches from autonomous session, need review before merge or delete:
+   - =yolo/export-remove-image= — export remove_image function
+   - =yolo/test-container-functions= — test coverage for container.py
+   - =yolo/test-reassign-port= — test coverage for reassign_port
+   - =yolo/fix-entrypoint-shellcheck= — shellcheck fixes in entrypoint.sh
+   - =yolo/test-toml-helper= — test coverage for TOML helpers
 ** TODO Research TTS — audio notifications via Kokoro
    :PROPERTIES:
    :BRANCH: feat/research-tts
