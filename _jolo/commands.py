@@ -451,8 +451,8 @@ def run_prune_mode(args: argparse.Namespace) -> None:
                     pass
 
 
-def run_open_mode(args: argparse.Namespace) -> None:
-    """Run --open mode: pick a running container and attach to it."""
+def run_attach_mode(args: argparse.Namespace) -> None:
+    """Run attach mode: pick a running container and attach to it."""
     containers = list_all_devcontainers()
     running = [
         (name, folder)
@@ -1780,8 +1780,8 @@ def main(argv: list[str] | None = None) -> None:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
-    if cmd == "open":
-        run_open_mode(args)
+    if cmd == "attach":
+        run_attach_mode(args)
     elif cmd == "clone":
         run_clone_mode(args)
     elif cmd == "spawn":

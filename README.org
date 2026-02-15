@@ -36,7 +36,7 @@ jolo up -p "add OAuth login"
 jolo spawn 5 -p "implement the auth system"
 
 # Jump into a running container (fzf picker)
-jolo open
+jolo attach
 
 # Clean up orphaned/stopped containers and images
 jolo prune
