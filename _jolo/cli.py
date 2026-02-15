@@ -532,6 +532,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         metavar="PATH",
         help="Read prompt from file",
     )
+    # exec: verbose
+    sub_exec = subparsers.add_parser(
+        "exec",
+        parents=[p_verbose],
+        help="Run a command in the running devcontainer",
+    )
+    sub_exec.add_argument(
+        "exec_command",
+        nargs=argparse.REMAINDER,
+        help="Command to run inside the container",
+    )
+
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",
