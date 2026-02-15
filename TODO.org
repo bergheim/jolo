@@ -9,6 +9,24 @@
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
 ** TODO Consider adding `jolo exec` command to align with container conventions
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
+** TODO Research TTS — audio notifications via Kokoro
+   :PROPERTIES:
+   :BRANCH: feat/research-tts
+   :END:
+
+   When =jolo research= completes, generate an mp3 of the full org report via
+   Kokoro TTS and attach it to the ntfy notification. Tap play on the phone.
+
+   Code on =feat/research-tts= branch (1 commit ahead of main). Needs image
+   rebuild + live testing with Kokoro at =berghome.ts.glvortex.net:4014=.
+
+*** Verification
+    1. Rebuild image, restart container
+    2. =export KOKORO_URL=http://berghome.ts.glvortex.net:4014=
+    3. =jolo research "what is an apple"=
+    4. Phone: text notification (instant) + audio (seconds later)
+    5. Unset =KOKORO_URL=, verify text-only still works
+
 ** TODO Add =--deep= flag to =jolo research=
    Run claude + codex in parallel (both research the same question), wait for both,
    then gemini compiles findings from both files into a synthesis.
