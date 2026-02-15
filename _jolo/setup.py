@@ -303,7 +303,7 @@ def _load_json_safe(path: Path) -> dict:
 def setup_notification_hooks(workspace_dir: Path) -> None:
     """Inject agent completion notification hooks into cached settings files.
 
-    Adds hooks that call notify-done when agents finish.
+    Adds hooks that call notify when agents finish.
     Merges with existing hooks (does not overwrite).
     Must be called after setup_credential_cache() so the cache dirs exist.
     """
@@ -318,17 +318,17 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     # SessionEnd: always notify when agent exits
     session_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
-        "hooks": [{"type": "command", "command": "AGENT=claude notify-done"}],
+        "hooks": [{"type": "command", "command": "AGENT=claude notify"}],
     }
-    if not any("notify-done" in str(h) for h in session_hooks):
+    if not any("notify" in str(h) for h in session_hooks):
         session_hooks.append(notify_hook)
 
     # UserPromptSubmit: record timestamp for elapsed-time tracking
     prompt_hooks = hooks.setdefault("UserPromptSubmit", [])
     stamp_hook = {
-        "hooks": [{"type": "command", "command": "notify-done stamp"}],
+        "hooks": [{"type": "command", "command": "notify stamp"}],
     }
-    if not any("notify-done stamp" in str(h) for h in prompt_hooks):
+    if not any("notify stamp" in str(h) for h in prompt_hooks):
         prompt_hooks.append(stamp_hook)
 
     # Stop: notify only if response took longer than 20 seconds
@@ -337,7 +337,7 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
         "hooks": [
             {
                 "type": "command",
-                "command": "AGENT=claude notify-done --if-slow 20",
+                "command": "AGENT=claude notify --if-slow 20",
             }
         ],
     }
@@ -356,9 +356,9 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     hooks = settings.setdefault("hooks", {})
     session_end_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
-        "hooks": [{"type": "command", "command": "AGENT=gemini notify-done"}],
+        "hooks": [{"type": "command", "command": "AGENT=gemini notify"}],
     }
-    if not any("notify-done" in str(h) for h in session_end_hooks):
+    if not any("notify" in str(h) for h in session_end_hooks):
         session_end_hooks.append(notify_hook)
     gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
     gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
@@ -369,15 +369,13 @@ def setup_notification_hooks(workspace_dir: Path) -> None:
     )
     if codex_config_path.exists():
         config = codex_config_path.read_text()
-        # Skip if notify-done already present OR if a notify key already exists
-        # Use regex to catch notify=, notify =, etc.
         has_notify = any(
             line.strip().startswith("notify") for line in config.splitlines()
         )
-        if "notify-done" not in config and not has_notify:
+        if not has_notify:
             if not config.endswith("\n"):
                 config += "\n"
-            config += 'notify = ["sh", "-c", "AGENT=codex notify-done"]\n'
+            config += 'notify = ["sh", "-c", "AGENT=codex notify"]\n'
             codex_config_path.write_text(config)
 
 
