@@ -109,6 +109,7 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 - Over-engineering — no interfaces for single implementations, no DI containers, no config-driven everything
 - Magic and implicit behavior — no decorators that hide control flow, no monkey-patching, no metaclass tricks
 - Premature abstraction — three similar lines of code is better than a generic helper used once
+- Defensive duplication — if a called function already validates or errors, don't re-check in the caller
 
 **When uncertain:** Ask rather than guess. A quick question is cheaper than a wrong assumption baked into the code.
 
