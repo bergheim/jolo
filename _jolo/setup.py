@@ -378,7 +378,14 @@ def setup_notification_hooks(
             }
         ],
     }
-    if not any("--if-slow" in str(h) for h in stop_hooks):
+    # Replace existing --if-slow hook (threshold may have changed), or append
+    replaced = False
+    for i, h in enumerate(stop_hooks):
+        if "--if-slow" in str(h):
+            stop_hooks[i] = slow_hook
+            replaced = True
+            break
+    if not replaced:
         stop_hooks.append(slow_hook)
 
     claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
