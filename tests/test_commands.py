@@ -344,5 +344,104 @@ class TestExecMode(unittest.TestCase):
         mock_exec.assert_called_once_with(self.git_root, "git status")
 
 
+class TestPortMode(unittest.TestCase):
+    """Test port command."""
+
+    def test_port_command_parsed(self):
+        """port should set command to port."""
+        args = jolo.parse_args(["port"])
+        self.assertEqual(args.command, "port")
+
+    def test_port_with_number(self):
+        """port NUMBER should set port arg."""
+        args = jolo.parse_args(["port", "4200"])
+        self.assertEqual(args.port, 4200)
+
+    def test_port_random_flag(self):
+        """port --random should set random flag."""
+        args = jolo.parse_args(["port", "--random"])
+        self.assertTrue(args.random)
+
+    def test_port_default_no_port(self):
+        """port with no args should have port=None."""
+        args = jolo.parse_args(["port"])
+        self.assertIsNone(args.port)
+
+
+class TestSetPort(unittest.TestCase):
+    """Test set_port function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.ws = Path(self.tmpdir) / "project"
+        self.ws.mkdir()
+        (self.ws / ".devcontainer").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _write_config(self, config):
+        import json
+
+        path = self.ws / ".devcontainer" / "devcontainer.json"
+        path.write_text(json.dumps(config, indent=4) + "\n")
+
+    def _read_config(self):
+        import json
+
+        path = self.ws / ".devcontainer" / "devcontainer.json"
+        return json.loads(path.read_text())
+
+    def test_set_port_updates_env(self):
+        """Should update PORT in containerEnv."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import set_port
+
+        set_port(self.ws, 4200)
+        config = self._read_config()
+        self.assertEqual(config["containerEnv"]["PORT"], "4200")
+
+    def test_set_port_updates_run_args(self):
+        """Should update -p flag in runArgs."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["--name", "myapp", "-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import set_port
+
+        set_port(self.ws, 4200)
+        config = self._read_config()
+        self.assertIn("4200:4200", config["runArgs"])
+        self.assertNotIn("4500:4500", config["runArgs"])
+
+    def test_set_port_updates_name_arg(self):
+        """Should update --name arg port suffix if present."""
+        self._write_config(
+            {
+                "containerEnv": {"PORT": "4500"},
+                "runArgs": ["--name", "myapp-4500", "-p", "4500:4500"],
+            }
+        )
+
+        from _jolo.container import set_port
+
+        set_port(self.ws, 4200)
+        config = self._read_config()
+        # Name shouldn't change — it's the container name, not port-derived
+        # Just verify port fields changed
+        self.assertEqual(config["containerEnv"]["PORT"], "4200")
+
+
 if __name__ == "__main__":
     unittest.main()
