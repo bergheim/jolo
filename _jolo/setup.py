@@ -128,9 +128,8 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
 
 
 def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
-    key_prefix = f"{key} ="
     if any(
-        line.strip().startswith(key_prefix)
+        re.match(rf"^{re.escape(key)}\s*=", line.strip())
         for line in toml_content.splitlines()
     ):
         return toml_content
@@ -352,6 +351,10 @@ def setup_notification_hooks(
 
     hooks = settings.setdefault("hooks", {})
 
+    # Migrate: remove stale notify-done hooks (renamed to notify)
+    for hook_list in hooks.values():
+        hook_list[:] = [h for h in hook_list if "notify-done" not in str(h)]
+
     # SessionEnd: always notify when agent exits
     session_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
@@ -398,6 +401,8 @@ def setup_notification_hooks(
     settings = _load_json_safe(gemini_settings_path)
 
     hooks = settings.setdefault("hooks", {})
+    for hook_list in hooks.values():
+        hook_list[:] = [h for h in hook_list if "notify-done" not in str(h)]
     session_end_hooks = hooks.setdefault("SessionEnd", [])
     notify_hook = {
         "hooks": [{"type": "command", "command": "AGENT=gemini notify"}],
