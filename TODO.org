@@ -8,6 +8,7 @@
 ** TODO Send agent findings via email (or similar async channel)
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
 ** TODO Consider adding `jolo exec` command to align with container conventions
+** TODO Add notification slow-threshold config (default 60s) with local override to 20s
 ** TODO Add =--deep= flag to =jolo research=
    Run claude + codex in parallel (both research the same question), wait for both,
    then gemini compiles findings from both files into a synthesis.
