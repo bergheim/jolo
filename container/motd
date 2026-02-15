@@ -26,7 +26,8 @@ hint=""
 if [ -f justfile ] || [ -f Justfile ]; then
     hint="Run tasks with: just <recipe>"
 fi
-stash="Stash: /workspaces/stash (non-reproducible)"
+stash=""
+[ -d /workspaces/stash ] && stash="Stash: /workspaces/stash (shared)"
 
 # Print bordered header
 gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${stash:+"$stash"}
