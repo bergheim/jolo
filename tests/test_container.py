@@ -65,8 +65,8 @@ class TestContainerRuntime(unittest.TestCase):
     def test_get_container_runtime_finds_docker(self):
         """Should detect docker if available."""
         with mock.patch("shutil.which") as mock_which:
-            mock_which.side_effect = (
-                lambda x: "/usr/bin/docker" if x == "docker" else None
+            mock_which.side_effect = lambda x: (
+                "/usr/bin/docker" if x == "docker" else None
             )
             result = jolo.get_container_runtime()
             self.assertEqual(result, "docker")
@@ -74,8 +74,8 @@ class TestContainerRuntime(unittest.TestCase):
     def test_get_container_runtime_finds_podman(self):
         """Should detect podman if docker not available."""
         with mock.patch("shutil.which") as mock_which:
-            mock_which.side_effect = (
-                lambda x: "/usr/bin/podman" if x == "podman" else None
+            mock_which.side_effect = lambda x: (
+                "/usr/bin/podman" if x == "podman" else None
             )
             result = jolo.get_container_runtime()
             self.assertEqual(result, "podman")
