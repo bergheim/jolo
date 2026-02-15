@@ -155,3 +155,36 @@ curl -sf --max-time 5 \
 
 # Terminal bell — sets URGENT flag on host window
 printf '\a'
+
+# --- Research TTS: generate audio and send as ntfy attachment ---
+KOKORO_URL="${KOKORO_URL:-}"
+if [ "$PROJECT" = "research" ] && [ -n "$KOKORO_URL" ]; then
+    ORG_FILE=$(ls -t /workspaces/research/*.org 2>/dev/null | head -1)
+    if [ -n "$ORG_FILE" ]; then
+        TEXT=$(sed \
+            -e '/^#+/d' \
+            -e 's/^\*\+ //' \
+            -e 's/\[\[[^]]*\]\[\([^]]*\)\]\]/\1/g' \
+            -e 's/\[\[[^]]*\]\]//g' \
+            -e 's/^- //' \
+            "$ORG_FILE")
+        TOPIC_SLUG=$(basename "$ORG_FILE" .org)
+        TMP_MP3="/tmp/research-audio-$$.mp3"
+
+        JSON_TEXT=$(printf '%s' "$TEXT" | jq -Rs .)
+        if curl -sf --max-time 120 \
+            -H "Content-Type: application/json" \
+            -d "{\"model\":\"kokoro\",\"input\":${JSON_TEXT},\"voice\":\"af_heart\",\"response_format\":\"mp3\"}" \
+            "${KOKORO_URL}/v1/audio/speech" \
+            -o "$TMP_MP3" 2>/dev/null; then
+
+            curl -sf --max-time 15 \
+                -H "Title: ${PROJECT} — ${AGENT} research" \
+                -H "Filename: ${TOPIC_SLUG}.mp3" \
+                -T "$TMP_MP3" \
+                "${SERVER}/${TOPIC}" \
+                >/dev/null 2>&1 || true
+        fi
+        rm -f "$TMP_MP3"
+    fi
+fi
