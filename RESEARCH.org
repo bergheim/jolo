@@ -420,6 +420,23 @@ Phone app: ntfy Android via Obtainium from GitHub releases.
 - ~_jolo/commands.py~ — wired into all 5 launch flows
 - ~docs/plan-notifications-claude.org~ — full design doc
 
+* ntfy Click header works on self-hosted Android client     :ntfy:android:click:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+Tested ntfy Android (F-Droid) with self-hosted server.
+Using the ~Click~ header opens the URL on tap. The same test against ~ntfy.sh~
+did not show notifications in the client.
+
+** What worked
+- Send to self-hosted server (http://burial.ts.glvortex.net:9080), topic ~jolo~
+- Include ~Click: https://github.com/<org>/<repo>/commit/<sha>~
+
+** Notes
+- Direct curl posts to ~https://ntfy.sh/jolo~ returned HTTP 200 but did not
+  surface in the Android client.
+
 ** Branch Comparison Findings (notify-done vs feat/ntfy-notify-hooks) :musl:json:
 The ~notify-done~ branch was chosen as the production path over ~feat/ntfy-notify-hooks~
 due to several critical technical differences:
