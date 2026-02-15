@@ -485,9 +485,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="List running containers and worktrees",
     )
 
-    # open: verbose
+    # attach: verbose
     subparsers.add_parser(
-        "open",
+        "attach",
         parents=[p_verbose],
         help="Pick a running container and attach to it",
     )
