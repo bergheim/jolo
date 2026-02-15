@@ -90,7 +90,11 @@ if command -v git >/dev/null 2>&1; then
     fi
 fi
 CLICK_HEADER=""
-[ -n "$COMMIT_URL" ] && CLICK_HEADER="Click: ${COMMIT_URL}"
+ACTIONS_HEADER=""
+if [ -n "$COMMIT_URL" ]; then
+    CLICK_HEADER="Click: ${COMMIT_URL}"
+    ACTIONS_HEADER="Actions: view, Open commit, ${COMMIT_URL}"
+fi
 
 # Fire and forget — don't let notification failure affect the agent
 curl -sf --max-time 5 \
@@ -98,6 +102,7 @@ curl -sf --max-time 5 \
     -H "Priority: default" \
     -H "Tags: robot,checkmark" \
     ${CLICK_HEADER:+-H "$CLICK_HEADER"} \
+    ${ACTIONS_HEADER:+-H "$ACTIONS_HEADER"} \
     -d "${BODY}" \
     "${SERVER}/${TOPIC}" \
     >/dev/null 2>&1 || true

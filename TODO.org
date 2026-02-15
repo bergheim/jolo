@@ -7,7 +7,13 @@
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
 ** TODO Send agent findings via email (or similar async channel)
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
+** TODO Add Phoenix LiveView scaffold support (Elixir)
+   Include dev-mode LiveView hot reload and browser live reload defaults.
+   Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
 ** TODO Consider adding `jolo exec` command to align with container conventions
+** TODO Rebuild container image to pick up notify fixes
+   Image is stale — missing: session-ID removal, Click header, Actions header, rename to notify.
+   Run: =podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .=
 ** TODO Add notification slow-threshold config (default 60s) with local override to 20s
 ** TODO Research TTS — audio notifications via Kokoro
    :PROPERTIES:

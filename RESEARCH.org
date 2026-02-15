@@ -849,3 +849,38 @@ window runs ~claude <prompt>~ instead of a shell. The main ~dev~ session
 
 ** Open Questions
 - Should =jolo= add a dedicated =exec= verb (if not present) to align with container CLIs, or keep =up --run= as the primary mechanism?
+
+* ntfy Actions header needed for web UI click-through      :ntfy:notifications:
+:PROPERTIES:
+:DATE: 2026-02-15
+:END:
+
+The ~Click:~ header only works on native mobile apps (Android/iOS).
+On the ntfy web UI, clicking a notification copies its body text.
+
+** Fix
+Add ~Actions: view, Open commit, <URL>~ header alongside ~Click:~.
+This renders a clickable button in ALL ntfy clients (web, Android, iOS).
+
+#+begin_src sh
+ACTIONS_HEADER="Actions: view, Open commit, ${COMMIT_URL}"
+curl ... -H "$ACTIONS_HEADER" ...
+#+end_src
+
+Applied to ~container/notify~. Needs image rebuild to take effect in new containers.
+
+** Stale image causes old-format notifications
+The installed ~/usr/local/bin/notify~ was manually patched in the running
+container, but the image itself was never rebuilt after the session-ID fix
+(=75cdd74=) or Click header addition (=828a7ff=). New containers from the
+stale image still send =Session: UUID= in the body and lack click URLs.
+
+Verified with ntfy JSON poll: old-format messages from previous Claude
+session used em-dash title and =Agent ... Session: UUID= body.
+
+** Verification
+Test notification to =/test= topic confirmed working:
+- New format title (hyphen, not em-dash)
+- Git commit message as body (no Session UUID)
+- ~click~ field present in ntfy JSON
+- ~Actions~ header pending (source updated, not yet installed)
