@@ -85,7 +85,6 @@ RUN apk update && apk add --no-cache \
     musl-locales-lang \
     pnpm \
     pre-commit \
-    ruff \
     typescript \
     # Chromium dependencies for headless operation
     nss \
@@ -158,6 +157,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (go install github.com/gitleaks/gitleaks/v8@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
+    (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
     curl -fsSL https://claude.ai/install.sh | bash && \
@@ -169,22 +169,22 @@ RUN mkdir -p $HOME/.local/bin && \
 RUN cat > /tmp/pre-commit-hooks.yaml <<'EOF'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-added-large-files
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
+    rev: v8.30.0
     hooks:
       - id: gitleaks
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+    rev: v0.15.1
     hooks:
       - id: ruff
       - id: ruff-format
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.62.0
+    rev: v2.9.0
     hooks:
       - id: golangci-lint
   - repo: https://github.com/doublify/pre-commit-rust
@@ -193,16 +193,17 @@ repos:
       - id: fmt
       - id: cargo-check
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
       - id: codespell
 EOF
 RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
+    pre-commit autoupdate -c /tmp/pre-commit-hooks.yaml && \
     pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
     cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
