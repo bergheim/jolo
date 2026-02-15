@@ -25,6 +25,8 @@ Non-destructive commands (reads/searches) do not require approval.
 
 Keep the codebase small. Fewer lines, fewer features, fewer moving parts. Do not add commands, helpers, or abstractions that provide marginal value over existing tools. If `podman logs` already works, we don't need `jolo logs`. Prefer deleting code to adding it.
 
+Do not add defensive checks that duplicate what called functions already handle. If `find_git_root()` raises on failure, the caller does not need to check for a git repo first. Trust internal code — only validate at system boundaries (user input, external APIs). Let functions fail naturally with their own errors.
+
 ## Backward Compatibility
 
 This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly. No aliases, shims, deprecation warnings, or re-exports for old names.
@@ -122,6 +124,8 @@ just test              # run all tests
 just test-k "pattern"  # run tests matching keyword
 just test-v            # verbose output
 ```
+
+Test behavior, not scaffolding. Don't write tests for obvious error paths that just exercise guards you shouldn't have added in the first place. One test for the happy path is worth more than five tests for defensive branches.
 
 ## Running
 
