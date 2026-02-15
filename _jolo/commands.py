@@ -617,7 +617,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(git_root)
-    setup_notification_hooks(git_root)
+    setup_notification_hooks(git_root, config.get("notify_threshold", 60))
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(git_root)
@@ -708,7 +708,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(worktree_path)
-    setup_notification_hooks(worktree_path)
+    setup_notification_hooks(worktree_path, config.get("notify_threshold", 60))
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(worktree_path)
@@ -927,7 +927,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
-    setup_notification_hooks(project_path)
+    setup_notification_hooks(project_path, config.get("notify_threshold", 60))
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
@@ -1052,7 +1052,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
 
     # Copy AI credentials for container isolation
     setup_credential_cache(project_path)
-    setup_notification_hooks(project_path)
+    setup_notification_hooks(project_path, config.get("notify_threshold", 60))
 
     # Set up Emacs config (copy config files, symlink packages)
     setup_emacs_config(project_path)
@@ -1166,7 +1166,9 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
 
         # Set up credentials and emacs config
         setup_credential_cache(worktree_path)
-        setup_notification_hooks(worktree_path)
+        setup_notification_hooks(
+            worktree_path, config.get("notify_threshold", 60)
+        )
         setup_emacs_config(worktree_path)
         setup_stash()
 
@@ -1425,7 +1427,7 @@ def run_research_mode(args: argparse.Namespace) -> None:
     secrets = get_secrets(config)
     os.environ.update(secrets)
     setup_credential_cache(research_home)
-    setup_notification_hooks(research_home)
+    setup_notification_hooks(research_home, config.get("notify_threshold", 60))
     setup_emacs_config(research_home)
 
     # Ensure container is running
