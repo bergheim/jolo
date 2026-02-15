@@ -97,6 +97,17 @@ class TestConfigLoading(unittest.TestCase):
         self.assertEqual(config["base_image"], "project/image:v2")
         self.assertEqual(config["pass_path_anthropic"], "custom/path")
 
+    def test_notify_threshold_override(self):
+        """Project .jolo.toml should override notify_threshold."""
+        os.chdir(self.tmpdir)
+        Path(self.tmpdir, ".jolo.toml").write_text("notify_threshold = 20\n")
+
+        config = jolo.load_config(
+            global_config_dir=Path(self.tmpdir) / "noexist"
+        )
+
+        self.assertEqual(config["notify_threshold"], 20)
+
 
 class TestListMode(unittest.TestCase):
     """Test list functionality."""
