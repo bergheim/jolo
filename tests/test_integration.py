@@ -241,6 +241,26 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertTrue(tsconfig.exists())
         content = tsconfig.read_text()
         self.assertIn("strict", content)
+        self.assertIn("jsx", content)
+
+    def test_create_writes_beth_source_files(self):
+        """create with typescript should write BETH scaffold files."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--lang", "typescript", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+        self.assertTrue((project_path / "src" / "index.tsx").exists())
+        self.assertTrue((project_path / "src" / "pages" / "home.tsx").exists())
+        self.assertTrue(
+            (project_path / "src" / "components" / "layout.tsx").exists()
+        )
+        self.assertTrue((project_path / "src" / "styles.css").exists())
+        self.assertTrue((project_path / "public" / ".gitkeep").exists())
 
     def test_create_first_language_is_primary(self):
         """First language in list should be treated as primary for init commands."""

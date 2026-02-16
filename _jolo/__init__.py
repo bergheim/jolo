@@ -97,6 +97,7 @@ from _jolo.templates import (  # noqa: F401
     get_motd_content,
     get_precommit_install_command,
     get_project_init_commands,
+    get_scaffold_files,
     get_test_framework_config,
     get_type_checker_config,
 )

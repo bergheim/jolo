@@ -203,6 +203,8 @@ def get_type_checker_config(language: str) -> dict | None:
                 "esModuleInterop": True,
                 "skipLibCheck": True,
                 "forceConsistentCasingInFileNames": True,
+                "jsx": "react-jsx",
+                "jsxImportSource": "@kitajs/html",
             },
             "include": ["**/*.ts", "**/*.tsx"],
             "exclude": ["node_modules", "dist"],
@@ -370,6 +372,38 @@ def get_test_framework_config(language: str) -> dict:
     }
 
 
+def get_scaffold_files(language: str) -> list[tuple[str, str]]:
+    """Get additional scaffold source files for a language.
+
+    Args:
+        language: The programming language
+
+    Returns:
+        List of (relative_path, content) tuples.
+    """
+    if language == "typescript":
+        return [
+            (
+                "src/index.tsx",
+                _read_template("lang/typescript/src/index.tsx"),
+            ),
+            (
+                "src/styles.css",
+                _read_template("lang/typescript/src/styles.css"),
+            ),
+            (
+                "src/pages/home.tsx",
+                _read_template("lang/typescript/src/pages/home.tsx"),
+            ),
+            (
+                "src/components/layout.tsx",
+                _read_template("lang/typescript/src/components/layout.tsx"),
+            ),
+            ("public/.gitkeep", ""),
+        ]
+    return []
+
+
 def get_project_init_commands(
     language: str, project_name: str
 ) -> list[list[str]]:
@@ -391,9 +425,23 @@ def get_project_init_commands(
         # pyproject.toml is created during scaffolding, just ensure tests dir exists
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
-        commands.append(["bun", "init"])
-        commands.append(["mkdir", "-p", "src"])
-        commands.append(["mv", "index.ts", "src/index.ts"])
+        commands.append(["bun", "init", "-y"])
+        commands.append(["rm", "-f", "index.ts"])
+        commands.append(
+            [
+                "bun",
+                "add",
+                "elysia",
+                "@elysiajs/html",
+                "@elysiajs/static",
+                "@kitajs/html",
+                "htmx.org",
+            ]
+        )
+        commands.append(
+            ["bun", "add", "-d", "tailwindcss", "@tailwindcss/cli"]
+        )
+        commands.append(["just", "setup"])
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":

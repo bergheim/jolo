@@ -64,6 +64,7 @@ from _jolo.templates import (
     get_motd_content,
     get_precommit_install_command,
     get_project_init_commands,
+    get_scaffold_files,
     get_test_framework_config,
     get_type_checker_config,
 )
@@ -923,6 +924,13 @@ def run_create_mode(args: argparse.Namespace) -> None:
         verbose_print(
             f"Wrote example test: {test_config['example_test_file']}"
         )
+
+    # Write additional scaffold source files
+    for rel_path, content in get_scaffold_files(primary_language):
+        file_path = project_path / rel_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(replace_placeholders(content))
+        verbose_print(f"Wrote scaffold file: {rel_path}")
 
     # Write type checker config for primary language
     type_config = get_type_checker_config(primary_language)
