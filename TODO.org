@@ -2,6 +2,8 @@
 #+DESCRIPTION: Practical security assessment - what actually matters vs security theater
 
 * Tasks
+** DONE Install OpenSpec CLI in container image via pnpm latest
+   Added =fission-ai/openspec@latest= to global =pnpm add -g= in =Containerfile=.
 ** DONE Set default Codex reasoning effort in generated project config
 ** DONE Add shared per-project multi-agent memory + per-agent personal memory
 ** TODO Tmux copy/paste broken over mosh (works over ssh)

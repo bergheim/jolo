@@ -19,6 +19,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Template functions accept =bare=False= kwarg to skip web scaffold    :jolo:templates:
 - =.bare= suffix convention for template variants (e.g., =justfile.bare=) :jolo:templates:
 - =@elysiajs/static= serves files at =/public/= prefix by default but only works via real server, not =app.handle()= :elysia:bun:
+- OpenSpec CLI is image-provided via =pnpm add -g fission-ai/openspec@latest= (intentionally unpinned) :openspec:container:
 
 * Gotchas
 
