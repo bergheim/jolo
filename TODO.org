@@ -20,6 +20,11 @@
    2. Update language templates and init commands per language
    3. Add generated-project tests for dev files and commands
    4. Run scaffold smoke tests for each language
+** TODO Tighten BETH TypeScript scaffold plan before implementation
+   Blockers from =openspec/changes/beth-stack-scaffold/plan.md= review:
+   - Require =if (import.meta.main)= listen gate + exported =app= for tests
+   - Add explicit =@kitajs/html= dependency when using =jsxImportSource=
+   - Avoid coupling app source scaffolding to =get_test_framework_config=
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.

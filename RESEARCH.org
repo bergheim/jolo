@@ -967,3 +967,34 @@ Added ~get_secrets=mock.Mock(return_value={})~ to both ~_mock_devcontainer_calls
 
 ** Key files
 - ~tests/test_integration.py~
+
+* BETH scaffold plan review (openspec)                    :typescript:scaffold:elysia:
+:PROPERTIES:
+:DATE: 2026-02-16
+:END:
+
+Reviewed =openspec/changes/beth-stack-scaffold/plan.md= for implementation
+risk before coding.
+
+** What was investigated
+- Whether the plan is implementation-ready against current scaffold architecture
+  in =_jolo/templates.py= and =_jolo/commands.py=
+- Whether TypeScript/Bun runtime and test flow are safe by default
+
+** Key findings
+- Tests need =src/index.tsx= to export =app= and gate =app.listen()= behind
+  =if (import.meta.main)=. Otherwise importing in tests can bind ports and fail.
+- Plan sets =jsxImportSource= to =@kitajs/html= but only installs
+  =@elysiajs/html=. =@kitajs/html= should be an explicit dependency.
+- Proposed =extra_files= in =get_test_framework_config('typescript')= works, but
+  it mixes app scaffolding with test config responsibilities.
+
+** Suggested fix direction
+- Treat the first two findings as blockers before implementation.
+- Keep scaffold file injection separate from test framework config where possible.
+- Add explicit integration checks for generated TSX entrypoint behavior.
+
+** Key files
+- =openspec/changes/beth-stack-scaffold/plan.md=
+- =_jolo/templates.py=
+- =_jolo/commands.py=
