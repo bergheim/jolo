@@ -148,6 +148,7 @@ RUN pnpm add -g \
     @openai/codex \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
+    @fission-ai/openspec@latest \
     markdownlint-cli
 
 # Downloads and installs (parallel — cached layer, rarely changes)
