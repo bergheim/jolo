@@ -176,7 +176,68 @@ class TestGetProjectInitCommands(unittest.TestCase):
     def test_typescript_returns_bun_init(self):
         """TypeScript should return bun commands."""
         commands = jolo.get_project_init_commands("typescript", "myproject")
-        self.assertIn(["bun", "init"], commands)
+        self.assertIn(["bun", "init", "-y"], commands)
+        self.assertIn(
+            [
+                "bun",
+                "add",
+                "elysia",
+                "@elysiajs/html",
+                "@elysiajs/static",
+                "@kitajs/html",
+                "htmx.org",
+            ],
+            commands,
+        )
+        self.assertIn(["just", "setup"], commands)
+
+    def test_get_scaffold_files_exists(self):
+        """get_scaffold_files should exist."""
+        self.assertTrue(hasattr(jolo, "get_scaffold_files"))
+        self.assertTrue(callable(jolo.get_scaffold_files))
+
+    def test_typescript_returns_beth_scaffold_files(self):
+        """TypeScript should return BETH scaffold files."""
+        files = jolo.get_scaffold_files("typescript")
+        rel_paths = [f[0] for f in files]
+        self.assertIn("src/index.tsx", rel_paths)
+        self.assertIn("src/styles.css", rel_paths)
+        self.assertIn("src/pages/home.tsx", rel_paths)
+        self.assertIn("src/components/layout.tsx", rel_paths)
+        self.assertIn("public/.gitkeep", rel_paths)
+
+    def test_python_returns_no_scaffold_files(self):
+        """Python should return no additional scaffold files (for now)."""
+        files = jolo.get_scaffold_files("python")
+        self.assertEqual(files, [])
+
+    def test_typescript_bare_returns_no_scaffold_files(self):
+        """Bare TypeScript should skip BETH scaffold files."""
+        files = jolo.get_scaffold_files("typescript", bare=True)
+        self.assertEqual(files, [])
+
+    def test_typescript_bare_init_commands_skip_elysia(self):
+        """Bare TypeScript should not install BETH deps."""
+        commands = jolo.get_project_init_commands(
+            "typescript", "myproject", bare=True
+        )
+        flat = str(commands)
+        self.assertNotIn("elysia", flat)
+        self.assertIn(["bun", "init", "-y"], commands)
+
+    def test_typescript_bare_justfile_uses_ts_not_tsx(self):
+        """Bare TypeScript justfile should reference .ts files."""
+        content = jolo.get_justfile_content(
+            "typescript", "myproject", bare=True
+        )
+        self.assertIn("src/index.ts", content)
+        self.assertNotIn(".tsx", content)
+
+    def test_typescript_bare_test_has_no_elysia(self):
+        """Bare TypeScript example test should not import elysia."""
+        config = jolo.get_test_framework_config("typescript", bare=True)
+        self.assertNotIn("elysia", config["example_test_content"])
+        self.assertIn("bun:test", config["example_test_content"])
 
     def test_go_returns_go_mod_init(self):
         """Go should return go mod init with project name."""
@@ -622,6 +683,9 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
         # Essential strict options
         self.assertTrue(options.get("strict"))
         self.assertTrue(options.get("noEmit"))
+        # JSX options
+        self.assertEqual(options.get("jsx"), "react-jsx")
+        self.assertEqual(options.get("jsxImportSource"), "@kitajs/html")
 
     def test_python_ty_config_content(self):
         """Python ty config should have reasonable defaults."""

@@ -186,7 +186,10 @@ coverage/
 
 # Gatsby
 .cache/
-public/
+
+# Generated static assets (Tailwind CSS, vendored JS)
+public/*.css
+public/*.js
 
 # Storybook
 storybook-static/
