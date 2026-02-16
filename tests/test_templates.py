@@ -211,6 +211,34 @@ class TestGetProjectInitCommands(unittest.TestCase):
         files = jolo.get_scaffold_files("python")
         self.assertEqual(files, [])
 
+    def test_typescript_bare_returns_no_scaffold_files(self):
+        """Bare TypeScript should skip BETH scaffold files."""
+        files = jolo.get_scaffold_files("typescript", bare=True)
+        self.assertEqual(files, [])
+
+    def test_typescript_bare_init_commands_skip_elysia(self):
+        """Bare TypeScript should not install BETH deps."""
+        commands = jolo.get_project_init_commands(
+            "typescript", "myproject", bare=True
+        )
+        flat = str(commands)
+        self.assertNotIn("elysia", flat)
+        self.assertIn(["bun", "init", "-y"], commands)
+
+    def test_typescript_bare_justfile_uses_ts_not_tsx(self):
+        """Bare TypeScript justfile should reference .ts files."""
+        content = jolo.get_justfile_content(
+            "typescript", "myproject", bare=True
+        )
+        self.assertIn("src/index.ts", content)
+        self.assertNotIn(".tsx", content)
+
+    def test_typescript_bare_test_has_no_elysia(self):
+        """Bare TypeScript example test should not import elysia."""
+        config = jolo.get_test_framework_config("typescript", bare=True)
+        self.assertNotIn("elysia", config["example_test_content"])
+        self.assertIn("bun:test", config["example_test_content"])
+
     def test_go_returns_go_mod_init(self):
         """Go should return go mod init with project name."""
         commands = jolo.get_project_init_commands("go", "myproject")

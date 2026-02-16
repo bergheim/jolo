@@ -166,7 +166,9 @@ def get_precommit_install_command() -> list[str]:
     ]
 
 
-def get_type_checker_config(language: str) -> dict | None:
+def get_type_checker_config(
+    language: str, *, bare: bool = False
+) -> dict | None:
     """Get type checker configuration for a language.
 
     Returns configuration for setting up type checking based on language.
@@ -192,21 +194,23 @@ def get_type_checker_config(language: str) -> dict | None:
         }
 
     elif language == "typescript":
-        # tsconfig.json with strict mode
+        compiler_options: dict = {
+            "strict": True,
+            "noEmit": True,
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "esModuleInterop": True,
+            "skipLibCheck": True,
+            "forceConsistentCasingInFileNames": True,
+        }
+        if not bare:
+            compiler_options["jsx"] = "react-jsx"
+            compiler_options["jsxImportSource"] = "@kitajs/html"
+        includes = ["**/*.ts"] if bare else ["**/*.ts", "**/*.tsx"]
         tsconfig = {
-            "compilerOptions": {
-                "strict": True,
-                "noEmit": True,
-                "target": "ES2022",
-                "module": "NodeNext",
-                "moduleResolution": "NodeNext",
-                "esModuleInterop": True,
-                "skipLibCheck": True,
-                "forceConsistentCasingInFileNames": True,
-                "jsx": "react-jsx",
-                "jsxImportSource": "@kitajs/html",
-            },
-            "include": ["**/*.ts", "**/*.tsx"],
+            "compilerOptions": compiler_options,
+            "include": includes,
             "exclude": ["node_modules", "dist"],
         }
         return {
@@ -271,12 +275,15 @@ addopts = "--cov=src --cov-report=term-missing"
     }
 
 
-def get_justfile_content(language: str, project_name: str) -> str:
+def get_justfile_content(
+    language: str, project_name: str, *, bare: bool = False
+) -> str:
     """Generate justfile content for a project based on language.
 
     Args:
         language: The programming language
         project_name: The project name
+        bare: If True, use minimal scaffold without web framework
 
     Returns:
         justfile content string
@@ -287,7 +294,8 @@ def get_justfile_content(language: str, project_name: str) -> str:
         if language in ("python", "typescript", "go", "rust")
         else "other"
     )
-    template = _read_template(f"lang/{lang}/justfile")
+    suffix = ".bare" if bare and lang == "typescript" else ""
+    template = _read_template(f"lang/{lang}/justfile{suffix}")
     return _render(
         template, PROJECT_NAME=project_name, MODULE_NAME=module_name
     )
@@ -307,7 +315,7 @@ def get_motd_content(language: str, project_name: str) -> str:
     return _render(template, PROJECT_NAME=project_name)
 
 
-def get_test_framework_config(language: str) -> dict:
+def get_test_framework_config(language: str, *, bare: bool = False) -> dict:
     """Get test framework configuration for a language.
 
     Returns configuration for setting up test frameworks based on language.
@@ -336,12 +344,13 @@ def get_test_framework_config(language: str) -> dict:
         }
 
     elif language == "typescript":
+        suffix = ".bare" if bare else ""
         return {
             "config_file": None,
             "config_content": "# Bun has built-in testing. Run tests with: bun test",
             "example_test_file": "src/example.test.ts",
             "example_test_content": _read_template(
-                "lang/typescript/example.test.ts"
+                f"lang/typescript/example.test{suffix}.ts"
             ),
         }
 
@@ -372,7 +381,9 @@ def get_test_framework_config(language: str) -> dict:
     }
 
 
-def get_scaffold_files(language: str) -> list[tuple[str, str]]:
+def get_scaffold_files(
+    language: str, *, bare: bool = False
+) -> list[tuple[str, str]]:
     """Get additional scaffold source files for a language.
 
     Args:
@@ -381,7 +392,7 @@ def get_scaffold_files(language: str) -> list[tuple[str, str]]:
     Returns:
         List of (relative_path, content) tuples.
     """
-    if language == "typescript":
+    if language == "typescript" and not bare:
         return [
             (
                 "src/index.tsx",
@@ -405,7 +416,7 @@ def get_scaffold_files(language: str) -> list[tuple[str, str]]:
 
 
 def get_project_init_commands(
-    language: str, project_name: str
+    language: str, project_name: str, *, bare: bool = False
 ) -> list[list[str]]:
     """Get initialization commands for a project based on language.
 
@@ -426,22 +437,26 @@ def get_project_init_commands(
         commands.append(["mkdir", "-p", "tests"])
     elif language == "typescript":
         commands.append(["bun", "init", "-y"])
-        commands.append(["rm", "-f", "index.ts"])
-        commands.append(
-            [
-                "bun",
-                "add",
-                "elysia",
-                "@elysiajs/html",
-                "@elysiajs/static",
-                "@kitajs/html",
-                "htmx.org",
-            ]
-        )
-        commands.append(
-            ["bun", "add", "-d", "tailwindcss", "@tailwindcss/cli"]
-        )
-        commands.append(["just", "setup"])
+        if bare:
+            commands.append(["mkdir", "-p", "src"])
+            commands.append(["mv", "index.ts", "src/index.ts"])
+        else:
+            commands.append(["rm", "-f", "index.ts"])
+            commands.append(
+                [
+                    "bun",
+                    "add",
+                    "elysia",
+                    "@elysiajs/html",
+                    "@elysiajs/static",
+                    "@kitajs/html",
+                    "htmx.org",
+                ]
+            )
+            commands.append(
+                ["bun", "add", "-d", "tailwindcss", "@tailwindcss/cli"]
+            )
+            commands.append(["just", "setup"])
     elif language == "go":
         commands.append(["go", "mod", "init", project_name])
     elif language == "rust":
