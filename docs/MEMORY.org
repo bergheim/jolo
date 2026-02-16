@@ -16,9 +16,15 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Secrets flow: =get_secrets()= -> =os.environ.update()= -> =${localEnv:...}= in devcontainer.json :jolo:
 - =devcontainer_up(remove_existing=True)= tears down old container first — skip port checks :jolo:
 - Motd runs in all tmux panes; per-window commands belong in =dev.yml= :tmux:
+- Template functions accept =bare=False= kwarg to skip web scaffold    :jolo:templates:
+- =.bare= suffix convention for template variants (e.g., =justfile.bare=) :jolo:templates:
+- =@elysiajs/static= serves files at =/public/= prefix by default but only works via real server, not =app.handle()= :elysia:bun:
 
 * Gotchas
 
 - Grep/Glob tools sometimes miss =_jolo/*.py= — use =**/_jolo/**/*.py= or =ls= :tooling:
 - Alpine uses musl; glibc .so/.elc files are not compatible           :musl:
 - =gh= auth token is in OS keyring, not =hosts.yml= — need =gh auth token= to extract :gh:
+- =templates/.gitignore= has a blanket =public/= ignore (Gatsby) — fixed to =public/*.css= + =public/*.js= instead :jolo:gitignore:
+- Codex =exec= ignores piped stdin diff — it runs =git diff= internally and only sees unstaged changes :codex:review:
+- Gemini misreads =@= in npm package names as leading spaces in diffs :gemini:review:
