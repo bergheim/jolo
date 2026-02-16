@@ -64,6 +64,7 @@ from _jolo.templates import (
     get_motd_content,
     get_precommit_install_command,
     get_project_init_commands,
+    get_scaffold_files,
     get_test_framework_config,
     get_type_checker_config,
 )
@@ -833,6 +834,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Primary language is the first in the list
     primary_language = languages[0] if languages else "other"
+    bare = getattr(args, "bare", False)
 
     # Create project directory
     project_path.mkdir()
@@ -846,7 +848,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     verbose_print("Generated MOTD")
 
     # Generate justfile for the project
-    justfile_content = get_justfile_content(primary_language, project_name)
+    justfile_content = get_justfile_content(
+        primary_language, project_name, bare=bare
+    )
     (project_path / "justfile").write_text(justfile_content)
     verbose_print("Generated justfile")
 
@@ -858,7 +862,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
     )
 
     # Write test framework config for primary language
-    test_config = get_test_framework_config(primary_language)
+    test_config = get_test_framework_config(primary_language, bare=bare)
     # Python module names use underscores, not hyphens
     module_name = project_name.replace("-", "_")
 
@@ -924,8 +928,15 @@ def run_create_mode(args: argparse.Namespace) -> None:
             f"Wrote example test: {test_config['example_test_file']}"
         )
 
+    # Write additional scaffold source files
+    for rel_path, content in get_scaffold_files(primary_language, bare=bare):
+        file_path = project_path / rel_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(replace_placeholders(content))
+        verbose_print(f"Wrote scaffold file: {rel_path}")
+
     # Write type checker config for primary language
-    type_config = get_type_checker_config(primary_language)
+    type_config = get_type_checker_config(primary_language, bare=bare)
     if type_config:
         config_file = project_path / type_config["config_file"]
         if config_file.exists():
@@ -1000,7 +1011,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     _setup_test_hooks(project_path)
 
     # Run project init commands for primary language inside the container
-    init_commands = get_project_init_commands(primary_language, project_name)
+    init_commands = get_project_init_commands(
+        primary_language, project_name, bare=bare
+    )
     if init_commands:
         combined_cmd = " && ".join([" ".join(c) for c in init_commands])
         verbose_print(f"Running in container: {combined_cmd}")

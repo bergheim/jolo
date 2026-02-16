@@ -415,6 +415,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         metavar="LANG[,...]",
         help="Project language(s): python, go, typescript, rust, shell, prose, other",
     )
+    sub_create.add_argument(
+        "--bare",
+        action="store_true",
+        default=False,
+        help="Minimal scaffold without web framework (TypeScript: skip BETH stack)",
+    )
 
     # clone: prompt, agent, detach, exec, mounts, new, sync, verbose
     sub_clone = subparsers.add_parser(
