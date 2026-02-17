@@ -286,13 +286,18 @@ def _flavor_template_path(flavor: str, filename: str) -> str:
     Flavors like 'go-web' map to 'lang/go/web/<filename>',
     'go-bare' maps to 'lang/go/<filename>' (bare is the base variant).
     Non-split flavors like 'rust' map to 'lang/rust/<filename>'.
+    Falls back to 'lang/other/<filename>' when the resolved path doesn't exist.
     """
     lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
     is_web = flavor.endswith("-web")
     subdir = "web" if is_web else ""
     if subdir:
-        return f"lang/{lang}/{subdir}/{filename}"
-    return f"lang/{lang}/{filename}"
+        path = f"lang/{lang}/{subdir}/{filename}"
+    else:
+        path = f"lang/{lang}/{filename}"
+    if not (_TEMPLATES_DIR / path).exists():
+        path = f"lang/other/{filename}"
+    return path
 
 
 def get_justfile_content(flavor: str, project_name: str) -> str:
