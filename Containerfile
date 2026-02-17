@@ -107,7 +107,8 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 
 # tmux system config (must be written as root)
 RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
-    echo 'set -g terminal-features ",tmux-direct:sixel,xterm-256color:sixel,wezterm:sixel"' >> /etc/tmux.conf
+    echo 'set -s set-clipboard on' >> /etc/tmux.conf && \
+    echo 'set -as terminal-features ",*:clipboard:sixel:extkeys"' >> /etc/tmux.conf
 
 # Root-level files and setup
 COPY container/e /usr/local/bin/e
@@ -222,7 +223,6 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
     echo "alias xcat='chafa --format=sixel'" >> $HOME/.zshrc.container && \
     echo 'export EDITOR=nvim' >> $HOME/.zshrc.container && \
-    echo 'export TERM=tmux-direct' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
     echo '[ "$(tmux display-message -p "#{window_name}" 2>/dev/null)" = "shell" ] && motd 2>/dev/null' >> $HOME/.zshrc.container
 

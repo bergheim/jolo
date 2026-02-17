@@ -34,3 +34,8 @@ See `docs/MEMORY.org` for shared project knowledge across all agents.
 - 2026-02-09: Added GH_TOKEN passthrough to devcontainers. The gh config mount alone is insufficient because modern gh uses OS keyring. Solution: `get_secrets()` runs `gh auth token` on host and passes result as env var.
 - Could not push to GitHub from this container because it was started before the GH_TOKEN fix. Needs `jolo up --sync --new` to apply.
 - 2026-02-09: Fixed `jolo up --new --sync` port conflict — skip port check when `remove_existing=True`. Added reattach notice. Moved motd from .zshrc.container to dev.yml shell window. Merged `sdd` branch (OpenSpec trial, credential RW mount).
+- 2026-02-17: Moved TODO.org and RESEARCH.org to docs/ for consistency with generated projects. Deleted stale docs/STATUS.org.
+- 2026-02-17: Simplified tmux terminal-features to `*:sixel:extkeys` wildcard. Host `~/.tmux.conf` is EROFS in emacs-container — can't edit from here.
+- 2026-02-17: User concerned about scaffolding complexity growth. Saved flavor menu refactoring plan to docs/TODO.org (flatten `--bare` into `typescript-web`/`typescript-bare` picker). Parked for later.
+- 2026-02-17: Host tmux.conf yadm sandbox has `set -g terminal-features` (no -a) that clobbers /etc/tmux.conf. User needs to fix on host side.
+- 2026-02-17: Saved Claude Code skills ecosystem research to docs/research/skills-claude.org (841 lines, 30+ repos, 17 HN threads).

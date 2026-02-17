@@ -968,6 +968,52 @@ Added ~get_secrets=mock.Mock(return_value={})~ to both ~_mock_devcontainer_calls
 ** Key files
 - ~tests/test_integration.py~
 
+* tmux terminal-features wildcard and host config override  :tmux:terminal:config:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+tmux =terminal-features= uses =fnmatch(3)= for pattern matching, so =*= works
+as a wildcard for all terminal types. Replaced per-terminal listings with
+=set -as terminal-features ",*:sixel:extkeys"= in =/etc/tmux.conf=.
+
+** extkeys
+
+Enables CSI u / xterm modifyOtherKeys. Lets tmux distinguish key combos that
+are normally ambiguous (=C-S-a= vs =C-a=, =C-;=, =C-RET=). Required for
+Emacs keybindings like =C-S-<return>= through tmux. Needs =set -s extended-keys on=
+on the server side as well.
+
+** Host config clobbers container /etc/tmux.conf
+
+The host =~/.tmux.conf= is bind-mounted into jolo containers (readonly) and
+the emacs-container yadm sandbox. tmux loads =/etc/tmux.conf= first, then
+=~/.tmux.conf=. Any =set -g terminal-features= (without =-a=) in the user
+config *replaces the entire array*, wiping =/etc/tmux.conf= settings.
+
+Found in the yadm sandbox copy:
+#+begin_src tmux
+set -g terminal-features ',xterm-256color:sixel'
+#+end_src
+This nuked all prior settings (clipboard, extkeys from /etc/tmux.conf).
+
+** Fix
+
+Container =/etc/tmux.conf= (Containerfile):
+#+begin_src tmux
+set -g allow-passthrough on
+set -as terminal-features ",*:sixel:extkeys"
+#+end_src
+
+Host =~/.tmux.conf= should:
+1. Uncomment/broaden: =set -as terminal-features '*:extkeys:sixel:clipboard'=
+2. Remove the clobbering =set -g terminal-features ',xterm-256color:sixel'=
+
+** Host config is read-only in emacs-container
+
+=/home/tsb/.tmux.conf= is EROFS in the emacs-container. Changes must be made
+on the host directly.
+
 * BETH scaffold plan review (openspec)                    :typescript:scaffold:elysia:
 :PROPERTIES:
 :DATE: 2026-02-16
@@ -998,3 +1044,145 @@ risk before coding.
 - =openspec/changes/beth-stack-scaffold/plan.md=
 - =_jolo/templates.py=
 - =_jolo/commands.py=
+
+* Host tmux.conf terminal-features clobber (post-rebuild audit) :tmux:terminal:clipboard:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Post-rebuild audit of terminal setup. Container-side fixes from this branch
+are working: =TERM=tmux-direct= comes from tmux's =default-terminal= (not
+forced via env/shell), =/etc/tmux.conf= appends =*:sixel:extkeys=.
+
+** Problem: host tmux.conf clobbers /etc/tmux.conf
+
+The host =~/.tmux.conf= (bind-mounted into container) has a non-appending
+=set -g terminal-features= near the end that wipes everything set earlier:
+
+#+begin_src tmux
+# This line (near bottom of host ~/.tmux.conf) resets the array:
+set -g terminal-features ',xterm-256color:sixel'
+
+# These earlier lines get wiped by the above:
+set -as terminal-features ',*:clipboard'   # gone
+# /etc/tmux.conf: set -as terminal-features ",*:sixel:extkeys"  # gone
+#+end_src
+
+Also redundant: the =Ms= terminal-override for OSC 52 is unnecessary when
+=clipboard= is in terminal-features (tmux 3.2+).
+
+** Outer client TERM
+
+=tmux display -p '#{client_termname}'= shows =xterm= — this is what the
+devcontainer runtime provides. The =terminal-overrides *:RGB= and =*:Ms=...=
+wildcards compensate. The =terminal-features= wildcard =*:sixel:extkeys=
+would also cover it, if not clobbered.
+
+** Fix (on host, not container — EROFS here)
+
+Remove from host =~/.tmux.conf=:
+- =set -g terminal-features ',xterm-256color:sixel'= (clobbering line)
+- =set -as terminal-features ',*:clipboard'= (consolidated)
+- =set -ga terminal-overrides ',*:Ms=\E]52;%p1%s;%p2%s\007'= (redundant with clipboard feature)
+- Commented-out =# set -as terminal-features 'xterm*:extkeys'=
+
+Replace with single consolidated line:
+#+begin_src tmux
+set -as terminal-features ',*:clipboard:sixel:extkeys'
+#+end_src
+
+* Mosh OSC 52 clipboard with tmux                      :mosh:tmux:clipboard:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Mosh 1.4.0 added OSC 52 clipboard support but only accepts the =c;= selection
+parameter (e.g., =\e]52;c;BASE64\a=). tmux emits =\e]52;;BASE64\a= (empty
+selection) which mosh silently drops.
+
+** Root cause
+
+tmux's =clipboard= terminal-feature (3.2+) uses a hardcoded built-in OSC 52
+format with empty selection parameter AND ignores the =Ms= terminal-override.
+So even with a correct =Ms= override, the =clipboard= feature bypasses it.
+
+** Fix (host tmux.conf)
+
+1. Remove =clipboard= from =terminal-features=:
+   #+begin_src tmux
+   set -as terminal-features ',*:sixel:extkeys'
+   #+end_src
+
+2. Add =Ms= override that hardcodes =c;= for mosh compatibility:
+   #+begin_src tmux
+   set -as terminal-overrides ',*:Ms=\\E]52;c%p1%.0s;%p2%s\\7'
+   #+end_src
+
+3. Keep =set-clipboard on=.
+
+4. Kill tmux server (=tmux kill-server=) — overrides are read at server start.
+
+The =c;= format works everywhere (mosh, SSH, direct terminal). All terminals
+that support OSC 52 accept the =c= (clipboard) selection parameter.
+
+** Mosh limitations
+
+- Clipboard truncated at ~1.4 KB (UDP packet size limit)
+- Copy-out only (cannot paste from local clipboard into mosh)
+- PRs [[https://github.com/mobile-shell/mosh/pull/1054][#1054]] and [[https://github.com/mobile-shell/mosh/pull/1104][#1104]] fix the empty-selection issue but remain unmerged
+
+** Key insight
+
+=%.0s= in the =Ms= format consumes the selection parameter without printing it,
+allowing =c= to be hardcoded. This is a terminfo formatting trick.
+
+** Debugging OSC 52 through mosh
+
+Bypass tmux's Ms/clipboard mechanism entirely:
+#+begin_src sh
+printf '\033]52;c;%s\007' $(echo -n "test" | base64)
+#+end_src
+If this copies to clipboard, mosh forwards OSC 52 correctly and the problem
+is tmux's output format.
+
+** Container /etc/tmux.conf
+
+Keeps =clipboard= in terminal-features because the host =~/.tmux.conf=
+(bind-mounted) handles the Ms override. Do not change container config.
+
+** Refs
+- [[https://github.com/mobile-shell/mosh/issues/637][Mosh #637]] — original OSC 52 request (2015)
+- [[https://github.com/mobile-shell/mosh/pull/1054][Mosh PR #1054]] — tmux compatibility fix (unmerged)
+- [[https://github.com/mobile-shell/mosh/pull/1104][Mosh PR #1104]] — improved selection types (unmerged)
+- [[https://github.com/tmux/tmux/wiki/Clipboard][tmux clipboard wiki]]
+
+* term-keys regression fixed in container defaults      :tmux:term-keys:emacs:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Terminal Emacs key handling regressed because the container forced
+=TERM=tmux-direct= in both generated =devcontainer.json= and shell init.
+That bypassed normal terminal negotiation and broke expected key behavior.
+
+** Root cause
+- =_jolo/container.py= injected =containerEnv.TERM=tmux-direct=
+- =Containerfile= wrote =export TERM=tmux-direct= into =.zshrc.container=
+- tmux =terminal-features= config was initially set with =set -g=, which can
+  clobber defaults instead of appending
+
+** Fix
+- Removed forced TERM from generated devcontainer config and shell init
+- Switched tmux feature config to append mode:
+  #+begin_src tmux
+  set -as terminal-features ",tmux-direct:sixel:extkeys"
+  set -as terminal-features ",xterm-256color:sixel:extkeys"
+  set -as terminal-features ",wezterm:sixel:extkeys"
+  set -as terminal-features ",kitty:extkeys,alacritty:extkeys,foot:extkeys"
+  #+end_src
+- Added regression test to assert TERM is not forced in =containerEnv=
+
+** Key files
+- =_jolo/container.py=
+- =Containerfile=
+- =tests/test_cli.py=
