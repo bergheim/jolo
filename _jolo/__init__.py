@@ -49,9 +49,7 @@ from _jolo.commands import (  # noqa: F401
 from _jolo.constants import (  # noqa: F401
     ADJECTIVES,
     DEFAULT_CONFIG,
-    FLAVOR_CODE_MAP,
     FLAVOR_LANGUAGE,
-    FLAVOR_OPTIONS,
     HAVE_ARGCOMPLETE,
     NOUNS,
     PORT_MAX,

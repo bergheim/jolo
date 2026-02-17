@@ -576,30 +576,6 @@ class TestFlavorArgParsing(unittest.TestCase):
         )
 
 
-class TestFlavorCodeMapping(unittest.TestCase):
-    """Test the flavor display name to code mapping."""
-
-    def test_mapping_exists(self):
-        """FLAVOR_CODE_MAP should exist."""
-        self.assertTrue(hasattr(jolo, "FLAVOR_CODE_MAP"))
-
-    def test_all_options_have_mapping(self):
-        """Every FLAVOR_OPTIONS entry should have a code mapping."""
-        for option in jolo.FLAVOR_OPTIONS:
-            self.assertIn(
-                option, jolo.FLAVOR_CODE_MAP, f"Missing mapping for {option}"
-            )
-
-    def test_mapping_values_are_valid(self):
-        """All mapped codes should be in VALID_FLAVORS."""
-        for option, code in jolo.FLAVOR_CODE_MAP.items():
-            self.assertIn(
-                code,
-                jolo.VALID_FLAVORS,
-                f"Code '{code}' for '{option}' not in VALID_FLAVORS",
-            )
-
-
 class TestExecArgParsing(unittest.TestCase):
     """Test exec subcommand argument parsing."""
 
