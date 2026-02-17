@@ -1044,3 +1044,34 @@ risk before coding.
 - =openspec/changes/beth-stack-scaffold/plan.md=
 - =_jolo/templates.py=
 - =_jolo/commands.py=
+
+* term-keys regression fixed in container defaults      :tmux:term-keys:emacs:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Terminal Emacs key handling regressed because the container forced
+=TERM=tmux-direct= in both generated =devcontainer.json= and shell init.
+That bypassed normal terminal negotiation and broke expected key behavior.
+
+** Root cause
+- =_jolo/container.py= injected =containerEnv.TERM=tmux-direct=
+- =Containerfile= wrote =export TERM=tmux-direct= into =.zshrc.container=
+- tmux =terminal-features= config was initially set with =set -g=, which can
+  clobber defaults instead of appending
+
+** Fix
+- Removed forced TERM from generated devcontainer config and shell init
+- Switched tmux feature config to append mode:
+  #+begin_src tmux
+  set -as terminal-features ",tmux-direct:sixel:extkeys"
+  set -as terminal-features ",xterm-256color:sixel:extkeys"
+  set -as terminal-features ",wezterm:sixel:extkeys"
+  set -as terminal-features ",kitty:extkeys,alacritty:extkeys,foot:extkeys"
+  #+end_src
+- Added regression test to assert TERM is not forced in =containerEnv=
+
+** Key files
+- =_jolo/container.py=
+- =Containerfile=
+- =tests/test_cli.py=
