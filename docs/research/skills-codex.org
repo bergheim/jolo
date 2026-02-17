@@ -1,0 +1,90 @@
+#+TITLE: SOTA human-curated Agent Skills landscape (Codex-focused)
+#+DATE: 2026-02-17
+#+PROPERTY: PROMPT go online and do a deep research for SOTA human curated and created SKILLS - popular github repos, hn articleds, etc. but the findings in docs/research/skills-codex.org
+
+* Summary
+- The ecosystem has converged on a shared =SKILL.md= model: concise metadata for discovery, full instructions on demand, optional scripts/resources, and repo/package distribution.
+- Strongest official anchors are Anthropic's =anthropics/skills= and OpenAI's Codex skills docs + =openai/skills= catalog.
+- Community curation is now a major force: very large "awesome skills" and "config + skills" repos drive practical adoption faster than vendor docs alone.
+- Hacker News interest is high and recent, with multiple high-engagement threads on Agent Skills and Codex Skills.
+- SOTA is moving from "lists of skills" to "measured quality" (benchmarks/leaderboards) plus security hardening.
+
+* Findings
+** 1) Most important repos (by adoption + relevance)
+
+| Repo | Stars (2026-02-17) | Why it matters |
+|---+---:|---|
+| [[https://github.com/anthropics/skills][anthropics/skills]] | 70845 | Largest official skills corpus; defines practical patterns many community repos mirror. |
+| [[https://github.com/affaan-m/everything-claude-code][affaan-m/everything-claude-code]] | 47172 | High-signal community distribution of real configs/skills/workflows; de facto playbook repo. |
+| [[https://github.com/Fission-AI/OpenSpec][Fission-AI/OpenSpec]] | 24328 | Spec-driven workflow system broadly used with coding agents; adjacent to "skills" as reusable agent process artifacts. |
+| [[https://github.com/openai/skills][openai/skills]] | 8760 | Official Codex skills catalog; explicitly references open standard and installer flows. |
+| [[https://github.com/travisvn/awesome-claude-skills][travisvn/awesome-claude-skills]] | 7213 | Curated aggregator; useful discovery layer for human-selected skills/resources. |
+| [[https://github.com/trailofbits/skills][trailofbits/skills]] | 2735 | Security-specialized curated skills from a respected security firm; strong domain quality signal. |
+
+Notes: star counts from GitHub API snapshot on 2026-02-17.
+
+** 2) Official docs and standards now align on key mechanics
+- OpenAI Codex docs define skill locations and precedence: project =./.codex/skills=, personal =~/.codex/skills=, system skills; packages from registries are also supported ("Use package skills by adding the package name"):
+  [[https://developers.openai.com/codex/skills/][developers.openai.com/codex/skills]].
+- OpenAI "Create a skill" docs specify activation and structure expectations, including frontmatter =name= and =description=, plus optional scripts/resources:
+  [[https://developers.openai.com/codex/skills/create-skill][developers.openai.com/codex/skills/create-skill]].
+- =openai/skills= documents distribution tiers (=.system=.curated/.experimental=), installer usage, and links to the Agent Skills open standard:
+  [[https://github.com/openai/skills][github.com/openai/skills]].
+- Anthropic engineering notes emphasize efficiency via two-stage loading (small description scan, then full skill load if matched), and introduces =SKILL.md= as shared standard:
+  [[https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills][anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills]].
+- Agent Skills standard site formalizes portability intent across ecosystems:
+  [[https://agentskills.io/][agentskills.io]].
+
+** 3) HN and public discourse: high momentum, not niche
+- "Agent Skills" reached high engagement on HN: 544 points, 261 comments (2026-02-03):
+  [[https://news.ycombinator.com/item?id=46871173][news.ycombinator.com/item?id=46871173]].
+- "OpenAI are quietly adopting skills, now available in ChatGPT and Codex CLI" reached 587 points, 324 comments (2025-12-12):
+  [[https://news.ycombinator.com/item?id=46250332][news.ycombinator.com/item?id=46250332]].
+- "Skills Officially Comes to Codex" reached 304 points, 130 comments (2025-12-20):
+  [[https://news.ycombinator.com/item?id=46334424][news.ycombinator.com/item?id=46334424]].
+
+Inference: skills are now a mainstream coordination primitive for coding agents, not an experimental edge feature.
+
+** 4) What looks SOTA in practice (human-curated skills)
+- Progressive disclosure: keep skill metadata tiny for routing; load full instructions only when selected.
+- Narrow, operational skills: one job, clear triggers, deterministic run steps, concrete outputs.
+- Packaged distribution: installable via skill managers/registries/GitHub paths, not copy-paste only.
+- Curated collections with maintainers: quality control by curation beats fully open ingest for reliability.
+- Domain specialization libraries: security, web testing, infra, docs workflows each have dedicated sets.
+- Evidence loops: benchmark/leaderboard momentum (e.g., SkillsBench) suggests quality measurement is becoming standard:
+  [[https://arxiv.org/abs/2602.12670][arxiv.org/abs/2602.12670]].
+
+** 5) Risks and quality gaps to account for
+- Skills can execute arbitrary code; community lists explicitly warn about this.
+- Security researchers are now analyzing skills as an attack surface:
+  [[https://blog.1password.com/openclaw-agent-skills-security/][blog.1password.com/openclaw-agent-skills-security/]].
+- Curation quality varies widely; stars alone do not guarantee correctness or safety.
+
+** 6) Implications for this Codex container project
+- Installing OpenSpec in image is directionally aligned with ecosystem SOTA (shared reusable agent workflows).
+- If you want to raise quality further, the next step is not "more skills" but "better skill governance":
+  - explicit trusted-source policy for skill installs,
+  - simple eval harness for critical skills,
+  - lightweight review gate before adding new skills to templates/image.
+
+* Links
+- [[https://github.com/anthropics/skills][GitHub - anthropics/skills]]
+- [[https://github.com/openai/skills][GitHub - openai/skills]]
+- [[https://github.com/Fission-AI/OpenSpec][GitHub - Fission-AI/OpenSpec]]
+- [[https://github.com/affaan-m/everything-claude-code][GitHub - affaan-m/everything-claude-code]]
+- [[https://github.com/travisvn/awesome-claude-skills][GitHub - travisvn/awesome-claude-skills]]
+- [[https://github.com/trailofbits/skills][GitHub - trailofbits/skills]]
+- [[https://developers.openai.com/codex/skills/][OpenAI Codex Skills docs]]
+- [[https://developers.openai.com/codex/skills/create-skill][OpenAI Create a Skill docs]]
+- [[https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills][Anthropic engineering: Agent Skills]]
+- [[https://agentskills.io/][Agent Skills standard]]
+- [[https://news.ycombinator.com/item?id=46871173][HN: Agent Skills]]
+- [[https://news.ycombinator.com/item?id=46250332][HN: OpenAI adopting skills]]
+- [[https://news.ycombinator.com/item?id=46334424][HN: Skills officially comes to Codex]]
+- [[https://arxiv.org/abs/2602.12670][SkillsBench paper]]
+- [[https://blog.1password.com/openclaw-agent-skills-security/][1Password: skills attack surface]]
+
+* Open Questions
+- Which 5-10 skills should be "blessed" in this repo as trusted defaults vs user-installed extras?
+- Do you want a repo-local skills quality rubric (trigger clarity, determinism, safety, tests) before accepting new skills?
+- Should =jolo= add a "trusted skill sources" allowlist for install flows?
