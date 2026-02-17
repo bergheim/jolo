@@ -299,6 +299,91 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     jolo.run_create_mode(args)
 
+    def test_create_go_web_scaffold_files(self):
+        """create with go-web should write main.go, templ components, and justfile."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "go-web", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+
+        # main.go with /api/greet handler
+        main_go = project_path / "main.go"
+        self.assertTrue(main_go.exists())
+        content = main_go.read_text()
+        self.assertIn("handleHome", content)
+        self.assertIn("handleGreet", content)
+        self.assertIn("/api/greet", content)
+        self.assertIn('"testproj/components"', content)
+
+        # templ components
+        self.assertTrue((project_path / "components" / "page.templ").exists())
+        self.assertTrue((project_path / "components" / "home.templ").exists())
+
+        # justfile with templ + air
+        justfile = project_path / "justfile"
+        self.assertTrue(justfile.exists())
+        jf_content = justfile.read_text()
+        self.assertIn("templ generate", jf_content)
+        self.assertIn("air", jf_content)
+
+        # static dir
+        self.assertTrue((project_path / "static" / ".gitkeep").exists())
+
+    def test_create_python_web_scaffold_files(self):
+        """create with python-web should write FastAPI app, templates, and justfile."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "python-web", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+
+        # app.py with FastAPI
+        app_py = project_path / "src" / "testproj" / "app.py"
+        self.assertTrue(app_py.exists())
+        content = app_py.read_text()
+        self.assertIn("FastAPI", content)
+        self.assertIn("Jinja2Templates", content)
+
+        # main.py with uvicorn
+        main_py = project_path / "src" / "testproj" / "main.py"
+        self.assertTrue(main_py.exists())
+        main_content = main_py.read_text()
+        self.assertIn("uvicorn", main_content)
+        self.assertIn("testproj.app:app", main_content)
+
+        # Jinja2 templates
+        self.assertTrue((project_path / "templates" / "base.html").exists())
+        self.assertTrue((project_path / "templates" / "home.html").exists())
+        base_html = (project_path / "templates" / "base.html").read_text()
+        self.assertIn("htmx", base_html)
+
+        # pyproject.toml with FastAPI deps
+        pyproject = project_path / "pyproject.toml"
+        self.assertTrue(pyproject.exists())
+        pyp_content = pyproject.read_text()
+        self.assertIn("fastapi", pyp_content)
+        self.assertIn("uvicorn", pyp_content)
+        self.assertIn("jinja2", pyp_content)
+
+        # justfile with uvicorn dev server
+        justfile = project_path / "justfile"
+        self.assertTrue(justfile.exists())
+        jf_content = justfile.read_text()
+        self.assertIn("uvicorn", jf_content)
+        self.assertIn("--reload", jf_content)
+
+        # static dir
+        self.assertTrue((project_path / "static" / ".gitkeep").exists())
+
     def test_create_template_files_are_copied(self):
         """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
         args = jolo.parse_args(

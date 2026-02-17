@@ -1,6 +1,6 @@
 # Run the project
 run:
-    uv run python src/{{MODULE_NAME}}/main.py
+    uv run {{PROJECT_NAME}}
 
 # Run with auto-reload
 dev:
