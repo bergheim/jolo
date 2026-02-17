@@ -26,6 +26,25 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Mosh 1.4.0 supports OSC 52 but only with =c;= selection — tmux's =clipboard= feature emits =;;= (empty) which mosh drops :mosh:clipboard:
 - For mosh clipboard: remove =clipboard= from =terminal-features=, use =Ms= override with hardcoded =c;=: =set -as terminal-overrides ',*:Ms=\\E]52;c%p1%.0s;%p2%s\\7'= :mosh:clipboard:tmux:
 
+* Terminal Image Display                                       :terminal:images:
+
+- Three protocols: Sixel (1983 DEC), Kitty graphics (2017), iTerm2 inline images
+- Kitty protocol is technically superior: 32-bit RGBA, caching, transparency, proper spec
+- Sixel: palette-based color, no transparency, no caching, underspecified behavior
+- Kitty/Ghostty refuse to implement sixel — push ecosystem toward kitty protocol
+- tmux supports sixel natively (buggy: flickering, input-buffer-size limits) but NOT kitty graphics
+- Kitty graphics through tmux uses *unicode placeholders* (U+10EEEE) — only kitty and Ghostty support this
+- Container uses =kitty-kitten= package (25MB) for =kitten icat= command
+- =icat= alias in container points to =kitten icat= (works through tmux with Ghostty/kitty host)
+- =chafa= still installed as fallback (auto-detects protocol, falls back to Unicode block art)
+- Host terminal must be Ghostty or kitty for images-in-tmux to work via kitty protocol
+- WezTerm: supports all 3 protocols but maintenance stalled (last stable release Feb 2024)
+- Alacritty: zero image protocol support, maintainers refuse to add it
+- foot: Wayland-only (no X11), sixel only — not viable for dual Sway+i3 setup
+- Ghostty: GTK4 (Wayland+X11), kitty graphics + unicode placeholders, Arch =extra= repo
+- tmux =input-buffer-size= defaults to 1MB — large sixel images silently dropped; increase to 4MB+ if using sixel
+- =TERM_PROGRAM= env var does not propagate over SSH — cannot detect host terminal via env vars in containers
+
 * Gotchas
 
 - Grep/Glob tools sometimes miss =_jolo/*.py= — use =**/_jolo/**/*.py= or =ls= :tooling:
