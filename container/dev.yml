@@ -3,7 +3,7 @@ startup_window: shell
 windows:
   - emacs: e
   - claude: claude
-  - gemini: gemini
   - codex: codex
+  - gemini: gemini
   - pi: pi
   - shell:
