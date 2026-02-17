@@ -1091,6 +1091,71 @@ Replace with single consolidated line:
 set -as terminal-features ',*:clipboard:sixel:extkeys'
 #+end_src
 
+* Mosh OSC 52 clipboard with tmux                      :mosh:tmux:clipboard:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Mosh 1.4.0 added OSC 52 clipboard support but only accepts the =c;= selection
+parameter (e.g., =\e]52;c;BASE64\a=). tmux emits =\e]52;;BASE64\a= (empty
+selection) which mosh silently drops.
+
+** Root cause
+
+tmux's =clipboard= terminal-feature (3.2+) uses a hardcoded built-in OSC 52
+format with empty selection parameter AND ignores the =Ms= terminal-override.
+So even with a correct =Ms= override, the =clipboard= feature bypasses it.
+
+** Fix (host tmux.conf)
+
+1. Remove =clipboard= from =terminal-features=:
+   #+begin_src tmux
+   set -as terminal-features ',*:sixel:extkeys'
+   #+end_src
+
+2. Add =Ms= override that hardcodes =c;= for mosh compatibility:
+   #+begin_src tmux
+   set -as terminal-overrides ',*:Ms=\\E]52;c%p1%.0s;%p2%s\\7'
+   #+end_src
+
+3. Keep =set-clipboard on=.
+
+4. Kill tmux server (=tmux kill-server=) — overrides are read at server start.
+
+The =c;= format works everywhere (mosh, SSH, direct terminal). All terminals
+that support OSC 52 accept the =c= (clipboard) selection parameter.
+
+** Mosh limitations
+
+- Clipboard truncated at ~1.4 KB (UDP packet size limit)
+- Copy-out only (cannot paste from local clipboard into mosh)
+- PRs [[https://github.com/mobile-shell/mosh/pull/1054][#1054]] and [[https://github.com/mobile-shell/mosh/pull/1104][#1104]] fix the empty-selection issue but remain unmerged
+
+** Key insight
+
+=%.0s= in the =Ms= format consumes the selection parameter without printing it,
+allowing =c= to be hardcoded. This is a terminfo formatting trick.
+
+** Debugging OSC 52 through mosh
+
+Bypass tmux's Ms/clipboard mechanism entirely:
+#+begin_src sh
+printf '\033]52;c;%s\007' $(echo -n "test" | base64)
+#+end_src
+If this copies to clipboard, mosh forwards OSC 52 correctly and the problem
+is tmux's output format.
+
+** Container /etc/tmux.conf
+
+Keeps =clipboard= in terminal-features because the host =~/.tmux.conf=
+(bind-mounted) handles the Ms override. Do not change container config.
+
+** Refs
+- [[https://github.com/mobile-shell/mosh/issues/637][Mosh #637]] — original OSC 52 request (2015)
+- [[https://github.com/mobile-shell/mosh/pull/1054][Mosh PR #1054]] — tmux compatibility fix (unmerged)
+- [[https://github.com/mobile-shell/mosh/pull/1104][Mosh PR #1104]] — improved selection types (unmerged)
+- [[https://github.com/tmux/tmux/wiki/Clipboard][tmux clipboard wiki]]
+
 * term-keys regression fixed in container defaults      :tmux:term-keys:emacs:
 :PROPERTIES:
 :DATE: 2026-02-17

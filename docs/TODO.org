@@ -6,8 +6,11 @@
    Added =fission-ai/openspec@latest= to global =pnpm add -g= in =Containerfile=.
 ** DONE Set default Codex reasoning effort in generated project config
 ** DONE Add shared per-project multi-agent memory + per-agent personal memory
-** TODO Tmux copy/paste broken over mosh (works over ssh)
-   Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
+** DONE Tmux copy/paste broken over mosh (works over ssh)
+   Root cause: mosh 1.4.0 only accepts OSC 52 with =c;= selection parameter.
+   tmux's =clipboard= terminal-feature emits =;;= (empty selection) which mosh drops.
+   Fix: remove =clipboard= from =terminal-features=, use =Ms= override with hardcoded =c;=.
+   See =docs/RESEARCH.org= for full details.
 ** CANCELLED Send agent findings via email (or similar async channel)
    ntfy.sh covers this well enough.
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
@@ -212,10 +215,11 @@
    Added tmux =extkeys= terminal-features hints for =tmux-direct=, =xterm-256color=, and =wezterm=.
    Follow-up (external review): switched tmux config to =set -as terminal-features=
    and added =kitty/alacritty/foot= extkeys hints to avoid clobbering defaults.
-** TODO Fix host ~/.tmux.conf terminal-features clobbering
-   Host config has =set -g terminal-features= (non-appending) that wipes =/etc/tmux.conf=.
-   Consolidate clipboard/sixel/extkeys into =set -as terminal-features ',*:clipboard:sixel:extkeys'=.
-   Remove redundant =Ms= terminal-override. Must be done on host (EROFS in container).
+** DONE Fix host ~/.tmux.conf terminal-features clobbering
+   Host config now uses =set -as= (appending). Consolidated clipboard/sixel/extkeys.
+   Container =/etc/tmux.conf= also uses =set -as= so both coexist.
+   Additionally: removed =clipboard= from host terminal-features to enable =Ms= override
+   for mosh OSC 52 compatibility.
 ** DONE Add doc-compare skill for narrative version diffs
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
