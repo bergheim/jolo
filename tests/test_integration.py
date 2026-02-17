@@ -13,8 +13,8 @@ except ImportError:
     jolo = None
 
 
-class TestCreateModeLanguageIntegration(unittest.TestCase):
-    """Integration tests for run_create_mode() language handling."""
+class TestCreateModeFlavorIntegration(unittest.TestCase):
+    """Integration tests for run_create_mode() flavor handling."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -40,10 +40,16 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             get_secrets=mock.Mock(return_value={}),
         )
 
-    def test_create_with_lang_uses_provided_languages(self):
-        """create with --lang should use the provided languages."""
+    def test_create_with_flavor_uses_provided_flavors(self):
+        """create with --flavor should use the provided flavors."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python,typescript", "-d"]
+            [
+                "create",
+                "testproj",
+                "--flavor",
+                "python-web,typescript-bare",
+                "-d",
+            ]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -52,37 +58,37 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
         project_path = Path(self.tmpdir) / "testproj"
 
-        # Check .pre-commit-config.yaml was created with correct hooks
         precommit_config = project_path / ".pre-commit-config.yaml"
         self.assertTrue(precommit_config.exists())
         content = precommit_config.read_text()
         self.assertIn("ruff", content)  # Python
         self.assertIn("biome", content)  # TypeScript
 
-    def test_create_without_lang_calls_interactive_selector(self):
-        """create without --lang should call select_languages_interactive."""
+    def test_create_without_flavor_calls_interactive_selector(self):
+        """create without --flavor should call select_flavors_interactive."""
         args = jolo.parse_args(["create", "testproj", "-d"])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks["devcontainer_up"].return_value = True
             with mock.patch(
-                "_jolo.commands.select_languages_interactive",
-                return_value=["go"],
+                "_jolo.commands.select_flavors_interactive",
+                return_value=["go-bare"],
             ) as mock_selector:
                 jolo.run_create_mode(args)
                 mock_selector.assert_called_once()
 
         project_path = Path(self.tmpdir) / "testproj"
 
-        # Check .pre-commit-config.yaml reflects selected language
         precommit_config = project_path / ".pre-commit-config.yaml"
         self.assertTrue(precommit_config.exists())
         content = precommit_config.read_text()
         self.assertIn("golangci-lint", content)  # Go
 
     def test_create_generates_precommit_config(self):
-        """create should generate .pre-commit-config.yaml based on languages."""
-        args = jolo.parse_args(["create", "testproj", "--lang", "rust", "-d"])
+        """create should generate .pre-commit-config.yaml based on flavors."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "rust", "-d"]
+        )
 
         with self._mock_devcontainer_calls() as mocks:
             mocks["devcontainer_up"].return_value = True
@@ -93,17 +99,15 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
         self.assertTrue(precommit_config.exists())
         content = precommit_config.read_text()
-        # Rust hooks
         self.assertIn("cargo-check", content)
         self.assertIn("fmt", content)
-        # Base hooks always included
         self.assertIn("trailing-whitespace", content)
         self.assertIn("gitleaks", content)
 
     def test_create_copies_gitignore_from_templates(self):
         """create should copy .gitignore from templates/."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python", "-d"]
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -118,7 +122,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
     def test_create_copies_editorconfig_from_templates(self):
         """create should copy .editorconfig from templates/."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python", "-d"]
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -130,18 +134,22 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
         self.assertTrue(editorconfig.exists())
 
-    def test_create_runs_init_commands_for_primary_language(self):
-        """create should run project init commands for primary language after container starts."""
+    def test_create_runs_init_commands_for_primary_flavor(self):
+        """create should run project init commands for primary flavor."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python,typescript", "-d"]
+            [
+                "create",
+                "testproj",
+                "--flavor",
+                "python-bare,typescript-web",
+                "-d",
+            ]
         )
 
         with self._mock_devcontainer_calls() as mocks:
             mocks["devcontainer_up"].return_value = True
             jolo.run_create_mode(args)
 
-            # Primary language is python (first in list)
-            # Should have executed mkdir -p tests inside the container
             exec_calls = mocks["devcontainer_exec_command"].call_args_list
             mkdir_called = any(
                 "mkdir -p tests" in str(call) for call in exec_calls
@@ -152,9 +160,9 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             )
 
     def test_create_writes_test_framework_config_for_python(self):
-        """create with python should write pytest config to pyproject.toml."""
+        """create with python-bare should write pytest config to pyproject.toml."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python", "-d"]
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -164,16 +172,14 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         project_path = Path(self.tmpdir) / "testproj"
         pyproject = project_path / "pyproject.toml"
 
-        # pyproject.toml should exist (created by copy_template or test config)
         if pyproject.exists():
             content = pyproject.read_text()
-            # Should have pytest config
             self.assertIn("pytest", content.lower())
 
     def test_create_installs_test_hooks(self):
         """create should install pre-commit hooks and set test defaults."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python", "-d"]
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -209,9 +215,9 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
             )
 
     def test_create_writes_test_framework_config_for_typescript(self):
-        """create with typescript should create example test with bun:test."""
+        """create with typescript-bare should create example test with bun:test."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "typescript", "-d"]
+            ["create", "testproj", "--flavor", "typescript-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -225,10 +231,10 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         content = example_test.read_text()
         self.assertIn("bun:test", content)
 
-    def test_create_writes_type_checker_config_for_typescript(self):
-        """create with typescript should write tsconfig.json."""
+    def test_create_writes_type_checker_config_for_typescript_web(self):
+        """create with typescript-web should write tsconfig.json with JSX."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "typescript", "-d"]
+            ["create", "testproj", "--flavor", "typescript-web", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -244,9 +250,9 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertIn("jsx", content)
 
     def test_create_writes_beth_source_files(self):
-        """create with typescript should write BETH scaffold files."""
+        """create with typescript-web should write BETH scaffold files."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "typescript", "-d"]
+            ["create", "testproj", "--flavor", "typescript-web", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -262,19 +268,17 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
         self.assertTrue((project_path / "src" / "styles.css").exists())
         self.assertTrue((project_path / "public" / ".gitkeep").exists())
 
-    def test_create_first_language_is_primary(self):
-        """First language in list should be treated as primary for init commands."""
+    def test_create_first_flavor_is_primary(self):
+        """First flavor in list should be treated as primary for init commands."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "go,python", "-d"]
+            ["create", "testproj", "--flavor", "go-bare,python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
             mocks["devcontainer_up"].return_value = True
             jolo.run_create_mode(args)
 
-            # Primary language is go (first in list)
             exec_calls = mocks["devcontainer_exec_command"].call_args_list
-            # Should have go mod init, not uv init
             go_mod_called = any(
                 "go mod init" in str(call) for call in exec_calls
             )
@@ -283,14 +287,14 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
                 f"Expected 'go mod init' to be called, got: {exec_calls}",
             )
 
-    def test_create_empty_language_selection_aborts(self):
+    def test_create_empty_flavor_selection_aborts(self):
         """If interactive selector returns empty list, should abort."""
         args = jolo.parse_args(["create", "testproj", "-d"])
 
         with self._mock_devcontainer_calls() as mocks:
             mocks["devcontainer_up"].return_value = True
             with mock.patch(
-                "_jolo.commands.select_languages_interactive", return_value=[]
+                "_jolo.commands.select_flavors_interactive", return_value=[]
             ):
                 with self.assertRaises(SystemExit):
                     jolo.run_create_mode(args)
@@ -298,7 +302,7 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
     def test_create_template_files_are_copied(self):
         """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
         args = jolo.parse_args(
-            ["create", "testproj", "--lang", "python", "-d"]
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -307,7 +311,6 @@ class TestCreateModeLanguageIntegration(unittest.TestCase):
 
         project_path = Path(self.tmpdir) / "testproj"
 
-        # These should be copied by copy_template_files
         for filename in ["AGENTS.md", "CLAUDE.md", "GEMINI.md"]:
             filepath = project_path / filename
             self.assertTrue(filepath.exists(), f"Expected {filename} to exist")

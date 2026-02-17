@@ -54,31 +54,62 @@ PORT_MAX = 5000
 # Global verbose flag
 VERBOSE = False
 
-# Valid languages for --lang flag
-VALID_LANGUAGES = frozenset(
-    ["python", "go", "typescript", "rust", "shell", "prose", "other"]
+# Valid flavors for --flavor flag
+VALID_FLAVORS = frozenset(
+    [
+        "typescript-web",
+        "typescript-bare",
+        "go-web",
+        "go-bare",
+        "python-web",
+        "python-bare",
+        "rust",
+        "shell",
+        "prose",
+        "other",
+    ]
 )
 
-# Language options for interactive selector (display names)
-LANGUAGE_OPTIONS = [
-    "Python",
-    "Go",
-    "TypeScript",
+# Flavor options for interactive selector (display names)
+FLAVOR_OPTIONS = [
+    "TypeScript (web)",
+    "TypeScript (bare)",
+    "Go (web)",
+    "Go (bare)",
+    "Python (web)",
+    "Python (bare)",
     "Rust",
     "Shell",
     "Prose/Docs",
     "Other",
 ]
 
-# Mapping from display names to language codes
-LANGUAGE_CODE_MAP = {
-    "Python": "python",
-    "Go": "go",
-    "TypeScript": "typescript",
+# Mapping from display names to flavor codes
+FLAVOR_CODE_MAP = {
+    "TypeScript (web)": "typescript-web",
+    "TypeScript (bare)": "typescript-bare",
+    "Go (web)": "go-web",
+    "Go (bare)": "go-bare",
+    "Python (web)": "python-web",
+    "Python (bare)": "python-bare",
     "Rust": "rust",
     "Shell": "shell",
     "Prose/Docs": "prose",
     "Other": "other",
+}
+
+# Map flavor to base language for pre-commit hooks, coverage, etc.
+FLAVOR_LANGUAGE = {
+    "typescript-web": "typescript",
+    "typescript-bare": "typescript",
+    "go-web": "go",
+    "go-bare": "go",
+    "python-web": "python",
+    "python-bare": "python",
+    "rust": "rust",
+    "shell": "shell",
+    "prose": "prose",
+    "other": "other",
 }
 
 # Pre-commit hook configurations by language
