@@ -1,13 +1,10 @@
 # Run the project
 run:
-    bun run src/index.tsx
+    bun run src/index.ts
 
 # Run with auto-reload
 dev:
-    @# Start CSS watch in background
-    @just css-watch > /dev/null 2>&1 & CSS_PID=$!; \
-    trap "kill $CSS_PID" EXIT; \
-    bun --hot src/index.tsx
+    bun --hot src/index.ts
 
 # Run tests
 test:
@@ -15,25 +12,8 @@ test:
 
 # Run tests continuously (on file change)
 test-watch:
-    fd -e ts -e tsx | entr -cn bun test
+    fd -e ts | entr -cn bun test
 
 # Add a dependency
 add *packages:
     bun add {{packages}}
-
-# Build CSS
-css:
-    bunx @tailwindcss/cli -i src/styles.css -o public/styles.css
-
-# Watch CSS
-css-watch:
-    bunx @tailwindcss/cli -i src/styles.css -o public/styles.css --watch
-
-# Setup static assets
-setup:
-    cp node_modules/htmx.org/dist/htmx.min.js public/
-    just css
-
-# Open in browser
-browse:
-    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty ; echo "Copied to clipboard: $u"

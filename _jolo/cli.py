@@ -87,7 +87,7 @@ def verbose_print(msg: str) -> None:
         print(f"[verbose] {msg}", file=sys.stderr)
 
 
-def _select_languages_gum() -> list[str]:
+def _select_flavors_gum() -> list[str]:
     """Use gum for interactive selection (if available)."""
     result = subprocess.run(
         [
@@ -95,9 +95,9 @@ def _select_languages_gum() -> list[str]:
             "choose",
             "--no-limit",
             "--header",
-            "Select project languages:",
+            "Select project flavor(s):",
         ]
-        + constants.LANGUAGE_OPTIONS,
+        + constants.FLAVOR_OPTIONS,
         capture_output=True,
         text=True,
     )
@@ -105,16 +105,16 @@ def _select_languages_gum() -> list[str]:
         return []
     selected = result.stdout.strip().splitlines()
     return [
-        constants.LANGUAGE_CODE_MAP[opt]
+        constants.FLAVOR_CODE_MAP[opt]
         for opt in selected
-        if opt in constants.LANGUAGE_CODE_MAP
+        if opt in constants.FLAVOR_CODE_MAP
     ]
 
 
-def _select_languages_fallback() -> list[str]:
+def _select_flavors_fallback() -> list[str]:
     """Fallback numbered input when gum isn't available."""
-    print("Select project languages (comma-separated numbers, e.g. 1,3):")
-    for i, opt in enumerate(constants.LANGUAGE_OPTIONS, 1):
+    print("Select project flavor(s) (comma-separated numbers, e.g. 1,3):")
+    for i, opt in enumerate(constants.FLAVOR_OPTIONS, 1):
         print(f"  {i}. {opt}")
     print()
     try:
@@ -128,58 +128,54 @@ def _select_languages_fallback() -> list[str]:
         part = part.strip()
         if part.isdigit():
             idx = int(part) - 1
-            if 0 <= idx < len(constants.LANGUAGE_OPTIONS):
+            if 0 <= idx < len(constants.FLAVOR_OPTIONS):
                 selected.append(
-                    constants.LANGUAGE_CODE_MAP[
-                        constants.LANGUAGE_OPTIONS[idx]
-                    ]
+                    constants.FLAVOR_CODE_MAP[constants.FLAVOR_OPTIONS[idx]]
                 )
     return selected
 
 
-def select_languages_interactive() -> list[str]:
-    """Show interactive multi-select picker for project languages.
+def select_flavors_interactive() -> list[str]:
+    """Show interactive multi-select picker for project flavors.
 
     Uses gum choose if available, falls back to numbered input.
 
     Returns:
-        List of selected language codes (lowercase), e.g. ['python', 'typescript'].
-        First selected = primary language. Returns empty list if user cancels.
+        List of selected flavor codes, e.g. ['python-web', 'typescript-bare'].
+        First selected = primary flavor. Returns empty list if user cancels.
     """
     if shutil.which("gum"):
         try:
-            return _select_languages_gum()
+            return _select_flavors_gum()
         except KeyboardInterrupt:
             return []
     else:
-        return _select_languages_fallback()
+        return _select_flavors_fallback()
 
 
-def parse_lang_arg(value: str) -> list[str]:
-    """Parse and validate --lang argument.
+def parse_flavor_arg(value: str) -> list[str]:
+    """Parse and validate --flavor argument.
 
-    Accepts comma-separated language names, strips whitespace, validates
-    each language against VALID_LANGUAGES.
+    Accepts comma-separated flavor names, strips whitespace, validates
+    each flavor against VALID_FLAVORS.
 
     Args:
-        value: Comma-separated string of language names
+        value: Comma-separated string of flavor names
 
     Returns:
-        List of validated language names
+        List of validated flavor names
 
     Raises:
-        argparse.ArgumentTypeError: If any language is invalid
+        argparse.ArgumentTypeError: If any flavor is invalid
     """
-    languages = [lang.strip() for lang in value.split(",")]
-    invalid = [
-        lang for lang in languages if lang not in constants.VALID_LANGUAGES
-    ]
+    flavors = [f.strip() for f in value.split(",")]
+    invalid = [f for f in flavors if f not in constants.VALID_FLAVORS]
     if invalid:
-        valid_list = ", ".join(sorted(constants.VALID_LANGUAGES))
+        valid_list = ", ".join(sorted(constants.VALID_FLAVORS))
         raise argparse.ArgumentTypeError(
-            f"Invalid language(s): {', '.join(invalid)}. Valid options: {valid_list}"
+            f"Invalid flavor(s): {', '.join(invalid)}. Valid options: {valid_list}"
         )
-    return languages
+    return flavors
 
 
 def parse_mount(arg: str, project_name: str) -> dict:
@@ -376,7 +372,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         run=None,
         mount=[],
         copy=[],
-        lang=None,
+        flavor=None,
         yes=False,
         verbose=False,
         purge=False,
@@ -409,17 +405,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     sub_create.add_argument("name", help="Project name")
     sub_create.add_argument(
-        "--lang",
-        type=parse_lang_arg,
+        "--flavor",
+        type=parse_flavor_arg,
         default=None,
-        metavar="LANG[,...]",
-        help="Project language(s): python, go, typescript, rust, shell, prose, other",
-    )
-    sub_create.add_argument(
-        "--bare",
-        action="store_true",
-        default=False,
-        help="Minimal scaffold without web framework (TypeScript: skip BETH stack)",
+        metavar="FLAVOR[,...]",
+        help="Project flavor(s): typescript-web, typescript-bare, go-web, go-bare, python-web, python-bare, rust, shell, prose, other",
     )
 
     # clone: prompt, agent, detach, exec, mounts, new, sync, verbose

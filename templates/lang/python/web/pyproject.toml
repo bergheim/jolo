@@ -1,0 +1,26 @@
+[project]
+name = "{{PROJECT_NAME}}"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-watch", "httpx"]
+
+[project.scripts]
+{{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{PROJECT_NAME_UNDERSCORE}}"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
