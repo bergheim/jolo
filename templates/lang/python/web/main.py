@@ -1,10 +1,10 @@
-import uvicorn
+import os
 
-from {{PROJECT_NAME_UNDERSCORE}}.app import app
+import uvicorn
 
 
 def main() -> None:
-    uvicorn.run("{{PROJECT_NAME_UNDERSCORE}}.app:app", host="0.0.0.0", port=int(__import__("os").environ.get("PORT", "4000")), reload=True)
+    uvicorn.run("{{PROJECT_NAME_UNDERSCORE}}.app:app", host="0.0.0.0", port=int(os.environ.get("PORT", "4000")), reload=True)
 
 
 if __name__ == "__main__":
