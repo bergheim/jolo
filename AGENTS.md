@@ -52,7 +52,7 @@ Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and not
 
 ## Task Tracking
 
-All tasks, plans, and TODOs go in `TODO.org` (org-mode format). Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties). Always check `TODO.org` for existing tasks before starting work, and update it as tasks are completed or new ones are identified.
+All tasks, plans, and TODOs go in `docs/TODO.org` (org-mode format). Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties). Always check `docs/TODO.org` for existing tasks before starting work, and update it as tasks are completed or new ones are identified.
 
 ## Project Memory
 
@@ -61,9 +61,9 @@ Shared knowledge lives in `docs/MEMORY.org` — all agents read and write this f
 | File | Purpose |
 |------|---------|
 | `docs/MEMORY.org` | Shared conventions, patterns, gotchas — read on session start |
-| `docs/TODO.org` | Actionable tasks (not used in this meta-project; see `TODO.org` at root) |
+| `docs/TODO.org` | Actionable tasks |
 
-**On session start:** Read `docs/MEMORY.org` and `TODO.org` for cross-agent knowledge and current tasks.
+**On session start:** Read `docs/MEMORY.org` and `docs/TODO.org` for cross-agent knowledge and current tasks.
 
 **On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:jolo:tmux:`).
 
