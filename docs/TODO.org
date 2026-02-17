@@ -13,6 +13,11 @@
    See =docs/RESEARCH.org= for full details.
 ** CANCELLED Send agent findings via email (or similar async channel)
    ntfy.sh covers this well enough.
+** TODO Auto-copy dev server URL to clipboard on =just dev=
+   Prepend an OSC 52 clipboard copy line to every web justfile's =dev= recipe.
+   When you type =just dev=, the URL (=http://localhost:$PORT=) goes to your
+   clipboard before the server blocks. Paste in browser. No separate =browse=
+   recipe needed — remove it from justfiles that have it.
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
    - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =typescript-bare= for plain Bun
