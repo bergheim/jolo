@@ -210,6 +210,8 @@ Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hado
 
 Browser automation: browser-check (uses Playwright with system Chromium)
 
+Image tooling: prefer `vips`/`vipsthumbnail` for conversion, resizing, and thumbnails. Do not add ImageMagick or Pillow unless the project explicitly requires them.
+
 ## Browser Automation Tool Guide
 
 Use `browser-check` for browser automation. It provides ARIA snapshots with 93% less context than raw HTML.
