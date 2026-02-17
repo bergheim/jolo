@@ -1045,6 +1045,52 @@ risk before coding.
 - =_jolo/templates.py=
 - =_jolo/commands.py=
 
+* Host tmux.conf terminal-features clobber (post-rebuild audit) :tmux:terminal:clipboard:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+Post-rebuild audit of terminal setup. Container-side fixes from this branch
+are working: =TERM=tmux-direct= comes from tmux's =default-terminal= (not
+forced via env/shell), =/etc/tmux.conf= appends =*:sixel:extkeys=.
+
+** Problem: host tmux.conf clobbers /etc/tmux.conf
+
+The host =~/.tmux.conf= (bind-mounted into container) has a non-appending
+=set -g terminal-features= near the end that wipes everything set earlier:
+
+#+begin_src tmux
+# This line (near bottom of host ~/.tmux.conf) resets the array:
+set -g terminal-features ',xterm-256color:sixel'
+
+# These earlier lines get wiped by the above:
+set -as terminal-features ',*:clipboard'   # gone
+# /etc/tmux.conf: set -as terminal-features ",*:sixel:extkeys"  # gone
+#+end_src
+
+Also redundant: the =Ms= terminal-override for OSC 52 is unnecessary when
+=clipboard= is in terminal-features (tmux 3.2+).
+
+** Outer client TERM
+
+=tmux display -p '#{client_termname}'= shows =xterm= — this is what the
+devcontainer runtime provides. The =terminal-overrides *:RGB= and =*:Ms=...=
+wildcards compensate. The =terminal-features= wildcard =*:sixel:extkeys=
+would also cover it, if not clobbered.
+
+** Fix (on host, not container — EROFS here)
+
+Remove from host =~/.tmux.conf=:
+- =set -g terminal-features ',xterm-256color:sixel'= (clobbering line)
+- =set -as terminal-features ',*:clipboard'= (consolidated)
+- =set -ga terminal-overrides ',*:Ms=\E]52;%p1%s;%p2%s\007'= (redundant with clipboard feature)
+- Commented-out =# set -as terminal-features 'xterm*:extkeys'=
+
+Replace with single consolidated line:
+#+begin_src tmux
+set -as terminal-features ',*:clipboard:sixel:extkeys'
+#+end_src
+
 * term-keys regression fixed in container defaults      :tmux:term-keys:emacs:
 :PROPERTIES:
 :DATE: 2026-02-17

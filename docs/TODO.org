@@ -212,6 +212,10 @@
    Added tmux =extkeys= terminal-features hints for =tmux-direct=, =xterm-256color=, and =wezterm=.
    Follow-up (external review): switched tmux config to =set -as terminal-features=
    and added =kitty/alacritty/foot= extkeys hints to avoid clobbering defaults.
+** TODO Fix host ~/.tmux.conf terminal-features clobbering
+   Host config has =set -g terminal-features= (non-appending) that wipes =/etc/tmux.conf=.
+   Consolidate clipboard/sixel/extkeys into =set -as terminal-features ',*:clipboard:sixel:extkeys'=.
+   Remove redundant =Ms= terminal-override. Must be done on host (EROFS in container).
 ** DONE Add doc-compare skill for narrative version diffs
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
