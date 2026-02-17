@@ -107,10 +107,7 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 
 # tmux system config (must be written as root)
 RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
-    echo 'set -as terminal-features ",tmux-direct:sixel:extkeys"' >> /etc/tmux.conf && \
-    echo 'set -as terminal-features ",xterm-256color:sixel:extkeys"' >> /etc/tmux.conf && \
-    echo 'set -as terminal-features ",wezterm:sixel:extkeys"' >> /etc/tmux.conf && \
-    echo 'set -as terminal-features ",kitty:extkeys,alacritty:extkeys,foot:extkeys"' >> /etc/tmux.conf
+    echo 'set -as terminal-features ",*:sixel:extkeys"' >> /etc/tmux.conf
 
 # Root-level files and setup
 COPY container/e /usr/local/bin/e
