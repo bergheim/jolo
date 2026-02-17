@@ -260,7 +260,7 @@ generated projects. Keeps root clean for code files.
 - Created =templates/docs/RESEARCH.org=
 - =templates/AGENTS.md= updated to reference =docs/= paths
 - =_jolo/setup.py:copy_template_files()= now copies =docs/= as template dir
-- Meta-project keeps its own TODO.org and RESEARCH.org at root
+- Meta-project now also keeps TODO/RESEARCH under =docs/= for consistency
 
 * jolo create slowness from Emacs cache copy             :emacs:perf:jolo:
 :PROPERTIES:
