@@ -28,6 +28,67 @@
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
+** TODO Flatten language+variant into single flavor menu
+   The =--bare= flag threads a cross-cutting =bare= parameter through 5 function
+   signatures and 5 callsites in templates.py. This doesn't scale — adding web
+   variants for Python/Go would mean more flags. Instead, flatten language + variant
+   into a single "flavor" concept: users pick =TypeScript (web)= or =TypeScript (bare)=
+   from one menu, code uses flat string matching (="typescript-web"=, ="typescript-bare"=).
+
+*** Motivation
+    - Eliminates =bare= param from 5 functions + 5 callsites
+    - Makes variant selection discoverable (visible in the picker, not hidden behind a flag)
+    - Scales cleanly: adding "Go (web)" later is just a new menu entry, not a new flag
+
+*** Changes
+
+**** 1. Constants (=_jolo/constants.py=)
+     - =VALID_LANGUAGES= → =VALID_FLAVORS=: add =typescript-web=, =typescript-bare=, drop =typescript=
+     - =LANGUAGE_OPTIONS= → =FLAVOR_OPTIONS=: replace ="TypeScript"= with ="TypeScript (web)"= and ="TypeScript (bare)"=
+     - =LANGUAGE_CODE_MAP= → =FLAVOR_CODE_MAP=
+     - Add =BASE_LANGUAGE= mapping: ={"typescript-web": "typescript", "typescript-bare": "typescript"}=
+       Flavors without variants map to themselves. Used by pre-commit hook lookup.
+
+**** 2. CLI (=_jolo/cli.py=)
+     - Rename selector functions: =select_languages_interactive= → =select_flavors_interactive=
+     - Update =parse_lang_arg()= to validate against =VALID_FLAVORS=
+     - Remove =--bare= flag from =create= subparser
+
+**** 3. Templates (=_jolo/templates.py=)
+     Remove =bare= parameter from all 5 functions, use flat flavor string matching:
+     - =get_type_checker_config(flavor)= — match ="typescript-web"= vs ="typescript-bare"=
+     - =get_justfile_content(flavor, project_name)= — pick template by flavor
+     - =get_test_framework_config(flavor)= — pick test file by flavor
+     - =get_scaffold_files(flavor)= — BETH files for ="typescript-web"=, empty otherwise
+     - =get_project_init_commands(flavor, project_name)= — match on full flavor
+     For pre-commit: =generate_precommit_config()= uses =BASE_LANGUAGE= mapping for hook lookup.
+
+**** 4. Commands (=_jolo/commands.py=)
+     - =run_create_mode()=: drop =bare = getattr(args, "bare", False)=
+     - Remove all =bare=bare= kwargs, pass flavor string directly
+
+**** 5. Exports (=_jolo/__init__.py=) and tests
+     - Update renamed exports
+     - Update tests from =bare=True= → flavor strings
+     - Replace =VALID_LANGUAGES= refs with =VALID_FLAVORS=
+
+*** Files affected
+    | File                    | Change                                                 |
+    |-------------------------+--------------------------------------------------------|
+    | =_jolo/constants.py=    | Rename constants, add =BASE_LANGUAGE=, split TS flavors |
+    | =_jolo/cli.py=          | Rename selectors, remove =--bare=, validate flavors     |
+    | =_jolo/templates.py=    | Remove =bare= param from 5 functions, flat matching     |
+    | =_jolo/commands.py=     | Remove =bare= variable, pass flavor strings             |
+    | =_jolo/__init__.py=     | Update exports                                          |
+    | =tests/test_templates.py= | Update to flavor strings                              |
+    | =tests/test_cli.py=     | Update selector + parse tests                           |
+
+*** Verification
+    - =just test= — all tests pass
+    - =rg 'bare' _jolo/= — no remaining =bare= refs in production code
+    - =jolo create testproj --lang typescript-web= works (BETH scaffold)
+    - =jolo create testproj --lang typescript-bare= works (minimal TS)
+    - =jolo create testproj= shows flattened menu with both TS options
 ** DONE Fix mixed-language pre-commit generation dropping prose hooks
    Root cause: prose hooks were skipped unless =languages == ["prose"]=.
    Fix: removed the guard in =_jolo/templates.py= so prose hooks are included
