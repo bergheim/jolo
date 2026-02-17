@@ -1,0 +1,841 @@
+#+TITLE: Claude Code Skills - Comprehensive Research
+#+DATE: 2026-02-17
+#+PROPERTY: header-args :eval no
+
+* Overview
+
+Claude Code Skills are specialized folders containing instructions (=SKILL.md=),
+scripts, and resources that Claude loads dynamically when relevant to tasks. They
+follow the [[https://agentskills.io/specification][Agent Skills open standard]] (agentskills.io), meaning skills work
+across multiple AI tools: Claude Code, Codex CLI, Gemini CLI, GitHub Copilot,
+Cursor, Windsurf, and others.
+
+Skills were announced October 16, 2025. Custom slash commands (=.claude/commands/=)
+have been merged into skills (=.claude/skills/=) -- old commands still work but
+skills are the recommended path forward.
+
+Key insight from Simon Willison: skills are "maybe a bigger deal than MCP" because
+they are just Markdown with optional scripts, consuming far fewer tokens than MCP
+tool definitions.
+
+* GitHub Repositories
+** Curated Lists / Awesome Lists
+
+*** awesome-claude-code (hesreallyhim)
+- URL: https://github.com/hesreallyhim/awesome-claude-code
+- Stars: ~24,000
+- The largest curated list of Claude Code resources. Covers skills, hooks,
+  slash-commands, agent orchestrators, tooling, IDE integrations, usage monitors,
+  orchestrators, config managers, status lines, CLAUDE.md files, and alternative
+  clients. 718+ commits, extremely actively maintained.
+
+*** awesome-claude-skills (travisvn)
+- URL: https://github.com/travisvn/awesome-claude-skills
+- Stars: ~7,200
+- Focused specifically on skills. Lists official Anthropic skills, community
+  skills, individual skills, tools, and learning resources. Well-organized
+  with tables.
+
+*** awesome-claude-skills (ComposioHQ)
+- URL: https://github.com/ComposioHQ/awesome-claude-skills
+- Community-maintained list focusing on AI observability skills and MCP Builder.
+
+*** awesome-claude-plugins (Chat2AnyLLM)
+- URL: https://github.com/Chat2AnyLLM/awesome-claude-plugins
+- Curated list of Claude marketplaces and plugins.
+
+*** awesome-agent-skills (VoltAgent)
+- URL: https://github.com/VoltAgent/awesome-agent-skills
+- 300+ agent skills from official dev teams and the community. Compatible with
+  Codex, Antigravity, Gemini CLI, Cursor, and others.
+
+*** awesome-claude (tonysurfly)
+- URL: https://github.com/tonysurfly/awesome-claude
+- General Anthropic Claude resources, not just Code.
+
+*** awesome-claude-code (jqueryscript)
+- URL: https://github.com/jqueryscript/awesome-claude-code
+- Tools, IDE integrations, frameworks, and resources for Claude Code.
+
+** Official Anthropic
+
+*** anthropics/skills
+- URL: https://github.com/anthropics/skills
+- Stars: ~70,000+
+- The official Anthropic skills repository. Contains the reference implementations
+  of all official skills plus the skill-creator skill. Acts as the default
+  marketplace.
+- Official skills: docx, pdf, pptx, xlsx, algorithmic-art, canvas-design,
+  slack-gif-creator, frontend-design, web-artifacts-builder, mcp-builder,
+  webapp-testing, brand-guidelines, internal-comms, skill-creator.
+
+*** anthropics/claude-code
+- URL: https://github.com/anthropics/claude-code
+- The Claude Code CLI itself. Contains official plugins including ralph-wiggum.
+
+** Major Skill Collections
+
+*** obra/superpowers
+- URL: https://github.com/obra/superpowers
+- Stars: ~53,100
+- Author: Jesse Vincent (blog.fsck.com)
+- THE standout project. A complete software development workflow system built as
+  composable skills. Implements brainstorm -> plan -> implement methodology with
+  TDD, subagent-driven development, code review, and git worktree automation.
+- Skills: test-driven-development, systematic-debugging, verification-before-completion,
+  brainstorming, writing-plans, executing-plans, dispatching-parallel-agents,
+  requesting-code-review, receiving-code-review, using-git-worktrees,
+  finishing-a-development-branch, subagent-driven-development, writing-skills,
+  using-superpowers.
+- Install: =/plugin marketplace add obra/superpowers-marketplace=
+- Related repos:
+  - https://github.com/obra/superpowers-lab (experimental skills)
+  - https://github.com/obra/superpowers-skills (community-editable)
+  - https://github.com/obra/superpowers-marketplace (curated marketplace)
+  - https://github.com/obra/superpowers-developing-for-claude-code
+
+*** affaan-m/everything-claude-code
+- URL: https://github.com/affaan-m/everything-claude-code
+- Stars: ~42,000+
+- Battle-tested configs from an Anthropic hackathon winner. 10+ months of
+  intensive daily use.
+- Contains: 13 agents, 40+ skills, 31 commands, language-specific rules
+  (TypeScript, Python, Go, Java/Spring Boot, C++, Django), hooks, scripts.
+- Notable features: Continuous Learning v2 (auto-extract patterns with confidence
+  scoring), AgentShield Security Auditor (102 static analysis rules),
+  multi-language support, package manager auto-detection.
+- Install: =/plugin marketplace add affaan-m/everything-claude-code=
+
+*** trailofbits/skills
+- URL: https://github.com/trailofbits/skills
+- Stars: ~2,700
+- Security-focused skills from Trail of Bits. Audit workflows, vulnerability
+  detection, smart contract security.
+- Plugins: building-secure-contracts, entry-point-analyzer, audit-context-building,
+  burpsuite-project-parser, differential-review, insecure-defaults,
+  semgrep-rule-creator, variant-analysis, yara-authoring, constant-time-analysis,
+  property-based-testing, spec-to-code-compliance, dwarf-expert,
+  firebase-apk-scanner.
+- License: CC-BY-SA-4.0
+- Install: =/plugin marketplace add trailofbits/skills=
+
+*** alirezarezvani/claude-skills
+- URL: https://github.com/alirezarezvani/claude-skills
+- 53 production-ready skills. Modular, self-contained skill packages for
+  specialized domain expertise.
+
+*** alirezarezvani/claude-code-skill-factory
+- URL: https://github.com/alirezarezvani/claude-code-skill-factory
+- Toolkit for building and deploying production-ready skills at scale.
+  Generate structured skill templates, automate workflow integration.
+
+** Command Collections (Pre-Skills Era)
+
+*** qdhenry/Claude-Command-Suite
+- URL: https://github.com/qdhenry/Claude-Command-Suite
+- 148+ slash commands, 54 AI agents. Organized in tools/ and workflows/ directories.
+
+*** wshobson/commands
+- URL: https://github.com/wshobson/commands
+- Production-ready slash commands for Claude Code.
+
+*** artemgetmann/claude-slash-commands
+- URL: https://github.com/artemgetmann/claude-slash-commands
+- Collection of useful slash commands for Claude Code CLI.
+
+*** hikarubw/claude-commands
+- URL: https://github.com/hikarubw/claude-commands
+- Custom slash commands organized by category.
+
+** Frameworks and Tooling
+
+*** SuperClaude Framework
+- URL: https://github.com/SuperClaude-Org/SuperClaude_Framework
+- Meta-programming configuration framework. 16 specialized commands, cognitive
+  personas, development methodologies. NOT standalone software -- just .md
+  instruction files that Claude reads to adopt specialized behaviors.
+
+*** humanplane/homunculus
+- URL: https://github.com/humanplane/homunculus
+- Self-rewriting Claude Code plugin. Watches how you work, learns patterns,
+  and evolves itself. Creates Commands, Skills, Subagents, and Hooks automatically.
+- Evolution: Session Start -> Observer agent (Haiku) -> Observations -> Instincts
+  -> Instincts cluster -> User runs =/homunculus:evolve= -> Bigger structures emerge.
+
+*** NeoLabHQ/context-engineering-kit
+- URL: https://github.com/NeoLabHQ/context-engineering-kit
+- Hand-crafted context engineering techniques with minimal token footprint.
+  Supports Claude Code, OpenCode, Cursor, Windsurf, Cline.
+
+*** frankbria/ralph-claude-code
+- URL: https://github.com/frankbria/ralph-claude-code
+- Ralph Wiggum autonomous loop implementation. Continuous development cycles
+  with intelligent exit detection and rate limiting.
+
+*** cloudrouter.dev
+- URL: https://cloudrouter.dev/
+- Skill that lets Claude Code/Codex spin up VMs and GPUs. Supports T4, L4,
+  A10G, A100, H100. Install as a skill, then agents can provision cloud
+  sandboxes, run commands, transfer files.
+
+** Specialized Skills
+
+*** Jeffallan/claude-skills
+- URL: https://github.com/Jeffallan/claude-skills
+- 66 specialized skills for full-stack developers across 12 categories.
+
+*** conorluddy/ios-simulator-skill
+- URL: https://github.com/conorluddy/ios-simulator-skill
+- iOS app automation via simulator.
+
+*** jthack/ffuf_claude_skill
+- URL: https://github.com/jthack/ffuf_claude_skill
+- Web fuzzing / penetration testing with ffuf.
+
+*** lackeyjb/playwright-skill
+- URL: https://github.com/lackeyjb/playwright-skill
+- Browser automation via Playwright. Less context overhead than playwright-MCP.
+
+*** chrisvoncsefalvay/claude-d3js-skill
+- URL: https://github.com/chrisvoncsefalvay/claude-d3js-skill
+- D3.js data visualizations.
+
+*** alonw0/web-asset-generator
+- URL: https://github.com/alonw0/web-asset-generator
+- Generate favicons, app icons, social media images.
+
+*** asklokesh/claudeskill-loki-mode
+- URL: https://github.com/asklokesh/claudeskill-loki-mode
+- Multi-agent startup orchestration.
+
+*** K-Dense-AI/claude-scientific-skills
+- URL: https://github.com/K-Dense-AI/claude-scientific-skills
+- Scientific libraries and databases access.
+
+* Hacker News Discussions
+
+** Claude Code Kit: Reliable Coding Using Claude Skills, Hooks and Command
+- URL: https://news.ycombinator.com/item?id=45789960
+- Discussion about making Claude Code reliable through skills, hooks, and commands.
+  Key insight: skills extend what Claude can do, hooks constrain how it does it.
+
+** Show HN: NPM/uv for Claude Code -- install skills from GitHub with one command
+- URL: https://news.ycombinator.com/item?id=46685829
+- Tool using uvx to install skills from GitHub repositories directly.
+
+** Claude Code: Merging Slash Commands into Skills
+- URL: https://news.ycombinator.com/item?id=46754439
+- Discussion of the commands -> skills migration.
+
+** Complete Claude Code configuration: agents skills hooks commands rules MCPs
+- URL: https://news.ycombinator.com/item?id=46676402
+- Discussion of the everything-claude-code repo.
+
+** Show HN: Homunculus -- A self-rewriting Claude Code plugin
+- URL: https://news.ycombinator.com/item?id=46682194
+- Self-evolving plugin that learns your patterns.
+
+** Show HN: A registry for curated, high quality Claude skills and skillsets
+- URL: https://news.ycombinator.com/item?id=46721900
+- High-quality handwritten skills and "skillsets" for consistent results.
+
+** Show HN: Skill that lets Claude Code/Codex spin up VMs and GPUs
+- URL: https://news.ycombinator.com/item?id=47006393
+- CloudRouter discussion.
+
+** How I use every Claude Code feature
+- URL: https://news.ycombinator.com/item?id=45786738
+- Shrivu Shankar's comprehensive guide. Highly discussed.
+
+** Show HN: Agent Skills -- 1k curated Claude Code skills from 60k+ GitHub skills
+- URL: https://news.ycombinator.com/item?id=46693426
+- Large-scale skill curation effort.
+
+** Show HN: Playwright Skill for Claude Code -- Less context than playwright-MCP
+- URL: https://news.ycombinator.com/item?id=45642911
+- Key comparison: skill-based browser automation uses 93% less context than MCP.
+
+** Claude Skills (official announcement)
+- URL: https://news.ycombinator.com/item?id=45607117
+- Original Anthropic announcement discussion.
+
+** Claude Code Emergent Behavior: When Skills Combine
+- URL: https://news.ycombinator.com/item?id=46531794
+- Interesting: emergent behaviors from skill combinations.
+
+** Claude Code's new hidden feature: Swarms
+- URL: https://news.ycombinator.com/item?id=46743908
+- Multi-agent swarm capabilities.
+
+** Show HN: 20+ Claude Code agents coordinating on real work (open source)
+- URL: https://news.ycombinator.com/item?id=46990733
+- Multi-agent orchestration patterns.
+
+** Show HN: My way -- 18-agent autonomous workflow for Claude Code
+- URL: https://news.ycombinator.com/item?id=46663702
+- Issues-to-deploy autonomous pipeline.
+
+** Claude Code now supports hooks
+- URL: https://news.ycombinator.com/item?id=44429225
+- Hooks announcement (July 2025).
+
+** Claude Code introduces specialized sub-agents
+- URL: https://news.ycombinator.com/item?id=44686726
+- Sub-agents announcement.
+
+** Claude Code: Best practices for agentic coding
+- URL: https://news.ycombinator.com/item?id=43735550
+- Anthropic's official best practices discussion.
+
+* Blog Posts and Tutorials
+
+** Official Anthropic Documentation
+*** Extend Claude with skills
+- URL: https://code.claude.com/docs/en/skills
+- The definitive reference. Covers creation, frontmatter, arguments, shell
+  preprocessing, subagent execution, supporting files, permission control.
+
+*** Skill authoring best practices
+- URL: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
+- Comprehensive authoring guide: progressive disclosure, naming conventions
+  (gerund form recommended), description writing, anti-patterns, evaluation-driven
+  development, iterative refinement with two Claude instances.
+
+*** How to create Skills for Claude: steps and examples
+- URL: https://claude.com/blog/how-to-create-skills-key-steps-limitations-and-examples
+- Official tutorial with 5-step guide and real examples.
+
+*** Skills explained: How Skills compares to prompts, Projects, MCP, and subagents
+- URL: https://claude.com/blog/skills-explained
+- Positioning of skills in the broader ecosystem. Progressive disclosure architecture.
+
+*** Equipping agents for the real world with Agent Skills
+- URL: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+- Engineering deep dive from Anthropic.
+
+*** The Complete Guide to Building Skills for Claude (PDF)
+- URL: https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf
+- Comprehensive PDF guide from Anthropic.
+
+** Independent Analysis and Reviews
+
+*** Simon Willison: "Claude Skills are awesome, maybe a bigger deal than MCP"
+- URL: https://simonwillison.net/2025/Oct/16/claude-skills/
+- Essential read. Key arguments:
+  - Skills are just Markdown + YAML + optional scripts -- radically simple.
+  - MCP consumes tens of thousands of context tokens; skills use ~100 tokens
+    for metadata, <5k when loaded.
+  - "I expect we'll see a Cambrian explosion in Skills."
+  - CLI tools often better than MCP: LLMs know how to run =cli-tool --help=.
+  - Critical remaining challenge: safe sandboxed computing environments.
+
+*** Lee Han Chung: "Claude Agent Skills: A First Principles Deep Dive"
+- URL: https://leehanchung.github.io/blogs/2025/10/26/claude-skills-deep-dive/
+- Technical deep dive into the architecture. Key findings:
+  - Skills are a prompt-based meta-tool architecture.
+  - The =Skill= tool (capital S) lives in the API's =tools= array, not the
+    system prompt.
+  - "There is no algorithmic skill selection. The decision-making happens
+    entirely within Claude's reasoning process."
+  - Dual-message injection pattern: one visible status indicator, one hidden
+    API-level prompt.
+  - Distinguishes traditional tools (synchronous, direct) from skills
+    (prompt expansion, context modification).
+
+*** Mikhail Shilkov: "Inside Claude Code Skills: Structure, prompts, invocation"
+- URL: https://mikhail.io/2025/10/claude-code-skills/
+- Technical analysis of how skills work internally. Covers folder structure,
+  tool definition, metadata extraction, invocation mechanism.
+- Key insight: "on-demand prompt expansion without modifying the core system prompt."
+
+*** Shrivu Shankar: "How I Use Every Claude Code Feature"
+- URL: https://blog.sshh.io/p/how-i-use-every-claude-code-feature
+- Power user guide. Key recommendations:
+  - CLAUDE.md should be curated guardrails, not comprehensive docs.
+    Their monorepo's file is 13KB with token "ad space" for teams.
+  - Keep slash commands minimal: author uses only =/catchup= and =/pr=.
+  - Over-reliance on custom commands signals poor underlying tooling design.
+  - Let agents decide when to delegate using built-in =Task()=.
+  - Two hook strategies: block-at-submit (validate before commits) and
+    hint hooks (non-blocking feedback). Avoid blocking at write time.
+  - Agent autonomy through minimal abstraction: provide context via CLAUDE.md,
+    let agents script solutions.
+
+*** builder.io: "How I use Claude Code (+ my best tips)"
+- URL: https://www.builder.io/blog/claude-code
+- Practical tips: Shift+Enter, file dragging, image pasting, Escape for stop,
+  GitHub PR review customization, message queuing strategy.
+
+*** Jesse Vincent / blog.fsck.com: "Superpowers"
+- URL: https://blog.fsck.com/2025/10/09/superpowers/
+- Origin story of the superpowers framework. Key insights:
+  - Skills as "executable knowledge" -- documented, testable capabilities.
+  - Approach enables agents to self-improve: "Read this. Think about it.
+    Write down the new stuff you learned."
+  - Persuasion principles (Cialdini) enhance agent compliance.
+  - Skill testing uses pressure scenarios: production system "costing $5k/minute"
+    to test time-pressure responses, sunk-cost dilemmas.
+
+*** Codecademy: "How to Build Claude Skills: Lesson Plan Generator Tutorial"
+- URL: https://www.codecademy.com/article/how-to-build-claude-skills
+- Beginner-friendly tutorial.
+
+*** ChatPRD: "Claude Skills Explained: My Workflow for Creating Reusable AI Agents"
+- URL: https://www.chatprd.ai/how-i-ai/claude-skills-explained
+- Workflow for building, testing, and deploying reusable skills.
+
+*** Skywork: "How to Create Your First Claude Skill: Step-by-Step Tutorial"
+- URL: https://skywork.ai/blog/ai-agent/how-to-create-claude-skill-step-by-step-guide/
+- Step-by-step tutorial with examples.
+
+*** Skywork: "What Is SKILL.md in Claude Skills?"
+- URL: https://skywork.ai/blog/ai-agent/claude-skills-skill-md-resources-runtime-loading/
+- Structure, resources, and runtime loading details.
+
+*** Shipyard: "Claude Code CLI Cheatsheet"
+- URL: https://shipyard.build/blog/claude-code-cheat-sheet/
+- Config, commands, prompts, and best practices.
+
+*** Medium: "Skills and Hooks Starter Kit for Claude Code"
+- URL: https://medium.com/@davidroliver/skills-and-hooks-starter-kit-for-claude-code-c867af2ace32
+- Starter kit for beginners.
+
+*** Nick Nisi: "Why Everyone Should Try Claude Skills"
+- URL: https://nicknisi.com/posts/claude-skills/
+- Advocacy piece with practical examples.
+
+** Guides and Meta-Resources
+
+*** wesammustafa/Claude-Code-Everything-You-Need-to-Know
+- URL: https://github.com/wesammustafa/Claude-Code-Everything-You-Need-to-Know
+- All-in-one guide: setup, prompt engineering, commands, hooks, workflows,
+  automation, integrations, MCP servers, BMAD method.
+
+*** shanraisshan/claude-code-best-practice
+- URL: https://github.com/shanraisshan/claude-code-best-practice
+- "Practice made claude perfect" -- curated best practices.
+
+*** ThamJiaHe/claude-prompt-engineering-guide
+- URL: https://github.com/ThamJiaHe/claude-prompt-engineering-guide
+- Professional Claude Standard prompts with MCP, Skills, and Superpowers integration.
+
+* Notable Individual Skills and Patterns
+
+** The Ralph Wiggum Technique
+- Origin: Geoffrey Huntley
+- Official plugin: =claude-code/plugins/ralph-wiggum/= in the anthropics/claude-code repo
+- Community implementation: https://github.com/frankbria/ralph-claude-code
+- Concept: A Stop hook intercepts Claude's exit, re-feeds the original prompt.
+  Each iteration sees modified files and git history from previous runs. Enables
+  continuous autonomous development for hours.
+- Best for: batch mechanical work with clear completion criteria. Large refactors,
+  test coverage, documentation, support ticket triage.
+- Philosophy: "Better to fail predictably than succeed unpredictably."
+- Intelligent exit detection: dual-condition check requiring both completion
+  indicators and explicit EXIT_SIGNAL.
+- Coverage: The Register, multiple Medium articles, blog posts.
+- Reference: https://awesomeclaude.ai/ralph-wiggum
+
+** The Superpowers Methodology
+- The most mature skill-based development workflow.
+- Four principles: TDD, systematic over ad-hoc, complexity reduction,
+  evidence over claims.
+- Seven phases: brainstorming, git worktrees, plan writing, execution (subagent
+  or batch), TDD (RED-GREEN-REFACTOR), code review, branch completion.
+- Subagent-driven development enables agents to work autonomously for hours
+  without deviating from plans.
+- 53.1k stars -- the most popular non-official skill project.
+
+** Security Auditing (Trail of Bits)
+- Professional-grade security skills from a leading security firm.
+- CodeQL and Semgrep integration for static analysis.
+- Variant analysis across codebases.
+- Smart contract security for 6 blockchains.
+- YARA rule authoring with linting and atom analysis.
+
+** Homunculus (Self-Evolving Agent)
+- Learns your patterns through hook-based observation.
+- Auto-generates instincts (small behavioral rules).
+- Instincts cluster into larger structures: Commands, Skills, Subagents, Hooks.
+- The =/homunculus:evolve= command triggers structure emergence.
+
+** CloudRouter (Cloud VM/GPU Provisioning)
+- Gives agents their own machines.
+- Supports T4, L4, A10G, A100, H100 GPUs.
+- File sync, browser automation, VS Code in browser.
+
+* SKILL.md Format and Structure
+
+** Required File Structure
+
+Every skill is a directory with =SKILL.md= as the entrypoint:
+
+#+begin_example
+my-skill/
++-- SKILL.md           # Main instructions (required)
++-- template.md        # Template for Claude to fill in
++-- examples/
+|   +-- sample.md      # Example output showing expected format
++-- scripts/
+|   +-- validate.sh    # Script Claude can execute
++-- references/
+    +-- guide.md       # Documentation loaded when needed
+#+end_example
+
+** YAML Frontmatter
+
+#+begin_src yaml
+---
+name: my-skill-name
+description: What this skill does and when to use it
+argument-hint: "[issue-number]"
+disable-model-invocation: false
+user-invocable: true
+allowed-tools: Read, Grep, Glob
+model: claude-sonnet-4-20250514
+context: fork
+agent: Explore
+---
+#+end_src
+
+| Field                      | Required    | Description                                        |
+|----------------------------+-------------+----------------------------------------------------|
+| name                       | No          | Display name (max 64 chars, lowercase/numbers/-)   |
+| description                | Recommended | What it does + when to use it (max 1024 chars)     |
+| argument-hint              | No          | Hint for autocomplete, e.g. "[filename] [format]"  |
+| disable-model-invocation   | No          | true = only user can invoke (for deploy, commit)   |
+| user-invocable             | No          | false = hidden from / menu (background knowledge)  |
+| allowed-tools              | No          | Tools Claude can use without asking permission      |
+| model                      | No          | Model override when skill is active                |
+| context                    | No          | "fork" to run in isolated subagent                 |
+| agent                      | No          | Subagent type (Explore, Plan, general-purpose)     |
+| hooks                      | No          | Hooks scoped to this skill's lifecycle             |
+
+** Naming Conventions
+
+Anthropic recommends gerund form (verb + -ing):
+- =processing-pdfs= (preferred)
+- =analyzing-spreadsheets= (preferred)
+- =pdf-processing= (acceptable noun phrase)
+- =process-pdfs= (acceptable action-oriented)
+- =helper=, =utils=, =tools= (avoid -- too vague)
+
+** String Substitutions
+
+| Variable               | Description                                    |
+|------------------------+------------------------------------------------|
+| =$ARGUMENTS=           | All arguments passed when invoking              |
+| =$ARGUMENTS[N]=        | Specific argument by 0-based index              |
+| =$N=                   | Shorthand for =$ARGUMENTS[N]=                   |
+| =${CLAUDE_SESSION_ID}= | Current session ID                              |
+
+** Shell Preprocessing
+
+The =!`command`= syntax runs shell commands before content is sent to Claude:
+
+#+begin_src yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+- Changed files: !`gh pr diff --name-only`
+
+## Your task
+Summarize this pull request...
+#+end_src
+
+** Extended Thinking
+
+Include the word "ultrathink" anywhere in skill content to enable extended thinking.
+
+* Best Practices and Patterns
+
+** Core Principles (from Anthropic's authoring guide)
+
+1. *Concise is key.* The context window is a public good. Only add context
+   Claude does not already have. Challenge each piece of information:
+   "Does Claude really need this explanation?"
+
+2. *Set appropriate degrees of freedom.* Match specificity to task fragility:
+   - High freedom: text instructions when multiple approaches are valid
+   - Medium freedom: pseudocode/scripts with parameters
+   - Low freedom: exact scripts for fragile operations (DB migrations)
+
+3. *Test with all models you plan to use.* What works for Opus may need more
+   detail for Haiku.
+
+** Description Writing
+
+- Write in third person (description is injected into system prompt).
+- Include both what the skill does AND when to use it.
+- Be specific with key terms -- Claude uses descriptions to choose from 100+ skills.
+- Good: "Extract text and tables from PDF files, fill forms, merge documents.
+  Use when working with PDF files or when the user mentions PDFs."
+- Bad: "Helps with documents."
+
+** Progressive Disclosure
+
+Three tiers of information loading:
+1. *Frontmatter disclosure* (~100 tokens): name + description scanned at startup.
+2. *Skill selection* (<5k tokens): full SKILL.md loaded when chosen.
+3. *Execution*: supporting files, scripts loaded on demand.
+
+Keep SKILL.md under 500 lines. Move detailed reference material to separate files.
+Keep references one level deep from SKILL.md -- avoid deeply nested file chains.
+
+** Skill Types
+
+- *Reference content*: conventions, patterns, style guides. Runs inline.
+- *Task content*: step-by-step instructions for specific actions. Often
+  =disable-model-invocation: true= for manual trigger only.
+
+** Invocation Control
+
+| Frontmatter                      | User can invoke | Claude can invoke |
+|----------------------------------+-----------------+-------------------|
+| (default)                        | Yes             | Yes               |
+| disable-model-invocation: true   | Yes             | No                |
+| user-invocable: false            | No              | Yes               |
+
+** Common Patterns
+
+*** Template Pattern
+Provide templates for output format. Match strictness to requirements.
+
+*** Examples Pattern
+Input/output pairs, just like prompt engineering.
+
+*** Conditional Workflow
+Guide through decision points: "Creating new content? -> Follow creation
+workflow. Editing existing? -> Follow editing workflow."
+
+*** Feedback Loop
+Run validator -> fix errors -> repeat. Greatly improves output quality.
+
+*** Plan-Validate-Execute
+Create intermediate =changes.json= file -> validate with script -> execute.
+Catches errors before changes are applied.
+
+** Evaluation-Driven Development
+
+Anthropic recommends building evaluations BEFORE writing documentation:
+1. Identify gaps: run Claude without skill, document failures.
+2. Create evaluations: 3 scenarios testing gaps.
+3. Establish baseline: measure performance without skill.
+4. Write minimal instructions to address gaps.
+5. Iterate: execute evaluations, compare, refine.
+
+** Iterative Development with Two Claudes
+
+Use "Claude A" (the expert) to design skills and "Claude B" (the user) to test:
+1. Complete a task without a skill, noting what context you provide.
+2. Ask Claude A to create a skill capturing the pattern.
+3. Review for conciseness.
+4. Test with Claude B on similar tasks.
+5. Bring observations back to Claude A for refinement.
+
+** Anti-Patterns to Avoid
+
+- Windows-style paths (backslashes). Always use forward slashes.
+- Offering too many options. Provide a default with an escape hatch.
+- Deeply nested file references (Claude may only partially read).
+- Time-sensitive information (use "old patterns" sections).
+- Vague descriptions ("helps with documents").
+- Over-explaining what Claude already knows.
+- Inconsistent terminology.
+
+* The Skills Ecosystem in 2026
+
+** Plugin Marketplace
+
+Skills are distributed as plugins through marketplaces:
+
+#+begin_src
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+/plugin update superpowers
+#+end_src
+
+The official Anthropic marketplace (=claude-plugins-official=) is automatically
+available. Community marketplaces can be added with =/plugin marketplace add=.
+
+** Skills vs Other Extension Points
+
+| Extension   | Purpose                                           |
+|-------------+---------------------------------------------------|
+| Skills      | Reusable instructions + scripts, loaded on demand |
+| Agents      | Custom subagents in .claude/agents/               |
+| Rules       | Topic-specific instructions in .claude/rules/*.md |
+| Hooks       | Deterministic scripts on specific events          |
+| Plugins     | Distributable packages bundling all of the above  |
+| CLAUDE.md   | Persistent context / "constitution"               |
+
+** Cross-Tool Compatibility
+
+The Agent Skills open standard (agentskills.io) means skills work across:
+- Claude Code
+- GitHub Copilot (VS Code, CLI, coding agent)
+- Codex CLI
+- Gemini CLI
+- Cursor
+- Windsurf
+- OpenCode
+- Antigravity
+
+Claude Code extends the standard with: invocation control, subagent execution,
+dynamic context injection.
+
+** Key Ecosystem Sites
+
+- https://agentskills.io/ -- Open standard specification
+- https://claude-plugins.dev/ -- Community registry with CLI
+- https://skillsmp.com/ -- Agent Skills Marketplace
+- https://awesomeclaude.ai/ -- Visual directory
+- https://claudelog.com/ -- Docs, guides, tutorials
+
+* Example Skills
+
+** Minimal Explain-Code Skill
+
+#+begin_src yaml
+---
+name: explain-code
+description: Explains code with visual diagrams and analogies. Use when
+  explaining how code works, teaching about a codebase, or when the user
+  asks "how does this work?"
+---
+
+When explaining code, always include:
+
+1. **Start with an analogy**: Compare the code to something from everyday life
+2. **Draw a diagram**: Use ASCII art to show the flow, structure, or relationships
+3. **Walk through the code**: Explain step-by-step what happens
+4. **Highlight a gotcha**: What's a common mistake or misconception?
+
+Keep explanations conversational.
+#+end_src
+
+** Fix GitHub Issue Skill
+
+#+begin_src yaml
+---
+name: fix-issue
+description: Fix a GitHub issue
+disable-model-invocation: true
+---
+
+Fix GitHub issue $ARGUMENTS following our coding standards.
+
+1. Read the issue description
+2. Understand the requirements
+3. Implement the fix
+4. Write tests
+5. Create a commit
+#+end_src
+
+** Read-Only Exploration Skill
+
+#+begin_src yaml
+---
+name: safe-reader
+description: Read files without making changes
+allowed-tools: Read, Grep, Glob
+---
+#+end_src
+
+** Forked Research Skill
+
+#+begin_src yaml
+---
+name: deep-research
+description: Research a topic thoroughly
+context: fork
+agent: Explore
+---
+
+Research $ARGUMENTS thoroughly:
+
+1. Find relevant files using Glob and Grep
+2. Read and analyze the code
+3. Summarize findings with specific file references
+#+end_src
+
+** PR Summary with Shell Preprocessing
+
+#+begin_src yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+- Changed files: !`gh pr diff --name-only`
+
+## Your task
+Summarize this pull request. Highlight:
+- Key changes and their purpose
+- Potential risks or concerns
+- Suggested reviewers based on file ownership
+#+end_src
+
+** Component Migration with Positional Args
+
+#+begin_src yaml
+---
+name: migrate-component
+description: Migrate a component from one framework to another
+---
+
+Migrate the $0 component from $1 to $2.
+Preserve all existing behavior and tests.
+#+end_src
+
+Usage: =/migrate-component SearchBar React Vue=
+
+* Key Takeaways
+
+1. *Skills > MCP for most use cases.* Token-efficient, simple to create, portable
+   across tools. MCP still useful for authenticated API access but skills handle
+   workflows better.
+
+2. *Start with superpowers.* The obra/superpowers framework (53k+ stars) is the
+   most mature and battle-tested skill-based development workflow. Install it
+   and build on top of it.
+
+3. *Progressive disclosure is the key design principle.* Keep metadata tiny
+   (~100 tokens), SKILL.md focused (<500 lines), and supporting files loaded
+   only on demand.
+
+4. *Write descriptions as if selling to Claude.* The description is how Claude
+   decides whether to invoke your skill from potentially 100+ available skills.
+   Be specific and include trigger contexts.
+
+5. *Evaluation-driven development.* Build evals before writing skills. Test with
+   real scenarios, not imagined ones. Iterate with two Claude instances.
+
+6. *The ecosystem is exploding.* From 0 to 70k+ stars on the official repo,
+   53k+ on superpowers, 24k+ on awesome-claude-code, all in ~4 months since
+   the October 2025 announcement.
+
+7. *Security skills deserve attention.* Trail of Bits' professional security
+   skills demonstrate the quality ceiling for skill development.
+
+8. *Ralph Wiggum for batch work.* The autonomous loop technique enables
+   overnight batch processing for mechanical tasks.
+
+9. *Homunculus for self-improvement.* The self-rewriting plugin pattern points
+   toward agents that improve their own configurations over time.
+
+10. *The Agent Skills open standard* means investing in skill creation pays off
+    across multiple tools, not just Claude Code.
