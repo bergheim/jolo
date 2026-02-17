@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="dawn-sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a3e"/>
+      <stop offset="40%" stop-color="#2d3a6e"/>
+      <stop offset="70%" stop-color="#c06040"/>
+      <stop offset="85%" stop-color="#e8a060"/>
+      <stop offset="100%" stop-color="#f0c878"/>
+    </linearGradient>
+    <linearGradient id="dmtn1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2d3748"/>
+      <stop offset="100%" stop-color="#1a202c"/>
+    </linearGradient>
+    <linearGradient id="dmtn2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4a5568"/>
+      <stop offset="100%" stop-color="#2d3748"/>
+    </linearGradient>
+    <radialGradient id="sun-glow" cx="256" cy="310" r="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffd080" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ffd080" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="txtglow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="48" fill="url(#dawn-sky)"/>
+  <!-- Stars fading in upper sky -->
+  <g fill="#fff" opacity="0.3">
+    <circle cx="80" cy="40" r="1.2"/><circle cx="160" cy="65" r="0.8"/><circle cx="400" cy="35" r="1.2"/>
+    <circle cx="350" cy="80" r="0.8"/><circle cx="440" cy="55" r="1"/><circle cx="60" cy="100" r="0.7"/>
+  </g>
+  <!-- Sun glow on horizon -->
+  <circle cx="256" cy="310" r="180" fill="url(#sun-glow)"/>
+  <!-- Bold wordmark -->
+  <text x="256" y="185" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="110" font-weight="700" letter-spacing="3" fill="#fff" filter="url(#txtglow)">jolo</text>
+  <!-- Far range silhouette -->
+  <polygon points="0,380 50,300 100,340 180,270 250,320 320,260 400,310 460,280 512,320 512,420 0,420" fill="url(#dmtn2)" opacity="0.5"/>
+  <!-- Main mountains (dark silhouettes against dawn) -->
+  <polygon points="0,420 120,260 200,340 180,420" fill="url(#dmtn1)"/>
+  <polygon points="140,420 260,220 360,330 320,420" fill="url(#dmtn1)"/>
+  <polygon points="290,420 390,270 480,360 512,390 512,420" fill="url(#dmtn1)" opacity="0.9"/>
+  <!-- Snow caps catching first light -->
+  <polygon points="120,260 130,278 138,272 148,290 156,284 200,340 184,316 174,322 158,300 148,306 135,285 128,290" fill="#ffeedd" opacity="0.7"/>
+  <polygon points="260,220 272,242 280,235 292,258 300,250 360,330 340,305 328,312 312,286 300,294 288,270 278,276" fill="#ffeedd" opacity="0.7"/>
+  <!-- Ground -->
+  <rect x="0" y="400" width="512" height="112" fill="#1a202c" opacity="0.8"/>
+  <!-- Subtitle -->
+  <text x="256" y="456" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="300" letter-spacing="5" fill="#e8a060" opacity="0.7">PROGRAM LIKE IT'S 2026</text>
+</svg>

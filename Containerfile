@@ -92,6 +92,7 @@ RUN apk update && apk add --no-cache \
     nss \
     freetype \
     harfbuzz \
+    yazi \
     ttf-freefont \
     ca-certificates
 
