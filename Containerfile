@@ -107,7 +107,8 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
 
 # tmux system config (must be written as root)
 RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
-    echo 'set -as terminal-features ",*:sixel:extkeys"' >> /etc/tmux.conf
+    echo 'set -s set-clipboard on' >> /etc/tmux.conf && \
+    echo 'set -as terminal-features ",*:clipboard:sixel:extkeys"' >> /etc/tmux.conf
 
 # Root-level files and setup
 COPY container/e /usr/local/bin/e
