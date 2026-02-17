@@ -1,6 +1,5 @@
 """Template and config generation functions for jolo."""
 
-import json
 from pathlib import Path
 
 from _jolo import constants
@@ -187,43 +186,17 @@ def get_type_checker_config(flavor: str) -> dict | None:
     lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
 
     if lang == "python":
-        config_content = """\
-[tool.ty]
-# ty type checker configuration
-# See: https://github.com/astral-sh/ty
-"""
         return {
             "config_file": "pyproject.toml",
-            "config_content": config_content,
+            "config_content": _read_template("lang/python/ty.toml"),
         }
 
     elif lang == "typescript":
-        compiler_options: dict = {
-            "strict": True,
-            "noEmit": True,
-            "target": "ES2022",
-            "module": "NodeNext",
-            "moduleResolution": "NodeNext",
-            "esModuleInterop": True,
-            "skipLibCheck": True,
-            "forceConsistentCasingInFileNames": True,
-        }
-        if flavor == "typescript-web":
-            compiler_options["jsx"] = "react-jsx"
-            compiler_options["jsxImportSource"] = "@kitajs/html"
-        includes = (
-            ["**/*.ts", "**/*.tsx"]
-            if flavor == "typescript-web"
-            else ["**/*.ts"]
-        )
-        tsconfig = {
-            "compilerOptions": compiler_options,
-            "include": includes,
-            "exclude": ["node_modules", "dist"],
-        }
         return {
             "config_file": "tsconfig.json",
-            "config_content": json.dumps(tsconfig, indent=2),
+            "config_content": _read_template(
+                _flavor_template_path(flavor, "tsconfig.json")
+            ),
         }
 
     return None
@@ -246,12 +219,8 @@ def get_coverage_config(flavor: str) -> dict:
     lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
 
     if lang == "python":
-        config_addition = """\
-[tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=term-missing"
-"""
         return {
-            "config_addition": config_addition,
+            "config_addition": _read_template("lang/python/coverage.toml"),
             "run_command": "pytest --cov=src --cov-report=term-missing",
         }
 
