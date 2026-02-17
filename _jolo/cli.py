@@ -97,25 +97,24 @@ def _select_flavors_gum() -> list[str]:
             "--header",
             "Select project flavor(s):",
         ]
-        + constants.FLAVOR_OPTIONS,
+        + constants.VALID_FLAVORS,
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         return []
-    selected = result.stdout.strip().splitlines()
     return [
-        constants.FLAVOR_CODE_MAP[opt]
-        for opt in selected
-        if opt in constants.FLAVOR_CODE_MAP
+        f
+        for f in result.stdout.strip().splitlines()
+        if f in constants.VALID_FLAVORS
     ]
 
 
 def _select_flavors_fallback() -> list[str]:
     """Fallback numbered input when gum isn't available."""
     print("Select project flavor(s) (comma-separated numbers, e.g. 1,3):")
-    for i, opt in enumerate(constants.FLAVOR_OPTIONS, 1):
-        print(f"  {i}. {opt}")
+    for i, flavor in enumerate(constants.VALID_FLAVORS, 1):
+        print(f"  {i}. {flavor}")
     print()
     try:
         response = input("> ").strip()
@@ -128,10 +127,8 @@ def _select_flavors_fallback() -> list[str]:
         part = part.strip()
         if part.isdigit():
             idx = int(part) - 1
-            if 0 <= idx < len(constants.FLAVOR_OPTIONS):
-                selected.append(
-                    constants.FLAVOR_CODE_MAP[constants.FLAVOR_OPTIONS[idx]]
-                )
+            if 0 <= idx < len(constants.VALID_FLAVORS):
+                selected.append(constants.VALID_FLAVORS[idx])
     return selected
 
 

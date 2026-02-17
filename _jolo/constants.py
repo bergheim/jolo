@@ -54,49 +54,19 @@ PORT_MAX = 5000
 # Global verbose flag
 VERBOSE = False
 
-# Valid flavors for --flavor flag
-VALID_FLAVORS = frozenset(
-    [
-        "typescript-web",
-        "typescript-bare",
-        "go-web",
-        "go-bare",
-        "python-web",
-        "python-bare",
-        "rust",
-        "shell",
-        "prose",
-        "other",
-    ]
-)
-
-# Flavor options for interactive selector (display names)
-FLAVOR_OPTIONS = [
-    "TypeScript (web)",
-    "TypeScript (bare)",
-    "Go (web)",
-    "Go (bare)",
-    "Python (web)",
-    "Python (bare)",
-    "Rust",
-    "Shell",
-    "Prose/Docs",
-    "Other",
+# Valid flavors for --flavor flag (also used directly in interactive picker)
+VALID_FLAVORS = [
+    "typescript-web",
+    "typescript-bare",
+    "go-web",
+    "go-bare",
+    "python-web",
+    "python-bare",
+    "rust",
+    "shell",
+    "prose",
+    "other",
 ]
-
-# Mapping from display names to flavor codes
-FLAVOR_CODE_MAP = {
-    "TypeScript (web)": "typescript-web",
-    "TypeScript (bare)": "typescript-bare",
-    "Go (web)": "go-web",
-    "Go (bare)": "go-bare",
-    "Python (web)": "python-web",
-    "Python (bare)": "python-bare",
-    "Rust": "rust",
-    "Shell": "shell",
-    "Prose/Docs": "prose",
-    "Other": "other",
-}
 
 # Map flavor to base language for pre-commit hooks, coverage, etc.
 FLAVOR_LANGUAGE = {

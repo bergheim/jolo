@@ -322,21 +322,20 @@ class TestSelectFlavorsInteractive(unittest.TestCase):
 
     def test_all_flavors_available(self):
         """All valid flavors should be available as options."""
-        self.assertTrue(hasattr(jolo, "FLAVOR_OPTIONS"))
-        options = jolo.FLAVOR_OPTIONS
+        self.assertTrue(hasattr(jolo, "VALID_FLAVORS"))
         expected = [
-            "TypeScript (web)",
-            "TypeScript (bare)",
-            "Go (web)",
-            "Go (bare)",
-            "Python (web)",
-            "Python (bare)",
-            "Rust",
-            "Shell",
-            "Prose/Docs",
-            "Other",
+            "typescript-web",
+            "typescript-bare",
+            "go-web",
+            "go-bare",
+            "python-web",
+            "python-bare",
+            "rust",
+            "shell",
+            "prose",
+            "other",
         ]
-        self.assertEqual(options, expected)
+        self.assertEqual(jolo.VALID_FLAVORS, expected)
 
     def test_fallback_parses_comma_separated_numbers(self):
         """Fallback should parse comma-separated numbers."""
