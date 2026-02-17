@@ -968,6 +968,52 @@ Added ~get_secrets=mock.Mock(return_value={})~ to both ~_mock_devcontainer_calls
 ** Key files
 - ~tests/test_integration.py~
 
+* tmux terminal-features wildcard and host config override  :tmux:terminal:config:
+:PROPERTIES:
+:DATE: 2026-02-17
+:END:
+
+tmux =terminal-features= uses =fnmatch(3)= for pattern matching, so =*= works
+as a wildcard for all terminal types. Replaced per-terminal listings with
+=set -as terminal-features ",*:sixel:extkeys"= in =/etc/tmux.conf=.
+
+** extkeys
+
+Enables CSI u / xterm modifyOtherKeys. Lets tmux distinguish key combos that
+are normally ambiguous (=C-S-a= vs =C-a=, =C-;=, =C-RET=). Required for
+Emacs keybindings like =C-S-<return>= through tmux. Needs =set -s extended-keys on=
+on the server side as well.
+
+** Host config clobbers container /etc/tmux.conf
+
+The host =~/.tmux.conf= is bind-mounted into jolo containers (readonly) and
+the emacs-container yadm sandbox. tmux loads =/etc/tmux.conf= first, then
+=~/.tmux.conf=. Any =set -g terminal-features= (without =-a=) in the user
+config *replaces the entire array*, wiping =/etc/tmux.conf= settings.
+
+Found in the yadm sandbox copy:
+#+begin_src tmux
+set -g terminal-features ',xterm-256color:sixel'
+#+end_src
+This nuked all prior settings (clipboard, extkeys from /etc/tmux.conf).
+
+** Fix
+
+Container =/etc/tmux.conf= (Containerfile):
+#+begin_src tmux
+set -g allow-passthrough on
+set -as terminal-features ",*:sixel:extkeys"
+#+end_src
+
+Host =~/.tmux.conf= should:
+1. Uncomment/broaden: =set -as terminal-features '*:extkeys:sixel:clipboard'=
+2. Remove the clobbering =set -g terminal-features ',xterm-256color:sixel'=
+
+** Host config is read-only in emacs-container
+
+=/home/tsb/.tmux.conf= is EROFS in the emacs-container. Changes must be made
+on the host directly.
+
 * BETH scaffold plan review (openspec)                    :typescript:scaffold:elysia:
 :PROPERTIES:
 :DATE: 2026-02-16
