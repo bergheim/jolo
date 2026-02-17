@@ -20,6 +20,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - =.bare= suffix convention for template variants (e.g., =justfile.bare=) :jolo:templates:
 - =@elysiajs/static= serves files at =/public/= prefix by default but only works via real server, not =app.handle()= :elysia:bun:
 - OpenSpec CLI is image-provided via =pnpm add -g fission-ai/openspec@latest= (intentionally unpinned) :openspec:container:
+- Do not force =TERM=tmux-direct= in devcontainer env/shell; let tmux negotiate TERM and enable =terminal-features ...:extkeys= for rich key input :tmux:term-keys:
 
 * Gotchas
 

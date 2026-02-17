@@ -207,8 +207,9 @@
 ** DONE Add a shared mounted space between all devcontainers for global resources
    Default mount: ~/stash -> /workspaces/stash (RW, non-reproducible).
 ** TODO Document Wayland Emacs integration
-** CANCELLED Verify tmux-direct terminfo and term-keys in devcontainer
-   No concrete problem identified; no references in codebase.
+** DONE Fix term-keys breakage from forced TERM in devcontainer
+   Removed forced =TERM=tmux-direct= from generated container env and shell init.
+   Added tmux =extkeys= terminal-features hints for =tmux-direct=, =xterm-256color=, and =wezterm=.
 ** DONE Add doc-compare skill for narrative version diffs
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
