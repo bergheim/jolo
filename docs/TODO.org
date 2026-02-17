@@ -8,7 +8,8 @@
 ** DONE Add shared per-project multi-agent memory + per-agent personal memory
 ** TODO Tmux copy/paste broken over mosh (works over ssh)
    Might be mosh not supporting OSC 52. Wayland/Sway relevance unclear.
-** TODO Send agent findings via email (or similar async channel)
+** CANCELLED Send agent findings via email (or similar async channel)
+   ntfy.sh covers this well enough.
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
    - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =--bare= for plain Bun
@@ -22,11 +23,8 @@
    2. Update language templates and init commands per language
    3. Add generated-project tests for dev files and commands
    4. Run scaffold smoke tests for each language
-** TODO Tighten BETH TypeScript scaffold plan before implementation
-   Blockers from =openspec/changes/beth-stack-scaffold/plan.md= review:
-   - Require =if (import.meta.main)= listen gate + exported =app= for tests
-   - Add explicit =@kitajs/html= dependency when using =jsxImportSource=
-   - Avoid coupling app source scaffolding to =get_test_framework_config=
+** DONE Tighten BETH TypeScript scaffold plan before implementation
+   All three blockers resolved in the shipped scaffold.
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
@@ -35,9 +33,7 @@
    Fix: removed the guard in =_jolo/templates.py= so prose hooks are included
    whenever =prose= is selected.
 ** DONE Consider adding `jolo exec` command to align with container conventions
-** TODO Rebuild container image to pick up notify fixes
-   Image is stale — missing: session-ID removal, Click header, Actions header, rename to notify.
-   Run: =podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .=
+** DONE Rebuild container image to pick up notify fixes
 ** TODO Add ntfy desktop notifications on Linux
    Install =ntfysh-bin= (AUR), configure =~/.config/ntfy/client.yml= to subscribe
    to the =jolo= topic and pipe to =notify-send=, enable =ntfy-client= user service.
@@ -150,7 +146,8 @@
 ** DONE Add a shared mounted space between all devcontainers for global resources
    Default mount: ~/stash -> /workspaces/stash (RW, non-reproducible).
 ** TODO Document Wayland Emacs integration
-** TODO Verify tmux-direct terminfo and term-keys in devcontainer
+** CANCELLED Verify tmux-direct terminfo and term-keys in devcontainer
+   No concrete problem identified; no references in codebase.
 ** DONE Add doc-compare skill for narrative version diffs
 ** DONE Add doc-critique skill for writing feedback
 ** DONE Alternate agents between external reviews in feature-workflow
