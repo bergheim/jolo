@@ -885,7 +885,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
             test_config["main_file"]
         )
         main_path.parent.mkdir(parents=True, exist_ok=True)
-        main_path.write_text(test_config["main_content"])
+        main_path.write_text(replace_placeholders(test_config["main_content"]))
         verbose_print(
             f"Wrote main module: {main_path.relative_to(project_path)}"
         )
@@ -925,7 +925,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Write additional scaffold source files
     for rel_path, content in get_scaffold_files(primary_flavor):
-        file_path = project_path / rel_path
+        file_path = project_path / replace_placeholders(rel_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(replace_placeholders(content))
         verbose_print(f"Wrote scaffold file: {rel_path}")
