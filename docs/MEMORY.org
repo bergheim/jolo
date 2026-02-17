@@ -45,6 +45,26 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - tmux =input-buffer-size= defaults to 1MB — large sixel images silently dropped; increase to 4MB+ if using sixel
 - =TERM_PROGRAM= env var does not propagate over SSH — cannot detect host terminal via env vars in containers
 
+* Container Security Assessment (2026-02)                      :security:container:
+
+Researched adding bubblewrap, Landlock, seccomp, nono etc. inside rootless Podman containers.
+Conclusion: mostly ceremony for our setup. Details:
+
+- Rootless Podman is already a strong boundary — recent runc escape CVEs (Nov 2025) are explicitly mitigated by rootless containers
+- GPG keys: private keys never enter container, only agent socket (RO). Safe.
+- SSH keys: not mounted at all. Safe.
+- =.gitconfig=, =.zshrc=, =.config/gh=, =.config/tmux=: all mounted RO
+- Claude =.credentials.json=: mounted RW (token refresh needs persist to host)
+- Gemini/Codex/Pi creds: copied RW into =.devcontainer/= cache dirs
+- API keys (=ANTHROPIC_API_KEY=, =OPENAI_API_KEY=, =GH_TOKEN=): env vars, readable by any process
+- The "confused deputy" problem: agent NEEDS credentials to function, same credentials can be abused via prompt injection
+- Landlock/bwrap inside container = nesting namespace isolation for marginal gain, high breakage risk
+- Network filtering breaks legitimate workflows; agent can exfiltrate through allowed channels (git push, API calls)
+- Simon Willison's "Lethal Trifecta": private data + untrusted content + external comms = fundamentally vulnerable
+- OpenAI admits prompt injection "unlikely to ever be fully solved"
+- Real improvements: scoped git tokens, credential rotation, reviewing agent output — not more OS sandbox layers
+- Egress monitoring (logging, not blocking) is the one addition that could provide visibility without breakage
+
 * Gotchas
 
 - Grep/Glob tools sometimes miss =_jolo/*.py= — use =**/_jolo/**/*.py= or =ls= :tooling:

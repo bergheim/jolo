@@ -98,6 +98,19 @@
    whenever =prose= is selected.
 ** DONE Consider adding `jolo exec` command to align with container conventions
 ** DONE Rebuild container image to pick up notify fixes
+** TODO Investigate network egress monitoring for devcontainers
+   Log outbound connections from agent containers for visibility without blocking.
+   Not urgent — current rootless Podman isolation is strong. This is about
+   observability, not enforcement. Options to research:
+   - Podman =--log-driver= with network event logging
+   - Lightweight transparent proxy (mitmproxy, squid) logging connections
+   - eBPF-based connection tracking (=bpftrace=, =cilium=)
+   - Simple =ss= / =conntrack= polling from host
+   Goal: after-the-fact audit trail, not real-time blocking.
+** TODO Use scoped GitHub tokens per project
+   Replace broad =GH_TOKEN= with fine-grained personal access tokens
+   scoped to specific repos. Reduces blast radius if a token is exfiltrated.
+   GitHub fine-grained tokens support per-repo permissions since 2023.
 ** TODO Add ntfy desktop notifications on Linux
    Install =ntfysh-bin= (AUR), configure =~/.config/ntfy/client.yml= to subscribe
    to the =jolo= topic and pipe to =notify-send=, enable =ntfy-client= user service.
