@@ -54,6 +54,10 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 | `just test-watch` | Run tests on file change |
 | `just add X` | Add a dependency |
 
+## Image Tooling
+
+Prefer `vips`/`vipsthumbnail` for image conversion, resizing, and thumbnails. Do not add ImageMagick or Pillow unless the project explicitly requires them.
+
 ## Git Workflow
 
 Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
