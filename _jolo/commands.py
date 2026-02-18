@@ -16,6 +16,8 @@ from _jolo import constants
 from _jolo.cli import (
     _format_container_display,
     check_tmux_guard,
+    clipboard_copy,
+    detect_hostname,
     find_git_root,
     generate_random_name,
     is_port_available,
@@ -635,6 +637,16 @@ def run_list_mode(args: argparse.Namespace) -> None:
         print("Worktrees: (none)")
 
 
+def _copy_url_to_clipboard(workspace_dir: Path) -> None:
+    """Copy the project's dev server URL to the clipboard via OSC 52."""
+    port = read_port_from_devcontainer(workspace_dir)
+    if port is None:
+        return
+    hostname = detect_hostname()
+    url = f"http://{hostname}:{port}"
+    clipboard_copy(url)
+
+
 def run_up_mode(args: argparse.Namespace) -> None:
     """Run up mode: start devcontainer in current git project."""
     git_root = find_git_root()
@@ -691,6 +703,8 @@ def run_up_mode(args: argparse.Namespace) -> None:
             sys.exit("Error: Failed to start devcontainer")
     elif already_running:
         print("Container already running, reattaching. Use --new to rebuild.")
+
+    _copy_url_to_clipboard(git_root)
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
@@ -1018,6 +1032,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
         combined_cmd = " && ".join([" ".join(c) for c in init_commands])
         verbose_print(f"Running in container: {combined_cmd}")
         devcontainer_exec_command(project_path, combined_cmd)
+
+    _copy_url_to_clipboard(project_path)
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
