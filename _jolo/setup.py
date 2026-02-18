@@ -124,6 +124,12 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
                 file=sys.stderr,
             )
 
+    # Wayland: show Playwright browser on host display instead of headless
+    if os.environ.get("WAYLAND_DISPLAY") and "playwright" in mcp_servers:
+        args = mcp_servers["playwright"].get("args", [])
+        if "--headless" in args:
+            args.remove("--headless")
+
     return target_config
 
 
