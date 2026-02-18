@@ -13,11 +13,16 @@
    See =docs/RESEARCH.org= for full details.
 ** CANCELLED Send agent findings via email (or similar async channel)
    ntfy.sh covers this well enough.
+** TODO Auto-copy dev server URL to clipboard on =just dev=
+   Prepend an OSC 52 clipboard copy line to every web justfile's =dev= recipe.
+   When you type =just dev=, the URL (=http://localhost:$PORT=) goes to your
+   clipboard before the server blocks. Paste in browser. No separate =browse=
+   recipe needed — remove it from justfiles that have it.
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
-   - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =--bare= for plain Bun
-   - Python: FastAPI + =uvicorn --reload= + browser live reload bridge
-   - Go: net/http + =air= + browser live reload bridge
+   - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =typescript-bare= for plain Bun
+   - DONE Python: FastAPI + Uvicorn + Jinja2 + HTMX (=python-web= flavor)
+   - DONE Go: stdlib 1.22+ ServeMux + templ + HTMX + Air (=go-web= flavor)
    - Rust: HTTP starter + watcher-based restart + browser live reload bridge
    - Other/Shell: static + live reload baseline
 
@@ -31,7 +36,7 @@
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
-** TODO Flatten language+variant into single flavor menu
+** DONE Flatten language+variant into single flavor menu
    The =--bare= flag threads a cross-cutting =bare= parameter through 5 function
    signatures and 5 callsites in templates.py. This doesn't scale — adding web
    variants for Python/Go would mean more flags. Instead, flatten language + variant
