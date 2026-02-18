@@ -12,7 +12,7 @@ Run pragmatic tests and then get a code review from a different AI agent for a f
 - `[file...]` — (optional) specific files to review
 - `--agent <name>` — (optional) force a specific reviewer: `claude`, `gemini`, or `codex`
 
-If no files given, reviews the current diff (staged if any, otherwise unstaged).
+If no files are given, and we are on a branch different from main, review the complete branch. If we are on main, review the current diff (staged if any, otherwise unstaged).
 
 ## Instructions
 
