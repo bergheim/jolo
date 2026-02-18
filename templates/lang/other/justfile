@@ -10,7 +10,7 @@ test:
 browse:
     #!/bin/sh
     u="http://${DEV_HOST:-localhost}:${PORT:-4000}"
-    printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty
+    printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64 | tr -d '\n')" > /dev/tty
     if [ -n "$WAYLAND_DISPLAY" ]; then
         chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
         echo "Opened browser: $u (copied to clipboard)"
