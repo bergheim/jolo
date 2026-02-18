@@ -1220,3 +1220,52 @@ Over mosh, image protocols fail even when the local terminal supports them
 - [[https://github.com/mobile-shell/mosh/issues/1274][Mosh #1274]] — maintainer confirms no sixel/kitty support
 - [[https://github.com/mobile-shell/mosh/issues/1093][Mosh #1093]] — mosh does not pass full terminal extension stream
 - [[https://github.com/mobile-shell/mosh/blob/master/src/frontend/mosh-server.cc][mosh-server.cc]] — sets TERM to =xterm-256color=
+
+* OSC 52 clipboard from Python — write to /dev/tty          :clipboard:osc52:jolo:
+:PROPERTIES:
+:DATE: 2026-02-18
+:END:
+
+Writing OSC 52 to =sys.stdout= fails when stdout is captured by subprocess
+pipelines (e.g., during =jolo up= which shells out to =devcontainer= CLI).
+
+** Fix
+Write to =/dev/tty= directly, matching the working =just browse= recipe:
+#+begin_src python
+with open("/dev/tty", "w") as tty:
+    tty.write(f"\033]52;c;{encoded}\a")
+#+end_src
+
+** Also: busybox base64 wraps at 76 chars
+Alpine's =base64= inserts newlines in long output, breaking OSC 52.
+Fix: =base64 | tr -d '\n'= in shell, or use Python's =base64.b64encode()=
+which doesn't wrap.
+
+* Stale container names after podman system prune           :podman:container:jolo:
+:PROPERTIES:
+:DATE: 2026-02-18
+:END:
+
+=podman system prune -a= can remove images/volumes but leave stopped containers
+with claimed names. The =devcontainer= CLI's =--remove-existing-container= flag
+only tracks containers it created — if tracking is lost, =docker run= fails with
+"name is already in use by an external entity".
+
+** Fix
+Before =devcontainer up= with =remove_existing=True=, force-remove by name:
+=podman rm -f <container_name>= (silent failure if not found).
+
+* Wayland display passthrough for container Chromium        :wayland:chromium:container:
+:PROPERTIES:
+:DATE: 2026-02-18
+:END:
+
+The container Wayland mount (=WAYLAND_MOUNT= in constants.py) maps the host's
+Wayland socket into the container at =/tmp/container-runtime/$WAYLAND_DISPLAY=.
+Chromium can render on the host's Wayland compositor with =--ozone-platform=wayland=.
+
+** Key points
+- Wayland is per-surface isolated (unlike X11) — safe for containers
+- System =chromium= at =/usr/bin/chromium= (Alpine package)
+- Works for local dev only — SSH/mosh users get clipboard fallback
+- Playwright MCP can also run headed by stripping =--headless= from config

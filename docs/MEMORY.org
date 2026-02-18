@@ -26,6 +26,10 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Mosh 1.4.0 supports OSC 52 but only with =c;= selection — tmux's =clipboard= feature emits =;;= (empty) which mosh drops :mosh:clipboard:
 - For mosh clipboard: remove =clipboard= from =terminal-features=, use =Ms= override with hardcoded =c;=: =set -as terminal-overrides ',*:Ms=\\E]52;c%p1%.0s;%p2%s\\7'= :mosh:clipboard:tmux:
 - Host-side/manual ops convention: label machines as =tux= (laptop/client) and =berghome= (home/server); provide grouped manual steps, verify, and rollback instead of running host mutations from container :host-ops:workflow:
+- OSC 52 from Python: write to =/dev/tty= not =sys.stdout= — stdout may be piped during =jolo up= :clipboard:osc52:
+- Alpine busybox =base64= wraps at 76 chars — pipe through =tr -d '\n'= for OSC 52 :alpine:clipboard:
+- =devcontainer_up(remove_existing=True)= now force-removes container by name before launching, handles stale names after =podman system prune= :jolo:podman:
+- Wayland Chromium: =chromium --ozone-platform=wayland= works from container when socket is mounted; safe (per-surface isolation) :wayland:chromium:
 
 * Terminal Image Display                                       :terminal:images:
 

@@ -13,11 +13,15 @@
    See =docs/RESEARCH.org= for full details.
 ** CANCELLED Send agent findings via email (or similar async channel)
    ntfy.sh covers this well enough.
-** TODO Auto-copy dev server URL to clipboard on =just dev=
-   Prepend an OSC 52 clipboard copy line to every web justfile's =dev= recipe.
-   When you type =just dev=, the URL (=http://localhost:$PORT=) goes to your
-   clipboard before the server blocks. Paste in browser. No separate =browse=
-   recipe needed — remove it from justfiles that have it.
+** DONE Auto-copy dev server URL to clipboard on launch
+   Implemented differently than originally planned: URL is copied to clipboard
+   via OSC 52 on =jolo up= / =jolo create= (not on =just dev=). Writes to
+   =/dev/tty= to bypass pipes. Motd shows "(in clipboard)" next to URL.
+** TODO Wayland-aware =just browse= — open Chromium on host display
+   Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
+   When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
+   Always copies URL to clipboard too. Falls back to clipboard-only without Wayland.
+   Also strips =--headless= from Playwright MCP config on Wayland.
 ** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
    - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =typescript-bare= for plain Bun
