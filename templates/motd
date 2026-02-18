@@ -1,8 +1,7 @@
-{{PROJECT_NAME}}
+{{PROJECT_NAME}}  (URL copied to clipboard on launch)
 
   just run        - run the project
   just dev        - run with auto-reload
   just test       - run tests
   just test-watch - run tests on file change
   just add X      - add dependency
-  just browse     - open in browser

@@ -5,6 +5,7 @@ import subprocess  # noqa: F401 - re-exported for test mocking (jolo.subprocess.
 from _jolo.cli import (  # noqa: F401
     _format_container_display,
     check_tmux_guard,
+    clipboard_copy,
     detect_hostname,
     find_git_root,
     generate_random_name,
