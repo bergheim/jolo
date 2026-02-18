@@ -54,31 +54,32 @@ PORT_MAX = 5000
 # Global verbose flag
 VERBOSE = False
 
-# Valid languages for --lang flag
-VALID_LANGUAGES = frozenset(
-    ["python", "go", "typescript", "rust", "shell", "prose", "other"]
-)
-
-# Language options for interactive selector (display names)
-LANGUAGE_OPTIONS = [
-    "Python",
-    "Go",
-    "TypeScript",
-    "Rust",
-    "Shell",
-    "Prose/Docs",
-    "Other",
+# Valid flavors for --flavor flag (also used directly in interactive picker)
+VALID_FLAVORS = [
+    "typescript-web",
+    "typescript-bare",
+    "go-web",
+    "go-bare",
+    "python-web",
+    "python-bare",
+    "rust",
+    "shell",
+    "prose",
+    "other",
 ]
 
-# Mapping from display names to language codes
-LANGUAGE_CODE_MAP = {
-    "Python": "python",
-    "Go": "go",
-    "TypeScript": "typescript",
-    "Rust": "rust",
-    "Shell": "shell",
-    "Prose/Docs": "prose",
-    "Other": "other",
+# Map flavor to base language for pre-commit hooks, coverage, etc.
+FLAVOR_LANGUAGE = {
+    "typescript-web": "typescript",
+    "typescript-bare": "typescript",
+    "go-web": "go",
+    "go-bare": "go",
+    "python-web": "python",
+    "python-bare": "python",
+    "rust": "rust",
+    "shell": "shell",
+    "prose": "prose",
+    "other": "other",
 }
 
 # Pre-commit hook configurations by language

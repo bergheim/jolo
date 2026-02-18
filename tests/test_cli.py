@@ -503,100 +503,77 @@ class TestCopyParsing(unittest.TestCase):
         self.assertTrue(result["source"].endswith("some/nested/config.json"))
 
 
-class TestLangArgParsing(unittest.TestCase):
-    """Test --lang argument parsing."""
+class TestFlavorArgParsing(unittest.TestCase):
+    """Test --flavor argument parsing."""
 
-    def test_lang_flag_single(self):
-        """--lang should accept a single language."""
-        args = jolo.parse_args(["create", "test", "--lang", "python"])
-        self.assertEqual(args.lang, ["python"])
+    def test_flavor_flag_single(self):
+        """--flavor should accept a single flavor."""
+        args = jolo.parse_args(["create", "test", "--flavor", "python-web"])
+        self.assertEqual(args.flavor, ["python-web"])
 
-    def test_lang_flag_comma_separated(self):
-        """--lang should accept comma-separated values."""
+    def test_flavor_flag_comma_separated(self):
+        """--flavor should accept comma-separated values."""
         args = jolo.parse_args(
-            ["create", "test", "--lang", "python,typescript"]
+            ["create", "test", "--flavor", "python-web,typescript-bare"]
         )
-        self.assertEqual(args.lang, ["python", "typescript"])
+        self.assertEqual(args.flavor, ["python-web", "typescript-bare"])
 
-    def test_lang_flag_multiple_values(self):
-        """--lang should handle multiple comma-separated values."""
-        args = jolo.parse_args(["create", "test", "--lang", "python,go,rust"])
-        self.assertEqual(args.lang, ["python", "go", "rust"])
-
-    def test_lang_default_none(self):
-        """--lang should default to None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.lang)
-
-    def test_lang_valid_values(self):
-        """--lang should accept all valid language values."""
-        valid_langs = [
-            "python",
-            "go",
-            "typescript",
-            "rust",
-            "shell",
-            "prose",
-            "other",
-        ]
-        for lang in valid_langs:
-            args = jolo.parse_args(["create", "test", "--lang", lang])
-            self.assertEqual(args.lang, [lang])
-
-    def test_lang_invalid_value_raises_error(self):
-        """--lang should reject invalid language values."""
-        with self.assertRaises(SystemExit):
-            jolo.parse_args(["create", "test", "--lang", "invalid_language"])
-
-    def test_lang_mixed_valid_invalid_raises_error(self):
-        """--lang should reject if any value is invalid."""
-        with self.assertRaises(SystemExit):
-            jolo.parse_args(["create", "test", "--lang", "python,invalid"])
-
-    def test_lang_with_create(self):
-        """--lang can combine with create."""
+    def test_flavor_flag_multiple_values(self):
+        """--flavor should handle multiple comma-separated values."""
         args = jolo.parse_args(
-            ["create", "myproject", "--lang", "python,typescript"]
+            ["create", "test", "--flavor", "python-bare,go-web,rust"]
+        )
+        self.assertEqual(args.flavor, ["python-bare", "go-web", "rust"])
+
+    def test_flavor_default_none(self):
+        """--flavor should default to None."""
+        args = jolo.parse_args([])
+        self.assertIsNone(args.flavor)
+
+    def test_flavor_valid_values(self):
+        """--flavor should accept all valid flavor values."""
+        for flav in sorted(jolo.VALID_FLAVORS):
+            args = jolo.parse_args(["create", "test", "--flavor", flav])
+            self.assertEqual(args.flavor, [flav])
+
+    def test_flavor_invalid_value_raises_error(self):
+        """--flavor should reject invalid values."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(["create", "test", "--flavor", "invalid_flavor"])
+
+    def test_flavor_mixed_valid_invalid_raises_error(self):
+        """--flavor should reject if any value is invalid."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(
+                ["create", "test", "--flavor", "python-web,invalid"]
+            )
+
+    def test_flavor_with_create(self):
+        """--flavor can combine with create."""
+        args = jolo.parse_args(
+            ["create", "myproject", "--flavor", "python-web,typescript-bare"]
         )
         self.assertEqual(args.name, "myproject")
-        self.assertEqual(args.lang, ["python", "typescript"])
+        self.assertEqual(args.flavor, ["python-web", "typescript-bare"])
 
-    def test_lang_is_optional(self):
-        """--lang is not required for any command."""
-        # Should not raise
+    def test_flavor_is_optional(self):
+        """--flavor is not required for any command."""
         args = jolo.parse_args(["create", "myproject"])
-        self.assertIsNone(args.lang)
+        self.assertIsNone(args.flavor)
 
-    def test_lang_whitespace_handling(self):
-        """--lang should handle values with whitespace around commas."""
+    def test_flavor_whitespace_handling(self):
+        """--flavor should handle values with whitespace around commas."""
         args = jolo.parse_args(
-            ["create", "test", "--lang", "python, typescript, go"]
+            [
+                "create",
+                "test",
+                "--flavor",
+                "python-web, typescript-bare, go-web",
+            ]
         )
-        self.assertEqual(args.lang, ["python", "typescript", "go"])
-
-
-class TestLanguageCodeMapping(unittest.TestCase):
-    """Test the language display name to code mapping."""
-
-    def test_mapping_exists(self):
-        """LANGUAGE_CODE_MAP should exist."""
-        self.assertTrue(hasattr(jolo, "LANGUAGE_CODE_MAP"))
-
-    def test_all_options_have_mapping(self):
-        """Every LANGUAGE_OPTIONS entry should have a code mapping."""
-        for option in jolo.LANGUAGE_OPTIONS:
-            self.assertIn(
-                option, jolo.LANGUAGE_CODE_MAP, f"Missing mapping for {option}"
-            )
-
-    def test_mapping_values_are_valid(self):
-        """All mapped codes should be in VALID_LANGUAGES."""
-        for option, code in jolo.LANGUAGE_CODE_MAP.items():
-            self.assertIn(
-                code,
-                jolo.VALID_LANGUAGES,
-                f"Code '{code}' for '{option}' not in VALID_LANGUAGES",
-            )
+        self.assertEqual(
+            args.flavor, ["python-web", "typescript-bare", "go-web"]
+        )
 
 
 class TestExecArgParsing(unittest.TestCase):

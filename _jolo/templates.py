@@ -1,6 +1,5 @@
 """Template and config generation functions for jolo."""
 
-import json
 from pathlib import Path
 
 from _jolo import constants
@@ -71,15 +70,20 @@ def _format_repo_yaml(repo_config: dict) -> str:
     return "\n".join(lines)
 
 
-def generate_precommit_config(languages: list[str]) -> str:
-    """Generate .pre-commit-config.yaml content based on selected languages.
+def generate_precommit_config(flavors: list[str]) -> str:
+    """Generate .pre-commit-config.yaml content based on selected flavors.
 
     Args:
-        languages: List of language codes (e.g., ['python', 'typescript'])
+        flavors: List of flavor codes (e.g., ['python-web', 'typescript-bare'])
 
     Returns:
         Valid YAML string for .pre-commit-config.yaml
     """
+    # Resolve flavors to base languages for hook lookup
+    languages = list(
+        dict.fromkeys(constants.FLAVOR_LANGUAGE.get(f, f) for f in flavors)
+    )
+
     # Start with base hooks that are always included
     repos = [
         {
@@ -166,103 +170,73 @@ def get_precommit_install_command() -> list[str]:
     ]
 
 
-def get_type_checker_config(
-    language: str, *, bare: bool = False
-) -> dict | None:
-    """Get type checker configuration for a language.
+def get_type_checker_config(flavor: str) -> dict | None:
+    """Get type checker configuration for a flavor.
 
-    Returns configuration for setting up type checking based on language.
+    Returns configuration for setting up type checking based on flavor.
     For languages with built-in type checking (Go, Rust), returns None.
 
     Args:
-        language: The programming language (python, typescript, go, rust, etc.)
+        flavor: The project flavor (e.g., 'python-web', 'typescript-bare')
 
     Returns:
         dict with 'config_file' and 'config_content' keys, or None if no
         external type checker config is needed.
     """
-    if language == "python":
-        # ty (by Astral, the ruff folks) configuration
-        config_content = """\
-[tool.ty]
-# ty type checker configuration
-# See: https://github.com/astral-sh/ty
-"""
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+
+    if lang == "python":
         return {
             "config_file": "pyproject.toml",
-            "config_content": config_content,
+            "config_content": "[tool.ty]\n# See: https://github.com/astral-sh/ty\n",
         }
 
-    elif language == "typescript":
-        compiler_options: dict = {
-            "strict": True,
-            "noEmit": True,
-            "target": "ES2022",
-            "module": "NodeNext",
-            "moduleResolution": "NodeNext",
-            "esModuleInterop": True,
-            "skipLibCheck": True,
-            "forceConsistentCasingInFileNames": True,
-        }
-        if not bare:
-            compiler_options["jsx"] = "react-jsx"
-            compiler_options["jsxImportSource"] = "@kitajs/html"
-        includes = ["**/*.ts"] if bare else ["**/*.ts", "**/*.tsx"]
-        tsconfig = {
-            "compilerOptions": compiler_options,
-            "include": includes,
-            "exclude": ["node_modules", "dist"],
-        }
+    elif lang == "typescript":
         return {
             "config_file": "tsconfig.json",
-            "config_content": json.dumps(tsconfig, indent=2),
+            "config_content": _read_template(
+                _flavor_template_path(flavor, "tsconfig.json")
+            ),
         }
 
-    # Go and Rust have built-in type checking, no external config needed
-    # Shell, prose, other have no type checking
     return None
 
 
-def get_coverage_config(language: str) -> dict:
-    """Get code coverage configuration for a language.
+def get_coverage_config(flavor: str) -> dict:
+    """Get code coverage configuration for a flavor.
 
-    Returns configuration for setting up code coverage based on language.
+    Returns configuration for setting up code coverage based on flavor.
     For languages without standard coverage tooling, returns None values.
 
     Args:
-        language: The programming language (python, typescript, go, rust, etc.)
+        flavor: The project flavor (e.g., 'python-web', 'go-bare')
 
     Returns:
         dict with keys:
             - 'config_addition': Config to add to project config file, or None
             - 'run_command': Command to run coverage, or None
     """
-    if language == "python":
-        config_addition = """\
-[tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=term-missing"
-"""
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+
+    if lang == "python":
         return {
-            "config_addition": config_addition,
+            "config_addition": '[tool.pytest.ini_options]\naddopts = "--cov=src --cov-report=term-missing"\n',
             "run_command": "pytest --cov=src --cov-report=term-missing",
         }
 
-    elif language == "typescript":
-        # Bun has built-in coverage support
+    elif lang == "typescript":
         return {
             "config_addition": None,
             "run_command": "bun test --coverage",
         }
 
-    elif language == "go":
-        # Go has built-in coverage support
+    elif lang == "go":
         return {
             "config_addition": None,
             "run_command": "go test -cover ./...",
         }
 
-    elif language == "rust":
-        # Rust uses cargo-llvm-cov for coverage
+    elif lang == "rust":
         return {
             "config_addition": None,
             "run_command": "cargo llvm-cov",
@@ -275,37 +249,49 @@ addopts = "--cov=src --cov-report=term-missing"
     }
 
 
-def get_justfile_content(
-    language: str, project_name: str, *, bare: bool = False
-) -> str:
-    """Generate justfile content for a project based on language.
+def _flavor_template_path(flavor: str, filename: str) -> str:
+    """Resolve template path for a flavor.
+
+    Flavors like 'go-web' map to 'lang/go/web/<filename>',
+    'go-bare' maps to 'lang/go/<filename>' (bare is the base variant).
+    Non-split flavors like 'rust' map to 'lang/rust/<filename>'.
+    Falls back to 'lang/other/<filename>' when the resolved path doesn't exist.
+    """
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+    is_web = flavor.endswith("-web")
+    subdir = "web" if is_web else ""
+    if subdir:
+        path = f"lang/{lang}/{subdir}/{filename}"
+    else:
+        path = f"lang/{lang}/{filename}"
+    if not (_TEMPLATES_DIR / path).exists():
+        path = f"lang/other/{filename}"
+    return path
+
+
+def get_justfile_content(flavor: str, project_name: str) -> str:
+    """Generate justfile content for a project based on flavor.
 
     Args:
-        language: The programming language
+        flavor: The project flavor (e.g., 'python-web', 'go-bare')
         project_name: The project name
-        bare: If True, use minimal scaffold without web framework
 
     Returns:
         justfile content string
     """
     module_name = project_name.replace("-", "_")
-    lang = (
-        language
-        if language in ("python", "typescript", "go", "rust")
-        else "other"
-    )
-    suffix = ".bare" if bare and lang == "typescript" else ""
-    template = _read_template(f"lang/{lang}/justfile{suffix}")
+    template_path = _flavor_template_path(flavor, "justfile")
+    template = _read_template(template_path)
     return _render(
         template, PROJECT_NAME=project_name, MODULE_NAME=module_name
     )
 
 
-def get_motd_content(language: str, project_name: str) -> str:
-    """Generate MOTD content for a project based on language.
+def get_motd_content(flavor: str, project_name: str) -> str:
+    """Generate MOTD content for a project based on flavor.
 
     Args:
-        language: The programming language
+        flavor: The project flavor
         project_name: The project name
 
     Returns:
@@ -315,14 +301,14 @@ def get_motd_content(language: str, project_name: str) -> str:
     return _render(template, PROJECT_NAME=project_name)
 
 
-def get_test_framework_config(language: str, *, bare: bool = False) -> dict:
-    """Get test framework configuration for a language.
+def get_test_framework_config(flavor: str) -> dict:
+    """Get test framework configuration for a flavor.
 
-    Returns configuration for setting up test frameworks based on language.
+    Returns configuration for setting up test frameworks based on flavor.
     For languages with built-in testing (Go, Rust), config_file is None.
 
     Args:
-        language: The programming language (python, typescript, go, rust, etc.)
+        flavor: The project flavor (e.g., 'python-web', 'typescript-bare')
 
     Returns:
         dict with keys:
@@ -331,40 +317,51 @@ def get_test_framework_config(language: str, *, bare: bool = False) -> dict:
             - 'example_test_file': Path to example test file
             - 'example_test_content': Content for example test file
     """
-    if language == "python":
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+
+    if lang == "python":
+        pyproject_path = _flavor_template_path(flavor, "pyproject.toml")
         return {
             "config_file": "pyproject.toml",
-            "config_content": _read_template("lang/python/pyproject.toml"),
+            "config_content": _read_template(pyproject_path),
             "example_test_file": "tests/test_main.py",
-            "example_test_content": _read_template("lang/python/test_main.py"),
+            "example_test_content": _read_template(
+                _flavor_template_path(flavor, "test_main.py")
+            ),
             "main_file": "src/{{PROJECT_NAME_UNDERSCORE}}/main.py",
-            "main_content": _read_template("lang/python/main.py"),
+            "main_content": _read_template(
+                _flavor_template_path(flavor, "main.py")
+            ),
             "init_file": "src/{{PROJECT_NAME_UNDERSCORE}}/__init__.py",
             "tests_init_file": "tests/__init__.py",
         }
 
-    elif language == "typescript":
-        suffix = ".bare" if bare else ""
+    elif lang == "typescript":
+        test_file = "example.test.ts"
         return {
             "config_file": None,
             "config_content": "# Bun has built-in testing. Run tests with: bun test",
             "example_test_file": "src/example.test.ts",
             "example_test_content": _read_template(
-                f"lang/typescript/example.test{suffix}.ts"
+                _flavor_template_path(flavor, test_file)
             ),
         }
 
-    elif language == "go":
+    elif lang == "go":
         return {
             "config_file": None,
             "config_content": "# Go uses built-in testing. Run tests with: go test ./...",
             "example_test_file": "example_test.go",
-            "example_test_content": _read_template("lang/go/example_test.go"),
+            "example_test_content": _read_template(
+                _flavor_template_path(flavor, "example_test.go")
+            ),
             "main_file": "main.go",
-            "main_content": _read_template("lang/go/main.go"),
+            "main_content": _read_template(
+                _flavor_template_path(flavor, "main.go")
+            ),
         }
 
-    elif language == "rust":
+    elif lang == "rust":
         return {
             "config_file": None,
             "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
@@ -372,7 +369,6 @@ def get_test_framework_config(language: str, *, bare: bool = False) -> dict:
             "example_test_content": _read_template("lang/rust/main.rs"),
         }
 
-    # Shell, prose, other, and unknown languages have no standard test framework
     return {
         "config_file": None,
         "config_content": "",
@@ -381,63 +377,106 @@ def get_test_framework_config(language: str, *, bare: bool = False) -> dict:
     }
 
 
-def get_scaffold_files(
-    language: str, *, bare: bool = False
-) -> list[tuple[str, str]]:
-    """Get additional scaffold source files for a language.
+def get_scaffold_files(flavor: str) -> list[tuple[str, str]]:
+    """Get additional scaffold source files for a flavor.
 
     Args:
-        language: The programming language
+        flavor: The project flavor (e.g., 'typescript-web', 'go-web')
 
     Returns:
         List of (relative_path, content) tuples.
     """
-    if language == "typescript" and not bare:
+    if flavor == "typescript-web":
         return [
             (
                 "src/index.tsx",
-                _read_template("lang/typescript/src/index.tsx"),
+                _read_template("lang/typescript/web/src/index.tsx"),
             ),
             (
                 "src/styles.css",
-                _read_template("lang/typescript/src/styles.css"),
+                _read_template("lang/typescript/web/src/styles.css"),
             ),
             (
                 "src/pages/home.tsx",
-                _read_template("lang/typescript/src/pages/home.tsx"),
+                _read_template("lang/typescript/web/src/pages/home.tsx"),
             ),
             (
                 "src/components/layout.tsx",
-                _read_template("lang/typescript/src/components/layout.tsx"),
+                _read_template(
+                    "lang/typescript/web/src/components/layout.tsx"
+                ),
             ),
             ("public/.gitkeep", ""),
+        ]
+    elif flavor == "go-web":
+        return [
+            (
+                "components/page.templ",
+                _read_template("lang/go/web/components/page.templ"),
+            ),
+            (
+                "components/home.templ",
+                _read_template("lang/go/web/components/home.templ"),
+            ),
+            (
+                ".air.toml",
+                _read_template("lang/go/web/.air.toml"),
+            ),
+            (
+                "static/.gitkeep",
+                "",
+            ),
+        ]
+    elif flavor == "python-web":
+        return [
+            (
+                "src/{{PROJECT_NAME_UNDERSCORE}}/app.py",
+                _read_template("lang/python/web/app.py"),
+            ),
+            (
+                "templates/base.html",
+                _read_template("lang/python/web/templates/base.html"),
+            ),
+            (
+                "templates/home.html",
+                _read_template("lang/python/web/templates/home.html"),
+            ),
+            (
+                "static/.gitkeep",
+                "",
+            ),
         ]
     return []
 
 
 def get_project_init_commands(
-    language: str, project_name: str, *, bare: bool = False
+    flavor: str, project_name: str
 ) -> list[list[str]]:
-    """Get initialization commands for a project based on language.
+    """Get initialization commands for a project based on flavor.
 
     Returns a list of command lists to execute inside the container.
     Each inner list is a command + arguments.
 
     Args:
-        language: The programming language (python, typescript, go, rust, shell, prose, other)
+        flavor: The project flavor (e.g., 'python-web', 'go-bare')
         project_name: The name of the project (used in go mod init, cargo new, etc.)
 
     Returns:
         List of command lists, e.g. [['uv', 'init'], ['mkdir', '-p', 'tests']]
     """
     commands: list[list[str]] = []
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
 
-    if language == "python":
-        # pyproject.toml is created during scaffolding, just ensure tests dir exists
+    if lang == "python":
         commands.append(["mkdir", "-p", "tests"])
-    elif language == "typescript":
+        if flavor == "python-web":
+            commands.append(
+                ["uv", "add", "fastapi", "uvicorn[standard]", "jinja2"]
+            )
+            commands.append(["uv", "add", "--dev", "httpx"])
+    elif lang == "typescript":
         commands.append(["bun", "init", "-y"])
-        if bare:
+        if flavor == "typescript-bare":
             commands.append(["mkdir", "-p", "src"])
             commands.append(["mv", "index.ts", "src/index.ts"])
         else:
@@ -457,16 +496,18 @@ def get_project_init_commands(
                 ["bun", "add", "-d", "tailwindcss", "@tailwindcss/cli"]
             )
             commands.append(["just", "setup"])
-    elif language == "go":
+    elif lang == "go":
         commands.append(["go", "mod", "init", project_name])
-    elif language == "rust":
+        if flavor == "go-web":
+            commands.append(["go", "get", "github.com/a-h/templ"])
+            commands.append(["templ", "generate"])
+    elif lang == "rust":
         commands.append(["cargo", "init", "--name", project_name])
-    elif language == "shell":
+    elif lang == "shell":
         commands.append(["mkdir", "-p", "src"])
-    elif language == "prose":
+    elif lang == "prose":
         commands.append(["mkdir", "-p", "docs"])
     else:
-        # Default fallback for 'other' or unknown languages
         commands.append(["mkdir", "-p", "src"])
 
     return commands

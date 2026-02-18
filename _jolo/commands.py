@@ -25,7 +25,7 @@ from _jolo.cli import (
     parse_copy,
     parse_mount,
     read_port_from_devcontainer,
-    select_languages_interactive,
+    select_flavors_interactive,
     slugify_prompt,
     verbose_cmd,
     verbose_print,
@@ -836,19 +836,16 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Load config
     config = load_config()
 
-    # Get languages from --lang or interactive selector
-    if args.lang:
-        languages = args.lang
+    # Get flavors from --flavor or interactive selector
+    if args.flavor:
+        flavors = args.flavor
     else:
-        languages = select_languages_interactive()
-        # Abort if user cancels (Ctrl+C or no selection)
-        if not languages:
-            print("No languages selected, aborting.", file=sys.stderr)
+        flavors = select_flavors_interactive()
+        if not flavors:
+            print("No flavors selected, aborting.", file=sys.stderr)
             sys.exit(1)
 
-    # Primary language is the first in the list
-    primary_language = languages[0] if languages else "other"
-    bare = getattr(args, "bare", False)
+    primary_flavor = flavors[0] if flavors else "other"
 
     # Create project directory
     project_path.mkdir()
@@ -857,26 +854,24 @@ def run_create_mode(args: argparse.Namespace) -> None:
     copy_template_files(project_path)
 
     # Generate MOTD for the project
-    motd_content = get_motd_content(primary_language, project_name)
+    motd_content = get_motd_content(primary_flavor, project_name)
     (project_path / "MOTD").write_text(motd_content)
     verbose_print("Generated MOTD")
 
     # Generate justfile for the project
-    justfile_content = get_justfile_content(
-        primary_language, project_name, bare=bare
-    )
+    justfile_content = get_justfile_content(primary_flavor, project_name)
     (project_path / "justfile").write_text(justfile_content)
     verbose_print("Generated justfile")
 
-    # Generate and write .pre-commit-config.yaml based on selected languages
-    precommit_content = generate_precommit_config(languages)
+    # Generate and write .pre-commit-config.yaml based on selected flavors
+    precommit_content = generate_precommit_config(flavors)
     (project_path / ".pre-commit-config.yaml").write_text(precommit_content)
     verbose_print(
-        f"Generated .pre-commit-config.yaml for languages: {', '.join(languages)}"
+        f"Generated .pre-commit-config.yaml for flavors: {', '.join(flavors)}"
     )
 
-    # Write test framework config for primary language
-    test_config = get_test_framework_config(primary_language, bare=bare)
+    # Write test framework config for primary flavor
+    test_config = get_test_framework_config(primary_flavor)
     # Python module names use underscores, not hyphens
     module_name = project_name.replace("-", "_")
 
@@ -904,7 +899,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
             test_config["main_file"]
         )
         main_path.parent.mkdir(parents=True, exist_ok=True)
-        main_path.write_text(test_config["main_content"])
+        main_path.write_text(replace_placeholders(test_config["main_content"]))
         verbose_print(
             f"Wrote main module: {main_path.relative_to(project_path)}"
         )
@@ -943,14 +938,14 @@ def run_create_mode(args: argparse.Namespace) -> None:
         )
 
     # Write additional scaffold source files
-    for rel_path, content in get_scaffold_files(primary_language, bare=bare):
-        file_path = project_path / rel_path
+    for rel_path, content in get_scaffold_files(primary_flavor):
+        file_path = project_path / replace_placeholders(rel_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(replace_placeholders(content))
         verbose_print(f"Wrote scaffold file: {rel_path}")
 
-    # Write type checker config for primary language
-    type_config = get_type_checker_config(primary_language, bare=bare)
+    # Write type checker config for primary flavor
+    type_config = get_type_checker_config(primary_flavor)
     if type_config:
         config_file = project_path / type_config["config_file"]
         if config_file.exists():
@@ -1024,10 +1019,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     _setup_test_hooks(project_path)
 
-    # Run project init commands for primary language inside the container
-    init_commands = get_project_init_commands(
-        primary_language, project_name, bare=bare
-    )
+    # Run project init commands for primary flavor inside the container
+    init_commands = get_project_init_commands(primary_flavor, project_name)
     if init_commands:
         combined_cmd = " && ".join([" ".join(c) for c in init_commands])
         verbose_print(f"Running in container: {combined_cmd}")

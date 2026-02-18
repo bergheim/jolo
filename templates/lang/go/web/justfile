@@ -1,0 +1,27 @@
+# Generate templ files
+generate:
+    templ generate
+
+# Run the project
+run: generate
+    go run .
+
+# Run with auto-reload (air drives templ + rebuild)
+dev:
+    air
+
+# Run tests
+test:
+    go test ./...
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e go -e templ | entr -cn go test ./...
+
+# Add a dependency
+add *packages:
+    go get {{packages}}
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty ; echo "Copied to clipboard: $u"

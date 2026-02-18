@@ -1,0 +1,16 @@
+package components
+
+templ Home() {
+	<main>
+		<h1>Hello, World!</h1>
+		<div id="greeting">
+			<button hx-get="/api/greet" hx-target="#greeting" hx-swap="innerHTML">
+				Get Greeting
+			</button>
+		</div>
+	</main>
+}
+
+templ Greeting(message string) {
+	<p>{ message }</p>
+}
