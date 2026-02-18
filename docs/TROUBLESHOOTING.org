@@ -137,3 +137,32 @@ condition with container startup.
   ~userEnvProbe: loginInteractiveShell~ (the default). Changed to ~loginShell~,
   still intermittently hung. Changed to ~none~ which is reliable. Fix is in
   ~_jolo/container.py:build_devcontainer_json()~.
+
+* =kitten icat= fails over mosh ("does not support graphics protocol")
+
+** Symptom
+
+Over mosh, running ~kitten icat image.jpg~ fails with:
+"This terminal does not support the graphics protocol..."
+
+Over plain SSH from the same local terminal, it works.
+
+** Cause
+
+This is a mosh limitation, not a Ghostty/tmux config bug. Upstream mosh does
+not support Sixel or kitty graphics protocol extensions.
+
+mosh also sets remote ~TERM=xterm-256color~, while SSH preserves your local
+terminal type (for example ~xterm-ghostty~).
+
+** Fix / Expected usage
+
+- Use SSH when you need terminal images.
+- Use mosh for resilient text workflows (tmux/emacs/shell), not image rendering.
+
+** References
+
+- [[https://github.com/mobile-shell/mosh/issues/1081][Mosh #1081]] (Sixel)
+- [[https://github.com/mobile-shell/mosh/issues/1248][Mosh #1248]] (Kitty graphics protocol)
+- [[https://github.com/mobile-shell/mosh/issues/1274][Mosh #1274]] (maintainer confirmation)
+- [[https://github.com/mobile-shell/mosh/blob/master/src/frontend/mosh-server.cc][mosh-server.cc TERM handling]]

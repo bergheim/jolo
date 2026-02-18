@@ -1186,3 +1186,37 @@ That bypassed normal terminal negotiation and broke expected key behavior.
 - =_jolo/container.py=
 - =Containerfile=
 - =tests/test_cli.py=
+
+* Mosh image protocol limits (Sixel/Kitty)                  :mosh:images:term:
+:PROPERTIES:
+:DATE: 2026-02-18
+:END:
+
+Over mosh, image protocols fail even when the local terminal supports them
+(Ghostty/kitty/WezTerm/Konsole).
+
+** Findings
+
+- Mosh maintainers explicitly state mosh does not support Sixel or kitty graphics.
+- =kitten icat= over mosh fails with "terminal does not support the graphics protocol"
+  because mosh does not forward those terminal protocol extensions.
+- Over plain SSH, the same host and terminal can render kitty images correctly.
+
+** TERM behavior
+
+- SSH keeps the local terminal type (example: =xterm-ghostty=).
+- mosh-server sets remote TERM to =xterm-256color= (or =xterm= in lower-color mode).
+  This is expected behavior in mosh internals.
+
+** Practical rule
+
+- Use SSH when you need terminal images (kitty protocol / sixel / iTerm2 inline).
+- Use mosh for resilient text workflows (tmux, emacs, shell), not image rendering.
+
+** Refs
+
+- [[https://github.com/mobile-shell/mosh/issues/1081][Mosh #1081]] — SIXEL graphics support (closed)
+- [[https://github.com/mobile-shell/mosh/issues/1248][Mosh #1248]] — Kitty graphics protocol support (closed)
+- [[https://github.com/mobile-shell/mosh/issues/1274][Mosh #1274]] — maintainer confirms no sixel/kitty support
+- [[https://github.com/mobile-shell/mosh/issues/1093][Mosh #1093]] — mosh does not pass full terminal extension stream
+- [[https://github.com/mobile-shell/mosh/blob/master/src/frontend/mosh-server.cc][mosh-server.cc]] — sets TERM to =xterm-256color=

@@ -44,6 +44,8 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Ghostty: GTK4 (Wayland+X11), kitty graphics + unicode placeholders, Arch =extra= repo
 - tmux =input-buffer-size= defaults to 1MB — large sixel images silently dropped; increase to 4MB+ if using sixel
 - =TERM_PROGRAM= env var does not propagate over SSH — cannot detect host terminal via env vars in containers
+- Mosh does not support Sixel or kitty graphics protocol; use SSH for terminal images, mosh for text/tmux resilience :mosh:images:
+- mosh-server sets remote =TERM=xterm-256color=; SSH preserves local terminal TERM (e.g., =xterm-ghostty=) :mosh:term:
 
 * Container Security Assessment (2026-02)                      :security:container:
 
