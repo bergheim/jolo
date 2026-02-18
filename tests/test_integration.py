@@ -324,12 +324,21 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertTrue((project_path / "components" / "page.templ").exists())
         self.assertTrue((project_path / "components" / "home.templ").exists())
 
-        # justfile with templ + air
+        # justfile with air-only dev command (no background templ watcher)
         justfile = project_path / "justfile"
         self.assertTrue(justfile.exists())
         jf_content = justfile.read_text()
-        self.assertIn("templ generate", jf_content)
         self.assertIn("air", jf_content)
+        self.assertNotIn("templ generate --watch", jf_content)
+        self.assertNotIn("&", jf_content)
+
+        # .air.toml drives templ generation + app rebuild
+        air_toml = project_path / ".air.toml"
+        self.assertTrue(air_toml.exists())
+        air_content = air_toml.read_text()
+        self.assertIn("templ generate && go build", air_content)
+        self.assertIn('entrypoint = ["./tmp/main"]', air_content)
+        self.assertIn('exclude_regex = [".*_templ.go"]', air_content)
 
         # static dir
         self.assertTrue((project_path / "static" / ".gitkeep").exists())

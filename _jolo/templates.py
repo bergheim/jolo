@@ -419,6 +419,10 @@ def get_scaffold_files(flavor: str) -> list[tuple[str, str]]:
                 _read_template("lang/go/web/components/home.templ"),
             ),
             (
+                ".air.toml",
+                _read_template("lang/go/web/.air.toml"),
+            ),
+            (
                 "static/.gitkeep",
                 "",
             ),
