@@ -16,9 +16,9 @@ fi
 # Build header with full URL
 header="$project"
 if [ -n "$DEV_HOST" ] && [ -n "$PORT" ]; then
-    header="$header  http://${DEV_HOST}:${PORT}"
+    header="$header  http://${DEV_HOST}:${PORT}  (in clipboard)"
 elif [ -n "$PORT" ]; then
-    header="$header  :$PORT"
+    header="$header  :$PORT  (in clipboard)"
 fi
 
 # Hint line
