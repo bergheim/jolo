@@ -18,6 +18,14 @@ test-watch:
 add *packages:
     uv add {{packages}}
 
-# Open in browser
+# Open in browser (Wayland) or copy URL to clipboard
 browse:
-    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty ; echo "Copied to clipboard: $u"
+    #!/bin/sh
+    u="http://${DEV_HOST:-localhost}:${PORT:-4000}"
+    printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty
+    if [ -n "$WAYLAND_DISPLAY" ]; then
+        chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
+        echo "Opened browser: $u (copied to clipboard)"
+    else
+        echo "Copied to clipboard: $u"
+    fi
