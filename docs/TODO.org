@@ -97,6 +97,12 @@
    Fix: removed the guard in =_jolo/templates.py= so prose hooks are included
    whenever =prose= is selected.
 ** DONE Consider adding `jolo exec` command to align with container conventions
+** DONE Add =host-ops= skill for manual host-side work (outside container)
+   New skill at =templates/.agents/skills/host-ops/SKILL.md=.
+   Standardizes machine labels:
+   - =tux= (laptop/client)
+   - =berghome= (home/server)
+   and requires step-by-step manual playbooks with verify + rollback.
 ** DONE Rebuild container image to pick up notify fixes
 ** TODO Investigate network egress monitoring for devcontainers
    Log outbound connections from agent containers for visibility without blocking.

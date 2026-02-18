@@ -25,6 +25,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - =clipboard= terminal-feature (tmux 3.2+) replaces the old =Ms= terminal-override for OSC 52 :tmux:clipboard:
 - Mosh 1.4.0 supports OSC 52 but only with =c;= selection — tmux's =clipboard= feature emits =;;= (empty) which mosh drops :mosh:clipboard:
 - For mosh clipboard: remove =clipboard= from =terminal-features=, use =Ms= override with hardcoded =c;=: =set -as terminal-overrides ',*:Ms=\\E]52;c%p1%.0s;%p2%s\\7'= :mosh:clipboard:tmux:
+- Host-side/manual ops convention: label machines as =tux= (laptop/client) and =berghome= (home/server); provide grouped manual steps, verify, and rollback instead of running host mutations from container :host-ops:workflow:
 
 * Terminal Image Display                                       :terminal:images:
 
