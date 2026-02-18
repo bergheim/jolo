@@ -188,7 +188,7 @@ def get_type_checker_config(flavor: str) -> dict | None:
     if lang == "python":
         return {
             "config_file": "pyproject.toml",
-            "config_content": _read_template("lang/python/ty.toml"),
+            "config_content": "[tool.ty]\n# See: https://github.com/astral-sh/ty\n",
         }
 
     elif lang == "typescript":
@@ -220,7 +220,7 @@ def get_coverage_config(flavor: str) -> dict:
 
     if lang == "python":
         return {
-            "config_addition": _read_template("lang/python/coverage.toml"),
+            "config_addition": '[tool.pytest.ini_options]\naddopts = "--cov=src --cov-report=term-missing"\n',
             "run_command": "pytest --cov=src --cov-report=term-missing",
         }
 
