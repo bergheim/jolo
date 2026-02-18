@@ -91,6 +91,8 @@ RUN apk update && apk add --no-cache \
     # Chromium dependencies for headless operation
     nss \
     freetype \
+    iproute2 \
+    iproute2-ss \
     harfbuzz \
     yazi \
     ttf-freefont \
