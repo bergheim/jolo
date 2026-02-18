@@ -182,6 +182,15 @@ def devcontainer_up(
 
     if remove_existing:
         cmd.append("--remove-existing-container")
+        # Force-remove stale container by name in case devcontainer CLI
+        # lost track (e.g. after podman system prune)
+        runtime = get_container_runtime()
+        if runtime:
+            container_name = workspace_dir.name
+            subprocess.run(
+                [runtime, "rm", "-f", container_name],
+                capture_output=True,
+            )
 
     verbose_cmd(cmd)
     result = subprocess.run(cmd, cwd=workspace_dir)
