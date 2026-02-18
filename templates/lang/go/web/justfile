@@ -6,9 +6,8 @@ generate:
 run: generate
     go run .
 
-# Run with auto-reload (templ watch + air)
+# Run with auto-reload (air drives templ + rebuild)
 dev:
-    @templ generate --watch --proxy="http://localhost:${PORT:-4000}" --open-browser=false &
     air
 
 # Run tests

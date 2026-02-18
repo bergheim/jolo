@@ -208,6 +208,12 @@ class TestGetProjectInitCommands(unittest.TestCase):
         self.assertIn("src/components/layout.tsx", rel_paths)
         self.assertIn("public/.gitkeep", rel_paths)
 
+    def test_go_web_returns_air_toml_scaffold_file(self):
+        """Go web should include .air.toml scaffold."""
+        files = jolo.get_scaffold_files("go-web")
+        rel_paths = [f[0] for f in files]
+        self.assertIn(".air.toml", rel_paths)
+
     def test_python_bare_returns_no_scaffold_files(self):
         """Python bare should return no additional scaffold files."""
         files = jolo.get_scaffold_files("python-bare")
