@@ -24,8 +24,11 @@ from _jolo import constants
 def clipboard_copy(text: str) -> None:
     """Copy text to the system clipboard via OSC 52 escape sequence."""
     encoded = base64.b64encode(text.encode()).decode()
-    sys.stdout.write(f"\033]52;c;{encoded}\a")
-    sys.stdout.flush()
+    try:
+        with open("/dev/tty", "w") as tty:
+            tty.write(f"\033]52;c;{encoded}\a")
+    except OSError:
+        pass
 
 
 def random_port() -> int:
