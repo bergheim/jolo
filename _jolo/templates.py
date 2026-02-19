@@ -535,7 +535,9 @@ def get_project_init_commands(
                 ["cargo", "add", "axum", "axum-htmx", "tower-livereload"]
             )
             commands.append(["cargo", "add", "tokio", "-F", "full"])
-            commands.append(["cargo", "add", "minijinja", "-F", "builtins"])
+            commands.append(
+                ["cargo", "add", "minijinja", "-F", "builtins,loader"]
+            )
             commands.append(["cargo", "add", "tower-http", "-F", "fs"])
             commands.append(["cargo", "add", "serde", "-F", "derive"])
             commands.append(["cargo", "add", "--dev", "tower"])
