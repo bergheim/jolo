@@ -336,6 +336,7 @@ class TestSelectFlavorsInteractive(unittest.TestCase):
             "go-bare",
             "python-web",
             "python-bare",
+            "rust-web",
             "rust",
             "shell",
             "prose",
@@ -367,7 +368,7 @@ class TestSelectFlavorsInteractive(unittest.TestCase):
     def test_fallback_single_selection(self):
         """Fallback should handle single selection."""
         with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", return_value="9"):
+            with mock.patch("builtins.input", return_value="10"):
                 result = jolo.select_flavors_interactive()
         self.assertEqual(result, ["prose"])
 
