@@ -215,6 +215,18 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
 
+    # Extensions and enablement config
+    extensions_src = gemini_dir / "extensions"
+    if extensions_src.is_dir():
+        shutil.copytree(
+            extensions_src, gemini_cache / "extensions", symlinks=True
+        )
+    enablement_src = gemini_dir / "extension-enablement.json"
+    if enablement_src.exists():
+        shutil.copy2(
+            enablement_src, gemini_cache / "extension-enablement.json"
+        )
+
     # Gemini CLI expects ~/.gemini/tmp/... to exist and be writable.
     (gemini_cache / "tmp").mkdir(parents=True, exist_ok=True)
 
@@ -624,24 +636,30 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
 
     if pass_available:
         # Try to get secrets from pass using configured paths
-        for key, pass_path in [
+        # Values can be a string or list of paths (tried in order, first wins)
+        for key, pass_paths in [
             ("ANTHROPIC_API_KEY", config["pass_path_anthropic"]),
             ("OPENAI_API_KEY", config["pass_path_openai"]),
+            ("GEMINI_API_KEY", config["pass_path_gemini"]),
         ]:
-            try:
-                result = subprocess.run(
-                    ["pass", "show", pass_path],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    secrets[key] = result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
+            if isinstance(pass_paths, str):
+                pass_paths = [pass_paths]
+            for pass_path in pass_paths:
+                try:
+                    result = subprocess.run(
+                        ["pass", "show", pass_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if result.returncode == 0:
+                        secrets[key] = result.stdout.strip()
+                        break
+                except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                    pass
 
     # Fallback to environment variables for any missing secrets
-    for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]:
+    for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]:
         if key not in secrets:
             secrets[key] = os.environ.get(key, "")
 

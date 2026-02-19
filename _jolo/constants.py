@@ -35,6 +35,7 @@ DEFAULT_CONFIG = {
     "base_image": "localhost/emacs-gui:latest",
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
+    "pass_path_gemini": ["api/llm/gemini", "api/llm/google"],
     "agents": ["claude", "gemini", "codex", "pi"],
     "agent_commands": {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
