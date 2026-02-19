@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">Hello, World!</h1>
+<div id="greeting">
+    <button hx-get="/api/greet" hx-target="#greeting" hx-swap="innerHTML"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        Get Greeting
+    </button>
+</div>
+{% endblock %}
