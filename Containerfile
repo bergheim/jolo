@@ -157,10 +157,11 @@ RUN pnpm add -g \
     @fission-ai/openspec@latest \
     markdownlint-cli
 
+RUN cargo install bacon --locked --root $HOME/.local
+
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
     pids="" && \
-    (cargo install bacon --locked --root $HOME/.local) & pids="$pids $!" && \
     (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
     (go install github.com/gitleaks/gitleaks/v8@latest) & pids="$pids $!" && \
