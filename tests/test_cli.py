@@ -521,9 +521,9 @@ class TestFlavorArgParsing(unittest.TestCase):
     def test_flavor_flag_multiple_values(self):
         """--flavor should handle multiple comma-separated values."""
         args = jolo.parse_args(
-            ["create", "test", "--flavor", "python-bare,go-web,rust"]
+            ["create", "test", "--flavor", "python-bare,go-web,rust-bare"]
         )
-        self.assertEqual(args.flavor, ["python-bare", "go-web", "rust"])
+        self.assertEqual(args.flavor, ["python-bare", "go-web", "rust-bare"])
 
     def test_flavor_default_none(self):
         """--flavor should default to None."""

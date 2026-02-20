@@ -277,7 +277,7 @@ class TestGetProjectInitCommands(unittest.TestCase):
 
     def test_rust_returns_cargo_init(self):
         """Rust should return cargo init commands."""
-        commands = jolo.get_project_init_commands("rust", "myproject")
+        commands = jolo.get_project_init_commands("rust-bare", "myproject")
         self.assertIn(["cargo", "init", "--name", "myproject"], commands)
 
     def test_rust_web_returns_cargo_add_and_setup(self):
@@ -330,7 +330,9 @@ class TestGetProjectInitCommands(unittest.TestCase):
 
     def test_project_name_used_in_rust_command(self):
         """Project name should be used in cargo init."""
-        commands = jolo.get_project_init_commands("rust", "my-awesome-app")
+        commands = jolo.get_project_init_commands(
+            "rust-bare", "my-awesome-app"
+        )
         cargo_cmd = ["cargo", "init", "--name", "my-awesome-app"]
         self.assertIn(cargo_cmd, commands)
 
@@ -361,7 +363,7 @@ class TestSelectFlavorsInteractive(unittest.TestCase):
             "python-web",
             "python-bare",
             "rust-web",
-            "rust",
+            "rust-bare",
             "shell",
             "prose",
             "other",
@@ -510,7 +512,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_config_file_none(self):
         """Rust has no extra config file (built-in testing)."""
-        result = jolo.get_test_framework_config("rust")
+        result = jolo.get_test_framework_config("rust-bare")
         self.assertTrue(
             result["config_file"] is None or result["config_file"] == "",
             f"Expected None or empty, got: {result['config_file']}",
@@ -518,7 +520,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_config_content_empty_or_comment(self):
         """Rust config content should be empty or a comment."""
-        result = jolo.get_test_framework_config("rust")
+        result = jolo.get_test_framework_config("rust-bare")
         self.assertTrue(
             result["config_content"] == ""
             or "built-in" in result["config_content"].lower(),
@@ -527,7 +529,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_example_test_file(self):
         """Rust example test location."""
-        result = jolo.get_test_framework_config("rust")
+        result = jolo.get_test_framework_config("rust-bare")
         self.assertTrue(
             "src/" in result["example_test_file"]
             or "tests/" in result["example_test_file"],
@@ -536,7 +538,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_example_test_content(self):
         """Rust example test should use #[test] attribute."""
-        result = jolo.get_test_framework_config("rust")
+        result = jolo.get_test_framework_config("rust-bare")
         content = result["example_test_content"]
         self.assertIn("#[test]", content)
         self.assertIn("fn test_", content)
@@ -616,12 +618,12 @@ class TestGetCoverageConfig(unittest.TestCase):
 
     def test_rust_config_addition_is_none(self):
         """Rust should return None for config_addition."""
-        result = jolo.get_coverage_config("rust")
+        result = jolo.get_coverage_config("rust-bare")
         self.assertIsNone(result["config_addition"])
 
     def test_rust_run_command(self):
         """Rust should return cargo llvm-cov command."""
-        result = jolo.get_coverage_config("rust")
+        result = jolo.get_coverage_config("rust-bare")
         cmd = result["run_command"]
         self.assertEqual(cmd, "cargo llvm-cov")
 
@@ -686,7 +688,7 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
     def test_rust_returns_none(self):
         """Rust should return None (type checking built into compiler)."""
-        result = jolo.get_type_checker_config("rust")
+        result = jolo.get_type_checker_config("rust-bare")
         self.assertIsNone(result)
 
     def test_shell_returns_none(self):
@@ -812,7 +814,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_rust_adds_clippy_and_rustfmt(self):
         """Rust flavor should add clippy and rustfmt hooks."""
-        result = jolo.generate_precommit_config(["rust"])
+        result = jolo.generate_precommit_config(["rust-bare"])
 
         self.assertIn("https://github.com/doublify/pre-commit-rust", result)
         self.assertIn("id: fmt", result)
@@ -861,7 +863,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
                 "python-web",
                 "go-bare",
                 "typescript-web",
-                "rust",
+                "rust-bare",
                 "shell",
                 "prose",
             ]
