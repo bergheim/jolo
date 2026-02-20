@@ -58,7 +58,6 @@ class TestDeleteArgParsing(unittest.TestCase):
 class TestDeleteProjectByName(unittest.TestCase):
     """Test deleting a project by bare name (cwd / name)."""
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -71,11 +70,9 @@ class TestDeleteProjectByName(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """Bare name should resolve to cwd/name as a project."""
         project = Path("/fake/myapp")
-        mock_git_root.return_value = project  # cwd, then target
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]
         mock_find_containers.return_value = []
@@ -86,10 +83,8 @@ class TestDeleteProjectByName(unittest.TestCase):
                 args = jolo.parse_args(["delete", "myapp", "--yes"])
                 jolo.run_delete_mode(args)
 
-    @mock.patch("_jolo.commands.find_git_root")
-    def test_bare_name_errors_when_not_found(self, mock_git_root):
+    def test_bare_name_errors_when_not_found(self):
         """Bare name should error when cwd/name doesn't exist."""
-        mock_git_root.return_value = None
         with mock.patch.object(Path, "exists", return_value=False):
             with mock.patch("os.getcwd", return_value="/fake"):
                 args = jolo.parse_args(["delete", "nonexistent"])
@@ -97,25 +92,19 @@ class TestDeleteProjectByName(unittest.TestCase):
                     jolo.run_delete_mode(args)
                 self.assertIn("not found", str(cm.exception).lower())
 
-    @mock.patch("_jolo.commands.find_git_root")
-    def test_bare_name_errors_when_not_git_repo(self, mock_git_root):
-        """Bare name should error when cwd/name exists but isn't a git repo."""
-        mock_git_root.return_value = None
-        with mock.patch.object(Path, "exists", return_value=True):
+    def test_bare_name_errors_when_not_git_repo(self):
+        """Bare name should error when cwd/name exists but has no .git."""
+        # First exists() → True (directory), second → False (.git)
+        with mock.patch.object(Path, "exists", side_effect=[True, False]):
             with mock.patch("os.getcwd", return_value="/fake"):
                 args = jolo.parse_args(["delete", "myapp"])
                 with self.assertRaises(SystemExit) as cm:
                     jolo.run_delete_mode(args)
                 self.assertIn("not a git", str(cm.exception).lower())
 
-    @mock.patch("_jolo.commands.find_git_root")
-    def test_bare_name_errors_when_target_is_worktree(self, mock_git_root):
+    def test_bare_name_errors_when_target_is_worktree(self):
         """Bare name should error when cwd/name is a worktree, not a project."""
-        wt_root = Path("/fake/myapp-worktrees/feat")
-        mock_git_root.return_value = wt_root
-
         with mock.patch.object(Path, "exists", return_value=True):
-            # .git is a file in worktrees (not a directory)
             with mock.patch.object(Path, "is_file", return_value=True):
                 with mock.patch("os.getcwd", return_value="/fake"):
                     args = jolo.parse_args(["delete", "myapp-worktrees/feat"])
@@ -127,7 +116,6 @@ class TestDeleteProjectByName(unittest.TestCase):
 class TestDeleteInteractivePurgePrompt(unittest.TestCase):
     """Test interactive purge prompt (ask instead of requiring --purge)."""
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -142,11 +130,9 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """Answering 'y' to purge prompt should remove directories."""
         project = Path("/fake/project")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]
         mock_find_containers.return_value = []
@@ -161,7 +147,6 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
 
         mock_rmtree.assert_called()
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -176,11 +161,9 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """Answering 'n' to purge prompt should keep directories."""
         project = Path("/fake/project")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]
         mock_find_containers.return_value = []
@@ -195,7 +178,6 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
 
         mock_rmtree.assert_not_called()
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -210,11 +192,9 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """--purge --yes should purge without asking."""
         project = Path("/fake/project")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]
         mock_find_containers.return_value = []
@@ -235,24 +215,19 @@ class TestDeleteInteractivePurgePrompt(unittest.TestCase):
 class TestDeleteProjectByPath(unittest.TestCase):
     """Test deleting a project by path."""
 
-    @mock.patch("_jolo.commands.find_git_root")
-    def test_path_target_resolves_project(self, mock_git_root):
+    def test_path_target_resolves_project(self):
         """Path starting with / should be treated as project deletion."""
-        mock_git_root.return_value = None
         args = jolo.parse_args(["delete", "/nonexistent/path"])
         with self.assertRaises(SystemExit) as cm:
             jolo.run_delete_mode(args)
         self.assertIn("not found", str(cm.exception).lower())
 
-    @mock.patch("_jolo.commands.find_git_root")
-    def test_dot_path_treated_as_project(self, mock_outer_git_root):
+    def test_dot_path_treated_as_project(self):
         """Path starting with . should be treated as project deletion."""
-        mock_outer_git_root.return_value = None
         args = jolo.parse_args(["delete", "./nonexistent"])
         with self.assertRaises(SystemExit):
             jolo.run_delete_mode(args)
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -267,11 +242,9 @@ class TestDeleteProjectByPath(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """Deleting a project should stop and remove its containers."""
         project = Path("/fake/project")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]  # no worktrees
         mock_find_containers.return_value = [
@@ -287,7 +260,6 @@ class TestDeleteProjectByPath(unittest.TestCase):
 
         mock_remove.assert_called_once()
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -302,11 +274,9 @@ class TestDeleteProjectByPath(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """--purge should remove project directories."""
         project = Path("/fake/project")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [(project, "abc123", "main")]
         mock_find_containers.return_value = []
@@ -326,7 +296,6 @@ class TestDeleteProjectByPath(unittest.TestCase):
 class TestDeleteProjectWithWorktrees(unittest.TestCase):
     """Test deleting a project that has worktrees."""
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.find_containers_for_project")
     @mock.patch("_jolo.commands.list_worktrees")
@@ -343,12 +312,10 @@ class TestDeleteProjectWithWorktrees(unittest.TestCase):
         mock_list,
         mock_find_containers,
         mock_runtime,
-        mock_git_root,
     ):
         """With --yes, project deletion should also delete worktrees."""
         project = Path("/fake/project")
         wt_path = Path("/fake/project-worktrees/feat")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [
             (project, "abc123", "main"),
@@ -366,7 +333,6 @@ class TestDeleteProjectWithWorktrees(unittest.TestCase):
 
         mock_remove_wt.assert_called_once()
 
-    @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.get_container_runtime")
     @mock.patch("_jolo.commands.list_worktrees")
     @mock.patch("_jolo.commands.find_containers_for_project")
@@ -377,12 +343,10 @@ class TestDeleteProjectWithWorktrees(unittest.TestCase):
         mock_find_containers,
         mock_list,
         mock_runtime,
-        mock_git_root,
     ):
         """Without --yes, should prompt about worktree deletion and cancel on 'n'."""
         project = Path("/fake/project")
         wt_path = Path("/fake/project-worktrees/feat")
-        mock_git_root.return_value = project
         mock_runtime.return_value = "podman"
         mock_list.return_value = [
             (project, "abc123", "main"),
@@ -392,8 +356,6 @@ class TestDeleteProjectWithWorktrees(unittest.TestCase):
 
         with mock.patch.object(Path, "exists", return_value=True):
             with mock.patch.object(Path, "resolve", return_value=project):
-                # First input confirms project deletion, but _delete_project
-                # is called internally and prompts about worktrees
                 args = jolo.parse_args(["delete", "/fake/project"])
                 with mock.patch("builtins.input", side_effect=["y", "n"]):
                     jolo.run_delete_mode(args)
