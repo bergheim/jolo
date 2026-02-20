@@ -214,6 +214,16 @@ class TestGetProjectInitCommands(unittest.TestCase):
         rel_paths = [f[0] for f in files]
         self.assertIn(".air.toml", rel_paths)
 
+    def test_rust_web_returns_scaffold_files(self):
+        """Rust web should return bacon.toml, styles, templates, and static."""
+        files = jolo.get_scaffold_files("rust-web")
+        rel_paths = [f[0] for f in files]
+        self.assertIn("bacon.toml", rel_paths)
+        self.assertIn("src/styles.css", rel_paths)
+        self.assertIn("templates/base.html", rel_paths)
+        self.assertIn("templates/index.html", rel_paths)
+        self.assertIn("static/.gitkeep", rel_paths)
+
     def test_python_bare_returns_no_scaffold_files(self):
         """Python bare should return no additional scaffold files."""
         files = jolo.get_scaffold_files("python-bare")
@@ -269,6 +279,20 @@ class TestGetProjectInitCommands(unittest.TestCase):
         """Rust should return cargo init commands."""
         commands = jolo.get_project_init_commands("rust", "myproject")
         self.assertIn(["cargo", "init", "--name", "myproject"], commands)
+
+    def test_rust_web_returns_cargo_add_and_setup(self):
+        """Rust web should return cargo init, cargo add deps, and just setup."""
+        commands = jolo.get_project_init_commands("rust-web", "myproject")
+        self.assertIn(["cargo", "init", "--name", "myproject"], commands)
+        self.assertIn(
+            ["cargo", "add", "axum", "axum-htmx", "tower-livereload"],
+            commands,
+        )
+        self.assertIn(
+            ["cargo", "add", "minijinja", "-F", "builtins,loader"],
+            commands,
+        )
+        self.assertIn(["just", "setup"], commands)
 
     def test_shell_returns_src_mkdir(self):
         """Shell should create src directory."""
@@ -517,6 +541,14 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
         self.assertIn("#[test]", content)
         self.assertIn("fn test_", content)
         self.assertIn("assert", content)
+
+    def test_rust_web_uses_web_main_rs(self):
+        """Rust web should use the web-specific main.rs with axum."""
+        result = jolo.get_test_framework_config("rust-web")
+        content = result["example_test_content"]
+        self.assertIn("axum", content)
+        self.assertIn("minijinja", content)
+        self.assertIn("#[tokio::test]", content)
 
     def test_unknown_flavor_returns_empty_config(self):
         """Unknown flavor should return empty/None values."""
