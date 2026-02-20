@@ -17,6 +17,10 @@
    Implemented differently than originally planned: URL is copied to clipboard
    via OSC 52 on =jolo up= / =jolo create= (not on =just dev=). Writes to
    =/dev/tty= to bypass pipes. Motd shows "(in clipboard)" next to URL.
+** TODO Fix =jolo delete= bare name resolution
+   =jolo create foo= takes a bare name, but =jolo delete foo= only searches worktree
+   names — can't find the project you just created. Fall back to =cwd / name= when no
+   worktree matches, mirroring how =create= resolves names.
 ** TODO Wayland-aware =just browse= — open Chromium on host display
    Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
    When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
