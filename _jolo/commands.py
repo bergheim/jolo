@@ -1769,6 +1769,14 @@ def run_delete_mode(args: argparse.Namespace) -> None:
         if project_root is None:
             sys.exit(f"Error: Not a git repository: {target_path}")
 
+        # Reject worktree paths — use interactive picker for those
+        git_entry = project_root / ".git"
+        if git_entry.is_file():
+            sys.exit(
+                f"Error: '{project_root.name}' is a worktree, not a project. "
+                "Use 'jolo delete' (no argument) to pick worktrees interactively."
+            )
+
         # Confirm
         if not args.yes:
             try:
