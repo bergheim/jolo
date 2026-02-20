@@ -108,6 +108,21 @@ class TestDeleteProjectByName(unittest.TestCase):
                     jolo.run_delete_mode(args)
                 self.assertIn("not a git", str(cm.exception).lower())
 
+    @mock.patch("_jolo.commands.find_git_root")
+    def test_bare_name_errors_when_target_is_worktree(self, mock_git_root):
+        """Bare name should error when cwd/name is a worktree, not a project."""
+        wt_root = Path("/fake/myapp-worktrees/feat")
+        mock_git_root.return_value = wt_root
+
+        with mock.patch.object(Path, "exists", return_value=True):
+            # .git is a file in worktrees (not a directory)
+            with mock.patch.object(Path, "is_file", return_value=True):
+                with mock.patch("os.getcwd", return_value="/fake"):
+                    args = jolo.parse_args(["delete", "myapp-worktrees/feat"])
+                    with self.assertRaises(SystemExit) as cm:
+                        jolo.run_delete_mode(args)
+                    self.assertIn("worktree", str(cm.exception).lower())
+
 
 class TestDeleteInteractivePurgePrompt(unittest.TestCase):
     """Test interactive purge prompt (ask instead of requiring --purge)."""
