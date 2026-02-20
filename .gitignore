@@ -3,6 +3,8 @@
 .histfile
 
 reference/
+# Scratch space (experiments, generated assets, throwaway work)
+scratch/
 
 # Environment and secrets
 .env

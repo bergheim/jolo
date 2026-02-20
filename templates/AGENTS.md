@@ -28,6 +28,8 @@ Use personal memory for workflow preferences, mistake patterns, and agent-specif
 
 Shared, non-reproducible resources across projects go in the stash: host `~/stash` is mounted at `/workspaces/stash` in devcontainers.
 
+`scratch/` is a gitignored directory for experiments, generated assets, and throwaway work. Do not treat its contents as project code.
+
 ## Port Configuration
 
 Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).

@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > It is NOT meant for general development. For projects created with `jolo create`,
 > see `templates/AGENTS.md` which gets copied to new projects.
 
+## Scratch Directories
+
+`scratch/` and `reference/` are gitignored scratch spaces. Use `scratch/` for experiments, generated assets (logos, mockups), and throwaway work. These directories are not part of the project and should be ignored during reviews, searches, and status checks.
+
 ## Cloned Repos
 
 If a repo cloned with `jolo clone` includes its own agent instruction files (AGENTS/CLAUDE),
