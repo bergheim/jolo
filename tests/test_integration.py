@@ -87,7 +87,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_generates_precommit_config(self):
         """create should generate .pre-commit-config.yaml based on flavors."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "rust", "-d"]
+            ["create", "testproj", "--flavor", "rust-bare", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
