@@ -20,14 +20,14 @@ Ask 2–4 short questions if the task has unclear scope or risk.
 
 ## Workflow
 
-1. Create a feature branch named for the task.
-1. If feasible, start with a failing test (TDD).
-1. Implement in small increments and commit often.
-1. Run pragmatic tests before each review.
-1. Get a first external agent review (focus on correctness).
-1. Apply fixes and commit.
-1. Get a second external agent review.
-1. Apply fixes, commit, and optionally open a PR.
+1. Create a feature branch named for the task
+1. If feasible, start with a failing test (TDD)
+1. Implement in small increments and commit often
+1. Run pragmatic tests before each review
+1. Get a first external agent review (focus on correctness). Ask for the highest reasoning model
+1. Apply fixes and commit
+1. Get a second external agent review - again, ask for the highest reasoning model
+1. Apply fixes, commit, and optionally open a PR
 
 ## Branching
 
