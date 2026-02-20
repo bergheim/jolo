@@ -1,0 +1,38 @@
+# Run the project
+run:
+    cargo run
+
+# Run with auto-reload (bacon rebuilds + tower-livereload refreshes browser)
+dev:
+    @just css-watch > /dev/null 2>&1 & CSS_PID=$!; \
+    trap "kill $CSS_PID" EXIT; \
+    bacon serve
+
+# Build Tailwind CSS
+css:
+    tailwindcss -i src/styles.css -o static/styles.css
+
+# Watch and rebuild Tailwind CSS
+css-watch:
+    tailwindcss -i src/styles.css -o static/styles.css --watch
+
+# Download htmx and build CSS
+setup:
+    curl -fsSL -o static/htmx.min.js https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
+    just css
+
+# Run tests
+test:
+    cargo test
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e rs | entr -cn cargo test
+
+# Add a dependency
+add *packages:
+    cargo add {{packages}}
+
+# Open in browser
+browse:
+    @u="http://${DEV_HOST:-localhost}:${PORT:-4000}"; printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty ; echo "Copied to clipboard: $u"
