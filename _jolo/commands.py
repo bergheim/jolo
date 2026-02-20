@@ -1660,6 +1660,33 @@ def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
         print(f"Failed to delete worktree: {wt_path.name}", file=sys.stderr)
 
 
+def _prompt_purge(git_root: Path) -> None:
+    """Ask whether to remove project files from disk, then do it."""
+    try:
+        response = input("Also remove files from disk? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    if response.lower() != "y":
+        return
+    _purge_dirs(git_root)
+
+
+def _purge_dirs(git_root: Path) -> None:
+    """Remove project and worktree directories from disk."""
+    dirs_to_remove = [git_root]
+    worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
+    if worktrees_dir.exists():
+        dirs_to_remove.append(worktrees_dir)
+
+    for d in dirs_to_remove:
+        try:
+            shutil.rmtree(d)
+            print(f"Removed directory: {d}")
+        except Exception as e:
+            print(f"Failed to remove {d}: {e}", file=sys.stderr)
+
+
 def _delete_project(
     git_root: Path, purge: bool = False, yes: bool = False
 ) -> None:
@@ -1668,7 +1695,7 @@ def _delete_project(
     1. Find all worktrees under the project
     2. If worktrees exist, prompt to delete them too (unless --yes)
     3. Stop and remove all containers
-    4. If --purge, remove directories from disk
+    4. If --purge or interactive, handle directory removal
     """
     runtime = get_container_runtime()
     if runtime is None:
@@ -1718,89 +1745,44 @@ def _delete_project(
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
     if purge:
-        dirs_to_remove = [git_root]
-        worktrees_dir = git_root.parent / f"{git_root.name}-worktrees"
-        if worktrees_dir.exists():
-            dirs_to_remove.append(worktrees_dir)
-
-        for d in dirs_to_remove:
-            try:
-                shutil.rmtree(d)
-                print(f"Removed directory: {d}")
-            except Exception as e:
-                print(f"Failed to remove {d}: {e}", file=sys.stderr)
+        _purge_dirs(git_root)
+    elif not yes:
+        _prompt_purge(git_root)
 
 
 def run_delete_mode(args: argparse.Namespace) -> None:
     """Run delete mode: delete a worktree or project and its containers."""
-    git_root = find_git_root()
     target_arg = args.target
     purge = getattr(args, "purge", False)
 
     if target_arg:
-        # Target specified: either a path or a worktree name
         if target_arg.startswith("/") or target_arg.startswith("."):
-            # Path → treat as project
+            # Explicit path → treat as project
             target_path = Path(target_arg).resolve()
-            if not target_path.exists():
-                sys.exit(f"Error: Path does not exist: {target_path}")
-            project_root = find_git_root(target_path)
-            if project_root is None:
-                sys.exit(f"Error: Not a git repository: {target_path}")
-
-            # Confirm
-            if not args.yes:
-                try:
-                    response = input(
-                        f"Delete project '{project_root.name}'? [y/N] "
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print()
-                    return
-                if response.lower() != "y":
-                    print("Cancelled.")
-                    return
-
-            _delete_project(project_root, purge=purge, yes=args.yes)
         else:
-            # Name → find worktree in current project
-            if git_root is None:
-                sys.exit(
-                    "Error: Not in a git repository (needed to find worktree by name)."
+            # Bare name → resolve relative to cwd
+            target_path = Path.cwd() / target_arg
+
+        if not target_path.exists():
+            sys.exit(f"Error: Project not found: {target_path}")
+        project_root = find_git_root(target_path)
+        if project_root is None:
+            sys.exit(f"Error: Not a git repository: {target_path}")
+
+        # Confirm
+        if not args.yes:
+            try:
+                response = input(
+                    f"Delete project '{project_root.name}'? [y/N] "
                 )
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return
+            if response.lower() != "y":
+                print("Cancelled.")
+                return
 
-            wt_list = _find_deletable_worktrees(git_root)
-            if not wt_list:
-                sys.exit("No worktrees found to delete.")
-
-            target = None
-            for wt_path, _commit, branch in wt_list:
-                if wt_path.name == target_arg:
-                    target = (wt_path, branch)
-                    break
-
-            if target is None:
-                available = ", ".join(p.name for p, _, _ in wt_list)
-                sys.exit(
-                    f"Error: Worktree '{target_arg}' not found. Available: {available}"
-                )
-
-            wt_path, branch = target
-
-            # Confirm
-            if not args.yes:
-                try:
-                    response = input(
-                        f"Delete worktree '{wt_path.name}' (branch: {branch})? [y/N] "
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print()
-                    return
-                if response.lower() != "y":
-                    print("Cancelled.")
-                    return
-
-            _delete_worktree(wt_path, git_root, yes=args.yes)
+        _delete_project(project_root, purge=purge, yes=args.yes)
     else:
         # Interactive picker
         items = _build_delete_picker_items()
