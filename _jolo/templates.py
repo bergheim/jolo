@@ -362,11 +362,15 @@ def get_test_framework_config(flavor: str) -> dict:
         }
 
     elif lang == "rust":
+        if flavor == "rust-web":
+            main_rs = _read_template("lang/rust/web/src/main.rs")
+        else:
+            main_rs = _read_template("lang/rust/main.rs")
         return {
             "config_file": None,
             "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
             "example_test_file": "src/main.rs",
-            "example_test_content": _read_template("lang/rust/main.rs"),
+            "example_test_content": main_rs,
         }
 
     return {
@@ -446,6 +450,29 @@ def get_scaffold_files(flavor: str) -> list[tuple[str, str]]:
                 "",
             ),
         ]
+    elif flavor == "rust-web":
+        return [
+            (
+                "bacon.toml",
+                _read_template("lang/rust/web/bacon.toml"),
+            ),
+            (
+                "src/styles.css",
+                _read_template("lang/rust/web/src/styles.css"),
+            ),
+            (
+                "templates/base.html",
+                _read_template("lang/rust/web/templates/base.html"),
+            ),
+            (
+                "templates/index.html",
+                _read_template("lang/rust/web/templates/index.html"),
+            ),
+            (
+                "static/.gitkeep",
+                "",
+            ),
+        ]
     return []
 
 
@@ -503,6 +530,18 @@ def get_project_init_commands(
             commands.append(["templ", "generate"])
     elif lang == "rust":
         commands.append(["cargo", "init", "--name", project_name])
+        if flavor == "rust-web":
+            commands.append(
+                ["cargo", "add", "axum", "axum-htmx", "tower-livereload"]
+            )
+            commands.append(["cargo", "add", "tokio", "-F", "full"])
+            commands.append(
+                ["cargo", "add", "minijinja", "-F", "builtins,loader"]
+            )
+            commands.append(["cargo", "add", "tower-http", "-F", "fs"])
+            commands.append(["cargo", "add", "serde", "-F", "derive"])
+            commands.append(["cargo", "add", "--dev", "tower"])
+            commands.append(["just", "setup"])
     elif lang == "shell":
         commands.append(["mkdir", "-p", "src"])
     elif lang == "prose":
