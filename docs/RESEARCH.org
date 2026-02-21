@@ -1270,6 +1270,39 @@ Chromium can render on the host's Wayland compositor with =--ozone-platform=wayl
 - Works for local dev only — SSH/mosh users get clipboard fallback
 - Playwright MCP can also run headed by stripping =--headless= from config
 
+* jolo delete DX: find_git_root escalation and worktree guards  :jolo:delete:security:
+:PROPERTIES:
+:DATE: 2026-02-21
+:END:
+
+Simplified =jolo delete= bare name resolution and found two safety issues
+during external reviews (Gemini + Codex).
+
+** Changes
+- Bare names resolve as =cwd / name= only (no worktree-by-slug lookup)
+- Worktree deletion via interactive picker only
+- Interactive purge prompt instead of requiring =--purge= flag
+
+** Issue 1: ancestor git root escalation
+=find_git_root(target_path)= traverses up to find =.git=. If someone does
+=jolo delete docs= and =docs/= is just a subdirectory, =find_git_root=
+returns the parent project root — then =_delete_project= operates on the
+wrong repo.
+
+Fix: check =target_path/.git= directly instead of calling =find_git_root=.
+The target must itself be a git root.
+
+** Issue 2: worktree path treated as project
+=.git= in worktrees is a file (not directory). If someone passes a worktree
+path directly (=jolo delete ./proj-worktrees/feat=), the code would call
+=_delete_project= on a worktree root.
+
+Fix: check =.git.is_file()= and reject with guidance to use the picker.
+
+** Key files
+- =_jolo/commands.py= (=run_delete_mode=, =_delete_project=, =_prompt_purge=, =_purge_dirs=)
+- =tests/test_delete.py=
+
 * Podman rootless on btrfs breaks jolo create              :podman:btrfs:rootless:devcontainer:
 :PROPERTIES:
 :DATE: 2026-02-21
