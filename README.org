@@ -43,6 +43,9 @@ jolo research "what is an apple"
 # Deep research: claude + codex in parallel, gemini synthesis
 jolo research --deep "compare sqlite and postgres for local-first apps"
 
+# Start an isolated worktree directly on any git repo
+cd ~/myproject && jolo tree feature-x
+
 # Jump into a running container (fzf picker)
 jolo attach
 
