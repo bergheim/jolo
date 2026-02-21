@@ -40,7 +40,6 @@ container/                 # Files baked into the container image
   browser-check.js         # Playwright browser automation
 
 Containerfile              # Alpine image definition
-start-emacs.sh             # Host-side GUI Emacs launcher (sandbox)
 templates/                 # Scaffolded into new projects by jolo create
 ```
 

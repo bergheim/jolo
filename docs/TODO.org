@@ -240,7 +240,6 @@
    without needing =jolo up= first. Agents follow branch workflow via AGENTS.md.
 ** DONE Add a shared mounted space between all devcontainers for global resources
    Default mount: ~/stash -> /workspaces/stash (RW, non-reproducible).
-** TODO Document Wayland Emacs integration
 ** DONE Fix term-keys breakage from forced TERM in devcontainer
    Removed forced =TERM=tmux-direct= from generated container env and shell init.
    Added tmux =extkeys= terminal-features hints for =tmux-direct=, =xterm-256color=, and =wezterm=.
@@ -407,8 +406,7 @@ You *want* sudo to work - installing packages, modifying system files in the con
 ** FIXED: Emacs Configuration
 
 *** Current State
-- =start-emacs.sh= uses a sandbox (yadm worktree) - SAFE
-- =jolo.py= mounts both config and cache readonly - SAFE
+- =jolo.py= copies config to =.devcontainer/.emacs-config/= (writable, isolated)
 
 *** Status
 - [X] Config mounted readonly
@@ -431,9 +429,6 @@ You *want* sudo to work - installing packages, modifying system files in the con
 | Emacs Config      | FIXED    | Config and cache both readonly            |
 
 * Actual Recommendations
-
-** For start-emacs.sh users
-Already secure - uses sandbox for Emacs config.
 
 ** For jolo.py / devcontainer users
 - [X] Current setup is secure for directed use

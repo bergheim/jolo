@@ -102,7 +102,7 @@ The GPG public keyring (~pubring.kbx~, ~trustdb.gpg~) is mounted read-only. The 
 
 ** No X11
 
-Jolo containers have no X11 socket and no ~DISPLAY~ variable. This prevents X11-based attacks (keylogging, screenshot capture, input injection) from anything running inside the container. GUI Emacs is only available through ~start-emacs.sh~, which is a separate sandbox path that intentionally grants display access.
+Jolo containers have no X11 socket and no ~DISPLAY~ variable. This prevents X11-based attacks (keylogging, screenshot capture, input injection). Wayland access is conditional — the socket is only mounted when ~WAYLAND_DISPLAY~ is set on the host. Wayland's per-surface isolation makes this safe (unlike X11).
 
 ** GitHub
 
