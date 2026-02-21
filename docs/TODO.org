@@ -27,19 +27,13 @@
    When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
    Always copies URL to clipboard too. Falls back to clipboard-only without Wayland.
    Also strips =--headless= from Playwright MCP config on Wayland.
-** TODO Generated projects should include a stub HTTP service with hot reload (including browser reload)
+** DONE Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
    - DONE TypeScript: BETH stack (Bun + Elysia + Tailwind + HTMX), =typescript-bare= for plain Bun
    - DONE Python: FastAPI + Uvicorn + Jinja2 + HTMX (=python-web= flavor)
    - DONE Go: stdlib 1.22+ ServeMux + templ + HTMX + Air (=go-web= flavor)
    - DONE Rust: Axum + MiniJinja + HTMX + Tailwind (=rust-web= flavor)
-   - Other/Shell: static + live reload baseline
-
-   Execution plan:
-   1. Define a shared dev contract: =just dev= binds =0.0.0.0:$PORT= and serves a browser page
-   2. Update language templates and init commands per language
-   3. Add generated-project tests for dev files and commands
-   4. Run scaffold smoke tests for each language
+   Shell/other flavors are non-web by design — no HTTP scaffold needed.
 ** DONE Tighten BETH TypeScript scaffold plan before implementation
    All three blockers resolved in the shipped scaffold.
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
