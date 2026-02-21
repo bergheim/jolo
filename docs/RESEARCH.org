@@ -1269,3 +1269,47 @@ Chromium can render on the host's Wayland compositor with =--ozone-platform=wayl
 - System =chromium= at =/usr/bin/chromium= (Alpine package)
 - Works for local dev only — SSH/mosh users get clipboard fallback
 - Playwright MCP can also run headed by stripping =--headless= from config
+
+* Podman rootless on btrfs breaks jolo create              :podman:btrfs:rootless:devcontainer:
+:PROPERTIES:
+:DATE: 2026-02-21
+:END:
+
+=jolo create= failed on an Arch laptop with rootless Podman.
+Errors:
+- =kernel does not support overlay fs ... overlay is not supported over btrfs=
+- devcontainers tried to pull =localhost/emacs-gui:latest= from a registry
+
+** Root cause
+Rootless Podman defaulted to the =overlay= graph driver on a btrfs-backed home
+filesystem, which is unsupported without =fuse-overlayfs=. The existing storage
+store became unreadable and emitted missing symlink warnings. devcontainers also
+expects a local image named =localhost/emacs-gui:latest=.
+
+** Fix
+1. Install =fuse-overlayfs= and force overlay+fuse in
+   =~/.config/containers/storage.conf=:
+   #+begin_src toml
+   [storage]
+   driver = "overlay"
+
+   [storage.options]
+   mount_program = "/usr/bin/fuse-overlayfs"
+   #+end_src
+2. Wipe or move the rootless store if corrupt:
+   =~/.local/share/containers/storage=
+3. Build and tag the image locally:
+   #+begin_src sh
+   podman build -t emacs-gui .
+   podman tag emacs-gui:latest localhost/emacs-gui:latest
+   #+end_src
+
+** Notes
+- =docker ps= via =podman-docker= still targets rootless storage, not
+  =/var/lib/containers/storage= (rootful).
+- If you prefer, switching the driver to =btrfs= also works but resets the store.
+
+** Key files
+- =~/.config/containers/storage.conf=
+- =~/.local/share/containers/storage=
+- =Containerfile= (image build)

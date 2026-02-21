@@ -25,7 +25,9 @@
 ** TODO Wayland-aware =just browse= — open Chromium on host display
    Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
    When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
-   Always copies URL to clipboard too. Falls back to clipboard-only without Wayland.
+   Update behavior: stop auto URL copy on =jolo up/create=. =just browse= should
+   open Chromium on Wayland; clipboard copy should be explicit/opt-in.
+   Falls back to clipboard-only or URL print without Wayland.
    Also strips =--headless= from Playwright MCP config on Wayland.
 ** DONE Generated projects should include a stub HTTP service with hot reload (including browser reload)
    Per-project scaffolding target (SOTA defaults):
