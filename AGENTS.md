@@ -159,11 +159,8 @@ Test behavior, not scaffolding. Don't write tests for obvious error paths that j
 ## Running
 
 ```bash
-# Using the wrapper script (handles Wayland, env vars, volume mounts)
-./start-emacs.sh
-
-# Or via VS Code DevContainers
-# Open in VS Code and use "Reopen in Container"
+jolo up    # start devcontainer with tmux layout
+jolo up -d # start detached
 ```
 
 ## Architecture
@@ -176,15 +173,10 @@ Test behavior, not scaffolding. Don't write tests for obvious error paths that j
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
-- `start-emacs.sh` - Host-side launcher that sets up yadm worktree sandbox for Emacs config
 - `jolo.py` + `_jolo/` - Devcontainer CLI split into a package: `constants.py`, `cli.py`, `templates.py`, `container.py`, `setup.py`, `worktree.py`, `commands.py`
-
-**Sandbox mechanism (start-emacs.sh):**
-The host script creates a yadm worktree at `~/.cache/aimacs-lyra` on branch `lyra-experiments`. This gives Claude a copy of the Emacs config to modify freely without affecting the real dotfiles. The `private.el` secrets file is deleted from the worktree.
 
 **Environment:**
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
-- `START_EMACS=true` - If set, entrypoint launches Emacs daemon; otherwise tmuxinator creates 6-window layout (emacs, claude, gemini, codex, pi, shell)
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `PNPM_HOME` - pnpm global package path (no sudo needed)
 
@@ -403,7 +395,7 @@ jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
 ```
 
 **Security model:**
-- **No X11 access** — jolo containers have no X11 socket mount and no `DISPLAY` variable. This prevents X11 keylogging, screenshot capture, and input injection by anything running in the container. GUI Emacs is only available via `start-emacs.sh` (the sandbox path that intentionally grants display access).
+- **No X11 access** — jolo containers have no X11 socket mount and no `DISPLAY` variable. This prevents X11 keylogging, screenshot capture, and input injection. Wayland access is conditional — the socket is only mounted when `WAYLAND_DISPLAY` is set on the host. Wayland's per-surface isolation makes this safe (unlike X11).
 - AI credentials copied (not mounted) to `.devcontainer/` at launch:
   - Claude credentials: `.credentials.json` mounted RW from host (token refreshes persist), `settings.json` copied to `.claude-cache/` (container-specific hooks), `statsig/` mounted RO from host, `.claude.json` copied (MCP injection)
   - Gemini: `.gemini-cache/` copied
