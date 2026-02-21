@@ -233,7 +233,9 @@
 ** DONE =wt new= should only create 1 tmux window (shell), not the full 5-window layout
    Worktrees are lightweight throwaway branches. Spawning emacs + claude + gemini + codex
    windows per worktree floods the tmux window list. Just a shell is enough.
-** TODO Decide whether to add a "safe worktree" default for initial jolo setup (keep main repo untouched)
+** DONE Decide whether to add a "safe worktree" default for initial jolo setup (keep main repo untouched)
+   Decision: no. =jolo tree= already works standalone from any git repo
+   without needing =jolo up= first. Agents follow branch workflow via AGENTS.md.
 ** DONE Add a shared mounted space between all devcontainers for global resources
    Default mount: ~/stash -> /workspaces/stash (RW, non-reproducible).
 ** TODO Document Wayland Emacs integration
