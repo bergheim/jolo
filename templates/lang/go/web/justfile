@@ -6,9 +6,9 @@ generate:
 run: generate
     go run .
 
-# Run with auto-reload (air drives templ + rebuild)
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    air
+    air 2>&1 | tee dev.log
 
 # Run tests
 test:

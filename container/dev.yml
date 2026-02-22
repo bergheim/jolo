@@ -6,4 +6,5 @@ windows:
   - codex: codex
   - gemini: gemini
   - pi: pi
+  - dev: just dev
   - shell:

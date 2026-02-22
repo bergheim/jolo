@@ -2,9 +2,9 @@
 run:
     uv run python src/{{MODULE_NAME}}/main.py
 
-# Run with auto-reload
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    fd -e py | entr -rn uv run python src/{{MODULE_NAME}}/main.py
+    fd -e py | entr -rn uv run python src/{{MODULE_NAME}}/main.py 2>&1 | tee dev.log
 
 # Run tests
 test:

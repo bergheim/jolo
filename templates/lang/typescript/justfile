@@ -2,9 +2,9 @@
 run:
     bun run src/index.ts
 
-# Run with auto-reload
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    bun --hot src/index.ts
+    bun --hot src/index.ts 2>&1 | tee dev.log
 
 # Run tests
 test:

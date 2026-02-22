@@ -2,12 +2,11 @@
 run:
     bun run src/index.tsx
 
-# Run with auto-reload
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    @# Start CSS watch in background
     @just css-watch > /dev/null 2>&1 & CSS_PID=$!; \
     trap "kill $CSS_PID" EXIT; \
-    bun --hot src/index.tsx
+    bun --hot src/index.tsx 2>&1 | tee dev.log
 
 # Run tests
 test:
