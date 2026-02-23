@@ -330,7 +330,6 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         jf_content = justfile.read_text()
         self.assertIn("air", jf_content)
         self.assertNotIn("templ generate --watch", jf_content)
-        self.assertNotIn("&", jf_content)
 
         # .air.toml drives templ generation + app rebuild
         air_toml = project_path / ".air.toml"

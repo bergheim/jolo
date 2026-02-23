@@ -1,12 +1,14 @@
+set shell := ["bash", "-eo", "pipefail", "-c"]
+
 # Run the project
 run:
     cargo run
 
-# Run with auto-reload (bacon rebuilds + tower-livereload refreshes browser)
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
     @just css-watch > /dev/null 2>&1 & CSS_PID=$!; \
     trap "kill $CSS_PID" EXIT; \
-    bacon serve
+    bacon serve 2>&1 | tee dev.log
 
 # Build Tailwind CSS
 css:

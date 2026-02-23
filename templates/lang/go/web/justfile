@@ -1,3 +1,5 @@
+set shell := ["bash", "-eo", "pipefail", "-c"]
+
 # Generate templ files
 generate:
     templ generate
@@ -6,9 +8,9 @@ generate:
 run: generate
     go run .
 
-# Run with auto-reload (air drives templ + rebuild)
+# Run with auto-reload and browser live reload (logs to dev.log for agent visibility)
 dev:
-    air
+    APP_PORT=$((${PORT:-4000} + 1)) air -proxy.enabled true -proxy.proxy_port ${PORT:-4000} -proxy.app_port $((${PORT:-4000} + 1)) 2>&1 | tee dev.log
 
 # Run tests
 test:

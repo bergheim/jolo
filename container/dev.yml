@@ -6,4 +6,5 @@ windows:
   - codex: codex
   - gemini: gemini
   - pi: pi
+  - dev: "if [ -f justfile ]; then just dev; fi"
   - shell:

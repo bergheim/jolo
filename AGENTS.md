@@ -169,7 +169,7 @@ jolo up -d # start detached
 - `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
 - `container/entrypoint.sh` - Container startup: GPG agent setup, DBus, keeps container alive
 - `container/tmux-layout.sh` - Tmux session wrapper: starts tmuxinator layout, handles reattach and prompt mode
-- `container/dev.yml` - Tmuxinator config: 6-window layout (emacs, claude, gemini, codex, pi, shell)
+- `container/dev.yml` - Tmuxinator config: 7-window layout (emacs, claude, codex, gemini, pi, dev, shell)
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
