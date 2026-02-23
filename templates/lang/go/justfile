@@ -1,10 +1,12 @@
+set shell := ["bash", "-eo", "pipefail", "-c"]
+
 # Run the project
 run:
     go run .
 
-# Run with auto-reload
+# Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    air
+    air 2>&1 | tee dev.log
 
 # Run tests
 test:
