@@ -61,6 +61,7 @@ RUN apk update && apk add --no-cache \
     py3-pip \
     ripgrep \
     ruby \
+    ruby-thor \
     cargo \
     rust \
     rust-analyzer \
