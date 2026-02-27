@@ -595,7 +595,7 @@ class TestCredentialMountStrategy(unittest.TestCase):
         codex_dir = home / ".codex"
         codex_dir.mkdir(parents=True)
         (codex_dir / "config.toml").write_text(
-            'model = "gpt-5.3-codex"\n\n[mcp_servers.playwright]\ncommand = "pnpm"\n'
+            'model = "gpt-5.3-codex"\n\n[tooling.browser]\ncommand = "playwright-cli"\n'
         )
 
         with mock.patch("pathlib.Path.home", return_value=home):
@@ -606,7 +606,7 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertIn('model_reasoning_effort = "high"', content)
         self.assertLess(
             content.find('model_reasoning_effort = "high"'),
-            content.find("[mcp_servers.playwright]"),
+            content.find("[tooling.browser]"),
         )
 
     def test_codex_reasoning_effort_not_overwritten(self):
