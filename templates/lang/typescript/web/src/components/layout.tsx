@@ -1,6 +1,6 @@
-import * as Html from '@kitajs/html';
+import type { PropsWithChildren } from '@kitajs/html';
 
-export const Layout = ({ children }: Html.PropsWithChildren) => (
+export const Layout = ({ children }: PropsWithChildren) => (
   <html lang="en">
     <head>
       <meta charset="UTF-8" />
@@ -13,7 +13,9 @@ export const Layout = ({ children }: Html.PropsWithChildren) => (
       <main class="container mx-auto px-4 py-8">
         {children}
       </main>
-      {Html.raw('<script>new EventSource("/dev/reload").onmessage=function(){location.reload()}</script>')}
+      <script>
+        {'new EventSource("/dev/reload").onmessage=function(){location.reload()}'}
+      </script>
     </body>
   </html>
 );
