@@ -46,3 +46,6 @@ uv.lock
 .devcontainer/.claude-cache/
 .devcontainer/.gemini-cache/
 .devcontainer/.claude.json
+
+# Playwright CLI session artifacts
+.playwright-cli/

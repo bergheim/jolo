@@ -134,11 +134,11 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 
 ## Browser Automation
 
-Use **Playwright MCP** for most tasks. It is stateful and allows full interaction (clicking, typing, etc.). Use `browser-check` for quick, stateless audits.
+Use **Playwright CLI** for most tasks. It is stateful and writes snapshots/logs/artifacts to disk (`.playwright-cli/`) instead of streaming large payloads in chat. Use `browser-check` for quick, stateless audits.
 
 | Task | Tool / Command |
 |------|----------------|
-| **Interactive Flow** | **Playwright MCP** (pre-configured) |
+| **Interactive Flow** | **Playwright CLI** (`playwright-cli`) |
 | Check what's on page | `browser-check URL --describe` |
 | Take screenshot | `browser-check URL --screenshot` |
 | Full page screenshot | `browser-check URL --screenshot --full-page` |
@@ -152,6 +152,14 @@ Use **Playwright MCP** for most tasks. It is stateful and allows full interactio
 ### Browser Automation Examples
 
 ```bash
+# Stateful browser session (token-efficient)
+playwright-cli open http://localhost:$PORT
+playwright-cli snapshot
+playwright-cli click e12
+playwright-cli fill e20 "hello"
+playwright-cli screenshot
+playwright-cli close
+
 # Check if dev server is up
 browser-check http://localhost:$PORT --describe --console --errors
 
@@ -162,4 +170,4 @@ browser-check http://localhost:$PORT --screenshot --output shot.png
 browser-check http://localhost:$PORT --aria --interactive --json
 ```
 
-For multi-step interactive flows (clicking, filling forms), use the **Playwright MCP** tools (`navigate`, `fill`, `click`). MCP servers are automatically discovered from `templates/mcp/*.json` and injected into agent configurations during `jolo up`.
+For multi-step interactive flows, prefer Playwright CLI sessions. The scaffold includes `.playwright/cli.config.json` configured for system Chromium on Alpine.

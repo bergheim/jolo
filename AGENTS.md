@@ -210,13 +210,13 @@ Image tooling: prefer `vips`/`vipsthumbnail` for conversion, resizing, and thumb
 
 ## Browser Automation Tool Guide
 
-Use `browser-check` for browser automation. It provides ARIA snapshots with 93% less context than raw HTML.
+Use `playwright-cli` for stateful browser automation with low token usage (artifacts written to `.playwright-cli/`). Use `browser-check` for quick stateless audits.
 
 ### Task → Tool
 
 | Task | Command |
 |------|---------|
-| **Interactive Flow** | **Playwright MCP** (pre-configured) |
+| **Interactive Flow** | **Playwright CLI** (`playwright-cli`) |
 | Check what's on page | `browser-check URL --describe` |
 | Take screenshot | `browser-check URL --screenshot` |
 | Full page screenshot | `browser-check URL --screenshot --full-page` |
@@ -226,6 +226,24 @@ Use `browser-check` for browser automation. It provides ARIA snapshots with 93% 
 | Capture console logs | `browser-check URL --console` |
 | Capture JS errors | `browser-check URL --errors` |
 | JSON output for scripts | `browser-check URL --json --console --errors` |
+
+### Playwright CLI
+
+Stateful browser automation via local session artifacts on disk (`.playwright-cli/`).
+
+```bash
+# Open a session and inspect interactive refs
+playwright-cli open https://example.com
+playwright-cli snapshot
+
+# Interact using refs from the snapshot
+playwright-cli click e1
+playwright-cli fill e2 "hello"
+
+# Capture artifacts and close
+playwright-cli screenshot
+playwright-cli close
+```
 
 ### browser-check
 
@@ -280,8 +298,8 @@ browser-check https://myapp.com --screenshot --errors --output debug.png
 
 ### Limitations
 
-- **Stateless**: `browser-check` commands launch fresh browser (no persistent sessions). Use Playwright MCP for stateful sessions.
-- For complex multi-step flows where MCP is not sufficient, write a Node.js script using Playwright directly.
+- **Stateless**: `browser-check` commands launch fresh browser (no persistent sessions).
+- For advanced flows beyond CLI commands, write a Node.js Playwright script.
 
 ## Code Quality Best Practices
 
