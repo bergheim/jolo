@@ -96,6 +96,9 @@ RUN apk update && apk add --no-cache \
     harfbuzz \
     yazi \
     ttf-freefont \
+    ttf-dejavu \
+    wayland-libs-client \
+    wayland-libs-cursor \
     ca-certificates
 
 # User setup
