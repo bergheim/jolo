@@ -143,7 +143,7 @@ ENV PATH="$PNPM_HOME:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/
 RUN pnpm add -g \
     @biomejs/biome \
     playwright \
-    @playwright/mcp \
+    @playwright/cli \
     typescript-language-server \
     vscode-langservers-extracted \
     bash-language-server \

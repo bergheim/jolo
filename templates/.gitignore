@@ -499,6 +499,7 @@ mlruns/
 .gemini/
 .codex/
 .pi/
+.playwright-cli/
 
 # =============================================================================
 # devcontainer / jolo specific

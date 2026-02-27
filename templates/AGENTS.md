@@ -134,11 +134,21 @@ Prefer functional style: pure functions, composition, immutable data. Use mutati
 
 ## Browser Automation
 
-Use **Playwright MCP** for most tasks. It is stateful and allows full interaction (clicking, typing, etc.). Use `browser-check` for quick, stateless audits.
+Use **Playwright CLI** for most tasks. It is stateful and writes snapshots/logs/artifacts to disk (`.playwright-cli/`) instead of streaming large payloads in chat. Use `browser-check` for quick, stateless audits.
+
+### Tool Selection
+
+Use this decision rule when both tools could work:
+
+| Situation | Preferred Tool | Why |
+|-----------|----------------|-----|
+| Single URL health check, one screenshot, one-off console/error scan | `browser-check` | Faster, stateless, one command |
+| Multi-step interaction (click/fill/navigate), auth/session reuse, repeated captures | `playwright-cli` | Stateful session, better for workflows |
+| Debugging flow regressions | `playwright-cli` | Snapshots, traces, and session history |
 
 | Task | Tool / Command |
 |------|----------------|
-| **Interactive Flow** | **Playwright MCP** (pre-configured) |
+| **Interactive Flow** | **Playwright CLI** (`playwright-cli`) |
 | Check what's on page | `browser-check URL --describe` |
 | Take screenshot | `browser-check URL --screenshot` |
 | Full page screenshot | `browser-check URL --screenshot --full-page` |
@@ -152,14 +162,38 @@ Use **Playwright MCP** for most tasks. It is stateful and allows full interactio
 ### Browser Automation Examples
 
 ```bash
+# Stateful browser session (token-efficient)
+playwright-cli open http://127.0.0.1:$PORT
+playwright-cli -s=default snapshot
+playwright-cli -s=default click e12
+playwright-cli -s=default fill e20 "hello"
+playwright-cli -s=default screenshot --filename scratch/after-click.png
+playwright-cli -s=default close
+
 # Check if dev server is up
-browser-check http://localhost:$PORT --describe --console --errors
+browser-check http://127.0.0.1:$PORT --describe --console --errors
 
 # Screenshot
-browser-check http://localhost:$PORT --screenshot --output shot.png
+browser-check http://127.0.0.1:$PORT --screenshot --output scratch/shot.png
 
 # Get page structure for LLM
-browser-check http://localhost:$PORT --aria --interactive --json
+browser-check http://127.0.0.1:$PORT --aria --interactive --json
 ```
 
-For multi-step interactive flows (clicking, filling forms), use the **Playwright MCP** tools (`navigate`, `fill`, `click`). MCP servers are automatically discovered from `templates/mcp/*.json` and injected into agent configurations during `jolo up`.
+For multi-step interactive flows, prefer Playwright CLI sessions. The scaffold includes `.playwright/cli.config.json` configured for system Chromium on Alpine.
+
+### Verification Standard
+
+For browser verification tasks (for example: "is the site running?"), include all of the following in your report:
+
+- URL and exact check time
+- Command(s) used
+- Evidence of success/failure (status code, page title, or key console/error lines)
+- Artifact path when generated (save screenshots/PDFs to `scratch/`)
+
+### Troubleshooting
+
+- If `playwright-cli open` succeeds but `-s=<id>` commands fail, run `playwright-cli list` and use the listed session label (often `default`).
+- If screenshots are blank or not the expected view, run `playwright-cli -s=<session> snapshot` first and confirm URL/title before capture.
+
+Use the `browser-verify` skill when the request is to verify site availability, capture evidence, and report reproducible checks.
