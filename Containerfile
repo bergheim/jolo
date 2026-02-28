@@ -102,6 +102,8 @@ RUN apk update && apk add --no-cache \
     wayland-libs-cursor \
     ca-certificates
 
+RUN ruby -e "require 'thor'" && tmuxinator version
+
 # User setup
 ARG USERNAME=tsb
 ARG USER_ID=1000
