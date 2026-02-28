@@ -2,6 +2,11 @@
 #+DESCRIPTION: Open tasks for the emacs-container project
 
 * Tasks
+** DONE Add regression triage skill + container smoke guard
+   Added =templates/.agents/skills/regression-triage/SKILL.md= to enforce
+   commit-range diagnosis (=GOOD_SHA= -> =BAD_SHA=) with reproducible probes.
+   Added build-time smoke check in =Containerfile=:
+   =ruby -e "require 'thor'"= and =tmuxinator version=.
 ** DONE Switch browser automation default to Playwright CLI
    Replaced MCP-first guidance with =playwright-cli= sessions (stateful, token-efficient artifacts in =.playwright-cli/=).
    Added scaffolded =.playwright/cli.config.json= for Alpine system Chromium.

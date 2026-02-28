@@ -33,6 +33,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - =find_git_root()= climbs to ancestor repos — check =target/.git= directly when the target must be a repo root :jolo:delete:
 - =jolo tree= works standalone from any git repo — no =jolo up= on main needed first :jolo:worktree:
 - Browser automation default is =playwright-cli= (stateful, artifact-first); =browser-check= remains for stateless checks :playwright:automation:
+- For regressions: force =GOOD_SHA/BAD_SHA= diff + identical probes before root-cause claims; avoid guessing from logs alone :workflow:regression:
 
 * Terminal Image Display                                       :terminal:images:
 
