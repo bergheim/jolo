@@ -1,0 +1,41 @@
+#+TITLE: Research Notes
+#+STARTUP: overview
+
+* Elpaca update broke package bootstrap defaults                   :emacs:elpaca:use-package:regression:
+:PROPERTIES:
+:DATE: 2026-03-01
+:END:
+
+After image + Emacs package updates, startup failed with:
+- ~Cannot load evil/general/git-auto-commit-mode~
+- ~use-package: Unrecognized keyword: :general~
+- Elpaca dependency failures showing built-in ~transient 0.7.2.2~ below required minimums.
+
+** Root cause
+Current ~elpaca-use-package~ no longer honors ~elpaca-use-package-by-default~.
+Config still set that variable, so most ~use-package~ forms stopped being Elpaca-managed.
+That prevented key packages from being ensured, causing cascading parse/load failures.
+
+** Fix
+In Emacs init, replace legacy default with:
+- ~use-package-always-ensure t~ inside the ~elpaca-use-package~ bootstrap block.
+
+Minimal working block:
+#+begin_src emacs-lisp
+(elpaca elpaca-use-package
+  (elpaca-use-package-mode)
+  (setq use-package-always-ensure t)
+  (setq elpaca-queue-limit 20))
+#+end_src
+
+** Verification
+Batch startup succeeds without the previous cascading errors when forcing
+~use-package-always-ensure t~.
+
+** Key files
+- ~/home/tsb/.config/emacs/init.el~
+- ~/home/tsb/.config/emacs/modules/bootstrap.el~
+
+** Notes
+This failure mode can masquerade as a ~general.el~ issue, but root cause is
+loss of Elpaca default package ensuring.
