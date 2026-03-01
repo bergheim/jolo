@@ -61,7 +61,6 @@ RUN apk update && apk add --no-cache \
     py3-pip \
     ripgrep \
     ruby \
-    ruby-thor \
     cargo \
     rust \
     rust-analyzer \
@@ -69,7 +68,6 @@ RUN apk update && apk add --no-cache \
     sqlite \
     sudo \
     tmux \
-    tmuxinator \
     uv \
     wget \
     wl-clipboard \
@@ -101,8 +99,6 @@ RUN apk update && apk add --no-cache \
     wayland-libs-client \
     wayland-libs-cursor \
     ca-certificates
-
-RUN ruby -e "require 'thor'" && tmuxinator version
 
 # User setup
 ARG USERNAME=tsb
@@ -167,6 +163,7 @@ RUN cargo install bacon --locked --root $HOME/.local
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
+    gem install --user-install --bindir "$HOME/.local/bin" tmuxinator \
     pids="" && \
     (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
