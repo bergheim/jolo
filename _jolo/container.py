@@ -262,9 +262,11 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     subprocess.run(cmd, cwd=workspace_dir)
 
 
-def devcontainer_exec_command(workspace_dir: Path, command: str) -> None:
+def devcontainer_exec_command(
+    workspace_dir: Path, command: str, interactive: bool = False
+) -> None:
     """Execute a command directly in container (no tmux)."""
-    if _runtime_exec(workspace_dir, command):
+    if _runtime_exec(workspace_dir, command, interactive=interactive):
         return
 
     # Fallback: slow path via devcontainer CLI

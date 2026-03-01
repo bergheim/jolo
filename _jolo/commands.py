@@ -716,7 +716,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     # Direct exec modes (no tmux)
     if args.shell:
-        devcontainer_exec_command(git_root, "zsh")
+        devcontainer_exec_command(git_root, "zsh", interactive=True)
         return
 
     if args.run:
@@ -804,7 +804,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
 
     # Direct exec modes (no tmux)
     if args.shell:
-        devcontainer_exec_command(worktree_path, "zsh")
+        devcontainer_exec_command(worktree_path, "zsh", interactive=True)
         return
 
     if args.run:
@@ -1038,7 +1038,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Direct exec modes (no tmux)
     if args.shell:
-        devcontainer_exec_command(project_path, "zsh")
+        devcontainer_exec_command(project_path, "zsh", interactive=True)
         return
 
     if args.run:
@@ -1155,7 +1155,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
 
     # Direct exec modes (no tmux)
     if args.shell:
-        devcontainer_exec_command(project_path, "zsh")
+        devcontainer_exec_command(project_path, "zsh", interactive=True)
         return
 
     if args.run:
