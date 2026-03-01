@@ -157,6 +157,7 @@ RUN pnpm add -g \
     pyright \
     @ansible/ansible-language-server \
     @openai/codex \
+    @zed-industries/codex-acp \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
     @fission-ai/openspec@latest \
