@@ -110,7 +110,10 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     adduser -D -h /home/$USERNAME -s /bin/zsh -u $USER_ID -G $USERNAME $USERNAME && \
     echo "$USERNAME:$USER_PASSWORD" | chpasswd && \
     echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME && \
-    chmod 0440 /etc/sudoers.d/$USERNAME
+    chmod 0440 /etc/sudoers.d/$USERNAME && \
+    mkdir -p /tmp/container-runtime && \
+    chown $USERNAME:$USERNAME /tmp/container-runtime && \
+    chmod 700 /tmp/container-runtime
 
 # tmux system config (must be written as root)
 RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
