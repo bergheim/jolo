@@ -87,6 +87,9 @@ RUN apk update && apk add --no-cache \
     pnpm \
     pre-commit \
     typescript \
+    # build files for codex-acp
+    libcap-dev \
+    openssl-dev \
     # Chromium dependencies for headless operation
     nss \
     freetype \
@@ -157,13 +160,18 @@ RUN pnpm add -g \
     pyright \
     @ansible/ansible-language-server \
     @openai/codex \
-    @zed-industries/codex-acp \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
     @fission-ai/openspec@latest \
     markdownlint-cli
 
 RUN cargo install bacon --locked --root $HOME/.local
+
+# build alpine support for codex-acp
+RUN git clone --depth 1 https://github.com/zed-industries/codex-acp.git /tmp/codex-acp && \
+      (cd /tmp/codex-acp && cargo build --release) && \
+      install -Dm755 /tmp/codex-acp/target/release/codex-acp "$PNPM_HOME/codex-acp" && \
+      rm -rf /tmp/codex-acp
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
