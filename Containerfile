@@ -175,7 +175,7 @@ RUN git clone --depth 1 https://github.com/zed-industries/codex-acp.git /tmp/cod
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
-    gem install --user-install --bindir "$HOME/.local/bin" tmuxinator \
+    gem install --user-install --bindir "$HOME/.local/bin" tmuxinator && \
     pids="" && \
     (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
@@ -192,41 +192,7 @@ RUN mkdir -p $HOME/.local/bin && \
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
 
-RUN cat > /tmp/pre-commit-hooks.yaml <<'EOF'
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-added-large-files
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.0
-    hooks:
-      - id: gitleaks
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.1
-    hooks:
-      - id: ruff
-      - id: ruff-format
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v2.9.0
-    hooks:
-      - id: golangci-lint
-  - repo: https://github.com/doublify/pre-commit-rust
-    rev: v1.0
-    hooks:
-      - id: fmt
-      - id: cargo-check
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.11.0.1
-    hooks:
-      - id: shellcheck
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
-    hooks:
-      - id: codespell
-EOF
+COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
 RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
     pre-commit autoupdate -c /tmp/pre-commit-hooks.yaml && \
