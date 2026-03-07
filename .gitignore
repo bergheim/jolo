@@ -49,3 +49,5 @@ uv.lock
 
 # Playwright CLI session artifacts
 .playwright-cli/
+
+.agent-shell
