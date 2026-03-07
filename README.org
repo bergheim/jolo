@@ -67,6 +67,37 @@ openspec/                # structured change workflow
 docs/                    # research and status notes
 #+end_example
 
+* Org TODO Automation
+
+This repo includes =scripts/jolo-todo.el= for =docs/TODO.org= workflow
+automation with states:
+
+#+begin_example
+TODO -> NEXT -> INPROGRESS -> BLOCKED -> DONE
+#+end_example
+
+When a task moves to =INPROGRESS=, it auto-creates =ID=, =SESSION_ID=,
+=BRANCH=, and =WORKTREE= properties, creates a git worktree (prefers
+=/workspaces/= when writable, else uses =worktrees/= under the repo), and
+clocks in. Leaving =INPROGRESS= clocks out.
+
+Load it in Emacs:
+
+#+begin_src emacs-lisp
+(let ((root (locate-dominating-file default-directory "AGENTS.md")))
+  (load-file (expand-file-name "scripts/jolo-todo.el" root))
+  (jolo-todo-enable))
+#+end_src
+
+Agent-safe transitions from shell:
+
+#+begin_src bash
+scripts/todo-agent next --headline "Investigate network egress monitoring for devcontainers"
+scripts/todo-agent start --session 20260307T153000Z-ab12cd
+scripts/todo-agent block --id 9a5fbe41-6a74-4ceb-8f60-ae5dd7f3010f
+scripts/todo-agent done --headline "Add ntfy desktop notifications on Linux"
+#+end_src
+
 * License
 
 See [[file:LICENSE][LICENSE]].

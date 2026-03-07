@@ -1,7 +1,15 @@
 #+TITLE: TODO
 #+DESCRIPTION: Open tasks for the emacs-container project
+#+TODO: TODO NEXT INPROGRESS BLOCKED | DONE
 
 * Tasks
+** DONE Add Org TODO workflow automation for docs/TODO.org
+   Added =scripts/jolo-todo.el= with state hooks:
+   - =INPROGRESS= auto-creates =ID=, =SESSION_ID=, =BRANCH=, and =WORKTREE=
+   - transitions out of =INPROGRESS= clock out automatically
+   - =INPROGRESS= clocks in automatically
+   Added =scripts/todo-agent= wrapper for multi-agent state transitions via
+   =emacsclient= by heading, =ID=, or =SESSION_ID=.
 ** DONE Add regression triage skill + container smoke guard
    Added =templates/.agents/skills/regression-triage/SKILL.md= to enforce
    commit-range diagnosis (=GOOD_SHA= -> =BAD_SHA=) with reproducible probes.
