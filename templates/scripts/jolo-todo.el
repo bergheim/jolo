@@ -1,4 +1,4 @@
-;;; jolo-todo.el --- docs/TODO.org workflow automation -*- lexical-binding: t; -*-
+;;; jolo-todo.el --- control-plane TODO automation -*- lexical-binding: t; -*-
 
 (require 'org)
 (require 'org-clock)
@@ -12,6 +12,11 @@
 (defcustom jolo-todo-repo-root nil
   "Absolute repo root. Nil means detect from current directory."
   :type '(choice (const :tag "Auto-detect" nil) directory))
+
+(defcustom jolo-todo-control-file nil
+  "Absolute path to the control docs/TODO.org.
+Nil means auto-detect main worktree's docs/TODO.org."
+  :type '(choice (const :tag "Auto-detect" nil) file))
 
 (defcustom jolo-todo-worktree-dir nil
   "Parent directory used for auto-created worktrees.
@@ -29,8 +34,54 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
        (locate-dominating-file (or path default-directory) ".git")
        default-directory)))
 
+(defun jolo-todo--git-run (root &rest args)
+  (with-temp-buffer
+    (let ((default-directory root))
+      (cons (apply #'process-file "git" nil (current-buffer) nil args)
+            (string-trim-right (buffer-string))))))
+
+(defun jolo-todo--worktree-entries (root)
+  (let* ((result (jolo-todo--git-run root "worktree" "list" "--porcelain"))
+         (status (car result))
+         (output (cdr result))
+         (entries nil)
+         (entry nil))
+    (when (eq 0 status)
+      (dolist (line (append (split-string output "\n") (list "")))
+        (cond
+         ((string-empty-p line)
+          (when entry
+            (push entry entries)
+            (setq entry nil)))
+         ((string-prefix-p "worktree " line)
+          (setq entry (list :path (string-remove-prefix "worktree " line))))
+         ((string-prefix-p "branch " line)
+          (setq entry (plist-put entry :branch (string-remove-prefix "branch " line)))))))
+    (nreverse entries)))
+
+(defun jolo-todo--main-worktree-root (root)
+  (let ((main-root nil))
+    (dolist (entry (jolo-todo--worktree-entries root))
+      (when (string= (or (plist-get entry :branch) "") "refs/heads/main")
+        (setq main-root (plist-get entry :path))))
+    main-root))
+
+(defun jolo-todo--control-root (&optional path)
+  (let* ((root (jolo-todo--repo-root path))
+         (main-root (jolo-todo--main-worktree-root root)))
+    (expand-file-name (or main-root root))))
+
 (defun jolo-todo--todo-file (&optional path)
-  (expand-file-name "docs/TODO.org" (jolo-todo--repo-root path)))
+  (if jolo-todo-control-file
+      (expand-file-name jolo-todo-control-file)
+    (let* ((root (jolo-todo--repo-root path))
+           (control-root (jolo-todo--control-root path))
+           (control (expand-file-name "docs/TODO.org" control-root))
+           (fallback (expand-file-name "docs/TODO.org" root)))
+      (if (or (file-exists-p control)
+              (not (file-exists-p fallback)))
+          control
+        fallback))))
 
 (defun jolo-todo--target-buffer-p (&optional buffer)
   (with-current-buffer (or buffer (current-buffer))
@@ -72,30 +123,16 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
         (expand-file-name preferred)
       (expand-file-name "worktrees" root))))
 
-(defun jolo-todo--git-run (root &rest args)
-  (with-temp-buffer
-    (let ((default-directory root))
-      (cons (apply #'process-file "git" nil (current-buffer) nil args)
-            (string-trim-right (buffer-string))))))
-
 (defun jolo-todo--branch-exists-p (root branch)
   (eq 0 (car (jolo-todo--git-run root "rev-parse" "--verify" "--quiet"
                                  (format "refs/heads/%s" branch)))))
 
 (defun jolo-todo--branch-worktree (root branch)
-  (let* ((result (jolo-todo--git-run root "worktree" "list" "--porcelain"))
-         (status (car result))
-         (output (cdr result))
-         (current-worktree nil)
-         (match nil))
-    (when (eq 0 status)
-      (dolist (line (split-string output "\n" t))
-        (cond
-         ((string-prefix-p "worktree " line)
-          (setq current-worktree (string-remove-prefix "worktree " line)))
-         ((and current-worktree
-               (string= line (format "branch refs/heads/%s" branch)))
-          (setq match current-worktree)))))
+  (let ((match nil)
+        (needle (format "refs/heads/%s" branch)))
+    (dolist (entry (jolo-todo--worktree-entries root))
+      (when (string= (or (plist-get entry :branch) "") needle)
+        (setq match (plist-get entry :path))))
     match))
 
 (defun jolo-todo--next-worktree-identity (root heading)
@@ -130,7 +167,8 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
     (org-entry-put nil "SESSION_ID" (jolo-todo--new-session-id))))
 
 (defun jolo-todo--ensure-worktree ()
-  (let* ((root (jolo-todo--repo-root (buffer-file-name)))
+  (let* ((control-file (jolo-todo--todo-file (buffer-file-name)))
+         (root (jolo-todo--repo-root control-file))
          (heading (org-get-heading t t t t))
          (branch (org-entry-get nil "BRANCH"))
          (worktree (org-entry-get nil "WORKTREE")))
@@ -213,10 +251,30 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
       (goto-char (car matches))
       (car matches)))))
 
+(defun jolo-todo--find-by-selector (kind selector)
+  (pcase kind
+    ("id" (jolo-todo--goto-by-property "ID" selector))
+    ("session" (jolo-todo--goto-by-property "SESSION_ID" selector))
+    ("headline" (jolo-todo--goto-by-headline selector))
+    (_ (error "invalid selector kind: %s" kind))))
+
+(defun jolo-todo--append-note-line (note)
+  (org-back-to-heading t)
+  (org-end-of-meta-data t)
+  (beginning-of-line)
+  (insert (format "- [%s] %s\n"
+                  (format-time-string "%Y-%m-%d %a %H:%M")
+                  note)))
+
+(defun jolo-todo-open-control ()
+  "Open the control docs/TODO.org buffer."
+  (interactive)
+  (switch-to-buffer (find-file-noselect (jolo-todo--todo-file default-directory))))
+
 (defun jolo-todo-resume-by-session-id (session-id)
-  "Jump to SESSION-ID in docs/TODO.org."
+  "Jump to SESSION-ID in the control docs/TODO.org."
   (interactive (list (read-string "Session ID: ")))
-  (let ((buffer (find-file-noselect (jolo-todo--todo-file))))
+  (let ((buffer (find-file-noselect (jolo-todo--todo-file default-directory))))
     (with-current-buffer buffer
       (org-with-wide-buffer
        (unless (jolo-todo--goto-by-property "SESSION_ID" session-id)
@@ -226,8 +284,8 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
     (switch-to-buffer buffer)))
 
 (defun jolo-todo-agent-transition (selector-kind selector state)
-  "Transition a task in docs/TODO.org.
-SELECTOR-KIND is one of \"id\", \"session\", or \"headline\".
+  "Transition a task in control docs/TODO.org.
+SELECTOR-KIND is one of "id", "session", or "headline".
 SELECTOR is the selector value.
 STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
   (let ((allowed '("TODO" "NEXT" "INPROGRESS" "BLOCKED" "DONE"))
@@ -236,14 +294,10 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
                 selector-kind)))
     (unless (member state allowed)
       (error "invalid state: %s" state))
-    (with-current-buffer (find-file-noselect (jolo-todo--todo-file))
+    (with-current-buffer (find-file-noselect (jolo-todo--todo-file default-directory))
       (org-with-wide-buffer
        (jolo-todo--ensure-keywords)
-       (let ((point (pcase kind
-                      ("id" (jolo-todo--goto-by-property "ID" selector))
-                      ("session" (jolo-todo--goto-by-property "SESSION_ID" selector))
-                      ("headline" (jolo-todo--goto-by-headline selector))
-                      (_ (error "invalid selector kind: %s" kind)))))
+       (let ((point (jolo-todo--find-by-selector kind selector)))
          (unless point
            (error "task not found (%s=%s)" kind selector))
          (goto-char point)
@@ -255,6 +309,62 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
              (jolo-todo--after-state-change))
            (save-buffer)
            (format "%s -> %s (%s=%s)" heading state kind selector)))))))
+
+(defun jolo-todo-agent-note (selector-kind selector note)
+  "Append NOTE under a task in control docs/TODO.org."
+  (let ((kind (if (symbolp selector-kind)
+                  (symbol-name selector-kind)
+                selector-kind)))
+    (with-current-buffer (find-file-noselect (jolo-todo--todo-file default-directory))
+      (org-with-wide-buffer
+       (let ((point (jolo-todo--find-by-selector kind selector)))
+         (unless point
+           (error "task not found (%s=%s)" kind selector))
+         (goto-char point)
+         (let ((heading (org-get-heading t t t t)))
+           (jolo-todo--append-note-line note)
+           (save-buffer)
+           (format "%s note added (%s=%s)" heading kind selector)))))))
+
+(defun jolo-todo--current-heading-id ()
+  (unless (jolo-todo--target-buffer-p)
+    (user-error "Open control docs/TODO.org (M-x jolo-todo-open-control)"))
+  (org-back-to-heading t)
+  (or (org-entry-get nil "ID")
+      (progn
+        (jolo-todo--ensure-id)
+        (save-buffer)
+        (org-entry-get nil "ID"))))
+
+(defun jolo-todo--transition-current (state)
+  (jolo-todo-agent-transition "id" (jolo-todo--current-heading-id) state)
+  (revert-buffer :ignore-auto :noconfirm))
+
+(defun jolo-todo-next ()
+  "Set current control task to NEXT."
+  (interactive)
+  (jolo-todo--transition-current "NEXT"))
+
+(defun jolo-todo-start ()
+  "Set current control task to INPROGRESS."
+  (interactive)
+  (jolo-todo--transition-current "INPROGRESS"))
+
+(defun jolo-todo-block ()
+  "Set current control task to BLOCKED."
+  (interactive)
+  (jolo-todo--transition-current "BLOCKED"))
+
+(defun jolo-todo-done ()
+  "Set current control task to DONE."
+  (interactive)
+  (jolo-todo--transition-current "DONE"))
+
+(defun jolo-todo-note (note)
+  "Add NOTE under current control task."
+  (interactive "sNote: ")
+  (jolo-todo-agent-note "id" (jolo-todo--current-heading-id) note)
+  (revert-buffer :ignore-auto :noconfirm))
 
 (defun jolo-todo--after-state-change ()
   (when (and (boundp 'org-state)
@@ -279,15 +389,29 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
          (jolo-todo--clock-out-current-heading))))))
 
 (defun jolo-todo-enable ()
-  "Enable docs/TODO.org workflow hooks."
+  "Enable control TODO workflow hooks and keybindings."
   (interactive)
   (add-hook 'org-mode-hook #'jolo-todo--ensure-keywords)
-  (add-hook 'org-after-todo-state-change-hook #'jolo-todo--after-state-change))
+  (add-hook 'org-after-todo-state-change-hook #'jolo-todo--after-state-change)
+  (define-key org-mode-map (kbd "C-c j o") #'jolo-todo-open-control)
+  (define-key org-mode-map (kbd "C-c j n") #'jolo-todo-next)
+  (define-key org-mode-map (kbd "C-c j s") #'jolo-todo-start)
+  (define-key org-mode-map (kbd "C-c j b") #'jolo-todo-block)
+  (define-key org-mode-map (kbd "C-c j d") #'jolo-todo-done)
+  (define-key org-mode-map (kbd "C-c j m") #'jolo-todo-note)
+  (define-key org-mode-map (kbd "C-c j r") #'jolo-todo-resume-by-session-id))
 
 (defun jolo-todo-disable ()
-  "Disable docs/TODO.org workflow hooks."
+  "Disable control TODO workflow hooks and keybindings."
   (interactive)
   (remove-hook 'org-mode-hook #'jolo-todo--ensure-keywords)
-  (remove-hook 'org-after-todo-state-change-hook #'jolo-todo--after-state-change))
+  (remove-hook 'org-after-todo-state-change-hook #'jolo-todo--after-state-change)
+  (define-key org-mode-map (kbd "C-c j o") nil)
+  (define-key org-mode-map (kbd "C-c j n") nil)
+  (define-key org-mode-map (kbd "C-c j s") nil)
+  (define-key org-mode-map (kbd "C-c j b") nil)
+  (define-key org-mode-map (kbd "C-c j d") nil)
+  (define-key org-mode-map (kbd "C-c j m") nil)
+  (define-key org-mode-map (kbd "C-c j r") nil))
 
 (provide 'jolo-todo)

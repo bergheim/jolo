@@ -76,6 +76,9 @@ automation with states:
 TODO -> NEXT -> INPROGRESS -> BLOCKED -> DONE
 #+end_example
 
+Control-plane behavior: all updates target the main worktree's
+=docs/TODO.org= automatically, even when called from another worktree.
+
 When a task moves to =INPROGRESS=, it auto-creates =ID=, =SESSION_ID=,
 =BRANCH=, and =WORKTREE= properties, creates a git worktree (prefers
 =/workspaces/= when writable, else uses =worktrees/= under the repo), and
@@ -89,6 +92,18 @@ Load it in Emacs:
   (jolo-todo-enable))
 #+end_src
 
+Emacs keybindings (org-mode):
+
+#+begin_example
+C-c j o  open control TODO
+C-c j n  NEXT
+C-c j s  INPROGRESS
+C-c j b  BLOCKED
+C-c j d  DONE
+C-c j m  add note
+C-c j r  resume by SESSION_ID
+#+end_example
+
 Agent-safe transitions from shell:
 
 #+begin_src bash
@@ -96,6 +111,7 @@ scripts/todo-agent next --headline "Investigate network egress monitoring for de
 scripts/todo-agent start --session 20260307T153000Z-ab12cd
 scripts/todo-agent block --id 9a5fbe41-6a74-4ceb-8f60-ae5dd7f3010f
 scripts/todo-agent done --headline "Add ntfy desktop notifications on Linux"
+scripts/todo-agent note --session 20260307T153000Z-ab12cd --message "implemented worktree auto-detection"
 #+end_src
 
 * License
