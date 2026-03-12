@@ -11,7 +11,7 @@ Shared knowledge lives in org-mode files under `docs/` that all agents read and 
 | File | Purpose | Content |
 |------|---------|---------|
 | `docs/MEMORY.org` | Shared memory | Conventions, patterns, gotchas — tag with keywords |
-| `docs/TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
+| `docs/TODO.org` | Tasks and plans | Actionable items with workflow: `TODO` -> `NEXT` -> `INPROGRESS` -> `BLOCKED` -> `DONE` |
 | `docs/RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
 
 **On session start:** Read `docs/MEMORY.org` and `docs/TODO.org` to pick up where others left off.

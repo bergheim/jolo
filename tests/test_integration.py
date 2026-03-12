@@ -134,6 +134,24 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
 
         self.assertTrue(editorconfig.exists())
 
+    def test_create_copies_todo_automation_scripts(self):
+        """create should copy org TODO automation scripts from templates."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "python-bare", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+        jolo_todo = project_path / "scripts" / "jolo-todo.el"
+        todo_agent = project_path / "scripts" / "todo-agent"
+
+        self.assertTrue(jolo_todo.exists())
+        self.assertTrue(todo_agent.exists())
+        self.assertTrue(os.access(todo_agent, os.X_OK))
+
     def test_create_runs_init_commands_for_primary_flavor(self):
         """create should run project init commands for primary flavor."""
         args = jolo.parse_args(

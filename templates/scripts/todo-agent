@@ -1,0 +1,103 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    cat <<USAGE >&2
+Usage: scripts/todo-agent <next|start|claim|block|done> (--id <ID> | --session <SESSION_ID> | --headline <TEXT>)
+USAGE
+    exit 1
+}
+
+[ $# -ge 1 ] || usage
+
+action="$1"
+shift
+
+case "$action" in
+    next)
+        state="NEXT"
+        ;;
+    start|claim)
+        state="INPROGRESS"
+        ;;
+    block)
+        state="BLOCKED"
+        ;;
+    done)
+        state="DONE"
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+selector_kind=""
+selector_value=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --id)
+            [ $# -ge 2 ] || usage
+            selector_kind="id"
+            selector_value="$2"
+            shift 2
+            ;;
+        --session)
+            [ $# -ge 2 ] || usage
+            selector_kind="session"
+            selector_value="$2"
+            shift 2
+            ;;
+        --headline)
+            [ $# -ge 2 ] || usage
+            selector_kind="headline"
+            selector_value="$2"
+            shift 2
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+[ -n "$selector_kind" ] || usage
+
+if ! command -v emacsclient >/dev/null 2>&1; then
+    echo "error: emacsclient not found" >&2
+    exit 1
+fi
+
+if ! emacsclient --eval 't' >/dev/null 2>&1; then
+    echo "error: emacs server is not running (start Emacs server first)" >&2
+    exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$repo_root" ] || {
+    echo "error: not in a git repository" >&2
+    exit 1
+}
+
+elisp_file="$repo_root/scripts/jolo-todo.el"
+[ -f "$elisp_file" ] || {
+    echo "error: missing $elisp_file" >&2
+    exit 1
+}
+
+b64() {
+    printf '%s' "$1" | base64 | tr -d '\n'
+}
+
+root_b64="$(b64 "$repo_root")"
+elisp_b64="$(b64 "$elisp_file")"
+kind_b64="$(b64 "$selector_kind")"
+value_b64="$(b64 "$selector_value")"
+state_b64="$(b64 "$state")"
+
+emacsclient --eval "(progn
+  (load-file (base64-decode-string \"$elisp_b64\"))
+  (let ((jolo-todo-repo-root (base64-decode-string \"$root_b64\")))
+    (jolo-todo-agent-transition
+     (base64-decode-string \"$kind_b64\")
+     (base64-decode-string \"$value_b64\")
+     (base64-decode-string \"$state_b64\"))))"
