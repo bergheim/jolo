@@ -66,10 +66,25 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
         (setq main-root (plist-get entry :path))))
     main-root))
 
+(defun jolo-todo--common-root (root)
+  (let* ((result (jolo-todo--git-run root "rev-parse" "--git-common-dir"))
+         (status (car result))
+         (common-dir (cdr result)))
+    (when (and (eq 0 status) (not (string-empty-p common-dir)))
+      (let* ((abs-common (if (file-name-absolute-p common-dir)
+                             common-dir
+                           (expand-file-name common-dir root)))
+             (repo-root (directory-file-name
+                         (if (string-suffix-p "/.git" abs-common)
+                             (file-name-directory abs-common)
+                           (file-name-directory abs-common)))))
+        (expand-file-name repo-root)))))
+
 (defun jolo-todo--control-root (&optional path)
   (let* ((root (jolo-todo--repo-root path))
+         (common-root (jolo-todo--common-root root))
          (main-root (jolo-todo--main-worktree-root root)))
-    (expand-file-name (or main-root root))))
+    (expand-file-name (or common-root main-root root))))
 
 (defun jolo-todo--todo-file (&optional path)
   (if jolo-todo-control-file
