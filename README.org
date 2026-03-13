@@ -78,6 +78,8 @@ TODO -> NEXT -> INPROGRESS -> BLOCKED -> DONE
 
 Control-plane behavior: all updates target the main worktree's
 =docs/TODO.org= automatically, even when called from another worktree.
+If you change TODO state in a non-control worktree file (for example with
+=C-c C-t=), it is routed to the control file and local state is restored.
 
 When a task moves to =INPROGRESS=, it auto-creates =ID=, =SESSION_ID=,
 =BRANCH=, and =WORKTREE= properties, creates a git worktree (prefers

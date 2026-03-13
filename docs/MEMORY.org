@@ -35,7 +35,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Browser automation default is =playwright-cli= (stateful, artifact-first); =browser-check= remains for stateless checks :playwright:automation:
 - For regressions: force =GOOD_SHA/BAD_SHA= diff + identical probes before root-cause claims; avoid guessing from logs alone :workflow:regression:
 - agent-shell Codex integration requires =@zed-industries/codex-acp= (binary =codex-acp=); =@zed-industries/claude-code-acp= does not satisfy this :agent-shell:acp:codex:
-- Org task flow for this repo: =TODO -> NEXT -> INPROGRESS -> BLOCKED -> DONE=. Control TODO lives in main worktree =docs/TODO.org=. Entering =INPROGRESS= auto-creates =ID/SESSION_ID/BRANCH/WORKTREE= and clocks in via =scripts/jolo-todo.el=; use =scripts/todo-agent= for agent-safe transitions/notes via =emacsclient= from any worktree :org:todo:worktree:clock:emacsclient:
+- Org task flow for this repo: =TODO -> NEXT -> INPROGRESS -> BLOCKED -> DONE=. Control TODO lives in main worktree =docs/TODO.org=. Entering =INPROGRESS= auto-creates =ID/SESSION_ID/BRANCH/WORKTREE= and clocks in via =scripts/jolo-todo.el=. State changes in non-control worktree TODO files are routed to control and local state is restored to avoid divergence. Use =scripts/todo-agent= for agent-safe transitions/notes via =emacsclient= from any worktree :org:todo:worktree:clock:emacsclient:
 
 * Terminal Image Display                                       :terminal:images:
 

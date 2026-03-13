@@ -28,6 +28,9 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
   "TODO keyword sequence for docs/TODO.org."
   :type '(repeat string))
 
+(defvar jolo-todo--routing nil
+  "Non-nil while a local TODO state change is being routed to control file.")
+
 (defun jolo-todo--repo-root (&optional path)
   (expand-file-name
    (or jolo-todo-repo-root
@@ -106,8 +109,14 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
           (file-truename buffer-file-name)
           (file-truename (jolo-todo--todo-file buffer-file-name))))))
 
+(defun jolo-todo--docs-todo-buffer-p (&optional buffer)
+  (with-current-buffer (or buffer (current-buffer))
+    (and buffer-file-name
+         (string-suffix-p "/docs/TODO.org" (file-truename buffer-file-name))
+         (locate-dominating-file buffer-file-name ".git"))))
+
 (defun jolo-todo--ensure-keywords ()
-  (when (jolo-todo--target-buffer-p)
+  (when (jolo-todo--docs-todo-buffer-p)
     (setq-local org-todo-keywords (list jolo-todo-keyword-sequence))))
 
 (defun jolo-todo--slugify (text)
@@ -273,6 +282,16 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
     ("headline" (jolo-todo--goto-by-headline selector))
     (_ (error "invalid selector kind: %s" kind))))
 
+(defun jolo-todo--find-or-create-headline (headline)
+  (or (jolo-todo--goto-by-headline headline)
+      (progn
+        (goto-char (point-max))
+        (unless (bolp)
+          (insert "\n"))
+        (insert (format "* TODO %s\n" headline))
+        (forward-line -1)
+        (point))))
+
 (defun jolo-todo--append-note-line (note)
   (org-back-to-heading t)
   (org-end-of-meta-data t)
@@ -298,11 +317,13 @@ Nil means auto-detect: use /workspaces when writable, else <repo>/worktrees."
        (org-reveal)))
     (switch-to-buffer buffer)))
 
-(defun jolo-todo-agent-transition (selector-kind selector state)
+(defun jolo-todo-agent-transition (selector-kind selector state &optional create-headline-if-missing)
   "Transition a task in control docs/TODO.org.
-SELECTOR-KIND is one of "id", "session", or "headline".
+SELECTOR-KIND is one of \"id\", \"session\", or \"headline\".
 SELECTOR is the selector value.
-STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
+STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE.
+When CREATE-HEADLINE-IF-MISSING is non-nil and selector kind is headline,
+missing headings are created in control TODO."
   (let ((allowed '("TODO" "NEXT" "INPROGRESS" "BLOCKED" "DONE"))
         (kind (if (symbolp selector-kind)
                   (symbol-name selector-kind)
@@ -312,7 +333,10 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
     (with-current-buffer (find-file-noselect (jolo-todo--todo-file default-directory))
       (org-with-wide-buffer
        (jolo-todo--ensure-keywords)
-       (let ((point (jolo-todo--find-by-selector kind selector)))
+       (let ((point (or (jolo-todo--find-by-selector kind selector)
+                        (and create-headline-if-missing
+                             (string= kind "headline")
+                             (jolo-todo--find-or-create-headline selector)))))
          (unless point
            (error "task not found (%s=%s)" kind selector))
          (goto-char point)
@@ -341,19 +365,24 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
            (save-buffer)
            (format "%s note added (%s=%s)" heading kind selector)))))))
 
-(defun jolo-todo--current-heading-id ()
-  (unless (jolo-todo--target-buffer-p)
-    (user-error "Open control docs/TODO.org (M-x jolo-todo-open-control)"))
+(defun jolo-todo--current-selector ()
+  (unless (jolo-todo--docs-todo-buffer-p)
+    (user-error "Open any docs/TODO.org heading first"))
   (org-back-to-heading t)
-  (or (org-entry-get nil "ID")
-      (progn
-        (jolo-todo--ensure-id)
-        (save-buffer)
-        (org-entry-get nil "ID"))))
+  (let ((id (org-entry-get nil "ID"))
+        (session-id (org-entry-get nil "SESSION_ID"))
+        (headline (org-get-heading t t t t)))
+    (cond
+     ((and id (not (string-empty-p id))) (list "id" id))
+     ((and session-id (not (string-empty-p session-id)))
+      (list "session" session-id))
+     (t (list "headline" headline)))))
 
 (defun jolo-todo--transition-current (state)
-  (jolo-todo-agent-transition "id" (jolo-todo--current-heading-id) state)
-  (revert-buffer :ignore-auto :noconfirm))
+  (pcase-let ((`(,kind ,value) (jolo-todo--current-selector)))
+    (jolo-todo-agent-transition kind value state t)
+    (when (jolo-todo--target-buffer-p)
+      (revert-buffer :ignore-auto :noconfirm))))
 
 (defun jolo-todo-next ()
   "Set current control task to NEXT."
@@ -378,30 +407,47 @@ STATE is one of TODO, NEXT, INPROGRESS, BLOCKED, DONE."
 (defun jolo-todo-note (note)
   "Add NOTE under current control task."
   (interactive "sNote: ")
-  (jolo-todo-agent-note "id" (jolo-todo--current-heading-id) note)
-  (revert-buffer :ignore-auto :noconfirm))
+  (pcase-let ((`(,kind ,value) (jolo-todo--current-selector)))
+    (jolo-todo-agent-note kind value note)
+    (when (jolo-todo--target-buffer-p)
+      (revert-buffer :ignore-auto :noconfirm))))
 
 (defun jolo-todo--after-state-change ()
   (when (and (boundp 'org-state)
              (stringp org-state)
-             (jolo-todo--target-buffer-p))
+             (jolo-todo--docs-todo-buffer-p)
+             (not jolo-todo--routing))
     (save-excursion
       (org-back-to-heading t)
-      (when (and (boundp 'org-last-state)
-                 (string= org-last-state "INPROGRESS")
-                 (not (string= org-state "INPROGRESS")))
-        (jolo-todo--clock-out-current-heading))
-      (pcase org-state
-        ("INPROGRESS"
-         (jolo-todo--ensure-id)
-         (jolo-todo--ensure-session-id)
-         (condition-case err
-             (jolo-todo--ensure-worktree)
-           (error
-            (message "jolo-todo worktree: %s" (error-message-string err))))
-         (jolo-todo--clock-in-current-heading))
-        ((or "BLOCKED" "DONE")
-         (jolo-todo--clock-out-current-heading))))))
+      (if (jolo-todo--target-buffer-p)
+          (progn
+            (when (and (boundp 'org-last-state)
+                       (string= org-last-state "INPROGRESS")
+                       (not (string= org-state "INPROGRESS")))
+              (jolo-todo--clock-out-current-heading))
+            (pcase org-state
+              ("INPROGRESS"
+               (jolo-todo--ensure-id)
+               (jolo-todo--ensure-session-id)
+               (condition-case err
+                   (jolo-todo--ensure-worktree)
+                 (error
+                  (message "jolo-todo worktree: %s" (error-message-string err))))
+               (jolo-todo--clock-in-current-heading))
+              ((or "BLOCKED" "DONE")
+               (jolo-todo--clock-out-current-heading))))
+        (pcase-let ((`(,kind ,value) (jolo-todo--current-selector)))
+          (condition-case err
+              (jolo-todo-agent-transition kind value org-state t)
+            (error
+             (message "jolo-todo route failed: %s" (error-message-string err))))
+          (message "jolo-todo routed %s to control TODO (%s=%s)"
+                   org-state kind value)
+          (when (and (boundp 'org-last-state)
+                     org-last-state
+                     (not (string-empty-p org-last-state)))
+            (let ((jolo-todo--routing t))
+              (ignore-errors (org-todo org-last-state)))))))))
 
 (defun jolo-todo-enable ()
   "Enable control TODO workflow hooks and keybindings."
