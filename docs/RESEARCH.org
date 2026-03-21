@@ -1384,3 +1384,39 @@ codex-acp --help
 
 - https://github.com/zed-industries/codex-acp
 - https://registry.npmjs.org/@zed-industries/codex-acp
+
+* Template auto-formatting at scaffold time             :templates:formatting:dx:
+:PROPERTIES:
+:DATE: 2026-03-21
+:BRANCH: yolo/format-all-languages
+:END:
+
+Added auto-formatting of scaffolded code before initial commit in =jolo create=
+to prevent "format on save" whitespace noise in the first real commit.
+
+** Formatters per language
+
+| Language   | Formatter            | Notes                                    |
+|------------+----------------------+------------------------------------------|
+| TypeScript | =biome check --write= | Already existed; also fixes lint/imports |
+| Go         | =gofmt -w .=          | New                                      |
+| Python     | =ruff format= + =ruff check --fix= | New; uses =--isolated= to skip template pyproject.toml |
+| Rust       | =rustfmt=             | New; requires =apk add rustfmt= (added to Containerfile) |
+
+** Template fixes applied
+
+- Python: line-length wrapping in =web/app.py=, =web/main.py=
+- TypeScript: import sorting, quote normalization, tab indentation, =type="button"= a11y fix
+- Go/Rust/HTML: =type="button"= on htmx buttons across all web templates
+- =layout.tsx=: wrapped =={{PROJECT_NAME}}== in JSX string expression ={"{{PROJECT_NAME}}"}= to prevent biome from adding spaces inside double-braces
+
+** Test fixes
+
+4 pre-existing test failures fixed: assertions expected remote repo URLs for
+gitleaks and biome pre-commit hooks, but commit =342d345= switched them to local hooks.
+
+** Key files
+
+- =_jolo/commands.py= — formatting block near line 973
+- =templates/lang/*/= — all language template files
+- =Containerfile= — added =rustfmt= package
