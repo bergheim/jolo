@@ -970,6 +970,24 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Scaffold .devcontainer
     scaffold_devcontainer(project_name, project_path, config=config)
 
+    # Format code if possible (before initial commit) to avoid "format on save" noise
+    # We only do this if the tool is available on the host/runner.
+    lang = constants.FLAVOR_LANGUAGE.get(primary_flavor, primary_flavor)
+    if lang == "typescript" and shutil.which("biome"):
+        verbose_print("Formatting TypeScript files with biome...")
+        subprocess.run(
+            [
+                "biome",
+                "check",
+                "--write",
+                "--no-errors-on-unmatched",
+                "--files-ignore-unknown=true",
+                ".",
+            ],
+            cwd=project_path,
+            capture_output=not constants.VERBOSE,
+        )
+
     # Initial commit with all generated files
     cmd = ["git", "add", "."]
     verbose_cmd(cmd)
