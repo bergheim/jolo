@@ -103,12 +103,15 @@ PRECOMMIT_HOOKS = {
         ],
     },
     "typescript": {
-        "repo": "https://github.com/biomejs/pre-commit",
-        "rev": "v0.6.0",
+        "repo": "local",
         "hooks": [
             {
                 "id": "biome-check",
-                "additional_dependencies": ["@biomejs/biome@1.9.0"],
+                "name": "biome check",
+                "entry": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
+                "language": "system",
+                "types": ["text"],
+                "pass_filenames": True,
             },
         ],
     },

@@ -96,10 +96,15 @@ def generate_precommit_config(flavors: list[str]) -> str:
             ],
         },
         {
-            "repo": "https://github.com/gitleaks/gitleaks",
-            "rev": "v8.24.2",
+            "repo": "local",
             "hooks": [
-                {"id": "gitleaks"},
+                {
+                    "id": "gitleaks",
+                    "name": "gitleaks",
+                    "entry": "gitleaks protect --verbose --redact --staged",
+                    "language": "system",
+                    "pass_filenames": False,
+                },
             ],
         },
         {
