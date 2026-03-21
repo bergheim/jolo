@@ -5,7 +5,6 @@ import json
 import os
 import random
 import re
-import shutil
 import socket
 import subprocess
 import sys
@@ -122,44 +121,17 @@ def _select_flavors_gum() -> list[str]:
     ]
 
 
-def _select_flavors_fallback() -> list[str]:
-    """Fallback numbered input when gum isn't available."""
-    print("Select project flavor(s) (comma-separated numbers, e.g. 1,3):")
-    for i, flavor in enumerate(constants.VALID_FLAVORS, 1):
-        print(f"  {i}. {flavor}")
-    print()
-    try:
-        response = input("> ").strip()
-    except (KeyboardInterrupt, EOFError):
-        return []
-    if not response:
-        return []
-    selected = []
-    for part in response.split(","):
-        part = part.strip()
-        if part.isdigit():
-            idx = int(part) - 1
-            if 0 <= idx < len(constants.VALID_FLAVORS):
-                selected.append(constants.VALID_FLAVORS[idx])
-    return selected
-
-
 def select_flavors_interactive() -> list[str]:
     """Show interactive multi-select picker for project flavors.
-
-    Uses gum choose if available, falls back to numbered input.
 
     Returns:
         List of selected flavor codes, e.g. ['python-web', 'typescript-bare'].
         First selected = primary flavor. Returns empty list if user cancels.
     """
-    if shutil.which("gum"):
-        try:
-            return _select_flavors_gum()
-        except KeyboardInterrupt:
-            return []
-    else:
-        return _select_flavors_fallback()
+    try:
+        return _select_flavors_gum()
+    except KeyboardInterrupt:
+        return []
 
 
 def parse_flavor_arg(value: str) -> list[str]:

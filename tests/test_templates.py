@@ -4,7 +4,6 @@
 import json
 import unittest
 from pathlib import Path
-from unittest import mock
 
 try:
     import jolo
@@ -369,41 +368,6 @@ class TestSelectFlavorsInteractive(unittest.TestCase):
             "other",
         ]
         self.assertEqual(jolo.VALID_FLAVORS, expected)
-
-    def test_fallback_parses_comma_separated_numbers(self):
-        """Fallback should parse comma-separated numbers."""
-        with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", return_value="1,3"):
-                result = jolo.select_flavors_interactive()
-        self.assertEqual(result, ["typescript-web", "go-web"])
-
-    def test_fallback_handles_empty_input(self):
-        """Fallback should return empty list on empty input."""
-        with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", return_value=""):
-                result = jolo.select_flavors_interactive()
-        self.assertEqual(result, [])
-
-    def test_fallback_handles_invalid_numbers(self):
-        """Fallback should skip invalid numbers gracefully."""
-        with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", return_value="1,99,2"):
-                result = jolo.select_flavors_interactive()
-        self.assertEqual(result, ["typescript-web", "typescript-bare"])
-
-    def test_fallback_single_selection(self):
-        """Fallback should handle single selection."""
-        with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", return_value="10"):
-                result = jolo.select_flavors_interactive()
-        self.assertEqual(result, ["prose"])
-
-    def test_fallback_keyboard_interrupt_returns_empty(self):
-        """Should return empty list on keyboard interrupt."""
-        with mock.patch("shutil.which", return_value=None):
-            with mock.patch("builtins.input", side_effect=KeyboardInterrupt):
-                result = jolo.select_flavors_interactive()
-        self.assertEqual(result, [])
 
 
 class TestGetTestFrameworkConfig(unittest.TestCase):
