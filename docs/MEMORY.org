@@ -35,6 +35,10 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Browser automation default is =playwright-cli= (stateful, artifact-first); =browser-check= remains for stateless checks :playwright:automation:
 - For regressions: force =GOOD_SHA/BAD_SHA= diff + identical probes before root-cause claims; avoid guessing from logs alone :workflow:regression:
 - agent-shell Codex integration requires =@zed-industries/codex-acp= (binary =codex-acp=); =@zed-industries/claude-code-acp= does not satisfy this :agent-shell:acp:codex:
+- =jolo create= auto-formats scaffolded code before initial commit (biome/gofmt/ruff/rustfmt per language) :jolo:templates:formatting:
+- =ruff= needs =--isolated= when run on template dirs — =pyproject.toml= has =={{VAR}}== placeholders that break TOML parsing :python:templates:
+- Biome reformats =={{VAR}}== in JSX as ={{ VAR }}= (adds spaces) — wrap in string expression ={"{{VAR}}"}= to preserve placeholder :typescript:templates:biome:
+- rustfmt is the canonical Rust formatter (no real alternatives); install via =apk add rustfmt= on Alpine :rust:formatting:
 
 * Terminal Image Display                                       :terminal:images:
 
