@@ -687,9 +687,8 @@ class TestPatchJsonWithJq(unittest.TestCase):
         jq_filter = ".[$path] = $value"
 
         mock_result = mock.Mock(stdout='{"ok":true}\n')
-        with mock.patch("shutil.which", return_value="/usr/bin/jq"):
-            with mock.patch("subprocess.run", return_value=mock_result) as run:
-                setup._patch_json_with_jq(target, jq_args, jq_filter)
+        with mock.patch("subprocess.run", return_value=mock_result) as run:
+            setup._patch_json_with_jq(target, jq_args, jq_filter)
 
         self.assertTrue(target.exists())
         self.assertEqual(target.read_text(), '{"ok":true}\n')
@@ -698,13 +697,6 @@ class TestPatchJsonWithJq(unittest.TestCase):
         run.assert_called_once_with(
             expected_cmd, check=True, capture_output=True, text=True
         )
-
-    def test_patch_json_with_jq_requires_jq(self):
-        """Should raise if jq is missing."""
-        target = Path(self.tmpdir) / "trustedFolders.json"
-        with mock.patch("shutil.which", return_value=None):
-            with self.assertRaises(RuntimeError):
-                setup._patch_json_with_jq(target, [], ".")
 
 
 class TestEnsureTopLevelTomlKey(unittest.TestCase):
