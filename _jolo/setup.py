@@ -32,8 +32,6 @@ def clear_directory_contents(path: Path) -> None:
 def _patch_json_with_jq(
     path: Path, jq_args: list[str], jq_filter: str
 ) -> None:
-    if not shutil.which("jq"):
-        raise RuntimeError("jq is required but was not found on PATH")
     if path.exists():
         cmd = ["jq", *jq_args, jq_filter, str(path)]
     else:

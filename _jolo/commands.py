@@ -533,57 +533,28 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         label = _format_container_display(folder)
         labels.append(f"{label:<30} {folder}")
 
-    # Try fzf > gum > numbered fallback
     selected_folder = None
-    if shutil.which("fzf"):
-        try:
-            result = subprocess.run(
-                [
-                    "fzf",
-                    "--header",
-                    "Pick a container:",
-                    "--height",
-                    "~10",
-                    "--layout",
-                    "reverse",
-                    "--no-multi",
-                ],
-                input="\n".join(labels),
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return
-            selected_folder = result.stdout.strip().split()[-1]
-        except KeyboardInterrupt:
+    try:
+        result = subprocess.run(
+            [
+                "fzf",
+                "--header",
+                "Pick a container:",
+                "--height",
+                "~10",
+                "--layout",
+                "reverse",
+                "--no-multi",
+            ],
+            input="\n".join(labels),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
             return
-    elif shutil.which("gum"):
-        try:
-            result = subprocess.run(
-                ["gum", "choose", "--header", "Pick a container:"] + labels,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return
-            selected_folder = result.stdout.strip().split()[-1]
-        except KeyboardInterrupt:
-            return
-    else:
-        print("Pick a container:")
-        for i, line in enumerate(labels, 1):
-            print(f"  {i}. {line}")
-        print()
-        try:
-            response = input("> ").strip()
-        except (KeyboardInterrupt, EOFError):
-            return
-        if not response.isdigit():
-            sys.exit("Invalid selection.")
-        idx = int(response) - 1
-        if not (0 <= idx < len(running)):
-            sys.exit("Invalid selection.")
-        _, selected_folder = running[idx]
+        selected_folder = result.stdout.strip().split()[-1]
+    except KeyboardInterrupt:
+        return
 
     if selected_folder:
         devcontainer_exec_tmux(Path(selected_folder))
@@ -1849,43 +1820,28 @@ def run_delete_mode(args: argparse.Namespace) -> None:
         labels = [item["label"] for item in items]
 
         selected_idx = None
-        if shutil.which("fzf"):
-            try:
-                result = subprocess.run(
-                    [
-                        "fzf",
-                        "--header",
-                        "Pick item to delete:",
-                        "--height",
-                        "~10",
-                        "--layout",
-                        "reverse",
-                        "--no-multi",
-                    ],
-                    input="\n".join(labels),
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    return
-                selected_line = result.stdout.strip()
-                selected_idx = labels.index(selected_line)
-            except (KeyboardInterrupt, ValueError):
+        try:
+            result = subprocess.run(
+                [
+                    "fzf",
+                    "--header",
+                    "Pick item to delete:",
+                    "--height",
+                    "~10",
+                    "--layout",
+                    "reverse",
+                    "--no-multi",
+                ],
+                input="\n".join(labels),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
                 return
-        else:
-            print("Select item to delete:")
-            for i, label in enumerate(labels, 1):
-                print(f"  {i}. {label}")
-            print()
-            try:
-                response = input("> ").strip()
-            except (KeyboardInterrupt, EOFError):
-                return
-            if not response.isdigit():
-                sys.exit("Invalid selection.")
-            selected_idx = int(response) - 1
-            if not (0 <= selected_idx < len(items)):
-                sys.exit("Invalid selection.")
+            selected_line = result.stdout.rstrip("\n")
+            selected_idx = labels.index(selected_line)
+        except (KeyboardInterrupt, ValueError):
+            return
 
         selected = items[selected_idx]
 
