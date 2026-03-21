@@ -1,6 +1,6 @@
-import { Elysia, t } from "elysia";
 import { html } from "@elysiajs/html";
 import { staticPlugin } from "@elysiajs/static";
+import { Elysia, t } from "elysia";
 import { Home } from "./pages/home.js";
 
 // Live reload: persist SSE clients across bun --hot reloads
