@@ -378,7 +378,6 @@ class TestDeleteInteractivePicker(unittest.TestCase):
     @mock.patch("_jolo.commands.find_git_root")
     @mock.patch("_jolo.commands.list_all_devcontainers")
     @mock.patch("_jolo.commands.list_worktrees")
-    @mock.patch("_jolo.commands.shutil.which", return_value=None)
     @mock.patch("_jolo.commands.stop_container")
     @mock.patch("_jolo.commands.remove_worktree")
     @mock.patch("builtins.input")
@@ -387,7 +386,6 @@ class TestDeleteInteractivePicker(unittest.TestCase):
         mock_input,
         mock_remove,
         mock_stop,
-        mock_which,
         mock_list,
         mock_containers,
         mock_git_root,
@@ -395,7 +393,6 @@ class TestDeleteInteractivePicker(unittest.TestCase):
         """Interactive picker should allow selecting a worktree."""
         project = Path("/fake/project")
         wt_path = Path("/fake/project-worktrees/feat")
-        # find_git_root is called inside _build_delete_picker_items
         with mock.patch("_jolo.commands.find_git_root") as mock_fgr:
             mock_fgr.return_value = project
             mock_containers.return_value = [
@@ -406,13 +403,18 @@ class TestDeleteInteractivePicker(unittest.TestCase):
                 (wt_path, "def456", "feat"),
             ]
             with mock.patch.object(Path, "exists", return_value=True):
-                # Select second item (worktree), then confirm
-                mock_input.side_effect = ["2", "y"]
+                # fzf returns the worktree label (second item)
+                wt_label = f"  {'feat':<22} (feat) [def456]"
+                fzf_result = mock.Mock(returncode=0, stdout=wt_label + "\n")
+                mock_input.return_value = "y"
                 mock_stop.return_value = True
                 mock_remove.return_value = True
 
-                args = jolo.parse_args(["delete"])
-                jolo.run_delete_mode(args)
+                with mock.patch(
+                    "_jolo.commands.subprocess.run", return_value=fzf_result
+                ):
+                    args = jolo.parse_args(["delete"])
+                    jolo.run_delete_mode(args)
 
                 mock_remove.assert_called_once()
 
