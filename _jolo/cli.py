@@ -108,13 +108,16 @@ def select_flavors_interactive() -> list[str]:
     try:
         result = subprocess.run(
             [
-                "gum",
-                "choose",
-                "--no-limit",
+                "fzf",
+                "--multi",
                 "--header",
-                "Select project flavor(s):",
-            ]
-            + constants.VALID_FLAVORS,
+                "Select project flavor(s) (Tab to multi-select):",
+                "--height",
+                "~15",
+                "--layout",
+                "reverse",
+            ],
+            input="\n".join(constants.VALID_FLAVORS),
             capture_output=True,
             text=True,
         )
@@ -122,7 +125,7 @@ def select_flavors_interactive() -> list[str]:
             return []
         return [
             f
-            for f in result.stdout.strip().splitlines()
+            for f in result.stdout.rstrip("\n").splitlines()
             if f in constants.VALID_FLAVORS
         ]
     except KeyboardInterrupt:
