@@ -544,5 +544,64 @@ class TestExecArgParsing(unittest.TestCase):
         self.assertEqual(args.exec_command, ["npm", "run", "dev"])
 
 
+class TestDetectFlavors(unittest.TestCase):
+    """Test auto-flavor detection from project files."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_detects_python_bare(self):
+        Path(self.tmpdir, "pyproject.toml").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python-bare"])
+
+    def test_detects_python_web(self):
+        Path(self.tmpdir, "pyproject.toml").touch()
+        Path(self.tmpdir, "templates").mkdir()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python-web"])
+
+    def test_detects_typescript_bare(self):
+        Path(self.tmpdir, "package.json").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["typescript-bare"])
+
+    def test_detects_go_bare(self):
+        Path(self.tmpdir, "go.mod").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["go-bare"])
+
+    def test_detects_rust_bare(self):
+        Path(self.tmpdir, "Cargo.toml").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["rust-bare"])
+
+    def test_detects_multiple_languages(self):
+        Path(self.tmpdir, "pyproject.toml").touch()
+        Path(self.tmpdir, "package.json").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python-bare", "typescript-bare"])
+
+    def test_empty_dir_returns_empty(self):
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, [])
+
+    def test_shell_only_when_no_other_language(self):
+        Path(self.tmpdir, "deploy.sh").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["shell"])
+
+    def test_shell_ignored_when_other_language_present(self):
+        Path(self.tmpdir, "deploy.sh").touch()
+        Path(self.tmpdir, "go.mod").touch()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["go-bare"])
+
+
 if __name__ == "__main__":
     unittest.main()
