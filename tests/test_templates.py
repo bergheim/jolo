@@ -785,7 +785,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         result = jolo.generate_precommit_config([])
 
         self.assertIn("gitleaks", result)
-        self.assertIn("https://github.com/gitleaks/gitleaks", result)
+        self.assertIn("id: gitleaks", result)
 
     def test_python_adds_ruff_hooks(self):
         """Python flavor should add ruff hooks."""
@@ -808,9 +808,8 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         """TypeScript flavor should add biome hooks."""
         result = jolo.generate_precommit_config(["typescript-web"])
 
-        self.assertIn("https://github.com/biomejs/pre-commit", result)
         self.assertIn("id: biome-check", result)
-        self.assertIn("v0.6.0", result)
+        self.assertIn("repo: local", result)
 
     def test_rust_adds_clippy_and_rustfmt(self):
         """Rust flavor should add clippy and rustfmt hooks."""
@@ -853,7 +852,6 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("gitleaks", result)
         self.assertIn("https://github.com/astral-sh/ruff-pre-commit", result)
         self.assertIn("id: ruff", result)
-        self.assertIn("https://github.com/biomejs/pre-commit", result)
         self.assertIn("id: biome-check", result)
 
     def test_all_flavors_combined(self):
@@ -895,7 +893,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertEqual(repo_count, 3)
 
         self.assertIn("https://github.com/pre-commit/pre-commit-hooks", result)
-        self.assertIn("https://github.com/gitleaks/gitleaks", result)
+        self.assertIn("id: gitleaks", result)
         self.assertIn("repo: local", result)
 
     def test_no_duplicate_repos_same_base_language(self):
