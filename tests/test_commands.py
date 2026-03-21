@@ -610,5 +610,23 @@ class TestFmtSize(unittest.TestCase):
         self.assertEqual(_fmt_size(1024**3), "1.0 GB")
 
 
+class TestDoctorMode(unittest.TestCase):
+    """Test jolo doctor command."""
+
+    @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("subprocess.run")
+    def test_doctor_exits_nonzero_on_failures(
+        self, mock_run, mock_git, mock_runtime
+    ):
+        """Doctor should exit 1 when checks fail."""
+        mock_run.return_value = mock.Mock(returncode=0)
+        with mock.patch.dict(os.environ, {}, clear=True):
+            args = jolo.parse_args(["doctor"])
+            with self.assertRaises(SystemExit) as cm:
+                jolo.run_doctor_mode(args)
+            self.assertEqual(cm.exception.code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

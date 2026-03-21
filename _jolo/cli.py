@@ -468,6 +468,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Project dashboard: containers, worktrees, ports, disk",
     )
 
+    # doctor: verbose
+    subparsers.add_parser(
+        "doctor",
+        parents=[p_verbose],
+        help="Pre-flight check: runtime, image, ports, tools, API keys",
+    )
+
     # attach: verbose
     subparsers.add_parser(
         "attach",
