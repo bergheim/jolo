@@ -77,8 +77,8 @@ class TestPreCommitTemplate(unittest.TestCase):
         # Check that gitleaks hook is configured
         self.assertIn("id: gitleaks", content, "Should have gitleaks hook id")
 
-    def test_pre_commit_template_gitleaks_repo_url(self):
-        """Gitleaks repo URL should be correct."""
+    def test_pre_commit_template_gitleaks_is_local(self):
+        """Gitleaks should use language: system (local hook)."""
         template_path = (
             Path(__file__).parent.parent
             / "templates"
@@ -86,11 +86,8 @@ class TestPreCommitTemplate(unittest.TestCase):
         )
         content = template_path.read_text()
 
-        self.assertIn(
-            "repo: https://github.com/gitleaks/gitleaks",
-            content,
-            "Gitleaks repo URL should be https://github.com/gitleaks/gitleaks",
-        )
+        self.assertIn("id: gitleaks", content)
+        self.assertIn("language: system", content)
 
 
 class TestEditorConfigTemplate(unittest.TestCase):
@@ -752,21 +749,19 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("id: gitleaks", result)
 
     def test_python_adds_ruff_hooks(self):
-        """Python flavor should add ruff hooks."""
+        """Python flavor should add ruff system hooks."""
         result = jolo.generate_precommit_config(["python-bare"])
 
-        self.assertIn("https://github.com/astral-sh/ruff-pre-commit", result)
         self.assertIn("id: ruff", result)
         self.assertIn("id: ruff-format", result)
-        self.assertIn("v0.8.6", result)
+        self.assertIn("language: system", result)
 
     def test_go_adds_golangci_lint(self):
-        """Go flavor should add golangci-lint hook."""
+        """Go flavor should add golangci-lint system hook."""
         result = jolo.generate_precommit_config(["go-web"])
 
-        self.assertIn("https://github.com/golangci/golangci-lint", result)
         self.assertIn("id: golangci-lint", result)
-        self.assertIn("v1.62.0", result)
+        self.assertIn("language: system", result)
 
     def test_typescript_adds_biome(self):
         """TypeScript flavor should add biome hooks."""
@@ -775,36 +770,28 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("id: biome-check", result)
         self.assertIn("repo: local", result)
 
-    def test_rust_adds_clippy_and_rustfmt(self):
-        """Rust flavor should add clippy and rustfmt hooks."""
+    def test_rust_adds_rustfmt_and_cargo_check(self):
+        """Rust flavor should add rustfmt and cargo-check system hooks."""
         result = jolo.generate_precommit_config(["rust-bare"])
 
-        self.assertIn("https://github.com/doublify/pre-commit-rust", result)
-        self.assertIn("id: fmt", result)
+        self.assertIn("id: rustfmt", result)
         self.assertIn("id: cargo-check", result)
-        self.assertIn("v1.0", result)
+        self.assertIn("language: system", result)
 
     def test_shell_adds_shellcheck(self):
-        """Shell flavor should add shellcheck hook."""
+        """Shell flavor should add shellcheck system hook."""
         result = jolo.generate_precommit_config(["shell"])
 
-        self.assertIn("https://github.com/shellcheck-py/shellcheck-py", result)
         self.assertIn("id: shellcheck", result)
-        self.assertIn("v0.10.0.1", result)
+        self.assertIn("language: system", result)
 
     def test_prose_adds_markdownlint_and_codespell(self):
-        """Prose flavor should add markdownlint and codespell hooks."""
+        """Prose flavor should add markdownlint (system) and codespell (remote)."""
         result = jolo.generate_precommit_config(["prose"])
 
-        self.assertIn(
-            "https://github.com/igorshubovych/markdownlint-cli", result
-        )
         self.assertIn("id: markdownlint", result)
-        self.assertIn("v0.43.0", result)
-
         self.assertIn("https://github.com/codespell-project/codespell", result)
         self.assertIn("id: codespell", result)
-        self.assertIn("v2.3.0", result)
 
     def test_multiple_flavors_combine_correctly(self):
         """Multiple flavors should combine all their hooks."""
@@ -814,7 +801,6 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
         self.assertIn("trailing-whitespace", result)
         self.assertIn("gitleaks", result)
-        self.assertIn("https://github.com/astral-sh/ruff-pre-commit", result)
         self.assertIn("id: ruff", result)
         self.assertIn("id: biome-check", result)
 
@@ -847,24 +833,24 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("gitleaks", result)
 
         repo_count = result.count("  - repo:")
-        self.assertEqual(repo_count, 3)
+        self.assertEqual(repo_count, 2)
 
     def test_empty_flavors_returns_base_config(self):
         """Empty flavor list should return only base hooks."""
         result = jolo.generate_precommit_config([])
 
         repo_count = result.count("  - repo:")
-        self.assertEqual(repo_count, 3)
+        self.assertEqual(repo_count, 2)
 
         self.assertIn("https://github.com/pre-commit/pre-commit-hooks", result)
         self.assertIn("id: gitleaks", result)
         self.assertIn("repo: local", result)
 
-    def test_no_duplicate_repos_same_base_language(self):
-        """Web and bare of same language should not duplicate repos."""
+    def test_no_duplicate_hooks_same_base_language(self):
+        """Web and bare of same language should not duplicate hooks."""
         result = jolo.generate_precommit_config(["python-web", "python-bare"])
 
-        count = result.count("https://github.com/astral-sh/ruff-pre-commit")
+        count = result.count("id: ruff\n")
         self.assertEqual(count, 1)
 
     def test_prose_with_python(self):

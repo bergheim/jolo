@@ -88,18 +88,35 @@ FLAVOR_LANGUAGE = {
 # Pre-commit hook configurations by language
 PRECOMMIT_HOOKS = {
     "python": {
-        "repo": "https://github.com/astral-sh/ruff-pre-commit",
-        "rev": "v0.8.6",
+        "repo": "local",
         "hooks": [
-            {"id": "ruff", "args": ["--fix"]},
-            {"id": "ruff-format"},
+            {
+                "id": "ruff",
+                "name": "ruff",
+                "entry": "ruff check --fix",
+                "language": "system",
+                "types": ["python"],
+            },
+            {
+                "id": "ruff-format",
+                "name": "ruff-format",
+                "entry": "ruff format",
+                "language": "system",
+                "types": ["python"],
+            },
         ],
     },
     "go": {
-        "repo": "https://github.com/golangci/golangci-lint",
-        "rev": "v1.62.0",
+        "repo": "local",
         "hooks": [
-            {"id": "golangci-lint"},
+            {
+                "id": "golangci-lint",
+                "name": "golangci-lint",
+                "entry": "golangci-lint run --fix",
+                "language": "system",
+                "types": ["go"],
+                "pass_filenames": False,
+            },
         ],
     },
     "typescript": {
@@ -116,26 +133,47 @@ PRECOMMIT_HOOKS = {
         ],
     },
     "rust": {
-        "repo": "https://github.com/doublify/pre-commit-rust",
-        "rev": "v1.0",
+        "repo": "local",
         "hooks": [
-            {"id": "fmt"},
-            {"id": "cargo-check"},
+            {
+                "id": "rustfmt",
+                "name": "rustfmt",
+                "entry": "rustfmt",
+                "language": "system",
+                "types": ["rust"],
+            },
+            {
+                "id": "cargo-check",
+                "name": "cargo check",
+                "entry": "cargo check",
+                "language": "system",
+                "pass_filenames": False,
+            },
         ],
     },
     "shell": {
-        "repo": "https://github.com/shellcheck-py/shellcheck-py",
-        "rev": "v0.10.0.1",
+        "repo": "local",
         "hooks": [
-            {"id": "shellcheck"},
+            {
+                "id": "shellcheck",
+                "name": "shellcheck",
+                "entry": "shellcheck",
+                "language": "system",
+                "types": ["shell"],
+            },
         ],
     },
     "prose": [
         {
-            "repo": "https://github.com/igorshubovych/markdownlint-cli",
-            "rev": "v0.43.0",
+            "repo": "local",
             "hooks": [
-                {"id": "markdownlint"},
+                {
+                    "id": "markdownlint",
+                    "name": "markdownlint",
+                    "entry": "markdownlint",
+                    "language": "system",
+                    "types": ["markdown"],
+                },
             ],
         },
         {

@@ -42,6 +42,9 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
     if "stages" in hook:
         stages_str = ", ".join(hook["stages"])
         lines.append(f"{indent}  stages: [{stages_str}]")
+    if "types" in hook:
+        types_str = ", ".join(hook["types"])
+        lines.append(f"{indent}  types: [{types_str}]")
     if "args" in hook:
         args_str = ", ".join(hook["args"])
         lines.append(f"{indent}  args: [{args_str}]")
@@ -84,8 +87,8 @@ def generate_precommit_config(flavors: list[str]) -> str:
         dict.fromkeys(constants.FLAVOR_LANGUAGE.get(f, f) for f in flavors)
     )
 
-    # Start with base hooks that are always included
-    repos = [
+    # Remote repos with pinned revisions
+    remote_repos: list[dict] = [
         {
             "repo": "https://github.com/pre-commit/pre-commit-hooks",
             "rev": "v5.0.0",
@@ -95,66 +98,58 @@ def generate_precommit_config(flavors: list[str]) -> str:
                 {"id": "check-added-large-files"},
             ],
         },
+    ]
+
+    # Local system hooks (merged into a single repo: local block)
+    local_hooks: list[dict] = [
         {
-            "repo": "local",
-            "hooks": [
-                {
-                    "id": "gitleaks",
-                    "name": "gitleaks",
-                    "entry": "gitleaks protect --verbose --redact --staged",
-                    "language": "system",
-                    "pass_filenames": False,
-                },
-            ],
+            "id": "gitleaks",
+            "name": "gitleaks",
+            "entry": "gitleaks protect --verbose --redact --staged",
+            "language": "system",
+            "pass_filenames": False,
         },
         {
-            "repo": "local",
-            "hooks": [
-                {
-                    "id": "test",
-                    "name": "tests (commit)",
-                    "entry": "scripts/test-gate commit",
-                    "language": "script",
-                    "pass_filenames": False,
-                    "stages": ["pre-commit"],
-                },
-                {
-                    "id": "test-push",
-                    "name": "tests (push)",
-                    "entry": "scripts/test-gate push",
-                    "language": "script",
-                    "pass_filenames": False,
-                    "stages": ["pre-push"],
-                },
-            ],
+            "id": "test",
+            "name": "tests (commit)",
+            "entry": "scripts/test-gate commit",
+            "language": "script",
+            "pass_filenames": False,
+            "stages": ["pre-commit"],
+        },
+        {
+            "id": "test-push",
+            "name": "tests (push)",
+            "entry": "scripts/test-gate push",
+            "language": "script",
+            "pass_filenames": False,
+            "stages": ["pre-push"],
         },
     ]
 
-    # Track which repos we've already added (to avoid duplicates)
-    added_repos = set()
-
     # Add language-specific hooks
+    added_repos: set[str] = set()
     for lang in languages:
         if lang not in constants.PRECOMMIT_HOOKS:
             continue
 
         hook_config = constants.PRECOMMIT_HOOKS[lang]
+        configs = (
+            hook_config if isinstance(hook_config, list) else [hook_config]
+        )
 
-        # Handle languages with multiple repos (like prose)
-        if isinstance(hook_config, list):
-            for config in hook_config:
-                if config["repo"] not in added_repos:
-                    repos.append(config)
-                    added_repos.add(config["repo"])
-        else:
-            if hook_config["repo"] not in added_repos:
-                repos.append(hook_config)
-                added_repos.add(hook_config["repo"])
+        for config in configs:
+            if config["repo"] == "local":
+                local_hooks.extend(config["hooks"])
+            elif config["repo"] not in added_repos:
+                remote_repos.append(config)
+                added_repos.add(config["repo"])
 
-    # Generate YAML output
+    # Generate YAML: remote repos first, then single local block
     lines = ["repos:"]
-    for repo in repos:
+    for repo in remote_repos:
         lines.append(_format_repo_yaml(repo))
+    lines.append(_format_repo_yaml({"repo": "local", "hooks": local_hooks}))
 
     return "\n".join(lines) + "\n"
 
