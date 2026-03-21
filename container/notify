@@ -77,14 +77,14 @@ if [ ! -t 0 ]; then
     cat >/dev/null 2>&1 || true
 fi
 
-TITLE="${PROJECT} - ${AGENT} finished"
+TITLE="${PROJECT} - ${AGENT} done${ELAPSED_INFO:-}"
 BODY=""
 
 LAST_COMMIT=""
 if command -v git >/dev/null 2>&1; then
     LAST_COMMIT=$(git -C "${WORKSPACE:-$PWD}" log -1 --pretty=%s 2>/dev/null || true)
 fi
-[ -n "$LAST_COMMIT" ] && BODY="${LAST_COMMIT}${ELAPSED_INFO:-}"
+[ -n "$LAST_COMMIT" ] && BODY="${LAST_COMMIT}"
 
 COMMIT_URL=""
 if command -v git >/dev/null 2>&1; then
