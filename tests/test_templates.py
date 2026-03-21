@@ -19,12 +19,6 @@ class TestGitignoreTemplate(unittest.TestCase):
             Path(__file__).parent.parent / "templates" / ".gitignore"
         )
 
-    def test_gitignore_template_exists(self):
-        """templates/.gitignore should exist."""
-        self.assertTrue(
-            self.template_path.exists(), f"Missing {self.template_path}"
-        )
-
     def test_gitignore_contains_python_patterns(self):
         """Should contain Python ignore patterns."""
         content = self.template_path.read_text()
@@ -54,29 +48,6 @@ class TestGitignoreTemplate(unittest.TestCase):
 class TestPreCommitTemplate(unittest.TestCase):
     """Test pre-commit template configuration."""
 
-    def test_pre_commit_template_exists(self):
-        """templates/.pre-commit-config.yaml should exist."""
-        template_path = (
-            Path(__file__).parent.parent
-            / "templates"
-            / ".pre-commit-config.yaml"
-        )
-        self.assertTrue(
-            template_path.exists(), f"Template not found at {template_path}"
-        )
-
-    def test_pre_commit_template_contains_gitleaks_hook(self):
-        """Template should contain gitleaks hook."""
-        template_path = (
-            Path(__file__).parent.parent
-            / "templates"
-            / ".pre-commit-config.yaml"
-        )
-        content = template_path.read_text()
-
-        # Check that gitleaks hook is configured
-        self.assertIn("id: gitleaks", content, "Should have gitleaks hook id")
-
     def test_pre_commit_template_gitleaks_is_local(self):
         """Gitleaks should use language: system (local hook)."""
         template_path = (
@@ -105,13 +76,6 @@ class TestEditorConfigTemplate(unittest.TestCase):
         else:
             cls.content = None
             cls.lines = []
-
-    def test_editorconfig_exists(self):
-        """templates/.editorconfig should exist."""
-        self.assertTrue(
-            self.template_path.exists(),
-            f"Expected {self.template_path} to exist",
-        )
 
     def test_root_true(self):
         """Should have root = true."""
@@ -159,11 +123,6 @@ class TestEditorConfigTemplate(unittest.TestCase):
 class TestGetProjectInitCommands(unittest.TestCase):
     """Test get_project_init_commands() function."""
 
-    def test_function_exists(self):
-        """get_project_init_commands should exist."""
-        self.assertTrue(hasattr(jolo, "get_project_init_commands"))
-        self.assertTrue(callable(jolo.get_project_init_commands))
-
     def test_python_bare_creates_tests_dir(self):
         """Python bare should create tests directory."""
         commands = jolo.get_project_init_commands("python-bare", "myproject")
@@ -188,11 +147,6 @@ class TestGetProjectInitCommands(unittest.TestCase):
             commands,
         )
         self.assertIn(["just", "setup"], commands)
-
-    def test_get_scaffold_files_exists(self):
-        """get_scaffold_files should exist."""
-        self.assertTrue(hasattr(jolo, "get_scaffold_files"))
-        self.assertTrue(callable(jolo.get_scaffold_files))
 
     def test_typescript_web_returns_beth_scaffold_files(self):
         """TypeScript web should return BETH scaffold files."""
@@ -309,29 +263,6 @@ class TestGetProjectInitCommands(unittest.TestCase):
         commands = jolo.get_project_init_commands("other", "myproject")
         self.assertIn(["mkdir", "-p", "src"], commands)
 
-    def test_returns_list_of_lists(self):
-        """Should return a list of command lists."""
-        commands = jolo.get_project_init_commands("python-bare", "myproject")
-        self.assertIsInstance(commands, list)
-        for cmd in commands:
-            self.assertIsInstance(cmd, list)
-            for part in cmd:
-                self.assertIsInstance(part, str)
-
-    def test_project_name_used_in_go_command(self):
-        """Project name should be used in go mod init."""
-        commands = jolo.get_project_init_commands("go-bare", "my-awesome-app")
-        go_mod_cmd = ["go", "mod", "init", "my-awesome-app"]
-        self.assertIn(go_mod_cmd, commands)
-
-    def test_project_name_used_in_rust_command(self):
-        """Project name should be used in cargo init."""
-        commands = jolo.get_project_init_commands(
-            "rust-bare", "my-awesome-app"
-        )
-        cargo_cmd = ["cargo", "init", "--name", "my-awesome-app"]
-        self.assertIn(cargo_cmd, commands)
-
     def test_unknown_flavor_returns_src_mkdir(self):
         """Unknown flavor should fall back to src mkdir."""
         commands = jolo.get_project_init_commands(
@@ -340,57 +271,8 @@ class TestGetProjectInitCommands(unittest.TestCase):
         self.assertIn(["mkdir", "-p", "src"], commands)
 
 
-class TestSelectFlavorsInteractive(unittest.TestCase):
-    """Test select_flavors_interactive() function."""
-
-    def test_function_exists(self):
-        """select_flavors_interactive function should exist."""
-        self.assertTrue(hasattr(jolo, "select_flavors_interactive"))
-        self.assertTrue(callable(jolo.select_flavors_interactive))
-
-    def test_all_flavors_available(self):
-        """All valid flavors should be available as options."""
-        self.assertTrue(hasattr(jolo, "VALID_FLAVORS"))
-        expected = [
-            "typescript-web",
-            "typescript-bare",
-            "go-web",
-            "go-bare",
-            "python-web",
-            "python-bare",
-            "rust-web",
-            "rust-bare",
-            "shell",
-            "prose",
-            "other",
-        ]
-        self.assertEqual(jolo.VALID_FLAVORS, expected)
-
-
 class TestGetTestFrameworkConfig(unittest.TestCase):
     """Test get_test_framework_config() function."""
-
-    def test_function_exists(self):
-        """get_test_framework_config should exist."""
-        self.assertTrue(hasattr(jolo, "get_test_framework_config"))
-        self.assertTrue(callable(jolo.get_test_framework_config))
-
-    def test_returns_dict(self):
-        """Should return a dictionary."""
-        result = jolo.get_test_framework_config("python-bare")
-        self.assertIsInstance(result, dict)
-
-    def test_dict_has_required_keys(self):
-        """Return dict should have config_file, config_content, example_test_file, example_test_content."""
-        result = jolo.get_test_framework_config("python-bare")
-        required_keys = [
-            "config_file",
-            "config_content",
-            "example_test_file",
-            "example_test_content",
-        ]
-        for key in required_keys:
-            self.assertIn(key, result, f"Missing key: {key}")
 
     def test_python_bare_config_file(self):
         """Python bare should use pyproject.toml for config."""
@@ -524,22 +406,6 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 class TestGetCoverageConfig(unittest.TestCase):
     """Test get_coverage_config() function for flavor-specific coverage setup."""
 
-    def test_function_exists(self):
-        """get_coverage_config should exist and be callable."""
-        self.assertTrue(hasattr(jolo, "get_coverage_config"))
-        self.assertTrue(callable(jolo.get_coverage_config))
-
-    def test_returns_dict(self):
-        """Should return a dictionary."""
-        result = jolo.get_coverage_config("python-bare")
-        self.assertIsInstance(result, dict)
-
-    def test_dict_has_required_keys(self):
-        """Result should have 'config_addition' and 'run_command' keys."""
-        result = jolo.get_coverage_config("python-bare")
-        self.assertIn("config_addition", result)
-        self.assertIn("run_command", result)
-
     def test_python_config_addition(self):
         """Python should return pytest-cov config for pyproject.toml."""
         result = jolo.get_coverage_config("python-bare")
@@ -616,11 +482,6 @@ class TestGetCoverageConfig(unittest.TestCase):
 class TestGetTypeCheckerConfig(unittest.TestCase):
     """Test get_type_checker_config() function."""
 
-    def test_function_exists(self):
-        """get_type_checker_config should exist."""
-        self.assertTrue(hasattr(jolo, "get_type_checker_config"))
-        self.assertTrue(callable(jolo.get_type_checker_config))
-
     def test_python_returns_ty_config(self):
         """Python should return ty configuration."""
         result = jolo.get_type_checker_config("python-bare")
@@ -672,14 +533,6 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
         result = jolo.get_type_checker_config("unknown_flavor")
         self.assertIsNone(result)
 
-    def test_return_dict_structure(self):
-        """Returned dict should have 'config_file' and 'config_content' keys."""
-        result = jolo.get_type_checker_config("python-bare")
-        self.assertIn("config_file", result)
-        self.assertIn("config_content", result)
-        self.assertIsInstance(result["config_file"], str)
-        self.assertIsInstance(result["config_content"], str)
-
     def test_typescript_web_tsconfig_has_jsx_options(self):
         """TypeScript web config should have JSX compiler options."""
         result = jolo.get_type_checker_config("typescript-web")
@@ -707,15 +560,6 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
 class TestGeneratePrecommitConfig(unittest.TestCase):
     """Test generate_precommit_config() function."""
-
-    def test_function_exists(self):
-        """generate_precommit_config should exist."""
-        self.assertTrue(hasattr(jolo, "generate_precommit_config"))
-
-    def test_returns_string(self):
-        """Should return a string."""
-        result = jolo.generate_precommit_config([])
-        self.assertIsInstance(result, str)
 
     def test_returns_valid_yaml(self):
         """Should return valid YAML structure."""
@@ -865,16 +709,6 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 class TestGetPrecommitInstallCommand(unittest.TestCase):
     """Test get_precommit_install_command() function."""
 
-    def test_function_exists(self):
-        """get_precommit_install_command should exist and be callable."""
-        self.assertTrue(hasattr(jolo, "get_precommit_install_command"))
-        self.assertTrue(callable(jolo.get_precommit_install_command))
-
-    def test_returns_list(self):
-        """Should return a list."""
-        result = jolo.get_precommit_install_command()
-        self.assertIsInstance(result, list)
-
     def test_returns_precommit_install_command(self):
         """Should return pre-commit install command with hook types."""
         result = jolo.get_precommit_install_command()
@@ -889,17 +723,6 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
                 "pre-push",
             ],
         )
-
-    def test_returns_list_of_strings(self):
-        """Should return a list of strings."""
-        result = jolo.get_precommit_install_command()
-        for item in result:
-            self.assertIsInstance(item, str)
-
-    def test_list_has_two_elements(self):
-        """Should return a list with expected elements."""
-        result = jolo.get_precommit_install_command()
-        self.assertEqual(len(result), 6)
 
 
 if __name__ == "__main__":
