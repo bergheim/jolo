@@ -36,6 +36,7 @@ from _jolo.container import (
     devcontainer_up,
     find_containers_for_project,
     find_stopped_containers_for_project,
+    get_container_for_workspace,
     get_container_runtime,
     is_container_running,
     list_all_devcontainers,
@@ -606,6 +607,113 @@ def run_list_mode(args: argparse.Namespace) -> None:
             print(f"    {wt_path.name:<20} {branch:<15} [{commit}]")
     else:
         print("Worktrees: (none)")
+
+
+def run_status_mode(args: argparse.Namespace) -> None:
+    """Project dashboard: containers, worktrees, ports, disk usage."""
+    git_root = find_git_root()
+    if git_root is None:
+        sys.exit("Not in a git repository.")
+
+    project_name = git_root.name
+    runtime = get_container_runtime()
+
+    print(f"Project: {project_name}")
+    print(f"Root:    {git_root}")
+    print()
+
+    # Containers with uptime
+    workspaces = find_project_workspaces(git_root)
+    print("Containers:")
+    any_container = False
+    for ws_path, ws_type in workspaces:
+        if not (ws_path / ".devcontainer").exists():
+            continue
+        container_name = get_container_for_workspace(ws_path)
+        if container_name and runtime:
+            any_container = True
+            uptime = subprocess.run(
+                [
+                    runtime,
+                    "inspect",
+                    "--format",
+                    "{{.State.StartedAt}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            started = (
+                uptime.stdout.strip()[:19].replace("T", " ")
+                if uptime.returncode == 0
+                else "?"
+            )
+            port = read_port_from_devcontainer(ws_path)
+            port_str = str(port) if port else "-"
+            port_ok = ""
+            if port:
+                port_ok = " (free)" if is_port_available(port) else " (in use)"
+            print(
+                f"  * {ws_path.name:<20} port {port_str:<5}{port_ok}  started {started}  ({ws_type})"
+            )
+        else:
+            port = read_port_from_devcontainer(ws_path)
+            port_str = str(port) if port else "-"
+            print(
+                f"    {ws_path.name:<20} port {port_str:<5}  stopped  ({ws_type})"
+            )
+
+    if not any_container:
+        print("  (no containers running)")
+    print()
+
+    # Worktrees with branch age
+    worktrees = list_worktrees(git_root)
+    if len(worktrees) > 1:
+        print("Worktrees:")
+        for wt_path, _commit, branch in worktrees:
+            if wt_path == git_root:
+                continue
+            age = subprocess.run(
+                ["git", "-C", str(wt_path), "log", "-1", "--format=%cr"],
+                capture_output=True,
+                text=True,
+            )
+            age_str = age.stdout.strip() if age.returncode == 0 else "?"
+            print(f"    {wt_path.name:<20} {branch:<20} {age_str}")
+    else:
+        print("Worktrees: (none)")
+    print()
+
+    # Disk usage
+    print("Disk:")
+    devcontainer_size = _dir_size(git_root / ".devcontainer")
+    git_size = _dir_size(git_root / ".git")
+    print(f"    .devcontainer  {_fmt_size(devcontainer_size)}")
+    print(f"    .git           {_fmt_size(git_size)}")
+
+
+def _dir_size(path: Path) -> int:
+    """Total size of a directory in bytes."""
+    if not path.exists():
+        return 0
+    total = 0
+    for f in path.rglob("*"):
+        if f.is_file():
+            total += f.stat().st_size
+    return total
+
+
+def _fmt_size(nbytes: int) -> str:
+    """Format bytes as human-readable."""
+    size = float(nbytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return (
+                f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+            )
+        size /= 1024
+    return f"{size:.1f} TB"
 
 
 def _copy_url_to_clipboard(workspace_dir: Path) -> None:
@@ -1881,6 +1989,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "list":
         run_list_mode(args)
+        return
+
+    if cmd == "status":
+        run_status_mode(args)
         return
 
     if cmd == "down":

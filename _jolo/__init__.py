@@ -41,6 +41,7 @@ from _jolo.commands import (  # noqa: F401
     run_prune_mode,
     run_research_mode,
     run_spawn_mode,
+    run_status_mode,
     run_stop_mode,
     run_tree_mode,
     run_up_mode,
