@@ -461,6 +461,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="List running containers and worktrees",
     )
 
+    # status: verbose
+    subparsers.add_parser(
+        "status",
+        parents=[p_verbose],
+        help="Project dashboard: containers, worktrees, ports, disk",
+    )
+
     # attach: verbose
     subparsers.add_parser(
         "attach",

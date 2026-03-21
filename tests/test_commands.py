@@ -584,5 +584,31 @@ class TestSetPort(unittest.TestCase):
         self.assertIn("myapp", config["runArgs"])
 
 
+class TestFmtSize(unittest.TestCase):
+    """Test _fmt_size helper."""
+
+    def test_bytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(0), "0 B")
+        self.assertEqual(_fmt_size(512), "512 B")
+
+    def test_kilobytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024), "1.0 KB")
+        self.assertEqual(_fmt_size(1536), "1.5 KB")
+
+    def test_megabytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024 * 1024), "1.0 MB")
+
+    def test_gigabytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024**3), "1.0 GB")
+
+
 if __name__ == "__main__":
     unittest.main()
