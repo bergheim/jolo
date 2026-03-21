@@ -163,6 +163,7 @@ RUN pnpm add -g \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
     @fission-ai/openspec@latest \
+    @zed-industries/claude-agent-acp@latest \
     markdownlint-cli
 
 RUN cargo install bacon --locked --root $HOME/.local
