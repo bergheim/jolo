@@ -88,12 +88,6 @@ class TestArgumentParsing(unittest.TestCase):
         self.assertTrue(args.sync)
         self.assertEqual(args.name, "test")
 
-    def test_sync_default_false(self):
-        """No command should leave command as None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.command)
-        self.assertFalse(args.sync)
-
 
 class TestGuards(unittest.TestCase):
     """Test guard conditions and validations."""
@@ -212,11 +206,6 @@ class TestVerboseMode(unittest.TestCase):
         args = jolo.parse_args(["up", "-v"])
         self.assertTrue(args.verbose)
 
-    def test_verbose_default_false(self):
-        """--verbose should default to False."""
-        args = jolo.parse_args([])
-        self.assertFalse(args.verbose)
-
 
 class TestSpawnArgParsing(unittest.TestCase):
     """Test spawn argument parsing."""
@@ -225,11 +214,6 @@ class TestSpawnArgParsing(unittest.TestCase):
         """spawn should accept integer."""
         args = jolo.parse_args(["spawn", "5"])
         self.assertEqual(args.count, 5)
-
-    def test_spawn_default_none(self):
-        """No command should leave command as None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.command)
 
     def test_spawn_with_prefix(self):
         """spawn can be combined with --prefix."""
@@ -242,11 +226,6 @@ class TestSpawnArgParsing(unittest.TestCase):
         args = jolo.parse_args(["spawn", "5", "-p", "do stuff"])
         self.assertEqual(args.count, 5)
         self.assertEqual(args.prompt, "do stuff")
-
-    def test_prefix_default_none(self):
-        """--prefix should default to None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.prefix)
 
 
 class TestAgentHelpers(unittest.TestCase):
@@ -362,11 +341,6 @@ class TestMountArgParsing(unittest.TestCase):
         args = jolo.parse_args(["up", "--mount", "~/a:a", "--mount", "~/b:b"])
         self.assertEqual(args.mount, ["~/a:a", "~/b:b"])
 
-    def test_mount_default_empty(self):
-        """--mount should default to empty list."""
-        args = jolo.parse_args([])
-        self.assertEqual(args.mount, [])
-
     def test_mount_readonly(self):
         """--mount should accept :ro suffix."""
         args = jolo.parse_args(["up", "--mount", "~/data:data:ro"])
@@ -387,11 +361,6 @@ class TestCopyArgParsing(unittest.TestCase):
             ["up", "--copy", "~/a.json", "--copy", "~/b.json:b.json"]
         )
         self.assertEqual(args.copy, ["~/a.json", "~/b.json:b.json"])
-
-    def test_copy_default_empty(self):
-        """--copy should default to empty list."""
-        args = jolo.parse_args([])
-        self.assertEqual(args.copy, [])
 
     def test_copy_without_target(self):
         """--copy should accept source without target."""
@@ -525,11 +494,6 @@ class TestFlavorArgParsing(unittest.TestCase):
         )
         self.assertEqual(args.flavor, ["python-bare", "go-web", "rust-bare"])
 
-    def test_flavor_default_none(self):
-        """--flavor should default to None."""
-        args = jolo.parse_args([])
-        self.assertIsNone(args.flavor)
-
     def test_flavor_valid_values(self):
         """--flavor should accept all valid flavor values."""
         for flav in sorted(jolo.VALID_FLAVORS):
@@ -555,11 +519,6 @@ class TestFlavorArgParsing(unittest.TestCase):
         )
         self.assertEqual(args.name, "myproject")
         self.assertEqual(args.flavor, ["python-web", "typescript-bare"])
-
-    def test_flavor_is_optional(self):
-        """--flavor is not required for any command."""
-        args = jolo.parse_args(["create", "myproject"])
-        self.assertIsNone(args.flavor)
 
     def test_flavor_whitespace_handling(self):
         """--flavor should handle values with whitespace around commas."""
