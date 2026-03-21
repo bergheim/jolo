@@ -98,29 +98,6 @@ def verbose_print(msg: str) -> None:
         print(f"[verbose] {msg}", file=sys.stderr)
 
 
-def _select_flavors_gum() -> list[str]:
-    """Use gum for interactive selection (if available)."""
-    result = subprocess.run(
-        [
-            "gum",
-            "choose",
-            "--no-limit",
-            "--header",
-            "Select project flavor(s):",
-        ]
-        + constants.VALID_FLAVORS,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return []
-    return [
-        f
-        for f in result.stdout.strip().splitlines()
-        if f in constants.VALID_FLAVORS
-    ]
-
-
 def select_flavors_interactive() -> list[str]:
     """Show interactive multi-select picker for project flavors.
 
@@ -129,7 +106,25 @@ def select_flavors_interactive() -> list[str]:
         First selected = primary flavor. Returns empty list if user cancels.
     """
     try:
-        return _select_flavors_gum()
+        result = subprocess.run(
+            [
+                "gum",
+                "choose",
+                "--no-limit",
+                "--header",
+                "Select project flavor(s):",
+            ]
+            + constants.VALID_FLAVORS,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return []
+        return [
+            f
+            for f in result.stdout.strip().splitlines()
+            if f in constants.VALID_FLAVORS
+        ]
     except KeyboardInterrupt:
         return []
 

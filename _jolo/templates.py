@@ -45,13 +45,6 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
     if "types" in hook:
         types_str = ", ".join(hook["types"])
         lines.append(f"{indent}  types: [{types_str}]")
-    if "args" in hook:
-        args_str = ", ".join(hook["args"])
-        lines.append(f"{indent}  args: [{args_str}]")
-    if "additional_dependencies" in hook:
-        deps = hook["additional_dependencies"]
-        deps_str = ", ".join(f'"{d}"' for d in deps)
-        lines.append(f"{indent}  additional_dependencies: [{deps_str}]")
     return "\n".join(lines)
 
 
