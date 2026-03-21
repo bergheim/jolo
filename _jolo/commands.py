@@ -17,6 +17,7 @@ from _jolo.cli import (
     _format_container_display,
     check_tmux_guard,
     clipboard_copy,
+    detect_flavors,
     detect_hostname,
     find_git_root,
     generate_random_name,
@@ -1255,6 +1256,14 @@ def run_clone_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: git clone failed")
 
     os.chdir(target)
+
+    # Auto-detect flavors if no devcontainer config exists
+    if not (target / ".devcontainer").exists():
+        detected = detect_flavors(target)
+        if detected:
+            print(f"Detected flavors: {', '.join(detected)}")
+            args.flavor = detected
+
     run_up_mode(args)
 
 
