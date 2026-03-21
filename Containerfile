@@ -179,7 +179,7 @@ RUN mkdir -p $HOME/.local/bin && \
     pids="" && \
     (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!" && \
     (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
-    (go install github.com/gitleaks/gitleaks/v8@latest) & pids="$pids $!" && \
+    (go install github.com/zricethezav/gitleaks/v8@latest) & pids="$pids $!" && \
     (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
