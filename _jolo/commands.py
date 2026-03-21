@@ -608,6 +608,70 @@ def run_list_mode(args: argparse.Namespace) -> None:
         print("Worktrees: (none)")
 
 
+def run_doctor_mode(args: argparse.Namespace) -> None:
+    """Pre-flight check: runtime, image, ports, tools, API keys."""
+    ok_count = 0
+    fail_count = 0
+
+    def check(label: str, passed: bool, detail: str = "") -> None:
+        nonlocal ok_count, fail_count
+        icon = "ok" if passed else "FAIL"
+        suffix = f"  ({detail})" if detail else ""
+        print(f"  [{icon:>4}] {label}{suffix}")
+        if passed:
+            ok_count += 1
+        else:
+            fail_count += 1
+
+    config = load_config()
+
+    # Container runtime
+    runtime = get_container_runtime()
+    check("Container runtime", runtime is not None, runtime or "not found")
+
+    # Image exists
+    image = config.get("base_image", constants.DEFAULT_CONFIG["base_image"])
+    if runtime:
+        result = subprocess.run(
+            [runtime, "image", "exists", image],
+            capture_output=True,
+        )
+        check("Container image", result.returncode == 0, image)
+    else:
+        check("Container image", False, "no runtime")
+
+    # Git repo
+    git_root = find_git_root()
+    check("Git repository", git_root is not None)
+
+    # Port available (if in a project)
+    if git_root:
+        port = read_port_from_devcontainer(git_root)
+        if port:
+            avail = is_port_available(port)
+            check("Port available", avail, f"{port}")
+        else:
+            check("Port configured", False, "no .devcontainer")
+
+    # API keys
+    for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]:
+        val = os.environ.get(key, "")
+        check(key, bool(val), "set" if val else "missing")
+
+    # gh auth
+    gh_result = subprocess.run(
+        ["gh", "auth", "status"],
+        capture_output=True,
+        text=True,
+    )
+    check("GitHub CLI auth", gh_result.returncode == 0)
+
+    print()
+    print(f"{ok_count} passed, {fail_count} failed")
+    if fail_count:
+        sys.exit(1)
+
+
 def _copy_url_to_clipboard(workspace_dir: Path) -> None:
     """Copy the project's dev server URL to the clipboard via OSC 52."""
     port = read_port_from_devcontainer(workspace_dir)
@@ -1881,6 +1945,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "list":
         run_list_mode(args)
+        return
+
+    if cmd == "doctor":
+        run_doctor_mode(args)
         return
 
     if cmd == "down":
