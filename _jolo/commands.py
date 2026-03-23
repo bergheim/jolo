@@ -691,13 +691,11 @@ def run_status_mode(args: argparse.Namespace) -> None:
     image = config.get("base_image", constants.DEFAULT_CONFIG["base_image"])
     workspaces = find_project_workspaces(git_root)
     print("Containers:")
-    any_container = False
     for ws_path, ws_type in workspaces:
         if not (ws_path / ".devcontainer").exists():
             continue
         container_name = get_container_for_workspace(ws_path)
         if container_name and runtime:
-            any_container = True
             uptime = subprocess.run(
                 [
                     runtime,
@@ -728,8 +726,6 @@ def run_status_mode(args: argparse.Namespace) -> None:
                 f"    {ws_path.name:<20} port {port_str:<5}  stopped  ({ws_type})"
             )
 
-    if not any_container:
-        print("  (no containers running)")
     print()
 
     # Worktrees with branch age
@@ -739,6 +735,9 @@ def run_status_mode(args: argparse.Namespace) -> None:
         for wt_path, _commit, branch in worktrees:
             if wt_path == git_root:
                 continue
+            if not wt_path.exists():
+                print(f"    {wt_path.name:<20} {branch:<20} (prunable)")
+                continue
             age = subprocess.run(
                 ["git", "-C", str(wt_path), "log", "-1", "--format=%cr"],
                 capture_output=True,
@@ -746,8 +745,6 @@ def run_status_mode(args: argparse.Namespace) -> None:
             )
             age_str = age.stdout.strip() if age.returncode == 0 else "?"
             print(f"    {wt_path.name:<20} {branch:<20} {age_str}")
-    else:
-        print("Worktrees: (none)")
     print()
 
     # Disk usage
@@ -838,11 +835,11 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
         if port:
             avail = is_port_available(port)
             if avail:
-                check("Port", True, f"{port} (free)")
+                check("Port", True, f"{port}, free")
             elif running:
-                check("Port", True, f"{port} (in use by this project)")
+                check("Port", True, f"{port}, in use by this project")
             else:
-                check("Port", False, f"{port} (in use by something else)")
+                check("Port", False, f"{port}, in use by something else")
 
     # API keys (check pass + env, same as runtime)
     secrets = get_secrets(config)
