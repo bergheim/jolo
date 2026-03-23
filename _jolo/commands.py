@@ -691,11 +691,8 @@ def run_status_mode(args: argparse.Namespace) -> None:
             )
             port = read_port_from_devcontainer(ws_path)
             port_str = str(port) if port else "-"
-            port_ok = ""
-            if port:
-                port_ok = " (free)" if is_port_available(port) else " (in use)"
             print(
-                f"  * {ws_path.name:<20} port {port_str:<5}{port_ok}  started {started}  ({ws_type})"
+                f"  * {ws_path.name:<20} port {port_str:<5}  started {started}  ({ws_type})"
             )
         else:
             port = read_port_from_devcontainer(ws_path)
@@ -738,11 +735,10 @@ def _dir_size(path: Path) -> int:
     """Total size of a directory in bytes."""
     if not path.exists():
         return 0
-    total = 0
-    for f in path.rglob("*"):
-        if f.is_file():
-            total += f.stat().st_size
-    return total
+    result = subprocess.run(
+        ["du", "-sb", str(path)], capture_output=True, text=True
+    )
+    return int(result.stdout.split()[0]) if result.returncode == 0 else 0
 
 
 def _fmt_size(nbytes: int) -> str:
@@ -789,12 +785,10 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
     else:
         check("Container image", False, "no runtime")
 
-    # Git repo
+    # Project-specific checks (only when in a git repo)
     git_root = find_git_root()
-    check("Git repository", git_root is not None)
-
-    # Port (if in a project)
     if git_root:
+        check("Git repository", True)
         port = read_port_from_devcontainer(git_root)
         if port:
             avail = is_port_available(port)
@@ -805,8 +799,6 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
                 check("Port", True, f"{port} (in use by this project)")
             else:
                 check("Port", False, f"{port} (in use by something else)")
-        else:
-            check("Port configured", False, "no .devcontainer")
 
     # API keys (check pass + env, same as runtime)
     secrets = get_secrets(config)
