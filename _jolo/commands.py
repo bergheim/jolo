@@ -653,6 +653,29 @@ def run_list_mode(args: argparse.Namespace) -> None:
         print("Worktrees: (none)")
 
 
+def _is_image_stale(
+    runtime: str, container_name: str, image: str
+) -> bool | None:
+    """Check if a container is running a stale image. Returns None if unknown."""
+    containers = list_all_devcontainers()
+    container_img = next(
+        (img for name, _f, _s, img in containers if name == container_name),
+        None,
+    )
+    current_img = subprocess.run(
+        [runtime, "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+    )
+    if not container_img or current_img.returncode != 0:
+        return None
+    current_id = current_img.stdout.strip()
+    return not (
+        container_img.startswith(current_id)
+        or current_id.startswith(container_img)
+    )
+
+
 def run_status_mode(args: argparse.Namespace) -> None:
     """Project dashboard: containers, worktrees, ports, disk usage."""
     git_root = pick_project()
@@ -664,6 +687,8 @@ def run_status_mode(args: argparse.Namespace) -> None:
     print()
 
     # Containers with uptime
+    config = load_config()
+    image = config.get("base_image", constants.DEFAULT_CONFIG["base_image"])
     workspaces = find_project_workspaces(git_root)
     print("Containers:")
     any_container = False
@@ -691,8 +716,10 @@ def run_status_mode(args: argparse.Namespace) -> None:
             )
             port = read_port_from_devcontainer(ws_path)
             port_str = str(port) if port else "-"
+            stale = _is_image_stale(runtime, container_name, image)
+            tag = f"{ws_type}, stale image" if stale else ws_type
             print(
-                f"  * {ws_path.name:<20} port {port_str:<5}  started {started}  ({ws_type})"
+                f"  * {ws_path.name:<20} port {port_str:<5}  started {started}  ({tag})"
             )
         else:
             port = read_port_from_devcontainer(ws_path)
@@ -798,29 +825,12 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
 
         # Image up to date?
         if running and runtime:
-            containers = list_all_devcontainers()
-            container_img = next(
-                (
-                    img
-                    for name, _f, _s, img in containers
-                    if name == container_name
-                ),
-                None,
-            )
-            current_img = subprocess.run(
-                [runtime, "image", "inspect", "--format", "{{.Id}}", image],
-                capture_output=True,
-                text=True,
-            )
-            if container_img and current_img.returncode == 0:
-                current_id = current_img.stdout.strip()
-                fresh = container_img.startswith(
-                    current_id
-                ) or current_id.startswith(container_img)
+            stale = _is_image_stale(runtime, container_name, image)
+            if stale is not None:
                 check(
                     "Image up to date",
-                    fresh,
-                    "rebuild needed" if not fresh else "current",
+                    not stale,
+                    "rebuild needed" if stale else "current",
                 )
 
         # Port
