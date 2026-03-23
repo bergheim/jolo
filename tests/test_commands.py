@@ -628,5 +628,35 @@ class TestDoctorMode(unittest.TestCase):
             self.assertEqual(cm.exception.code, 1)
 
 
+class TestPickProject(unittest.TestCase):
+    """Test pick_project() — resolve project or fzf-pick."""
+
+    @mock.patch("_jolo.commands.find_git_root")
+    def test_returns_git_root_when_in_repo(self, mock_fgr):
+        """Should return git root directly when inside a repo."""
+        mock_fgr.return_value = Path("/home/user/myproject")
+        result = jolo.pick_project()
+        self.assertEqual(result, Path("/home/user/myproject"))
+
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    def test_exits_when_no_containers(self, mock_list, mock_fgr):
+        """Should exit when not in a repo and no containers running."""
+        mock_list.return_value = []
+        with self.assertRaises(SystemExit):
+            jolo.pick_project()
+
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    def test_auto_selects_single_container(self, mock_list, mock_fgr):
+        """Should auto-select when only one running container."""
+        mock_list.return_value = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+        ]
+        with mock.patch.object(Path, "exists", return_value=True):
+            result = jolo.pick_project()
+        self.assertEqual(result, Path("/home/user/myapp"))
+
+
 if __name__ == "__main__":
     unittest.main()

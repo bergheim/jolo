@@ -29,6 +29,7 @@ from _jolo.commands import (  # noqa: F401
     infer_repo_name,
     load_config,
     main,
+    pick_project,
     run_attach_mode,
     run_clone_mode,
     run_create_mode,

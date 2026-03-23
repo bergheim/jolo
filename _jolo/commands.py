@@ -186,11 +186,61 @@ def infer_repo_name(url: str) -> str:
     return name
 
 
+def pick_project() -> Path:
+    """Resolve the current project, or fzf-pick from running containers.
+
+    If we're inside a git repo, returns its root. Otherwise, discovers
+    projects from running devcontainers and lets the user pick with fzf.
+    """
+    git_root = find_git_root()
+    if git_root is not None:
+        return git_root
+
+    containers = list_all_devcontainers()
+    # Dedupe to unique workspace folders
+    folders = list(
+        dict.fromkeys(
+            folder
+            for _name, folder, state, _img in containers
+            if state == "running" and Path(folder).exists()
+        )
+    )
+
+    if not folders:
+        sys.exit("Not in a git repo and no running containers found.")
+
+    if len(folders) == 1:
+        return Path(folders[0])
+
+    # fzf picker
+    labels = [f"{Path(f).name:<24} {f}" for f in folders]
+    try:
+        result = subprocess.run(
+            [
+                "fzf",
+                "--header",
+                "Pick a project:",
+                "--height",
+                "~10",
+                "--layout",
+                "reverse",
+                "--no-multi",
+            ],
+            input="\n".join(labels),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            sys.exit(0)
+        selected = result.stdout.rstrip("\n").split()[-1]
+        return Path(selected)
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
 def run_exec_mode(args: argparse.Namespace) -> None:
     """Run exec mode: execute a command in the running devcontainer."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     cmd_parts = [c for c in args.exec_command if c != "--"]
     if not cmd_parts:
@@ -236,10 +286,7 @@ def run_list_global_mode() -> None:
 
 def run_stop_mode(args: argparse.Namespace) -> None:
     """Run --stop mode: stop the devcontainer for current project."""
-    git_root = find_git_root()
-
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     if args.all:
         # Stop all containers for this project (worktrees first, then main)
@@ -266,9 +313,7 @@ def run_stop_mode(args: argparse.Namespace) -> None:
 
 def run_port_mode(args: argparse.Namespace) -> None:
     """Show or change the project port."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     if args.random and args.port is not None:
         sys.exit("Error: Cannot use --random with a specific port number.")
@@ -564,13 +609,11 @@ def run_attach_mode(args: argparse.Namespace) -> None:
 
 def run_list_mode(args: argparse.Namespace) -> None:
     """Run --list mode: show containers and worktrees for current project."""
-    git_root = find_git_root()
-
-    # Show all containers if --all flag or not in a git repo
-    if args.all or git_root is None:
+    if args.all:
         run_list_global_mode()
         return
 
+    git_root = pick_project()
     project_name = git_root.name
 
     print(f"Project: {project_name}")
@@ -612,10 +655,7 @@ def run_list_mode(args: argparse.Namespace) -> None:
 
 def run_status_mode(args: argparse.Namespace) -> None:
     """Project dashboard: containers, worktrees, ports, disk usage."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Not in a git repository.")
-
+    git_root = pick_project()
     project_name = git_root.name
     runtime = get_container_runtime()
 
