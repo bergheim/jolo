@@ -802,10 +802,18 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
         else:
             check("Port configured", False, "no .devcontainer")
 
-    # API keys
+    # API keys (check pass + env, same as runtime)
+    secrets = get_secrets(config)
     for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]:
-        val = os.environ.get(key, "")
-        check(key, bool(val), "set" if val else "missing")
+        val = secrets.get(key, "")
+        source = (
+            "pass"
+            if not os.environ.get(key) and val
+            else "env"
+            if val
+            else "missing"
+        )
+        check(key, bool(val), source)
 
     # gh auth
     gh_result = subprocess.run(
