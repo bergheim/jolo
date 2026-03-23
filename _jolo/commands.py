@@ -793,12 +793,18 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
     git_root = find_git_root()
     check("Git repository", git_root is not None)
 
-    # Port available (if in a project)
+    # Port (if in a project)
     if git_root:
         port = read_port_from_devcontainer(git_root)
         if port:
             avail = is_port_available(port)
-            check("Port available", avail, f"{port}")
+            own_container = is_container_running(git_root)
+            if avail:
+                check("Port", True, f"{port} (free)")
+            elif own_container:
+                check("Port", True, f"{port} (in use by this project)")
+            else:
+                check("Port", False, f"{port} (in use by something else)")
         else:
             check("Port configured", False, "no .devcontainer")
 
