@@ -785,17 +785,51 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
     else:
         check("Container image", False, "no runtime")
 
-    # Project-specific checks (only when in a git repo)
-    git_root = find_git_root()
+    # Project-specific checks (pick project, or skip if none available)
+    try:
+        git_root = pick_project()
+    except SystemExit:
+        git_root = None
     if git_root:
-        check("Git repository", True)
+        # Container running?
+        container_name = get_container_for_workspace(git_root)
+        running = container_name is not None
+        check("Container running", running, container_name or "stopped")
+
+        # Image up to date?
+        if running and runtime:
+            containers = list_all_devcontainers()
+            container_img = next(
+                (
+                    img
+                    for name, _f, _s, img in containers
+                    if name == container_name
+                ),
+                None,
+            )
+            current_img = subprocess.run(
+                [runtime, "image", "inspect", "--format", "{{.Id}}", image],
+                capture_output=True,
+                text=True,
+            )
+            if container_img and current_img.returncode == 0:
+                current_id = current_img.stdout.strip()
+                fresh = container_img.startswith(
+                    current_id
+                ) or current_id.startswith(container_img)
+                check(
+                    "Image up to date",
+                    fresh,
+                    "rebuild needed" if not fresh else "current",
+                )
+
+        # Port
         port = read_port_from_devcontainer(git_root)
         if port:
             avail = is_port_available(port)
-            own_container = is_container_running(git_root)
             if avail:
                 check("Port", True, f"{port} (free)")
-            elif own_container:
+            elif running:
                 check("Port", True, f"{port} (in use by this project)")
             else:
                 check("Port", False, f"{port} (in use by something else)")

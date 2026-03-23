@@ -615,9 +615,10 @@ class TestDoctorMode(unittest.TestCase):
 
     @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
     @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers", return_value=[])
     @mock.patch("subprocess.run")
     def test_doctor_exits_nonzero_on_failures(
-        self, mock_run, mock_git, mock_runtime
+        self, mock_run, mock_list, mock_git, mock_runtime
     ):
         """Doctor should exit 1 when checks fail."""
         mock_run.return_value = mock.Mock(returncode=0)
