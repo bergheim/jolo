@@ -584,5 +584,80 @@ class TestSetPort(unittest.TestCase):
         self.assertIn("myapp", config["runArgs"])
 
 
+class TestFmtSize(unittest.TestCase):
+    """Test _fmt_size helper."""
+
+    def test_bytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(0), "0 B")
+        self.assertEqual(_fmt_size(512), "512 B")
+
+    def test_kilobytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024), "1.0 KB")
+        self.assertEqual(_fmt_size(1536), "1.5 KB")
+
+    def test_megabytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024 * 1024), "1.0 MB")
+
+    def test_gigabytes(self):
+        from _jolo.commands import _fmt_size
+
+        self.assertEqual(_fmt_size(1024**3), "1.0 GB")
+
+
+class TestDoctorMode(unittest.TestCase):
+    """Test jolo doctor command."""
+
+    @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers", return_value=[])
+    @mock.patch("subprocess.run")
+    def test_doctor_exits_nonzero_on_failures(
+        self, mock_run, mock_list, mock_git, mock_runtime
+    ):
+        """Doctor should exit 1 when checks fail."""
+        mock_run.return_value = mock.Mock(returncode=0)
+        with mock.patch.dict(os.environ, {}, clear=True):
+            args = jolo.parse_args(["doctor"])
+            with self.assertRaises(SystemExit) as cm:
+                jolo.run_doctor_mode(args)
+            self.assertEqual(cm.exception.code, 1)
+
+
+class TestPickProject(unittest.TestCase):
+    """Test pick_project() — resolve project or fzf-pick."""
+
+    @mock.patch("_jolo.commands.find_git_root")
+    def test_returns_git_root_when_in_repo(self, mock_fgr):
+        """Should return git root directly when inside a repo."""
+        mock_fgr.return_value = Path("/home/user/myproject")
+        result = jolo.pick_project()
+        self.assertEqual(result, Path("/home/user/myproject"))
+
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    def test_exits_when_no_containers(self, mock_list, mock_fgr):
+        """Should exit when not in a repo and no containers running."""
+        mock_list.return_value = []
+        with self.assertRaises(SystemExit):
+            jolo.pick_project()
+
+    @mock.patch("_jolo.commands.find_git_root", return_value=None)
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    def test_auto_selects_single_container(self, mock_list, mock_fgr):
+        """Should auto-select when only one running container."""
+        mock_list.return_value = [
+            ("myapp", "/home/user/myapp", "running", "img1"),
+        ]
+        with mock.patch.object(Path, "exists", return_value=True):
+            result = jolo.pick_project()
+        self.assertEqual(result, Path("/home/user/myapp"))
+
+
 if __name__ == "__main__":
     unittest.main()

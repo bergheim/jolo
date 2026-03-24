@@ -132,6 +132,47 @@ def select_flavors_interactive() -> list[str]:
         return []
 
 
+def detect_flavors(project_dir: Path) -> list[str]:
+    """Auto-detect project flavors from files in the directory.
+
+    Returns list of detected flavor codes, e.g. ['python-web', 'typescript-bare'].
+    """
+    flavors = []
+
+    has_py = (project_dir / "pyproject.toml").exists() or any(
+        project_dir.glob("*.py")
+    )
+    has_ts = (project_dir / "package.json").exists() or (
+        project_dir / "tsconfig.json"
+    ).exists()
+    has_go = (project_dir / "go.mod").exists()
+    has_rust = (project_dir / "Cargo.toml").exists()
+    has_shell = any(project_dir.glob("*.sh"))
+
+    # Detect web vs bare by looking for common web indicators
+    web_indicators = [
+        "templates",
+        "static",
+        "public",
+        "src/pages",
+        "src/components",
+    ]
+    has_web = any((project_dir / d).exists() for d in web_indicators)
+
+    if has_py:
+        flavors.append("python-web" if has_web else "python-bare")
+    if has_ts:
+        flavors.append("typescript-web" if has_web else "typescript-bare")
+    if has_go:
+        flavors.append("go-web" if has_web else "go-bare")
+    if has_rust:
+        flavors.append("rust-web" if has_web else "rust-bare")
+    if has_shell and not flavors:
+        flavors.append("shell")
+
+    return flavors
+
+
 def parse_flavor_arg(value: str) -> list[str]:
     """Parse and validate --flavor argument.
 
@@ -459,6 +500,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "list",
         parents=[p_verbose, p_all],
         help="List running containers and worktrees",
+    )
+
+    # status: verbose
+    subparsers.add_parser(
+        "status",
+        parents=[p_verbose],
+        help="Project dashboard: containers, worktrees, ports, disk",
+    )
+
+    # doctor: verbose
+    subparsers.add_parser(
+        "doctor",
+        parents=[p_verbose],
+        help="Pre-flight check: runtime, image, ports, tools, API keys",
     )
 
     # attach: verbose

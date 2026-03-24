@@ -17,6 +17,7 @@ from _jolo.cli import (
     _format_container_display,
     check_tmux_guard,
     clipboard_copy,
+    detect_flavors,
     detect_hostname,
     find_git_root,
     generate_random_name,
@@ -36,6 +37,7 @@ from _jolo.container import (
     devcontainer_up,
     find_containers_for_project,
     find_stopped_containers_for_project,
+    get_container_for_workspace,
     get_container_runtime,
     is_container_running,
     list_all_devcontainers,
@@ -184,11 +186,62 @@ def infer_repo_name(url: str) -> str:
     return name
 
 
+def pick_project() -> Path:
+    """Resolve the current project, or fzf-pick from running containers.
+
+    If we're inside a git repo, returns its root. Otherwise, discovers
+    projects from running devcontainers and lets the user pick with fzf.
+    """
+    git_root = find_git_root()
+    if git_root is not None:
+        return git_root
+
+    containers = list_all_devcontainers()
+    # Dedupe to unique workspace folders
+    folders = list(
+        dict.fromkeys(
+            folder
+            for _name, folder, state, _img in containers
+            if state == "running" and Path(folder).exists()
+        )
+    )
+
+    if not folders:
+        sys.exit("Not in a git repo and no running containers found.")
+
+    if len(folders) == 1:
+        return Path(folders[0])
+
+    # fzf picker
+    labels = [f"{Path(f).name:<24} {f}" for f in folders]
+    try:
+        result = subprocess.run(
+            [
+                "fzf",
+                "--header",
+                "Pick a project:",
+                "--height",
+                "~10",
+                "--layout",
+                "reverse",
+                "--no-multi",
+            ],
+            input="\n".join(labels),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            sys.exit(0)
+        selected_line = result.stdout.rstrip("\n")
+        idx = labels.index(selected_line)
+        return Path(folders[idx])
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
 def run_exec_mode(args: argparse.Namespace) -> None:
     """Run exec mode: execute a command in the running devcontainer."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     cmd_parts = [c for c in args.exec_command if c != "--"]
     if not cmd_parts:
@@ -234,10 +287,7 @@ def run_list_global_mode() -> None:
 
 def run_stop_mode(args: argparse.Namespace) -> None:
     """Run --stop mode: stop the devcontainer for current project."""
-    git_root = find_git_root()
-
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     if args.all:
         # Stop all containers for this project (worktrees first, then main)
@@ -264,9 +314,7 @@ def run_stop_mode(args: argparse.Namespace) -> None:
 
 def run_port_mode(args: argparse.Namespace) -> None:
     """Show or change the project port."""
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: Not in a git repository.")
+    git_root = pick_project()
 
     if args.random and args.port is not None:
         sys.exit("Error: Cannot use --random with a specific port number.")
@@ -562,13 +610,11 @@ def run_attach_mode(args: argparse.Namespace) -> None:
 
 def run_list_mode(args: argparse.Namespace) -> None:
     """Run --list mode: show containers and worktrees for current project."""
-    git_root = find_git_root()
-
-    # Show all containers if --all flag or not in a git repo
-    if args.all or git_root is None:
+    if args.all:
         run_list_global_mode()
         return
 
+    git_root = pick_project()
     project_name = git_root.name
 
     print(f"Project: {project_name}")
@@ -606,6 +652,218 @@ def run_list_mode(args: argparse.Namespace) -> None:
             print(f"    {wt_path.name:<20} {branch:<15} [{commit}]")
     else:
         print("Worktrees: (none)")
+
+
+def _is_image_stale(
+    runtime: str, container_name: str, image: str
+) -> bool | None:
+    """Check if a container is running a stale image. Returns None if unknown."""
+    containers = list_all_devcontainers()
+    container_img = next(
+        (img for name, _f, _s, img in containers if name == container_name),
+        None,
+    )
+    current_img = subprocess.run(
+        [runtime, "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+    )
+    if not container_img or current_img.returncode != 0:
+        return None
+    current_id = current_img.stdout.strip()
+    return not (
+        container_img.startswith(current_id)
+        or current_id.startswith(container_img)
+    )
+
+
+def run_status_mode(args: argparse.Namespace) -> None:
+    """Project dashboard: containers, worktrees, ports, disk usage."""
+    git_root = pick_project()
+    project_name = git_root.name
+    runtime = get_container_runtime()
+
+    print(f"Project: {project_name}")
+    print(f"Root:    {git_root}")
+    print()
+
+    # Containers with uptime
+    config = load_config()
+    image = config.get("base_image", constants.DEFAULT_CONFIG["base_image"])
+    workspaces = find_project_workspaces(git_root)
+    print("Containers:")
+    for ws_path, ws_type in workspaces:
+        if not (ws_path / ".devcontainer").exists():
+            continue
+        container_name = get_container_for_workspace(ws_path)
+        if container_name and runtime:
+            uptime = subprocess.run(
+                [
+                    runtime,
+                    "inspect",
+                    "--format",
+                    "{{.State.StartedAt}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            started = (
+                uptime.stdout.strip()[:19].replace("T", " ")
+                if uptime.returncode == 0
+                else "?"
+            )
+            port = read_port_from_devcontainer(ws_path)
+            port_str = str(port) if port else "-"
+            stale = _is_image_stale(runtime, container_name, image)
+            tag = f"{ws_type}, stale image" if stale else ws_type
+            print(
+                f"  * {ws_path.name:<20} port {port_str:<5}  started {started}  ({tag})"
+            )
+        else:
+            port = read_port_from_devcontainer(ws_path)
+            port_str = str(port) if port else "-"
+            print(
+                f"    {ws_path.name:<20} port {port_str:<5}  stopped  ({ws_type})"
+            )
+
+    print()
+
+    # Worktrees with branch age
+    worktrees = list_worktrees(git_root)
+    if len(worktrees) > 1:
+        print("Worktrees:")
+        for wt_path, _commit, branch in worktrees:
+            if wt_path == git_root:
+                continue
+            if not wt_path.exists():
+                print(f"    {wt_path.name:<20} {branch:<20} (prunable)")
+                continue
+            age = subprocess.run(
+                ["git", "-C", str(wt_path), "log", "-1", "--format=%cr"],
+                capture_output=True,
+                text=True,
+            )
+            age_str = age.stdout.strip() if age.returncode == 0 else "?"
+            print(f"    {wt_path.name:<20} {branch:<20} {age_str}")
+    print()
+
+    # Disk usage
+    print("Disk:")
+    devcontainer_size = _dir_size(git_root / ".devcontainer")
+    git_size = _dir_size(git_root / ".git")
+    print(f"    .devcontainer  {_fmt_size(devcontainer_size)}")
+    print(f"    .git           {_fmt_size(git_size)}")
+
+
+def _dir_size(path: Path) -> int:
+    """Total size of a directory in bytes."""
+    if not path.exists():
+        return 0
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+
+
+def _fmt_size(nbytes: int) -> str:
+    """Format bytes as human-readable."""
+    size = float(nbytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return (
+                f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+            )
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def run_doctor_mode(args: argparse.Namespace) -> None:
+    """Pre-flight check: runtime, image, ports, tools, API keys."""
+    ok_count = 0
+    fail_count = 0
+
+    def check(label: str, passed: bool, detail: str = "") -> None:
+        nonlocal ok_count, fail_count
+        icon = "ok" if passed else "FAIL"
+        suffix = f"  ({detail})" if detail else ""
+        print(f"  [{icon:>4}] {label}{suffix}")
+        if passed:
+            ok_count += 1
+        else:
+            fail_count += 1
+
+    config = load_config()
+
+    # Container runtime
+    runtime = get_container_runtime()
+    check("Container runtime", runtime is not None, runtime or "not found")
+
+    # Image exists
+    image = config.get("base_image", constants.DEFAULT_CONFIG["base_image"])
+    if runtime:
+        result = subprocess.run(
+            [runtime, "image", "exists", image],
+            capture_output=True,
+        )
+        check("Container image", result.returncode == 0, image)
+    else:
+        check("Container image", False, "no runtime")
+
+    # Project-specific checks (pick project, or skip if none available)
+    try:
+        git_root = pick_project()
+    except SystemExit:
+        git_root = None
+    if git_root:
+        # Container running?
+        container_name = get_container_for_workspace(git_root)
+        running = container_name is not None
+        check("Container running", running, container_name or "stopped")
+
+        # Image up to date?
+        if running and runtime:
+            stale = _is_image_stale(runtime, container_name, image)
+            if stale is not None:
+                check(
+                    "Image up to date",
+                    not stale,
+                    "rebuild needed" if stale else "current",
+                )
+
+        # Port
+        port = read_port_from_devcontainer(git_root)
+        if port:
+            avail = is_port_available(port)
+            if avail:
+                check("Port", True, f"{port}, free")
+            elif running:
+                check("Port", True, f"{port}, in use by this project")
+            else:
+                check("Port", False, f"{port}, in use by something else")
+
+    # API keys (check pass + env, same as runtime)
+    secrets = get_secrets(config)
+    for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]:
+        val = secrets.get(key, "")
+        source = (
+            "pass"
+            if not os.environ.get(key) and val
+            else "env"
+            if val
+            else "missing"
+        )
+        check(key, bool(val), source)
+
+    # gh auth
+    gh_result = subprocess.run(
+        ["gh", "auth", "status"],
+        capture_output=True,
+        text=True,
+    )
+    check("GitHub CLI auth", gh_result.returncode == 0)
+
+    print()
+    print(f"{ok_count} passed, {fail_count} failed")
+    if fail_count:
+        sys.exit(1)
 
 
 def _copy_url_to_clipboard(workspace_dir: Path) -> None:
@@ -1083,6 +1341,14 @@ def run_clone_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: git clone failed")
 
     os.chdir(target)
+
+    # Auto-detect flavors if no devcontainer config exists
+    if not (target / ".devcontainer").exists():
+        detected = detect_flavors(target)
+        if detected:
+            print(f"Detected flavors: {', '.join(detected)}")
+            args.flavor = detected
+
     run_up_mode(args)
 
 
@@ -1881,6 +2147,14 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "list":
         run_list_mode(args)
+        return
+
+    if cmd == "status":
+        run_status_mode(args)
+        return
+
+    if cmd == "doctor":
+        run_doctor_mode(args)
         return
 
     if cmd == "down":
