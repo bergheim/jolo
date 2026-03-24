@@ -66,7 +66,7 @@ After making visible UI changes (markup, styles, component layout), verify befor
 browser-check http://127.0.0.1:$PORT --screenshot --errors --output scratch/verify.png
 ```
 
-Read the screenshot to confirm the result looks correct, and check the error output for JS exceptions. Don't commit fronten$
+Read the screenshot to confirm the result looks correct, and check the error output for JS exceptions. Don't commit frontend changes without verifying visually.
 
 ## Image Tooling
 
