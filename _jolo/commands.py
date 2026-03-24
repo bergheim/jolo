@@ -232,8 +232,9 @@ def pick_project() -> Path:
         )
         if result.returncode != 0:
             sys.exit(0)
-        selected = result.stdout.rstrip("\n").split()[-1]
-        return Path(selected)
+        selected_line = result.stdout.rstrip("\n")
+        idx = labels.index(selected_line)
+        return Path(folders[idx])
     except KeyboardInterrupt:
         sys.exit(0)
 
@@ -759,10 +760,7 @@ def _dir_size(path: Path) -> int:
     """Total size of a directory in bytes."""
     if not path.exists():
         return 0
-    result = subprocess.run(
-        ["du", "-sb", str(path)], capture_output=True, text=True
-    )
-    return int(result.stdout.split()[0]) if result.returncode == 0 else 0
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
 
 
 def _fmt_size(nbytes: int) -> str:
