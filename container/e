@@ -1,10 +1,9 @@
 #!/bin/sh
-# Smart Emacs launcher - GUI when authorized, terminal otherwise
+# Smart Emacs launcher - connects to daemon via emacsclient
+# Starts daemon automatically if not running (--alternate-editor="")
 
 if [ -n "$WAYLAND_DISPLAY" ] || { [ -n "$DISPLAY" ] && xset q >/dev/null 2>&1; }; then
-    # Display available and authorized
-    emacs "$@"
+    emacsclient -c --alternate-editor="" "$@"
 else
-    # Terminal mode (no display, no auth, or devcontainer without X forwarding)
-    emacs -nw "$@"
+    emacsclient -nw --alternate-editor="" "$@"
 fi
