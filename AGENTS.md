@@ -101,6 +101,19 @@ Port assignment:
 
 Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
 
+**Never merge branches into each other.** If you have multiple feature branches to land, merge them to main one at a time, rebasing each onto the updated main before merging. Do not create a "combined" branch by merging feature branches together — this produces a tangled commit graph that is hard to read and bisect.
+
+```bash
+# WRONG: merging branches into each other
+git checkout feat-a && git merge feat-b && git merge feat-c  # tangled history
+
+# RIGHT: merge to main sequentially
+git checkout main && git merge --no-ff feat-a
+git checkout feat-b && git rebase main
+git checkout main && git merge --no-ff feat-b
+# repeat for each branch
+```
+
 For bigger tasks, use TDD and commit frequently on the branch as you make progress.
 **Default workflow: commit and push unless the user explicitly says not to.** If a remote exists, push after each meaningful commit so progress is visible and recoverable.
 
