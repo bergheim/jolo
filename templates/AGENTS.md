@@ -58,6 +58,16 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 **Dev server log:** `just dev` runs automatically in a tmux window and logs all output (stdout + stderr) to `dev.log` at the project root. Read this file to check server output, errors, and request logs without needing access to the dev server's tmux pane.
 
+## Frontend Verification
+
+After making visible UI changes (markup, styles, component layout), verify before committing:
+
+```bash
+browser-check http://127.0.0.1:$PORT --screenshot --errors --output scratch/verify.png
+```
+
+Read the screenshot to confirm the result looks correct, and check the error output for JS exceptions. Don't commit fronten$
+
 ## Image Tooling
 
 Prefer `vips`/`vipsthumbnail` for image conversion, resizing, and thumbnails. Do not add ImageMagick or Pillow unless the project explicitly requires them.
