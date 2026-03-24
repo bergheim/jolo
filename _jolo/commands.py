@@ -1300,6 +1300,10 @@ def run_create_mode(args: argparse.Namespace) -> None:
         combined_cmd = " && ".join([" ".join(c) for c in init_commands])
         verbose_print(f"Running in container: {combined_cmd}")
         devcontainer_exec_command(project_path, combined_cmd)
+        devcontainer_exec_command(
+            project_path,
+            'git add . && git diff --cached --quiet || git commit -m "Add dependencies"',
+        )
 
     _copy_url_to_clipboard(project_path)
 
