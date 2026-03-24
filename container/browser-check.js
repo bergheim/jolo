@@ -57,6 +57,8 @@ Options:
   --full-page     Full page screenshot
   --describe      Output page title and basic info
   --snapshot      Output simplified page content
+  --aria          Output ARIA accessibility tree
+  --interactive   With --aria, only show interactive elements
   --json          Output results as JSON
 
 Examples:
@@ -249,8 +251,6 @@ Examples:
       if (!wantJson) console.log(`PDF saved: ${pdfPath}`);
     }
 
-    await browser.close();
-
     // Summary
     if (!wantJson) {
       if (results.console.length > 0 || results.errors.length > 0) {
@@ -262,11 +262,6 @@ Examples:
 
     if (wantJson) {
       console.log(JSON.stringify(results, null, 2));
-    }
-
-    // Exit with error if there were page errors
-    if (results.errors.length > 0) {
-      process.exit(1);
     }
 
   } catch (err) {
