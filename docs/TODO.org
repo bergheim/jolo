@@ -70,6 +70,10 @@
    :END:
    Added =@zed-industries/codex-acp= to =Containerfile= global pnpm tools so
    =codex-acp= is present for =agent-shell=. Rebuild required for runtime use.
+** TODO Get agent-browser working with container Chromium
+   [[https://github.com/vercel-labs/agent-browser][agent-browser]] should support custom browser executables via config.
+   Latest commits suggest it works, but it doesn't in practice.
+   See: https://github.com/vercel-labs/agent-browser?tab=readme-ov-file#custom-browser-executable
 ** DONE Diagnose Elpaca bootstrap regression after image update
    :PROPERTIES:
    :DATE: 2026-03-01
