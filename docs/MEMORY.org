@@ -91,3 +91,4 @@ Conclusion: mostly ceremony for our setup. Details:
 - Gemini misreads =@= in npm package names as leading spaces in diffs :gemini:review:
 - npm package =playwright-cli= is deprecated/no-bin; current package is =@playwright/cli= and needs explicit =executablePath= config to use system Chromium on Alpine :playwright:alpine:
 - =emacsclient -nw= crash on pgtk was =bergheim/disable-pgtk-im= config bug, not a pgtk issue — container uses =emacs-pgtk-nativecomp= :emacs:pgtk:
+- Tmux 3.6 defaults to =extended-keys-format csi-u=; Emacs 30 =xterm.el= has zero CSI u decoders — need =kkp.el= for terminal key decoding :emacs:tmux:keys:

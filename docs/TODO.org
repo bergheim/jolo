@@ -85,6 +85,16 @@
    - Container stays on =emacs-pgtk-nativecomp= (gtk3 switch was unnecessary)
    - Added GNU =grep= package (BusyBox grep lacks =--exclude-dir= for zshrc alias)
    - Discovered OSC 52 =interprogram-cut-function= for Emacs → host clipboard (not yet in config)
+** TODO Add =kkp.el= to Emacs config for CSI u key decoding
+   Terminal Emacs through tmux gets garbled keys (Shift+Space → literal "u")
+   because tmux 3.6 sends CSI u format but Emacs 30 only decodes xterm format.
+   Add to =~/.config/emacs/modules/base.el= (host-side, before =use-package emacs=):
+   #+begin_src elisp
+   (use-package kkp
+     :config
+     (global-kkp-mode +1))
+   #+end_src
+   See RESEARCH.org for full diagnosis.
 ** TODO Add OSC 52 clipboard to Emacs config
    Add =interprogram-cut-function= with OSC 52 to =modules/base.el= inside
    =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.

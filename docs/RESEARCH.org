@@ -1576,3 +1576,49 @@ Alpine provides three nativecomp builds — they conflict, only one at a time:
 - =emacs-pgtk-nativecomp= — native Wayland + terminal (use this)
 - =emacs-gtk3-nativecomp= — GTK3/X11
 - =emacs-x11-nativecomp= — X11 only
+
+* Shift+Space sends literal "u" in terminal Emacs (CSI u decoding) :emacs:tmux:terminal:keys:
+:PROPERTIES:
+:DATE: 2026-03-26
+:END:
+
+Shift+Space in =emacsclient -nw= inserts literal =u= instead of being decoded.
+In Evil normal mode: =helpful-key: No command is bound to M-[ 3 2 ; 2=.
+
+** Root cause
+Tmux 3.6 defaults to =extended-keys-format csi-u=. When Emacs sends
+=\e[>4;1m= (modifyOtherKeys mode 1 request), tmux enables extended keys
+but encodes them as CSI u: =ESC [ 32 ; 2 u= (Shift+Space).
+
+Emacs 30's =xterm.el= only decodes the =xterm= modifyOtherKeys format
+(=ESC [ 27 ; modifier ; keycode ~=). =xterm-function-map= has zero CSI u
+entries. The trailing =u= leaks as a literal character.
+
+Switching =extended-keys-format= to =xterm= also fails — Emacs doesn't
+fully decode that format for all keys either (user reported "2%" garbage).
+
+** Diagnosis steps
+#+begin_src elisp
+;; Check if modify-other-keys is active (nil = not working)
+(terminal-parameter nil 'xterm--modify-other-keys)
+;; Check TERM on terminal frames
+(mapcar (lambda (f) (frame-parameter f 'tty-type)) (frame-list))
+;; Daemon initial TERM is "dumb" — expected, not the issue
+#+end_src
+
+** Fix
+Install =kkp.el= (kitty keyboard protocol for Emacs). Adds full CSI u
+decoding to =input-decode-map=. In =~/.config/emacs/modules/base.el=:
+
+#+begin_src elisp
+(use-package kkp
+  :config
+  (global-kkp-mode +1))
+#+end_src
+
+No tmux changes needed — =csi-u= format stays as default.
+
+** Key files
+- =/usr/share/emacs/30.2/lisp/term/tmux.el.gz= — sets =xterm-tmux-extra-capabilities '(modifyOtherKeys)=
+- =/usr/share/emacs/30.2/lisp/term/xterm.el.gz= — =xterm--init-modify-other-keys= sends =\e[>4;1m=
+- =~/.config/emacs/modules/base.el= — where kkp.el goes
