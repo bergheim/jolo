@@ -90,3 +90,4 @@ Conclusion: mostly ceremony for our setup. Details:
 - Codex =exec= ignores piped stdin diff — it runs =git diff= internally and only sees unstaged changes :codex:review:
 - Gemini misreads =@= in npm package names as leading spaces in diffs :gemini:review:
 - npm package =playwright-cli= is deprecated/no-bin; current package is =@playwright/cli= and needs explicit =executablePath= config to use system Chromium on Alpine :playwright:alpine:
+- =emacsclient -nw= crash on pgtk was =bergheim/disable-pgtk-im= config bug, not a pgtk issue — container uses =emacs-pgtk-nativecomp= :emacs:pgtk:

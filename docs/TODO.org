@@ -77,11 +77,12 @@
    Changed =e= to use =emacsclient --alternate-editor=""= which auto-starts daemon.
    Enables =emacsclient -e= for eval from agent shells (agent-shell, claude-code).
    Also fixed =xterm-mouse-mode= in style.el (was =setq= instead of function call).
-** DONE Switch to emacs-gtk3 and fix grep/clipboard in container
+** DONE Fix emacsclient -nw crash (was config bug, not pgtk)
    :PROPERTIES:
    :DATE: 2026-03-26
    :END:
-   - Switched =emacs-pgtk-nativecomp= → =emacs-gtk3-nativecomp= (fixes =emacsclient -nw=)
+   - Root cause: =bergheim/disable-pgtk-im= in =completion.el= needed =(display-graphic-p)= guard
+   - Container stays on =emacs-pgtk-nativecomp= (gtk3 switch was unnecessary)
    - Added GNU =grep= package (BusyBox grep lacks =--exclude-dir= for zshrc alias)
    - Discovered OSC 52 =interprogram-cut-function= for Emacs → host clipboard (not yet in config)
 ** TODO Add OSC 52 clipboard to Emacs config
