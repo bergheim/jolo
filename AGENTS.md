@@ -79,6 +79,12 @@ Shared knowledge lives in `docs/MEMORY.org` — all agents read and write this f
 
 Use personal memory for workflow preferences, mistake patterns, and agent-specific learnings. Use shared memory for anything another agent would benefit from knowing.
 
+## Emacs
+
+Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to query state, check modes, read variables, or run diagnostics — never ask the user to run `M-x` or `M-:` manually.
+
+The real Emacs config lives on the host (`~/.config/emacs/`). The container copy at `.devcontainer/.emacs-config/` is not the source of truth. When config changes are needed, provide the snippet for the user to apply on the host.
+
 ## Project Defaults
 
 **Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. Each project gets a random port in the 4000-5000 range assigned at creation time.

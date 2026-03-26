@@ -30,6 +30,10 @@ Shared, non-reproducible resources across projects go in the stash: host `~/stas
 
 `scratch/` is a gitignored directory for experiments, generated assets, and throwaway work. Do not treat its contents as project code.
 
+## Emacs
+
+Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to query state, check modes, read variables, or run diagnostics — never ask the user to run `M-x` or `M-:` manually.
+
 ## Port Configuration
 
 Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).
