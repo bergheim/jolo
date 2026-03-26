@@ -59,6 +59,7 @@ RUN apk update && apk add --no-cache \
     procps \
     python3 \
     py3-pip \
+    grep \
     ripgrep \
     ruby \
     cargo \
