@@ -20,7 +20,7 @@ RUN apk update && apk add --no-cache \
     curl \
     dbus \
     diffutils \
-    emacs-pgtk-nativecomp \
+    emacs-gtk3-nativecomp \
     aspell-en \
     enchant2 \
     enchant2-dev \
