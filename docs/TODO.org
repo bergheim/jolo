@@ -77,6 +77,17 @@
    Changed =e= to use =emacsclient --alternate-editor=""= which auto-starts daemon.
    Enables =emacsclient -e= for eval from agent shells (agent-shell, claude-code).
    Also fixed =xterm-mouse-mode= in style.el (was =setq= instead of function call).
+** DONE Switch to emacs-gtk3 and fix grep/clipboard in container
+   :PROPERTIES:
+   :DATE: 2026-03-26
+   :END:
+   - Switched =emacs-pgtk-nativecomp= → =emacs-gtk3-nativecomp= (fixes =emacsclient -nw=)
+   - Added GNU =grep= package (BusyBox grep lacks =--exclude-dir= for zshrc alias)
+   - Discovered OSC 52 =interprogram-cut-function= for Emacs → host clipboard (not yet in config)
+** TODO Add OSC 52 clipboard to Emacs config
+   Add =interprogram-cut-function= with OSC 52 to =modules/base.el= inside
+   =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.
+   See RESEARCH.org for the elisp snippet.
 ** TODO Symlink .claude/ into git worktrees
    Agent-shell worktrees (=agent-shell-new-worktree-shell=) and jolo worktrees
    don't get =.claude/= since it's gitignored. Without it, custom slash commands

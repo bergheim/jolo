@@ -1506,3 +1506,53 @@ same Emacs process, enabling =emacsclient -e= for eval from agents/shells.
 ** Key files
 - =container/e= — the launcher script
 - =container/entrypoint.sh= — has =emacs --fg-daemon= behind =START_EMACS=true= (unused by tmuxinator)
+
+* Switch from emacs-pgtk to emacs-gtk3 for terminal client support :emacs:container:pgtk:gtk3:
+:PROPERTIES:
+:DATE: 2026-03-26
+:END:
+
+Emacs PGTK build has a known bug: =emacsclient -nw= / =-t= fails to create
+terminal frames. The PGTK backend assumes a graphical display context and
+doesn't properly handle tty frame creation.
+
+** Impact
+- =emacsclient -e= works fine (no frame needed, just eval)
+- =emacsclient -c= works (GUI frame) when display is available
+- =emacsclient -nw= / =-t= broken — the key use case for agents in terminal
+
+** Decision
+Switched from =emacs-pgtk-nativecomp= to =emacs-gtk3-nativecomp= in Containerfile.
+PGTK is only needed for native Wayland rendering, which isn't used inside
+the container. GTK3 handles both GUI (X11) and terminal frames.
+
+** Also fixed
+- Added =grep= package (GNU grep) — BusyBox grep doesn't support =--exclude-dir=
+  flags used by the zshrc alias =my_grep_options=.
+
+** OSC 52 clipboard from Emacs
+Emacs kill ring can sync to host clipboard via OSC 52, same mechanism tmux uses.
+Add to Emacs config (guarded by =EMACS_CONTAINER=):
+
+#+begin_src elisp
+(when (getenv "EMACS_CONTAINER")
+  (setq interprogram-cut-function
+        (lambda (text)
+          (let ((inhibit-message t))
+            (send-string-to-terminal
+             (format "\e]52;c;%s\a"
+                     (base64-encode-string (encode-coding-string text 'utf-8) t)))))))
+#+end_src
+
+Works with PGTK too (=send-string-to-terminal= works despite being GUI).
+Requires tmux =allow-passthrough all= and =set-clipboard on= (already configured).
+
+** Alpine packages
+Alpine provides three nativecomp builds — they conflict, only one at a time:
+- =emacs-pgtk-nativecomp= — native Wayland (broken terminal client)
+- =emacs-gtk3-nativecomp= — GTK3/X11 (works for everything)
+- =emacs-x11-nativecomp= — X11 only
+
+** Refs
+- Emacs debbugs — PGTK terminal frame creation issues
+- Emacs 31 expected to fix PGTK terminal frames
