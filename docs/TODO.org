@@ -85,7 +85,7 @@
    - Container stays on =emacs-pgtk-nativecomp= (gtk3 switch was unnecessary)
    - Added GNU =grep= package (BusyBox grep lacks =--exclude-dir= for zshrc alias)
    - Discovered OSC 52 =interprogram-cut-function= for Emacs → host clipboard (not yet in config)
-** TODO Fix =kkp.el= tmux probe failure — force-enable CSI u decoders
+** DONE Fix =kkp.el= tmux probe failure — force-enable CSI u decoders
    =tty-setup-hook= + =advice-add :after kkp--terminal-setup= both in host
    =base.el= but still not working on fresh daemon start. Manual
    =(kkp-force-enable-on-tty)= call works instantly. Likely cause: elpaca
@@ -95,7 +95,7 @@
    execution on daemon restart.
    =term-keys= package is also loaded but irrelevant (different escape format).
    See RESEARCH.org "Shift+Space sends literal u" for full analysis.
-** TODO Add OSC 52 clipboard to Emacs config
+** DONE Add OSC 52 clipboard to Emacs config
    Add =interprogram-cut-function= with OSC 52 to =modules/base.el= inside
    =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.
    See RESEARCH.org for the elisp snippet.

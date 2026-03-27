@@ -27,7 +27,6 @@ See `docs/MEMORY.org` for shared project knowledge across all agents.
 
 - User prefers: rebase feature onto main, then `merge --no-ff` for multi-commit branches
 - Commit style: imperative, short first line, body explains why
-- `sdd` branch was a worktree at `/workspaces/sdd` — had to rebase from there
 
 ## Session context
 
