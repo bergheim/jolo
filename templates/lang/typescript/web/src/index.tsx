@@ -63,6 +63,7 @@ if (import.meta.main) {
 		{
 			port: +port,
 			hostname: "0.0.0.0",
+			reusePort: false,
 		},
 		({ hostname, port }) => {
 			console.log(`🚀 Server running at http://${hostname}:${port}`);
