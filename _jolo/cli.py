@@ -43,13 +43,14 @@ def random_port() -> int:
 
 
 def is_port_available(port: int) -> bool:
-    """Check if a TCP port is available on the host."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind(("", port))
-            return True
-        except OSError:
-            return False
+    """Check if a TCP port and its worktree range are available on the host."""
+    for p in range(port, port + constants.WORKTREE_PORTS + 1):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", p))
+            except OSError:
+                return False
+    return True
 
 
 def detect_hostname() -> str:
