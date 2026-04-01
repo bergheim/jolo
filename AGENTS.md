@@ -37,7 +37,7 @@ This project is in heavy development. Do NOT worry about backward compatibility 
 
 ## Comments
 
-Only comment *why*, never *what*. Do not add comments that restate the code. Do not add comments that narrate the conversation or explain context that is obvious from reading the code. `printf '\a'` does not need a comment explaining what a terminal bell is, or if it works through tmux (which was in  the agent conversation). If a comment is needed at all, keep it to a few words — not a sentence.
+Keep comments to a minimum. Only comment *why*, never *what*. Do not add comments that restate the code. Do not add comments that narrate the conversation or explain context that is obvious from reading the code. `printf '\a'` does not need a comment explaining what a terminal bell is, or if it works through tmux (which was in  the agent conversation). If a comment is needed at all, keep it to a few words — not a sentence.
 
 ## Project Overview
 
