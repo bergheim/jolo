@@ -126,18 +126,20 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
         sys.exit("Error: No .devcontainer/devcontainer.json found.")
     config = json.loads(devcontainer_json.read_text())
 
-    old_port = config.get("containerEnv", {}).get("PORT")
     config.setdefault("containerEnv", {})["PORT"] = str(new_port)
 
     run_args = config.get("runArgs", [])
-    for i, arg in enumerate(run_args):
-        if (
-            i > 0
-            and run_args[i - 1] == "-p"
-            and arg == f"{old_port}:{old_port}"
-        ):
-            run_args[i] = f"{new_port}:{new_port}"
-            break
+    # Remove all existing -p port mappings
+    i = 0
+    while i < len(run_args):
+        if run_args[i] == "-p" and i + 1 < len(run_args):
+            run_args.pop(i)
+            run_args.pop(i)
+        else:
+            i += 1
+    # Insert new port range
+    for p in range(new_port, new_port + constants.WORKTREE_PORTS + 1):
+        run_args.extend(["-p", f"{p}:{p}"])
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
 
