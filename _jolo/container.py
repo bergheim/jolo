@@ -119,6 +119,19 @@ def is_container_running(workspace_dir: Path) -> bool:
     return bool(result.stdout.strip())
 
 
+def replace_port_args(run_args: list, new_port: int) -> None:
+    """Replace all -p port mappings in runArgs with a new port range."""
+    i = 0
+    while i < len(run_args):
+        if run_args[i] == "-p" and i + 1 < len(run_args):
+            run_args.pop(i)
+            run_args.pop(i)
+        else:
+            i += 1
+    for p in range(new_port, new_port + constants.WORKTREE_PORTS + 1):
+        run_args.extend(["-p", f"{p}:{p}"])
+
+
 def set_port(workspace_dir: Path, new_port: int) -> None:
     """Set the project port in devcontainer.json."""
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
@@ -129,17 +142,7 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
     config.setdefault("containerEnv", {})["PORT"] = str(new_port)
 
     run_args = config.get("runArgs", [])
-    # Remove all existing -p port mappings
-    i = 0
-    while i < len(run_args):
-        if run_args[i] == "-p" and i + 1 < len(run_args):
-            run_args.pop(i)
-            run_args.pop(i)
-        else:
-            i += 1
-    # Insert new port range
-    for p in range(new_port, new_port + constants.WORKTREE_PORTS + 1):
-        run_args.extend(["-p", f"{p}:{p}"])
+    replace_port_args(run_args, new_port)
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
 

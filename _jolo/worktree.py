@@ -6,13 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _jolo import constants
 from _jolo.cli import (
     find_git_root,
     get_container_name,
     random_port,
     verbose_cmd,
 )
+from _jolo.container import replace_port_args
 from _jolo.setup import add_worktree_git_mount, scaffold_devcontainer
 
 
@@ -227,15 +227,7 @@ def get_or_create_worktree(
                 run_args[i + 1] = container_name
         # Assign a fresh port range
         new_port = random_port()
-        i = 0
-        while i < len(run_args):
-            if run_args[i] == "-p" and i + 1 < len(run_args):
-                run_args.pop(i)
-                run_args.pop(i)
-            else:
-                i += 1
-        for p in range(new_port, new_port + constants.WORKTREE_PORTS + 1):
-            run_args.extend(["-p", f"{p}:{p}"])
+        replace_port_args(run_args, new_port)
         if "containerEnv" not in content:
             content["containerEnv"] = {}
         content["containerEnv"]["PORT"] = str(new_port)
