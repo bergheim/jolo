@@ -60,6 +60,7 @@ from _jolo.setup import (
     setup_stash,
     sync_devcontainer,
     sync_skill_templates,
+    sync_template_files,
     write_prompt_file,
 )
 from _jolo.templates import (
@@ -895,6 +896,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
     if args.sync:
         sync_devcontainer(project_name, config=config)
         sync_skill_templates(git_root)
+        sync_template_files(git_root)
     else:
         scaffold_devcontainer(project_name, config=config)
 
@@ -988,6 +990,7 @@ def run_tree_mode(args: argparse.Namespace) -> None:
             worktree_name, target_dir=worktree_path, config=config
         )
         sync_skill_templates(worktree_path)
+        sync_template_files(worktree_path)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -1377,6 +1380,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
     if args.sync:
         sync_devcontainer(project_name, project_path, config=config)
         sync_skill_templates(project_path)
+        sync_template_files(project_path)
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
@@ -1507,6 +1511,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
                 name, target_dir=worktree_path, config=config, port=port
             )
             sync_skill_templates(worktree_path)
+            sync_template_files(worktree_path)
 
         # Update devcontainer.json with correct port if not syncing (sync handles it)
         devcontainer_json = (

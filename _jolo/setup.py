@@ -1,5 +1,6 @@
 """Filesystem and credential setup functions for jolo."""
 
+import hashlib
 import json
 import os
 import re
@@ -438,6 +439,89 @@ def setup_notification_hooks(
             codex_config_path.write_text(config)
 
 
+TEMPLATE_HASHES_FILE = ".devcontainer/.template-hashes.json"
+
+# Files that sync_template_files manages
+SYNCABLE_TEMPLATE_FILES = [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+]
+
+
+def _file_hash(path: Path) -> str:
+    """Return sha256 hex digest of a file's contents."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _load_template_hashes(target_dir: Path) -> dict:
+    path = target_dir / TEMPLATE_HASHES_FILE
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return {}
+
+
+def _save_template_hashes(target_dir: Path, filenames: list[str]) -> None:
+    """Record hashes of template files as written to the target directory."""
+    hashes = _load_template_hashes(target_dir)
+    for filename in filenames:
+        dst = target_dir / filename
+        if dst.exists():
+            hashes[filename] = _file_hash(dst)
+    path = target_dir / TEMPLATE_HASHES_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(hashes, indent=2) + "\n")
+
+
+def sync_template_files(target_dir: Path) -> None:
+    """Sync template files, skipping any that were modified by the user."""
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    if not templates_dir.exists():
+        return
+
+    hashes = _load_template_hashes(target_dir)
+    updated = []
+
+    for filename in SYNCABLE_TEMPLATE_FILES:
+        src = templates_dir / filename
+        if not src.exists():
+            continue
+        dst = target_dir / filename
+
+        if not dst.exists():
+            shutil.copy2(src, dst)
+            verbose_print(f"Copied template: {filename}")
+            updated.append(filename)
+            continue
+
+        stored_hash = hashes.get(filename)
+        current_hash = _file_hash(dst)
+
+        if stored_hash is None:
+            # No record — file predates hash tracking, skip to be safe
+            print(f"  Skipping {filename}: no hash record (manually verify)")
+            continue
+
+        if current_hash != stored_hash:
+            print(f"  Skipping {filename}: locally modified")
+            continue
+
+        new_hash = _file_hash(src)
+        if current_hash == new_hash:
+            verbose_print(f"  {filename} already up to date")
+            continue
+
+        shutil.copy2(src, dst)
+        verbose_print(f"  Synced {filename}")
+        updated.append(filename)
+
+    if updated:
+        _save_template_hashes(target_dir, updated)
+
+
 def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
@@ -472,6 +556,8 @@ def copy_template_files(target_dir: Path) -> None:
             dst = target_dir / filename
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
+
+    _save_template_hashes(target_dir, template_files)
 
     # Copy template directories (skills, agent config, docs)
     template_dirs = [
