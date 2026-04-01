@@ -10,8 +10,8 @@
  * Options:
  *   --console         Capture console logs
  *   --errors          Capture page errors (JS exceptions)
- *   --screenshot      Take screenshot (saves to ./screenshot.png or --output)
- *   --pdf             Generate PDF (saves to ./page.pdf or --output)
+ *   --screenshot      Take screenshot (saves to scratch/screenshot.png or --output)
+ *   --pdf             Generate PDF (saves to scratch/page.pdf or --output)
  *   --output <path>   Output path for screenshot/pdf
  *   --wait <ms>       Wait time after load (default: 1000)
  *   --timeout <ms>    Navigation timeout (default: 30000)
@@ -24,6 +24,8 @@
  */
 
 const { chromium } = require('playwright');
+const fs = require('fs');
+const path = require('path');
 
 const args = process.argv.slice(2);
 
@@ -237,7 +239,8 @@ Examples:
 
     // Screenshot
     if (wantScreenshot) {
-      const screenshotPath = output || 'screenshot.png';
+      const screenshotPath = output || 'scratch/screenshot.png';
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
       await page.screenshot({ path: screenshotPath, fullPage });
       results.screenshot = screenshotPath;
       if (!wantJson) console.log(`Screenshot saved: ${screenshotPath}`);
@@ -245,7 +248,8 @@ Examples:
 
     // PDF
     if (wantPdf) {
-      const pdfPath = output || 'page.pdf';
+      const pdfPath = output || 'scratch/page.pdf';
+      fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
       await page.pdf({ path: pdfPath });
       results.pdf = pdfPath;
       if (!wantJson) console.log(`PDF saved: ${pdfPath}`);
