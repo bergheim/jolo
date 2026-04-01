@@ -109,6 +109,10 @@ ACTIONS_HEADER=""
 if [ -n "$COMMIT_URL" ]; then
     CLICK_HEADER="Click: ${COMMIT_URL}"
     ACTIONS_HEADER="Actions: view, Open commit, ${COMMIT_URL}"
+elif [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
+    DEV_URL="http://${DEV_HOST}:${PORT}"
+    CLICK_HEADER="Click: ${DEV_URL}"
+    ACTIONS_HEADER="Actions: copy, Copy URL, ${DEV_URL}, clear=true"
 fi
 
 # Fire and forget — don't let notification failure affect the agent
