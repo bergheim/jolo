@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
 # Port range for dev servers
 PORT_MIN = 4000
 PORT_MAX = 5000
+WORKTREE_PORTS = 3  # extra ports per container for agent-shell worktrees
 
 # Global verbose flag
 VERBOSE = False
