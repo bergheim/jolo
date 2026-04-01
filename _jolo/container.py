@@ -65,8 +65,11 @@ def build_devcontainer_json(
             project_name,
             "--add-host",
             f"{socket.gethostname()}:host-gateway",
-            "-p",
-            f"{port}:{port}",
+            *[
+                arg
+                for p in range(port, port + constants.WORKTREE_PORTS + 1)
+                for arg in ("-p", f"{p}:{p}")
+            ],
         ],
         "mounts": mounts,
         "containerEnv": {

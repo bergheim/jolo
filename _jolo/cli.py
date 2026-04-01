@@ -31,8 +31,15 @@ def clipboard_copy(text: str) -> None:
 
 
 def random_port() -> int:
-    """Pick a random port in the PORT_MIN-PORT_MAX range."""
-    return random.randint(constants.PORT_MIN, constants.PORT_MAX)
+    """Pick a random port in the PORT_MIN-PORT_MAX range.
+
+    Leaves room for WORKTREE_PORTS extra ports above the base port.
+    """
+    stride = constants.WORKTREE_PORTS + 1
+    slot = random.randint(
+        0, (constants.PORT_MAX - constants.PORT_MIN) // stride - 1
+    )
+    return constants.PORT_MIN + slot * stride
 
 
 def is_port_available(port: int) -> bool:
