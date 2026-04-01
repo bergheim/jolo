@@ -455,18 +455,15 @@ def _file_hash(path: Path) -> str:
 
 
 def _load_template_hashes(target_dir: Path) -> dict:
-    path = target_dir / TEMPLATE_HASHES_FILE
-    if path.exists():
-        try:
-            return json.loads(path.read_text())
-        except (json.JSONDecodeError, ValueError):
-            pass
-    return {}
+    return _load_json_safe(target_dir / TEMPLATE_HASHES_FILE)
 
 
-def _save_template_hashes(target_dir: Path, filenames: list[str]) -> None:
+def _save_template_hashes(
+    target_dir: Path, filenames: list[str], hashes: dict | None = None
+) -> None:
     """Record hashes of template files as written to the target directory."""
-    hashes = _load_template_hashes(target_dir)
+    if hashes is None:
+        hashes = _load_template_hashes(target_dir)
     for filename in filenames:
         dst = target_dir / filename
         if dst.exists():
@@ -501,7 +498,6 @@ def sync_template_files(target_dir: Path) -> None:
         current_hash = _file_hash(dst)
 
         if stored_hash is None:
-            # No record — file predates hash tracking, skip to be safe
             print(f"  Skipping {filename}: no hash record (manually verify)")
             continue
 
@@ -519,7 +515,7 @@ def sync_template_files(target_dir: Path) -> None:
         updated.append(filename)
 
     if updated:
-        _save_template_hashes(target_dir, updated)
+        _save_template_hashes(target_dir, updated, hashes)
 
 
 def copy_template_files(target_dir: Path) -> None:
@@ -557,7 +553,7 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
 
-    _save_template_hashes(target_dir, template_files)
+    _save_template_hashes(target_dir, SYNCABLE_TEMPLATE_FILES)
 
     # Copy template directories (skills, agent config, docs)
     template_dirs = [
