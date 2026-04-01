@@ -1,3 +1,47 @@
+* Bun SO_REUSEPORT silently steals ports                :bun:elysia:typescript:
+:PROPERTIES:
+:DATE: 2026-04-01
+:END:
+
+Bun defaults =SO_REUSEPORT= to =true= on Linux. A second =bun= process binding
+the same port prints "Server running" but the kernel routes all traffic to the
+first process. =ss -tlnp= shows only one listener. The second process is
+unreachable but reports success.
+
+** Fix
+Set =reusePort: false= in =app.listen()= options. Now a second bind gets =EADDRINUSE=.
+Applied to =templates/lang/typescript/web/src/index.tsx=.
+
+* rusty_v8 has no musl prebuilts — codex-acp build failure :alpine:musl:rust:codex:
+:PROPERTIES:
+:DATE: 2026-04-01
+:END:
+
+=rusty_v8= has *never* shipped =x86_64-alpine-linux-musl= prebuilt static libs.
+The build script downloads from GitHub releases; 404 for all musl targets across
+all versions. Open issues since 2019 (#49, #1837), unresolved.
+
+** Impact
+=codex-acp= depends on =v8= crate (currently v146.4.0). =cargo build= on Alpine
+tries to download the musl prebuilt, fails, panics.
+
+** Workaround
+Pin =codex-acp= to commit =678a99ec= (2026-03-05) where the v8 version had a
+working build path. Alternative: set =V8_FROM_SOURCE=1= but requires full V8
+toolchain and 30-60 min compile.
+
+* Ghostty light/dark theme switching                         :ghostty:terminal:
+:PROPERTIES:
+:DATE: 2026-04-01
+:END:
+
+Ghostty supports =theme = light:ThemeName, dark:ThemeName= syntax natively.
+Theme follows the system color-scheme preference. Config reload via =Ctrl+Shift+,=
+in the terminal. No CLI API to trigger reload externally (=SIGUSR1= kills the
+process, =+list-actions= lists =reload= but it's internal only).
+
+Available gruvbox themes: =Gruvbox Dark Hard=, =Gruvbox Light Hard=.
+
 * emacsclient -nw dies instantly on GTK3 daemon build       :emacs:gtk3:terminal:
 :PROPERTIES:
 :DATE: 2026-03-26

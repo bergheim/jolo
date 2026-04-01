@@ -38,3 +38,4 @@ See `docs/MEMORY.org` for shared project knowledge across all agents.
 - 2026-02-17: User concerned about scaffolding complexity growth. Saved flavor menu refactoring plan to docs/TODO.org (flatten `--bare` into `typescript-web`/`typescript-bare` picker). Parked for later.
 - 2026-02-17: Host tmux.conf yadm sandbox has `set -g terminal-features` (no -a) that clobbers /etc/tmux.conf. User needs to fix on host side.
 - 2026-02-17: Saved Claude Code skills ecosystem research to docs/research/skills-claude.org (841 lines, 30+ repos, 17 HN threads).
+- 2026-04-01: Major session — worktree port ranges, ntfy dev URL fallback, template sync with hash tracking, browser-check scratch defaults, reusePort fix, codex-acp pin. Agent-shell keybindings reviewed: `SPC oa` for send-dwim still needs adding to host config. Emacs dark mode and kkp confirmed working. User uses Ghostty with `light:X, dark:Y` theme syntax.

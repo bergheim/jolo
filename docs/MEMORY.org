@@ -39,6 +39,11 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - =ruff= needs =--isolated= when run on template dirs — =pyproject.toml= has =={{VAR}}== placeholders that break TOML parsing :python:templates:
 - Biome reformats =={{VAR}}== in JSX as ={{ VAR }}= (adds spaces) — wrap in string expression ={"{{VAR}}"}= to preserve placeholder :typescript:templates:biome:
 - rustfmt is the canonical Rust formatter (no real alternatives); install via =apk add rustfmt= on Alpine :rust:formatting:
+- Bun defaults =SO_REUSEPORT=true= on Linux — second server silently binds but is unreachable; set =reusePort: false= in templates :bun:elysia:
+- =rusty_v8= has no musl prebuilts (any version); =codex-acp= pinned to =678a99ec= to avoid v8 build failure :alpine:musl:codex:
+- =jolo up --sync= now syncs AGENTS.md/CLAUDE.md/GEMINI.md if unmodified (hash-tracked in =.template-hashes.json=) :jolo:sync:
+- Each container forwards =WORKTREE_PORTS= (3) extra ports above base for agent-shell worktrees; =replace_port_args()= in =container.py= :jolo:ports:
+- =browser-check= defaults screenshots/PDFs to =scratch/= dir, creates it automatically :browser:automation:
 
 * Terminal Image Display                                       :terminal:images:
 
