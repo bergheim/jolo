@@ -6,6 +6,7 @@
 #   notify              — always send notification (original behavior)
 #   notify stamp        — record current time to $HOME/.notify-prompt-start
 #   notify --if-slow S  — notify only if >S seconds since stamp
+#   notify --path /foo  — set NOTIFY_PATH for this invocation
 #
 # Environment:
 #   NTFY_SERVER  — ntfy server URL (default: https://ntfy.sh)
@@ -38,6 +39,12 @@ STAMP_FILE="$HOME/.notify-prompt-start"
 if [ "${1:-}" = "stamp" ]; then
     date +%s > "$STAMP_FILE"
     exit 0
+fi
+
+# --- --path: set NOTIFY_PATH from arg ---
+if [ "${1:-}" = "--path" ]; then
+    NOTIFY_PATH="${2:-}"
+    shift 2
 fi
 
 # --- --if-slow mode: check elapsed time, notify only if slow ---
