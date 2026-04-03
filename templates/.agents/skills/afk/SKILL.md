@@ -1,9 +1,9 @@
 ---
-name: afk
+name: jolo:afk
 description: Work autonomously while the user is away. Create multiple feature branches sequentially, each with a self-contained improvement.
 ---
 
-# /afk
+# /jolo:afk
 
 Work autonomously while the user is away. Create multiple feature branches sequentially, each with a self-contained improvement.
 
@@ -69,8 +69,8 @@ Work autonomously while the user is away. Create multiple feature branches seque
 ## Example Usage
 
 ```
-/afk
-/afk 3
-/afk 5 --prefix experiment
-/afk 3 --from develop
+/jolo:afk
+/jolo:afk 3
+/jolo:afk 5 --prefix experiment
+/jolo:afk 3 --from develop
 ```

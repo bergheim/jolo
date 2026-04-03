@@ -1,9 +1,9 @@
 ---
-name: save-state
+name: jolo:save-state
 description: Save current session knowledge to shared project files and agent-private memory.
 ---
 
-# /save-state
+# /jolo:save-state
 
 Persist what you've learned this session so it survives context loss and is available to all agents.
 

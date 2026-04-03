@@ -1,9 +1,9 @@
 ---
-name: review
+name: jolo:review
 description: Run pragmatic tests first, then get a second-opinion code review from another AI agent (claude, gemini, or codex) using the current git diff. Use when you want a fresh, correctness-focused review without heavy setup.
 ---
 
-# /review
+# /jolo:review
 
 Run pragmatic tests and then get a code review from a different AI agent for a fresh perspective.
 
