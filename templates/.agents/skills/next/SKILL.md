@@ -1,9 +1,9 @@
 ---
-name: next
+name: jolo:next
 description: Prioritize open TODO items by effort and impact, recommend what to work on next.
 ---
 
-# /next
+# /jolo:next
 
 Recommend what to work on next from the open task list.
 
