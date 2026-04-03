@@ -215,7 +215,7 @@ Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bas
 
 Runtimes: Go, Rust, Python, Ruby, Node.js, Bun, pnpm, mise (version manager)
 
-CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload)
+CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload), postgresql-client
 
 AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli), pi (@mariozechner/pi-coding-agent)
 
@@ -393,7 +393,7 @@ jolo up                   # start devcontainer in current project
 jolo create newproject    # scaffold new project
 jolo tree feature-x       # create worktree + devcontainer
 jolo list                 # show containers/worktrees
-jolo attach               # pick a running container and attach to it
+jolo attach               # pick a running container (sorted by MRU)
 jolo down                 # stop container
 
 # AI prompt mode (starts agent in detached tmux)
