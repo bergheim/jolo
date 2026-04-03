@@ -576,6 +576,16 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         devcontainer_exec_tmux(Path(folder))
         return
 
+    # Sort by most recently attached (MRU)
+    def _attach_mtime(item: tuple[str, str]) -> float:
+        marker = Path(item[1]) / ".devcontainer" / ".last-attach"
+        try:
+            return marker.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    running.sort(key=_attach_mtime, reverse=True)
+
     # Build display lines
     labels = []
     for _, folder in running:

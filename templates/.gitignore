@@ -515,6 +515,7 @@ mlruns/
 .devcontainer/.histfile
 .devcontainer/.agent-prompt
 .devcontainer/.agent-name
+.devcontainer/.last-attach
 
 # Scratch space (experiments, generated assets, throwaway work)
 scratch/
