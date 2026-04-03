@@ -8,11 +8,13 @@ Jolo is meant to help you get a project up in minutes. Spin up isolated devconta
 
 This project started as a way to isolate my Emacs config automatically to be able to easily try changes there. But Emacs is just a git repo. So I made it work with any repo, and now Emacs is just there along for the ride. It is still a great fit for the project itself because that means you can use your favorite editor with your own config, and with packages like [[https://github.com/manzaltu/claude-code-ide.el][claude-code-ide]] or [[https://github.com/xenodium/agent-shell][agent-shell]], also without any restrictions set.
 
-Alpine Linux container with Emacs, agents (Claude/Gemini/Codex) without permission checks, language servers, browser automation, lots of guard rails (linters, pre-commit hooks), and all the developer tools I've come to expect on regular systems.
+Alpine Linux container with Emacs, agents (Claude, Gemini, Codex, Pi) without permission checks, language servers, browser automation, lots of guard rails (linters, pre-commit hooks), and all the developer tools I've come to expect on regular systems.
 
-Each ~jolo up~ invocation gets an isolated container with its own (permanent) port, shell history, and AI credentials. Every container starts a 5-window tmux session: Emacs, Claude, Gemini, Codex, and a spare shell.
+Each ~jolo up~ invocation gets an isolated container with its own (permanent) port, shell history, and AI credentials. Every container starts a 7-window tmux session: Emacs, Claude, Codex, Gemini, Pi, dev, and a shell.
 
-~spawn~ mode fans out N worktrees with agents round-robin through Claude, Gemini, and Codex. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
+All agents share the same skills and project memory (~docs/~). Skills are namespaced with ~jolo:~ to avoid collision with third-party skill packs. Agents get push notifications via ntfy when they finish, with buttons that link to the commit, PR, or the running app depending on context.
+
+~spawn~ mode fans out N worktrees with agents round-robin through Claude, Gemini, Codex, and Pi. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
 See [[file:AGENTS.md][AGENTS.md]] for the full reference.
 
@@ -46,7 +48,7 @@ jolo research --deep "compare sqlite and postgres for local-first apps"
 # Start an isolated worktree directly on any git repo
 cd ~/myproject && jolo tree feature-x
 
-# Jump into a running container (fzf picker)
+# Jump into a running container (MRU-sorted fzf picker)
 jolo attach
 
 # Clean up orphaned/stopped containers and images
@@ -61,10 +63,10 @@ jolo delete myapp
 #+begin_example
 jolo.py                  # the CLI launcher
 _jolo/                   # CLI logic package
-container/               # scripts baked into the image (wt, browser-check, motd)
-templates/               # scaffolds for new projects
-openspec/                # structured change workflow
-docs/                    # research and status notes
+container/               # scripts baked into the image (notify, browser-check, motd)
+templates/               # scaffolds, skills, and agent configs for new projects
+docs/                    # project context, TODO, conventions, research
+logos/                   # project branding
 #+end_example
 
 * License
