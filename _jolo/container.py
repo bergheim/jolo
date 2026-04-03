@@ -23,6 +23,7 @@ def build_devcontainer_json(
     port: int | None = None,
     base_image: str | None = None,
     remote_user: str | None = None,
+    has_web: bool = False,
 ) -> str:
     """Build devcontainer.json content dynamically.
 
@@ -88,6 +89,7 @@ def build_devcontainer_json(
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "PROJECT": project_name,
             "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
+            **({"NOTIFY_APP": "1"} if has_web else {}),
         },
     }
 
