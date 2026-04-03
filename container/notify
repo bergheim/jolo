@@ -12,6 +12,7 @@
 #   NTFY_TOPIC   — notification topic (default: jolo)
 #   PROJECT      — project name (default: unknown)
 #   AGENT        — agent name (default: unknown)
+#   NOTIFY_PATH  — app-relative path for dev URL (e.g. /article/123)
 
 set -e
 
@@ -105,15 +106,30 @@ if command -v git >/dev/null 2>&1; then
     fi
 fi
 CLICK_HEADER=""
-ACTIONS_HEADER=""
-if [ -n "$COMMIT_URL" ]; then
-    CLICK_HEADER="Click: ${COMMIT_URL}"
-    ACTIONS_HEADER="Actions: view, Open commit, ${COMMIT_URL}"
-elif [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
-    DEV_URL="http://${DEV_HOST}:${PORT}"
+ACTIONS=""
+
+# Button 1: dev app URL (with optional path)
+if [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
+    DEV_URL="http://${DEV_HOST}:${PORT}${NOTIFY_PATH:-}"
     CLICK_HEADER="Click: ${DEV_URL}"
-    ACTIONS_HEADER="Actions: copy, Copy URL, ${DEV_URL}, clear=true"
+    ACTIONS="view, Open app, ${DEV_URL}"
 fi
+
+# Button 2: PR if on a branch, otherwise commit
+PR_URL=""
+if command -v gh >/dev/null 2>&1; then
+    PR_URL=$(gh pr view --json url -q .url 2>/dev/null || true)
+fi
+if [ -n "$PR_URL" ]; then
+    [ -z "$CLICK_HEADER" ] && CLICK_HEADER="Click: ${PR_URL}"
+    ACTIONS="${ACTIONS:+${ACTIONS}; }view, View PR, ${PR_URL}"
+elif [ -n "$COMMIT_URL" ]; then
+    [ -z "$CLICK_HEADER" ] && CLICK_HEADER="Click: ${COMMIT_URL}"
+    ACTIONS="${ACTIONS:+${ACTIONS}; }view, View commit, ${COMMIT_URL}"
+fi
+
+ACTIONS_HEADER=""
+[ -n "$ACTIONS" ] && ACTIONS_HEADER="Actions: ${ACTIONS}"
 
 # Fire and forget — don't let notification failure affect the agent
 curl -sf --max-time 5 \
