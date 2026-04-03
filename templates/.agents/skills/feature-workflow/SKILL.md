@@ -20,6 +20,7 @@ Ask 2–4 short questions if the task has unclear scope or risk.
 
 ## Workflow
 
+1. Check `docs/TODO.org` — if this task is listed, work from that item
 1. Create a feature branch named for the task
 1. If feasible, start with a failing test (TDD)
 1. Implement in small increments and commit often
@@ -28,6 +29,7 @@ Ask 2–4 short questions if the task has unclear scope or risk.
 1. Apply fixes and commit
 1. Get a second external agent review - again, ask for the highest reasoning model
 1. Apply fixes, commit, and optionally open a PR
+1. Mark the TODO.org item `DONE` if applicable
 
 ## Branching
 

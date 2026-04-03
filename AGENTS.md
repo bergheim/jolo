@@ -62,7 +62,14 @@ Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and not
 
 ## Task Tracking
 
-All tasks, plans, and TODOs go in `docs/TODO.org` (org-mode format). Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties). Always check `docs/TODO.org` for existing tasks before starting work, and update it as tasks are completed or new ones are identified.
+`docs/TODO.org` is the active work log, not a reference document. Treat it as the single source of truth for what needs doing.
+
+- **Before starting work**: check TODO.org for existing tasks — don't duplicate effort
+- **When you complete a task**: mark it `DONE` immediately, not at the end of the session
+- **When you discover new work**: add it as a `TODO` heading right away
+- **When a task is no longer relevant**: remove or mark it `DONE` with a note
+
+Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties).
 
 ## Project Memory
 

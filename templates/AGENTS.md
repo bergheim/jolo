@@ -36,6 +36,17 @@ Shared, non-reproducible resources across projects go in the stash: host `~/stas
 
 `scratch/` is a gitignored directory for experiments, generated assets, and throwaway work. Do not treat its contents as project code.
 
+## Task Tracking
+
+`docs/TODO.org` is the active work log, not a reference document. Treat it as the single source of truth for what needs doing.
+
+- **Before starting work**: check TODO.org for existing tasks — don't duplicate effort
+- **When you complete a task**: mark it `DONE` immediately, not at the end of the session
+- **When you discover new work**: add it as a `TODO` heading right away
+- **When a task is no longer relevant**: remove or mark it `DONE` with a note
+
+Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties).
+
 ## Emacs
 
 Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to query state, check modes, read variables, or run diagnostics — never ask the user to run `M-x` or `M-:` manually.
