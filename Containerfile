@@ -81,6 +81,7 @@ RUN apk update && apk add --no-cache \
     zoxide \
     zsh \
     gopls \
+    postgresql-client \
     # Tools that were manually installed in Wolfi
     ansible-lint \
     mise \
