@@ -44,7 +44,9 @@ Work autonomously while the user is away. Create multiple feature branches seque
 
    e. Commit with a clear message describing what and why.
 
-   f. Go back to the base branch before starting the next one:
+   f. If this completes a TODO.org item, mark it `DONE`.
+
+   g. Go back to the base branch before starting the next one:
       ```bash
       git checkout <from>
       ```
