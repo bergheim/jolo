@@ -14,7 +14,7 @@ Audit project documentation against the actual codebase and fix drift.
 Find the most recent modification time across doc files, then get commits since:
 
 ```bash
-last_update=$(stat -c %Y docs/MEMORY.org docs/TODO.org docs/RESEARCH.org AGENTS.md 2>/dev/null | sort -rn | head -1)
+last_update=$(stat -c %Y docs/PROJECT.org docs/MEMORY.org docs/TODO.org docs/RESEARCH.org AGENTS.md 2>/dev/null | sort -rn | head -1)
 git log --since="@${last_update}" --oneline
 ```
 
@@ -29,6 +29,11 @@ git diff "@{$(date -d @${last_update} '+%Y-%m-%d')}"..HEAD --stat
 ### 2. Reconcile each doc
 
 For each file, check whether the content matches reality:
+
+**`docs/PROJECT.org`**:
+- Does the architecture description match the current codebase?
+- Are key decisions still accurate?
+- Have new architectural choices been made that aren't captured?
 
 **`AGENTS.md` / `CLAUDE.md`**:
 - Do command examples still work? (check function signatures, CLI flags)

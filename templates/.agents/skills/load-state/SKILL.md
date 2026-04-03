@@ -14,6 +14,7 @@ to pick up where previous sessions left off.
 
 Read these files (skip any that don't exist):
 
+- `docs/PROJECT.org` — project context, architecture, key decisions
 - `docs/MEMORY.org` — conventions, patterns, gotchas
 - `docs/TODO.org` — current tasks and priorities
 - `docs/RESEARCH.org` — only the last 3 top-level headings (recent investigations)

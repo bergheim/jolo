@@ -1,0 +1,68 @@
+#+TITLE: Project
+#+STARTUP: overview
+
+* What This Is
+
+A containerized Emacs GUI development environment on Alpine Linux, designed for
+AI-assisted development. The container includes multiple AI coding agents (Claude,
+Gemini, Codex, Pi) pre-configured in autonomous mode, running in a tmux session.
+
+The project produces:
+- A container image (=emacs-gui=) with all dev tools pre-installed
+- =jolo= CLI for launching devcontainers with git worktree support
+- Templates for scaffolding new projects inside devcontainers
+
+* Who It's For
+
+A single developer (tsb) working across multiple projects simultaneously, using
+AI agents as collaborative coding partners. The setup prioritizes:
+- Fast context switching between projects (worktrees, MRU attach)
+- Isolation between projects (rootless Podman, per-project credentials)
+- Shared tooling and configuration across all projects (templates, skills)
+
+* Architecture
+
+** Container Stack
+- Alpine Linux (musl) — small image, good package coverage
+- Emacs with pgtk + native-comp — GUI via Wayland, terminal via emacsclient
+- Tmux with tmuxinator — 7-window layout (emacs, claude, codex, gemini, pi, dev, shell)
+- Playwright with system Chromium — browser automation
+
+** jolo CLI
+Python CLI split into =jolo.py= + =_jolo/= package. Manages the full lifecycle:
+create, up, down, attach, tree (worktrees), spawn (parallel agents), destroy, prune.
+
+** Templates
+=templates/= directory scaffolds new projects with:
+- =.devcontainer/devcontainer.json= — container config with agent credentials
+- =AGENTS.md= / =CLAUDE.md= — agent instructions
+- =.pre-commit-config.yaml= — language-appropriate linting
+- Skills (=.agents/skills/=) — reusable agent workflows
+- Language-specific scaffolds (Go, Python, TypeScript, Rust, Elixir)
+
+** Credential Flow
+Secrets loaded from =pass= or env vars on the host, copied/mounted into
+=.devcontainer/= at launch. Each agent gets isolated config. Claude credentials
+mounted RW (token refresh). GPG agent socket forwarded, private keys never enter
+the container.
+
+* Key Decisions
+
+- *Alpine over Debian/Ubuntu*: smaller image, comprehensive packages. Tradeoff:
+  musl compatibility issues with some binaries (rusty_v8, node-pty).
+- *Copy credentials, don't mount*: prevents cross-project contamination. Exception:
+  Claude =.credentials.json= mounted RW for token refresh.
+- *No X11*: Wayland only (per-surface isolation). X11 would allow keylogging across
+  containers.
+- *Pre-commit everywhere*: catches issues before commit, especially important with
+  AI-generated code.
+- *Org-mode for docs*: this is an Emacs project — use Emacs tools.
+- *Skills over custom code*: agent behaviors defined as markdown skill files, not
+  baked into jolo. Easy to iterate without rebuilding.
+
+* Direction
+
+- Multi-agent orchestration: agents working in parallel on worktrees
+- Ollama integration for local model access (server on berghome)
+- Better observability: egress monitoring, agent output review
+- Scoped credentials: per-project GitHub tokens instead of broad =GH_TOKEN=

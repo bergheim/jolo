@@ -73,14 +73,16 @@ Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, check
 
 ## Project Memory
 
-Shared knowledge lives in `docs/MEMORY.org` — all agents read and write this file.
+Shared knowledge lives in `docs/` — all agents read and write these files.
 
 | File | Purpose |
 |------|---------|
-| `docs/MEMORY.org` | Shared conventions, patterns, gotchas — read on session start |
-| `docs/TODO.org` | Actionable tasks |
+| `docs/PROJECT.org` | Project context, architecture, key decisions |
+| `docs/MEMORY.org` | Shared conventions, patterns, gotchas |
+| `docs/TODO.org` | Actionable work items |
+| `docs/RESEARCH.org` | Deep investigations and findings |
 
-**On session start:** Read `docs/MEMORY.org` and `docs/TODO.org` for cross-agent knowledge and current tasks.
+**On session start:** Read `docs/PROJECT.org`, `docs/MEMORY.org` and `docs/TODO.org` for project context and current tasks.
 
 **On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:jolo:tmux:`).
 

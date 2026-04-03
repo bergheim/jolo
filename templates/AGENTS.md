@@ -16,11 +16,14 @@ Shared knowledge lives in org-mode files under `docs/` that all agents read and 
 
 | File | Purpose | Content |
 |------|---------|---------|
+| `docs/PROJECT.org` | Project context | Why it exists, who it's for, architecture, key decisions |
 | `docs/MEMORY.org` | Shared memory | Conventions, patterns, gotchas — tag with keywords |
-| `docs/TODO.org` | Tasks and plans | Actionable items: `TODO`/`DONE` headings |
+| `docs/TODO.org` | Work items | Actionable items: `TODO`/`DONE` headings |
 | `docs/RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
 
-**On session start:** Read `docs/MEMORY.org` and `docs/TODO.org` to pick up where others left off.
+**Before any implementation:** If `docs/PROJECT.org` doesn't exist, do not start coding. First discuss with the user: what is this project, who is it for, what are the key constraints and architectural decisions? Write the answers to `docs/PROJECT.org` before proceeding.
+
+**On session start:** Read `docs/PROJECT.org`, `docs/MEMORY.org` and `docs/TODO.org` to pick up where others left off.
 
 **On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:auth:perf:`).
 
