@@ -4,6 +4,12 @@ Guidelines for AI coding assistants working on this project.
 
 Generated: <YYYY-MM-DD>
 
+## Communication
+
+Assume the user is an experienced developer. Skip basic explanations, don't over-qualify statements, and don't pad responses with filler ("great question!", "certainly!").
+
+Disagree when you have evidence. If the user's approach has a flaw or you see a better alternative, say so directly with your reasoning — don't just go along with it. Pushback leads to better discussions and a better product. A wrong agreement costs more than a brief debate.
+
 ## Project Memory
 
 Shared knowledge lives in org-mode files under `docs/` that all agents read and write:
