@@ -11,7 +11,15 @@ Persist what you've learned this session so it survives context loss and is avai
 
 ### 1. Shared project state (for all agents)
 
-**`RESEARCH.org`** — findings, investigations, technical knowledge:
+Everything about the project goes in `docs/` — this is the shared knowledge base that all agents read.
+
+**`docs/MEMORY.org`** — conventions, patterns, gotchas:
+
+- Add new patterns, conventions, or gotchas discovered this session
+- Tag with relevant keywords (e.g., `:musl:auth:perf:`)
+- Remove or update entries that are no longer true
+
+**`docs/RESEARCH.org`** — findings, investigations, technical knowledge:
 
 - Create the file if it doesn't exist (use the template below)
 - Add a new top-level heading with a descriptive title
@@ -47,7 +55,7 @@ This bypasses node-pty and uses ~child_process~ fallback.
 - https://github.com/google-gemini/gemini-cli/issues/14087
 ```
 
-**`TODO.org`** — tasks, plans, action items:
+**`docs/TODO.org`** — tasks, plans, action items:
 
 - Add new tasks discovered during the session as `TODO` headings
 - Mark completed tasks as `DONE`
@@ -55,17 +63,16 @@ This bypasses node-pty and uses ~child_process~ fallback.
 
 ### 2. Agent-private memory (for you only)
 
-Write learnings specific to YOUR workflow to your own memory system:
+Only put things here that are specific to YOUR workflow — mistake patterns, personal preferences, agent-specific quirks. Everything about the project itself goes in `docs/`.
 
-- **Claude**: Write to your auto-memory `MEMORY.md` file
-- **Gemini**: Note in your session context (no persistent memory available)
-- **Codex**: Note in your session context (no persistent memory available)
-
-Focus on: mistake patterns, things that worked/failed, codebase quirks, user preferences.
+- **Claude**: `.claude/MEMORY.md`
+- **Gemini**: `.gemini/MEMORY.md`
+- **Codex**: `.codex/MEMORY.md`
+- **Pi**: `.pi/MEMORY.md`
 
 ### 3. Commit
 
-Always `git commit` the changes to RESEARCH.org and TODO.org without waiting for the user to ask. Use a short commit message like "save-state: <brief summary>".
+Always `git commit` the changes to docs/ without waiting for the user to ask. Use a short commit message like "save-state: <brief summary>".
 
 ### 4. Summary
 
@@ -73,7 +80,7 @@ After saving and committing, print a brief summary of what was written and where
 
 ## Rules
 
-- **Org-mode format only** for TODO.org and RESEARCH.org
+- **Org-mode format only** for TODO.org, MEMORY.org, and RESEARCH.org
 - **Append, don't overwrite** — add new headings, don't replace existing content
 - **Be concise** — future-you reads this months later; key facts only, no filler
 - **Tag generously** — tags make org-mode search useful
