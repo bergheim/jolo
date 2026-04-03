@@ -614,11 +614,12 @@ def scaffold_devcontainer(
         config = constants.DEFAULT_CONFIG
 
     devcontainer_dir = target_dir / ".devcontainer"
+    devcontainer_json = devcontainer_dir / "devcontainer.json"
 
-    if devcontainer_dir.exists():
+    if devcontainer_json.exists():
         return False
 
-    devcontainer_dir.mkdir(parents=True)
+    devcontainer_dir.mkdir(parents=True, exist_ok=True)
 
     # Write devcontainer.json (dynamically built based on environment)
     json_content = build_devcontainer_json(
