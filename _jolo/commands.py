@@ -1210,7 +1210,12 @@ def run_create_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: Failed to initialize git repository")
 
     # Scaffold .devcontainer
-    scaffold_devcontainer(project_name, project_path, config=config)
+    scaffold_devcontainer(
+        project_name,
+        project_path,
+        config=config,
+        has_web="web" in primary_flavor,
+    )
 
     # Format code before initial commit to avoid "format on save" noise
     lang = constants.FLAVOR_LANGUAGE.get(primary_flavor, primary_flavor)

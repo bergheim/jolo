@@ -601,6 +601,7 @@ def scaffold_devcontainer(
     target_dir: Path | None = None,
     config: dict | None = None,
     port: int | None = None,
+    has_web: bool = False,
 ) -> bool:
     """Create .devcontainer directory with templates.
 
@@ -625,6 +626,7 @@ def scaffold_devcontainer(
         port=port,
         base_image=config["base_image"],
         remote_user=os.environ.get("USER", "dev"),
+        has_web=has_web,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
@@ -641,7 +643,7 @@ def sync_devcontainer(
 
     Unlike scaffold_devcontainer, this always writes the files even if
     .devcontainer already exists. Preserves the existing port assignment
-    unless a new one is explicitly provided.
+    and NOTIFY_APP unless a new one is explicitly provided.
     """
     if target_dir is None:
         target_dir = Path.cwd()
@@ -652,6 +654,16 @@ def sync_devcontainer(
     if port is None:
         port = read_port_from_devcontainer(target_dir)
 
+    # Preserve existing NOTIFY_APP setting
+    has_web = False
+    devcontainer_json = target_dir / ".devcontainer" / "devcontainer.json"
+    if devcontainer_json.exists():
+        try:
+            existing = json.loads(devcontainer_json.read_text())
+            has_web = existing.get("containerEnv", {}).get("NOTIFY_APP") == "1"
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     devcontainer_dir = target_dir / ".devcontainer"
     devcontainer_dir.mkdir(parents=True, exist_ok=True)
 
@@ -661,6 +673,7 @@ def sync_devcontainer(
         port=port,
         base_image=config["base_image"],
         remote_user=os.environ.get("USER", "dev"),
+        has_web=has_web,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 

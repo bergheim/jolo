@@ -13,6 +13,7 @@
 #   NTFY_TOPIC   — notification topic (default: jolo)
 #   PROJECT      — project name (default: unknown)
 #   AGENT        — agent name (default: unknown)
+#   NOTIFY_APP   — set to 1 to enable "Open app" button (web projects)
 #   NOTIFY_PATH  — app-relative path for dev URL (e.g. /article/123)
 
 set -e
@@ -115,8 +116,8 @@ fi
 CLICK_HEADER=""
 ACTIONS=""
 
-# Button 1: dev app URL (with optional path)
-if [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
+# Button 1: dev app URL (only for web projects with NOTIFY_APP=1)
+if [ -n "${NOTIFY_APP:-}" ] && [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
     DEV_URL="http://${DEV_HOST}:${PORT}${NOTIFY_PATH:-}"
     CLICK_HEADER="Click: ${DEV_URL}"
     ACTIONS="view, Open app, ${DEV_URL}"
