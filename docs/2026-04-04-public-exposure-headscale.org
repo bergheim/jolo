@@ -1,0 +1,67 @@
+#+TITLE: Exposing services publicly on a self-hosted Headscale network
+#+DATE: 2026-04-04
+#+PROPERTY: PROMPT how one can easily expose something publicly, like our devcontainers, on a tailscale internal network running self hosted headscale
+
+* Summary
+- Headscale does NOT support Tailscale Funnel/Serve — the feature is [[https://github.com/juanfont/headscale/issues/1921][open with 62+ upvotes]] but stalled on ACME/DNS architecture decisions (milestone v0.34.0, no ETA)
+- The simplest fully self-hosted option is *Pangolin* — a tunneled reverse proxy with WireGuard, Traefik, auto-SSL, and a dashboard UI (19k GitHub stars, AGPL-3.0)
+- For zero-setup, *Cloudflare Tunnel* (free tier, no bandwidth caps) works but requires Cloudflare DNS and does not support UDP or WebSocket POSTs (breaks Headscale itself)
+- Lightweight alternatives: *frp*, *chisel*, *SirTunnel* (Caddy + SSH), *bore* — all self-hosted, all support HTTPS
+- The pragmatic pattern for our devcontainers: run a small reverse proxy on a public VPS node already on the tailnet, proxy traffic to the container's tailscale IP
+
+* Findings
+
+** Headscale Funnel status
+- Funnel lets Tailscale users expose services to the public internet with auto-HTTPS — but it requires Tailscale's coordination servers for ACME cert issuance
+- Headscale [[https://github.com/juanfont/headscale/issues/1921][issue #1921]]: the blocker is DNS-01 ACME challenges — headscale would need to manage DNS records via a provider (Cloudflare, Route53, etc.) or host its own authoritative DNS
+- No implementation exists; discussion is active but no PRs merged
+- Workaround mentioned: use =tailscale serve= with TLS-terminated TCP, but this still requires a Tailscale account for the ACME bits — [[https://tailscale.com/blog/headscale-funnel][defeats the purpose]]
+
+** Pangolin (recommended self-hosted option)
+- [[https://github.com/fosrl/pangolin][github.com/fosrl/pangolin]] — 19k stars, actively maintained
+- Architecture: *Traefik* (reverse proxy) + *Gerbil* (WireGuard management) + *Newt* (userspace WireGuard client, no root needed)
+- Run Pangolin on a public VPS with a domain → run =newt= on your internal machine → traffic flows through WireGuard tunnel → Traefik terminates TLS with auto Let's Encrypt
+- Has a web dashboard for managing tunnels, identity-aware access control
+- Dual-licensed: AGPL-3.0 (free for personal use / businesses <$100K), commercial license available
+- Setup: installer script generates Docker Compose config, ~15 min for someone comfortable with DNS/VPS ([[https://leewc.com/articles/self-hosted-cloudflared-tailscale-alternative-pangolin/][detailed walkthrough]])
+
+** Cloudflare Tunnel (easiest, not fully self-hosted)
+- Free tier: no bandwidth caps, auto-HTTPS, DDoS protection, CDN
+- Requires domain managed by Cloudflare DNS
+- Does NOT support UDP or WebSocket POSTs — this means it *cannot proxy Headscale itself* and may have issues with WebSocket-heavy dev servers
+- Good for HTTP-only services where you don't mind Cloudflare seeing traffic
+- 10+ min setup, runs =cloudflared= daemon on your machine
+
+** Lightweight self-hosted alternatives
+- *frp* ([[https://github.com/fatedier/frp][github]]) — fast reverse proxy, supports TCP/UDP/HTTP/HTTPS, P2P mode, QUIC/KCP multiplexing. Most feature-complete OSS option
+- *chisel* ([[https://github.com/jpillora/chisel][github]]) — SSH-based, auto Let's Encrypt, single Go binary. Very simple for one-off tunnels
+- *SirTunnel* ([[https://github.com/anderspitman/SirTunnel][github]]) — minimal: just Caddy + OpenSSH, zero custom code. Good if you already run Caddy
+- *bore* ([[https://github.com/ekzhang/bore][github]]) — minimal TCP tunnel, Rust, single binary. No HTTPS built-in but trivially paired with a reverse proxy
+
+** The pragmatic approach for our setup
+Since we already run Headscale on a VPS with a public IP:
+1. Add an nginx/Caddy reverse proxy on that same VPS (or any tailnet node with a public IP)
+2. Proxy =devcontainer.yourdomain.com= → =100.x.y.z:$PORT= (the container's tailscale IP)
+3. Let's Encrypt handles certs automatically
+4. No new tools needed — just DNS + reverse proxy config
+5. For multiple containers: wildcard cert + dynamic subdomains (=*.dev.yourdomain.com=) or path-based routing
+
+This avoids adding another tunneling layer on top of WireGuard — the tailnet already provides the secure transport.
+
+* Links
+- [[https://github.com/juanfont/headscale/issues/1921][Headscale #1921 — Tailscale serve/funnel support]]
+- [[https://github.com/fosrl/pangolin][Pangolin — self-hosted tunneled reverse proxy]]
+- [[https://leewc.com/articles/self-hosted-cloudflared-tailscale-alternative-pangolin/][Pangolin walkthrough (leewc)]]
+- [[https://github.com/anderspitman/awesome-tunneling][awesome-tunneling — comprehensive list of tunneling tools]]
+- [[https://tailscale.com/blog/headscale-funnel][Tailscale blog — Using Funnel with Headscale (April Fools experiment)]]
+- [[https://dev.to/mechcloud_academy/cloudflare-tunnel-vs-ngrok-vs-tailscale-choosing-the-right-secure-tunneling-solution-4inm][Cloudflare Tunnel vs ngrok vs Tailscale comparison]]
+- [[https://www.lucasjanin.com/2025/01/03/headscale-tailscale-in-a-self-hosted-environment/][Headscale & Tailscale in a self-hosted environment (Lucas Janin)]]
+- [[https://headscale.net/stable/ref/integration/reverse-proxy/][Headscale reverse proxy docs]]
+- [[https://github.com/fatedier/frp][frp — fast reverse proxy]]
+- [[https://github.com/jpillora/chisel][chisel — SSH-based tunnel]]
+
+* Open Questions
+- Does our Headscale VPS already run a reverse proxy we could extend?
+- Do we need UDP (e.g. for WebRTC/live reload), or is HTTP/WebSocket sufficient for devcontainer exposure?
+- Wildcard DNS (=*.dev.domain.com=) vs per-project subdomains — which fits the jolo workflow better?
+- Should =jolo up= auto-register a DNS record when exposing publicly, or keep it manual?
