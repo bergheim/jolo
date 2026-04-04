@@ -39,3 +39,60 @@ Batch startup succeeds without the previous cascading errors when forcing
 ** Notes
 This failure mode can masquerade as a ~general.el~ issue, but root cause is
 loss of Elpaca default package ensuring.
+
+* Ollama vs llama.cpp inference overhead                                :ollama:llama-cpp:gpu:benchmarks:
+:PROPERTIES:
+:DATE: 2026-04-04
+:PROMPT: ollama vs llama.cpp inference overhead benchmarks 2025 - is there actual measured tokens/sec difference once model is loaded?
+:END:
+
+** Summary
+- Go HTTP layer overhead is trivial (~microseconds per token). NOT the bottleneck.
+- Well-controlled single-user benchmarks show ~8-13% overhead for token generation, shrinking to ~5% when context size settings are matched.
+- Main culprits: default context size divergence (Ollama defaults larger) and Ollama's new native engine being slower than llama.cpp for some architectures.
+- Ollama collapses under concurrency (5 concurrent: 8 t/s vs llama.cpp 25 t/s on RTX 4090).
+- For single-user interactive use, the difference is imperceptible (26 vs 28 t/s).
+- Set ~OLLAMA_LLAMA_CPP=1~ to force llama.cpp backend if Ollama's native engine is slow on your model.
+
+** The Go HTTP layer is NOT the bottleneck
+Serializing JSON through Go adds ~0.1-0.5ms per token. At 30 t/s each token takes ~33ms — HTTP overhead is noise. Real gaps come from:
+1. Default context size (Ollama defaults 2048-8192, llama.cpp defaults 512)
+2. Ollama's native engine reimplementing model architectures slower than llama.cpp
+3. Ollama's request scheduler degrading under concurrency
+
+** Benchmark: RTX 4090, LLaMA 3.1 8B Q4_K_M ([[https://ventusserver.com/vs-ollama-inference-speed/][Ventus Servers]])
+- Single request: llama.cpp 28.4 t/s vs Ollama 26.1 t/s (*~8%*)
+- 5 concurrent: llama.cpp 25.2 t/s vs Ollama 8.3 t/s (Ollama collapses)
+- Caveat: context sizes differed (32k vs 11k)
+
+** Benchmark: Apple Silicon, Qwen 3.5 9B Q4_K_M ([[https://docs.bswen.com/blog/2026-03-15-llamacpp-faster-than-lmstudio-ollama/][BSWEN]])
+- Mismatched defaults: llama.cpp 4.6 t/s vs Ollama 3.6 t/s
+- Matched settings (ctx=4096, FA on): llama.cpp 4.2 t/s vs Ollama 3.6 t/s (*~14%*)
+- Root cause: context size divergence dominates
+
+** Benchmark: Raspberry Pi 5, TinyLlama 1.1B Q4_0 ([[https://medium.com/@omkar121212/ollama-vs-llama-cpp-on-raspberry-pi-5-8e7fbeb310de][Medium]])
+- Token gen: llama.cpp 14.4 t/s vs Ollama 13.75 t/s (*~4.5%*)
+- Prompt eval: llama.cpp 108.1 t/s vs Ollama 80.34 t/s (~26% — prompt processing overhead larger)
+
+** Benchmark: M4 Pro 64GB, DeepSeek V3 Q4_K_M ([[https://macgpu.com/en/blog/2026-mac-inference-framework-vllm-mlx-ollama-llamacpp-benchmark.html][macgpu.com]])
+- Single user: Ollama 58 t/s vs llama.cpp 52 t/s (*Ollama 12% FASTER*)
+- Caveat: Ollama v0.8+ may use MLX backend on Apple Silicon — different inference path
+
+** Ollama's native engine problem (the REAL issue)
+Ollama has been building its own inference engine reimplementing model architectures.
+For some models this is dramatically slower:
+- Qwen3.5 27B on RTX 3090: Ollama native 12 t/s vs llama.cpp 35-40 t/s ([[https://github.com/ollama/ollama/issues/14579][#14579]])
+- Qwen3.5 35B MoE: Ollama native 89 t/s vs =OLLAMA_LLAMA_CPP=1= 218 t/s — 2.4x gap ([[https://github.com/ollama/ollama/issues/14861][#14861]])
+
+** Links
+- [[https://ventusserver.com/vs-ollama-inference-speed/][Ventus Servers — RTX 4090 benchmark]]
+- [[https://docs.bswen.com/blog/2026-03-15-llamacpp-faster-than-lmstudio-ollama/][BSWEN — Why llama.cpp is faster (context size analysis)]]
+- [[https://medium.com/@omkar121212/ollama-vs-llama-cpp-on-raspberry-pi-5-8e7fbeb310de][Ollama vs llama.cpp on Raspberry Pi 5]]
+- [[https://macgpu.com/en/blog/2026-mac-inference-framework-vllm-mlx-ollama-llamacpp-benchmark.html][macgpu.com — Mac inference framework benchmark 2026]]
+- [[https://github.com/ollama/ollama/issues/14579][Ollama #14579 — Qwen3.5 slower than llama.cpp]]
+- [[https://github.com/ollama/ollama/issues/14861][Ollama #14861 — native engine 2.4x slower]]
+
+** Open Questions
+- Does ~OLLAMA_LLAMA_CPP=1~ work for gemma4:26b specifically?
+- Is the native engine used for Gemma 4 or only newer architectures?
+- What is the actual context size Ollama uses for gemma4:26b by default?
