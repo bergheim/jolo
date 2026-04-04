@@ -188,6 +188,7 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             project_entry = claude_config.setdefault(
                 "projects", {}
             ).setdefault(container_path, {})
+            project_entry["hasTrustDialogAccepted"] = True
             merge_mcp_configs(project_entry, mcp_templates)
 
             claude_json_dst.write_text(json.dumps(claude_config, indent=2))
