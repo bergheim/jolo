@@ -184,6 +184,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             project_name = workspace_dir.name
             container_path = f"/workspaces/{project_name}"
 
+            claude_config["effortCalloutV2Dismissed"] = True
+
             # Inject into the specific project's entry
             project_entry = claude_config.setdefault(
                 "projects", {}
