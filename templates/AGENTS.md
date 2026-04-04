@@ -56,9 +56,13 @@ Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to qu
 
 ## Port Configuration
 
-Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).
+**The port is `$PORT`. It is NOT 4000.** Always use `$PORT` in every command,
+URL, and tool invocation. Never hardcode a port number. Run `echo $PORT` if
+you need the current value.
 
 **Always bind to `0.0.0.0`**, not `localhost` or `127.0.0.1`. Container networking requires it — `localhost` inside the container is not reachable from outside.
+
+**Servers** (bind to `0.0.0.0`):
 
 | Framework | Configuration |
 |-----------|---------------|
@@ -67,6 +71,14 @@ Dev servers must use `$PORT` (default 4000, set dynamically in spawn mode).
 | Flask | `flask run --host 0.0.0.0 --port $PORT` |
 | FastAPI | `uvicorn app:app --host 0.0.0.0 --port $PORT` |
 | Go | `http.ListenAndServe(":"+os.Getenv("PORT"), nil)` |
+
+**Clients** (connect to `localhost`):
+
+| Tool | Command |
+|------|---------|
+| browser-check | `browser-check http://localhost:$PORT ...` |
+| curl | `curl http://localhost:$PORT/healthz` |
+| playwright-cli | `playwright-cli open http://localhost:$PORT` |
 
 ## Development Workflow
 
