@@ -133,6 +133,21 @@ MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
 git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 ```
 
+## Cross-Agent Reviews
+
+When shelling out to another agent CLI for a code review or second opinion, **unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`** so the agent uses its own CLI auth instead of falling back to direct API-key mode.
+
+```bash
+# Correct — uses CLI auth
+echo "$diff" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY claude -p "Review this..."
+env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex review --uncommitted
+
+# Wrong — may use API key billing instead of CLI auth
+echo "$diff" | claude -p "Review this..."
+```
+
+This applies to `claude`, `codex`, and any agent that checks for API keys before falling back to OAuth/CLI credentials.
+
 ## Code Quality
 
 Pre-commit hooks are already installed. They run automatically on `git commit`. If a commit fails, fix the issues and commit again.

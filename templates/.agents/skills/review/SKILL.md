@@ -52,23 +52,25 @@ Prefer the strongest available model for review if the CLI supports model select
 
 ### 4. Run the review
 
-Include test output and the diff. Use non-interactive / print mode for each agent:
+Include test output and the diff. Use non-interactive / print mode for each agent.
+
+**Important:** Unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` when calling `claude` or `codex` so they use their own CLI auth instead of falling back to API-key mode.
 
 ```bash
-# Claude
-echo "$content" | claude -p "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
+# Claude (unset API keys so CLI auth is used)
+echo "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY claude -p "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
 
 # Gemini
 echo "$content" | gemini -p "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
 
 # Codex (has a dedicated review subcommand)
-codex review --uncommitted
+env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex review --uncommitted
 ```
 
 For codex, prefer `codex review --uncommitted` when reviewing the working tree.
 When reviewing specific files, pipe content like the other agents:
 ```bash
-echo "$content" | codex exec "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
+echo "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex exec "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
 ```
 
 ### 5. Present the results

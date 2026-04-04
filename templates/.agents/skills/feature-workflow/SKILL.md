@@ -62,3 +62,4 @@ Ask 2–4 short questions if the task has unclear scope or risk.
 
 - Use the `review` skill for external agent reviews when available.
 - Keep each review prompt terse and focused on bugs/regressions.
+- When calling another agent CLI, unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` so it uses CLI auth (see AGENTS.md "Cross-Agent Reviews").
