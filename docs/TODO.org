@@ -123,8 +123,10 @@
    =--path "$NOTIFY_PATH"= explicitly. Threshold was temporarily set to 1s
    for testing — reset to 20s after verification.
 ** TODO Add ollama integration (OLLAMA_HOST=http://berghome:11434)
-   Ollama runs on berghome with qwen3.5:27b-32k. Pass =OLLAMA_HOST= env
-   to containers. Broader integration scope (gptel, agent window) TBD.
+   Ollama runs on berghome with gemma4:26b + others. Pass =OLLAMA_HOST= env
+   to containers. Research shows ollama overhead is ~5-13% vs raw llama.cpp,
+   acceptable for multi-model switching. Try =OLLAMA_LLAMA_CPP=1= if a
+   model is slow. See =RESEARCH.org= "Ollama vs llama.cpp" for benchmarks.
 ** TODO Get agent-browser working with container Chromium
    [[https://github.com/vercel-labs/agent-browser][agent-browser]] should support custom browser executables via config.
    Latest commits suggest it works, but it doesn't in practice.

@@ -45,6 +45,13 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Each container forwards =WORKTREE_PORTS= (3) extra ports above base for agent-shell worktrees; =replace_port_args()= in =container.py= :jolo:ports:
 - =browser-check= defaults screenshots/PDFs to =scratch/= dir, creates it automatically :browser:automation:
 - =jolo attach= sorts by MRU via =.devcontainer/.last-attach= mtime; touched on every =devcontainer_exec_tmux()= call :jolo:attach:
+- =--sync= and =--new= merged into single =--recreate= flag; aligns with docker compose =--force-recreate= convention :jolo:cli:
+- =jolo a= is alias for =jolo attach=; =jolo a --recreate= syncs config + rebuilds from anywhere via fzf :jolo:cli:
+- Shared helpers: =_fzf_pick()=, =_setup_container_env()=, =_sync_config()=, =_last_attach_mtime()= eliminate duplication across commands :jolo:refactor:
+- =load_config()= accepts =project_dir= param for non-cwd contexts (e.g., =jolo attach --recreate=) :jolo:config:
+- Cross-agent reviews: unset =ANTHROPIC_API_KEY= and =OPENAI_API_KEY= when shelling out to =claude -p= or =codex= so CLI auth is used :workflow:agents:
+- =.claude.json= injection: =hasTrustDialogAccepted= and =effortCalloutV2Dismissed= set during =setup_credential_cache()= :jolo:claude:
+- Codex =config.toml= injection: =trust_level = "trusted"= set for container workspace path during setup :jolo:codex:
 - Custom skills use =jolo:= namespace prefix to avoid collision with third-party skill packs (e.g. superpowers) :skills:workflow:
 - ntfy notifications support up to 3 action buttons (semicolon-separated); current setup: "Open app" (web projects) + "View PR" or "View commit" :ntfy:notifications:
 - =NOTIFY_APP=1= in =containerEnv= gates the "Open app" button; only set for =-web= flavors via =has_web= param :ntfy:jolo:

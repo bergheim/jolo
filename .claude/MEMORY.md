@@ -31,7 +31,7 @@ See `docs/MEMORY.org` for shared project knowledge across all agents.
 ## Session context
 
 - 2026-02-09: Added GH_TOKEN passthrough to devcontainers. The gh config mount alone is insufficient because modern gh uses OS keyring. Solution: `get_secrets()` runs `gh auth token` on host and passes result as env var.
-- Could not push to GitHub from this container because it was started before the GH_TOKEN fix. Needs `jolo up --sync --new` to apply.
+- Could not push to GitHub from this container because it was started before the GH_TOKEN fix. Needs `jolo up --recreate` to apply.
 - 2026-02-09: Fixed `jolo up --new --sync` port conflict — skip port check when `remove_existing=True`. Added reattach notice. Moved motd from .zshrc.container to dev.yml shell window. Merged `sdd` branch (OpenSpec trial, credential RW mount).
 - 2026-02-17: Moved TODO.org and RESEARCH.org to docs/ for consistency with generated projects. Deleted stale docs/STATUS.org.
 - 2026-02-17: Simplified tmux terminal-features to `*:sixel:extkeys` wildcard. Host `~/.tmux.conf` is EROFS in emacs-container — can't edit from here.
@@ -42,3 +42,7 @@ See `docs/MEMORY.org` for shared project knowledge across all agents.
 - 2026-04-03: Skills cleanup — namespaced 13 skills with `jolo:` prefix, deleted 6 unused generic skills (new-worktree, regression-triage, deploy-preview, db-reset, scaffold-api, scaffold-web). Researched superpowers (obra/superpowers) and spec-driven development — SDD is real but heavy; our feature-workflow captures the value with less overhead. Gaps: verification-before-completion, brainstorming, systematic debugging.
 - 2026-04-03: ntfy multi-button notifications — up to 2 action buttons (Open app + View PR/commit). NOTIFY_APP=1 gates app button (web flavors only). NOTIFY_PATH for page-specific URLs. Fixed scaffold_devcontainer race where template hashes created .devcontainer/ before devcontainer.json was written.
 - 2026-04-03: User feedback — don't flail when debugging, use bisect. User had to find the bad commit themselves while I was tracing code paths. Also: always test things yourself (notify, browser) before claiming done.
+- 2026-04-04: Major CLI refactor — merged `--sync`/`--new` into `--recreate`, added `jolo a` alias, extracted shared helpers (_fzf_pick, _setup_container_env, _sync_config, _last_attach_mtime). Fixed cwd bug in _update_container (load_config/sync_devcontainer used cwd instead of selected project). MRU-sorted delete picker. Net -69 lines.
+- 2026-04-04: User pushes back on unsourced claims — "go online" means actually verify with web research, don't fabricate benchmarks. Ollama overhead is real but modest (5-13%), mostly from context size defaults, not Go HTTP layer. Native engine is the real issue for some models (Qwen3.5: 2-3x slower).
+- 2026-04-04: Container trust dialogs fixed — inject hasTrustDialogAccepted + effortCalloutV2Dismissed into .claude.json, trust_level into codex config.toml during setup_credential_cache().
+- 2026-04-04: Cross-agent review convention — unset ANTHROPIC_API_KEY/OPENAI_API_KEY when calling `claude -p` or `codex` from other agents. Documented in templates/AGENTS.md and review/feature-workflow skills.
