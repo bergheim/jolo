@@ -287,6 +287,18 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         )
         codex_config_path.write_text(config)
 
+    # Trust the container workspace
+    if codex_config_path.exists():
+        project_name = workspace_dir.name
+        container_path = f"/workspaces/{project_name}"
+        config = codex_config_path.read_text()
+        section = f'[projects."{container_path}"]'
+        if section not in config:
+            config = (
+                config.rstrip() + f'\n\n{section}\ntrust_level = "trusted"\n'
+            )
+            codex_config_path.write_text(config)
+
     try:
         # We need the aggregated MCP config
         mcp_data = merge_mcp_configs({}, mcp_templates)
