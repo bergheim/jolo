@@ -345,18 +345,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Copy file to workspace before start (repeatable)",
     )
 
-    p_new = argparse.ArgumentParser(add_help=False)
-    p_new.add_argument(
-        "--new",
+    p_recreate = argparse.ArgumentParser(add_help=False)
+    p_recreate.add_argument(
+        "--recreate",
         action="store_true",
-        help="Remove existing container before starting",
-    )
-
-    p_sync = argparse.ArgumentParser(add_help=False)
-    p_sync.add_argument(
-        "--sync",
-        action="store_true",
-        help="Regenerate .devcontainer from template",
+        help="Sync config from template and recreate the container",
     )
 
     p_all = argparse.ArgumentParser(add_help=False)
@@ -393,8 +386,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         from_branch=None,
         prefix=None,
         all=False,
-        new=False,
-        sync=False,
+        recreate=False,
         detach=False,
         shell=False,
         run=None,
@@ -410,7 +402,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     subparsers = parser.add_subparsers(dest="command", prog="jolo")
 
-    # up: prompt, agent, detach, exec, mounts, new, sync, verbose
+    # up: prompt, agent, detach, exec, mounts, recreate, verbose
     subparsers.add_parser(
         "up",
         parents=[
@@ -419,8 +411,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             p_detach,
             p_exec,
             p_mounts,
-            p_new,
-            p_sync,
+            p_recreate,
         ],
         help="Start devcontainer in current project",
     )
@@ -440,7 +431,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Project flavor(s): typescript-web, typescript-bare, go-web, go-bare, python-web, python-bare, rust, shell, prose, other",
     )
 
-    # clone: prompt, agent, detach, exec, mounts, new, sync, verbose
+    # clone: prompt, agent, detach, exec, mounts, recreate, verbose
     sub_clone = subparsers.add_parser(
         "clone",
         parents=[
@@ -449,8 +440,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             p_detach,
             p_exec,
             p_mounts,
-            p_new,
-            p_sync,
+            p_recreate,
         ],
         help="Clone repo and start devcontainer",
     )
@@ -462,7 +452,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Directory name (default: inferred from URL)",
     )
 
-    # tree: prompt, agent, detach, exec, mounts, new, sync, from, verbose
+    # tree: prompt, agent, detach, exec, mounts, recreate, from, verbose
     sub_tree = subparsers.add_parser(
         "tree",
         parents=[
@@ -471,8 +461,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             p_detach,
             p_exec,
             p_mounts,
-            p_new,
-            p_sync,
+            p_recreate,
         ],
         help="Create worktree + devcontainer (random name if omitted)",
     )
@@ -484,10 +473,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Create worktree from specified branch",
     )
 
-    # spawn: prompt, agent, from, prefix, mounts, new, sync, verbose
+    # spawn: prompt, agent, from, prefix, mounts, recreate, verbose
     sub_spawn = subparsers.add_parser(
         "spawn",
-        parents=[p_verbose, p_prompt, p_mounts, p_new, p_sync],
+        parents=[p_verbose, p_prompt, p_mounts, p_recreate],
         help="Create N worktrees in parallel, each with its own agent",
     )
     sub_spawn.add_argument("count", type=int, help="Number of worktrees")
@@ -524,10 +513,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Pre-flight check: runtime, image, ports, tools, API keys",
     )
 
-    # attach: verbose
+    # attach: recreate, verbose
     subparsers.add_parser(
         "attach",
-        parents=[p_verbose],
+        aliases=["a"],
+        parents=[p_verbose, p_recreate],
         help="Pick a running container and attach to it",
     )
 
@@ -536,10 +526,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "down", parents=[p_verbose, p_all], help="Stop the devcontainer"
     )
 
-    # init: prompt, agent, detach, exec, mounts, sync, verbose
+    # init: prompt, agent, detach, exec, mounts, recreate, verbose
     subparsers.add_parser(
         "init",
-        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_sync],
+        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_recreate],
         help="Initialize git + devcontainer in current directory",
     )
 

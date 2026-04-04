@@ -555,7 +555,8 @@ class TestResearchDeep(unittest.TestCase):
 
     @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
-    @mock.patch("_jolo.commands._setup_research_container")
+    @mock.patch("_jolo.commands.is_container_running", return_value=True)
+    @mock.patch("_jolo.commands._setup_container_env")
     @mock.patch("_jolo.commands.ensure_research_repo")
     @mock.patch("_jolo.commands.load_config")
     def test_deep_launches_compound_command(
@@ -563,6 +564,7 @@ class TestResearchDeep(unittest.TestCase):
         mock_config,
         mock_ensure,
         mock_setup,
+        mock_running,
         mock_exec,
         mock_dt,
     ):
@@ -589,7 +591,8 @@ class TestResearchDeep(unittest.TestCase):
 
     @mock.patch("datetime.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
-    @mock.patch("_jolo.commands._setup_research_container")
+    @mock.patch("_jolo.commands.is_container_running", return_value=True)
+    @mock.patch("_jolo.commands._setup_container_env")
     @mock.patch("_jolo.commands.ensure_research_repo")
     @mock.patch("_jolo.commands.load_config")
     def test_deep_uses_claude_and_codex(
@@ -597,6 +600,7 @@ class TestResearchDeep(unittest.TestCase):
         mock_config,
         mock_ensure,
         mock_setup,
+        mock_running,
         mock_exec,
         mock_dt,
     ):

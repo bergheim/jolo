@@ -404,7 +404,7 @@ class TestDeleteInteractivePicker(unittest.TestCase):
             ]
             with mock.patch.object(Path, "exists", return_value=True):
                 # fzf returns the worktree label (second item)
-                wt_label = f"  {'feat':<22} (feat) [def456]"
+                wt_label = f"  {'project / feat':<22} [def456]"
                 fzf_result = mock.Mock(returncode=0, stdout=wt_label + "\n")
                 mock_input.return_value = "y"
                 mock_stop.return_value = True

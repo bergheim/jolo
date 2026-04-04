@@ -171,9 +171,9 @@ RUN pnpm add -g \
 
 RUN cargo install bacon --locked --root $HOME/.local
 
-# build alpine support for codex-acp
-RUN git clone --depth 1 https://github.com/zed-industries/codex-acp.git /tmp/codex-acp && \
-      (cd /tmp/codex-acp && cargo build --release) && \
+# build alpine support for codex-acp (pinned — newer v8 has no musl prebuilts)
+RUN git clone https://github.com/zed-industries/codex-acp.git /tmp/codex-acp && \
+      (cd /tmp/codex-acp && git checkout 678a99ec && cargo build --release) && \
       install -Dm755 /tmp/codex-acp/target/release/codex-acp "$PNPM_HOME/codex-acp" && \
       rm -rf /tmp/codex-acp
 
