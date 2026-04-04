@@ -20,7 +20,7 @@ class TestArgumentParsing(unittest.TestCase):
         """No arguments should result in default mode."""
         args = jolo.parse_args([])
         self.assertIsNone(args.command)
-        self.assertFalse(args.new)
+        self.assertFalse(args.recreate)
 
     def test_help_flag(self):
         """--help should exit with usage info."""
@@ -66,27 +66,21 @@ class TestArgumentParsing(unittest.TestCase):
         self.assertEqual(args.command, "clone")
         self.assertEqual(args.name, "target")
 
-    def test_new_flag(self):
-        """--new should set new to True."""
-        args = jolo.parse_args(["up", "--new"])
-        self.assertTrue(args.new)
+    def test_recreate_flag(self):
+        """--recreate should set recreate to True."""
+        args = jolo.parse_args(["up", "--recreate"])
+        self.assertTrue(args.recreate)
 
-    def test_new_with_tree(self):
-        """--new can combine with tree."""
-        args = jolo.parse_args(["tree", "test", "--new"])
-        self.assertTrue(args.new)
+    def test_recreate_with_tree(self):
+        """--recreate can combine with tree."""
+        args = jolo.parse_args(["tree", "test", "--recreate"])
+        self.assertTrue(args.recreate)
         self.assertEqual(args.name, "test")
 
-    def test_sync_flag(self):
-        """--sync should set sync to True."""
-        args = jolo.parse_args(["up", "--sync"])
-        self.assertTrue(args.sync)
-
-    def test_sync_with_tree(self):
-        """--sync can combine with tree."""
-        args = jolo.parse_args(["tree", "test", "--sync"])
-        self.assertTrue(args.sync)
-        self.assertEqual(args.name, "test")
+    def test_recreate_with_attach(self):
+        """--recreate can combine with attach."""
+        args = jolo.parse_args(["attach", "--recreate"])
+        self.assertTrue(args.recreate)
 
 
 class TestGuards(unittest.TestCase):

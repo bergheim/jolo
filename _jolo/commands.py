@@ -134,13 +134,58 @@ def get_agent_name(
     return agents[index % len(agents)]
 
 
-def load_config(global_config_dir: Path | None = None) -> dict:
+def _fzf_pick(header: str, labels: list[str]) -> str | None:
+    """Run fzf picker with the given header and labels, return selected line."""
+    try:
+        result = subprocess.run(
+            [
+                "fzf",
+                "--header",
+                header,
+                "--height",
+                "~10",
+                "--layout",
+                "reverse",
+                "--no-multi",
+            ],
+            input="\n".join(labels),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.rstrip("\n")
+    except KeyboardInterrupt:
+        return None
+
+
+def _sync_config(name: str, path: Path, config: dict, **kwargs: int) -> None:
+    """Sync devcontainer config, skill templates, and template files."""
+    sync_devcontainer(name, target_dir=path, config=config, **kwargs)
+    sync_skill_templates(path)
+    sync_template_files(path)
+
+
+def _setup_container_env(workspace: Path, config: dict) -> None:
+    """Set up secrets, credentials, hooks, and Emacs config for a container."""
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+    setup_credential_cache(workspace)
+    setup_notification_hooks(workspace, config.get("notify_threshold", 60))
+    setup_emacs_config(workspace)
+    setup_stash()
+
+
+def load_config(
+    global_config_dir: Path | None = None,
+    project_dir: Path | None = None,
+) -> dict:
     """Load configuration from TOML files.
 
     Config is loaded in order (later overrides earlier):
     1. Default config
     2. Global config: ~/.config/jolo/config.toml
-    3. Project config: .jolo.toml in current directory
+    3. Project config: .jolo.toml in project_dir (defaults to cwd)
     """
     config = constants.DEFAULT_CONFIG.copy()
 
@@ -155,7 +200,8 @@ def load_config(global_config_dir: Path | None = None) -> dict:
             config.update(global_cfg)
 
     # Load project config
-    project_config_file = Path.cwd() / ".jolo.toml"
+    base = project_dir if project_dir is not None else Path.cwd()
+    project_config_file = base / ".jolo.toml"
     if project_config_file.exists():
         with open(project_config_file, "rb") as f:
             project_cfg = tomllib.load(f)
@@ -213,31 +259,12 @@ def pick_project() -> Path:
     if len(folders) == 1:
         return Path(folders[0])
 
-    # fzf picker
     labels = [f"{Path(f).name:<24} {f}" for f in folders]
-    try:
-        result = subprocess.run(
-            [
-                "fzf",
-                "--header",
-                "Pick a project:",
-                "--height",
-                "~10",
-                "--layout",
-                "reverse",
-                "--no-multi",
-            ],
-            input="\n".join(labels),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            sys.exit(0)
-        selected_line = result.stdout.rstrip("\n")
-        idx = labels.index(selected_line)
-        return Path(folders[idx])
-    except KeyboardInterrupt:
+    selected = _fzf_pick("Pick a project:", labels)
+    if selected is None:
         sys.exit(0)
+    idx = labels.index(selected)
+    return Path(folders[idx])
 
 
 def run_exec_mode(args: argparse.Namespace) -> None:
@@ -324,7 +351,7 @@ def run_port_mode(args: argparse.Namespace) -> None:
         new_port = reassign_port(git_root)
         print(f"Port reassigned to {new_port}")
         if is_container_running(git_root):
-            print("Note: restart container to apply (jolo up --new)")
+            print("Note: restart container to apply (jolo up --recreate)")
         return
 
     if args.port is not None:
@@ -338,7 +365,7 @@ def run_port_mode(args: argparse.Namespace) -> None:
         set_port(git_root, port)
         print(f"Port set to {port}")
         if is_container_running(git_root):
-            print("Note: restart container to apply (jolo up --new)")
+            print("Note: restart container to apply (jolo up --recreate)")
         return
 
     # Show current port + usage
@@ -559,64 +586,70 @@ def run_prune_mode(args: argparse.Namespace) -> None:
                     pass
 
 
-def run_attach_mode(args: argparse.Namespace) -> None:
-    """Run attach mode: pick a running container and attach to it."""
+def _last_attach_mtime(workspace: Path) -> float:
+    """Return mtime of .last-attach marker, or 0 if missing."""
+    try:
+        return (workspace / ".devcontainer" / ".last-attach").stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _pick_container(include_stopped: bool = False) -> Path | None:
+    """Show fzf picker for containers, return workspace path or None."""
     containers = list_all_devcontainers()
-    running = [
+    candidates = [
         (name, folder)
         for name, folder, state, image_id in containers
-        if state == "running" and Path(folder).exists()
+        if (state == "running" or include_stopped) and Path(folder).exists()
     ]
 
-    if not running:
-        sys.exit("No running containers found.")
+    if not candidates:
+        sys.exit(
+            "No containers found."
+            if include_stopped
+            else "No running containers found."
+        )
 
-    if len(running) == 1:
-        _, folder = running[0]
-        devcontainer_exec_tmux(Path(folder))
-        return
+    if len(candidates) == 1:
+        return Path(candidates[0][1])
 
-    # Sort by most recently attached (MRU)
-    def _attach_mtime(item: tuple[str, str]) -> float:
-        marker = Path(item[1]) / ".devcontainer" / ".last-attach"
-        try:
-            return marker.stat().st_mtime
-        except OSError:
-            return 0.0
+    candidates.sort(
+        key=lambda item: _last_attach_mtime(Path(item[1])), reverse=True
+    )
 
-    running.sort(key=_attach_mtime, reverse=True)
-
-    # Build display lines
     labels = []
-    for _, folder in running:
+    for _, folder in candidates:
         label = _format_container_display(folder)
         labels.append(f"{label:<30} {folder}")
 
-    selected_folder = None
-    try:
-        result = subprocess.run(
-            [
-                "fzf",
-                "--header",
-                "Pick a container:",
-                "--height",
-                "~10",
-                "--layout",
-                "reverse",
-                "--no-multi",
-            ],
-            input="\n".join(labels),
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            return
-        selected_folder = result.stdout.strip().split()[-1]
-    except KeyboardInterrupt:
+    selected = _fzf_pick("Pick a container:", labels)
+    if selected is None:
+        return None
+    return Path(selected.strip().split()[-1])
+
+
+def run_attach_mode(args: argparse.Namespace) -> None:
+    """Run attach mode: pick a running container and attach to it."""
+    folder = _pick_container(include_stopped=args.recreate)
+    if not folder:
         return
 
-    if selected_folder:
-        devcontainer_exec_tmux(Path(selected_folder))
+    if args.recreate:
+        _update_container(folder)
+
+    devcontainer_exec_tmux(folder)
+
+
+def _update_container(git_root: Path) -> None:
+    """Sync config, rebuild, and restart a container."""
+    project_name = git_root.name
+    config = load_config(project_dir=git_root)
+
+    _sync_config(project_name, git_root, config)
+    _setup_container_env(git_root, config)
+
+    if not devcontainer_up(git_root, remove_existing=True):
+        sys.exit("Error: Failed to rebuild devcontainer")
 
 
 def run_list_mode(args: argparse.Namespace) -> None:
@@ -903,10 +936,8 @@ def run_up_mode(args: argparse.Namespace) -> None:
     config = load_config()
 
     # Sync or scaffold .devcontainer
-    if args.sync:
-        sync_devcontainer(project_name, config=config)
-        sync_skill_templates(git_root)
-        sync_template_files(git_root)
+    if args.recreate:
+        _sync_config(project_name, git_root, config)
     else:
         scaffold_devcontainer(project_name, config=config)
 
@@ -921,29 +952,20 @@ def run_up_mode(args: argparse.Namespace) -> None:
         parsed_copies = [parse_copy(c, project_name) for c in args.copy]
         copy_user_files(parsed_copies, git_root)
 
-    # Set up secrets in environment
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-
-    # Copy AI credentials for container isolation
-    setup_credential_cache(git_root)
-    setup_notification_hooks(git_root, config.get("notify_threshold", 60))
-
-    # Set up Emacs config (copy config files, symlink packages)
-    setup_emacs_config(git_root)
-    setup_stash()
+    _setup_container_env(git_root, config)
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
         write_prompt_file(git_root, args.agent, args.prompt)
 
-    # Start devcontainer only if not already running (or --new forces restart)
     already_running = is_container_running(git_root)
-    if args.new or not already_running:
-        if not devcontainer_up(git_root, remove_existing=args.new):
+    if args.recreate or not already_running:
+        if not devcontainer_up(git_root, remove_existing=args.recreate):
             sys.exit("Error: Failed to start devcontainer")
     elif already_running:
-        print("Container already running, reattaching. Use --new to rebuild.")
+        print(
+            "Container already running, reattaching. Use --recreate to rebuild."
+        )
 
     _copy_url_to_clipboard(git_root)
 
@@ -994,13 +1016,8 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         from_branch=args.from_branch,
     )
 
-    # Sync .devcontainer if requested
-    if args.sync:
-        sync_devcontainer(
-            worktree_name, target_dir=worktree_path, config=config
-        )
-        sync_skill_templates(worktree_path)
-        sync_template_files(worktree_path)
+    if args.recreate:
+        _sync_config(worktree_name, worktree_path, config)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -1015,25 +1032,14 @@ def run_tree_mode(args: argparse.Namespace) -> None:
         parsed_copies = [parse_copy(c, worktree_name) for c in args.copy]
         copy_user_files(parsed_copies, worktree_path)
 
-    # Set up secrets in environment
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-
-    # Copy AI credentials for container isolation
-    setup_credential_cache(worktree_path)
-    setup_notification_hooks(worktree_path, config.get("notify_threshold", 60))
-
-    # Set up Emacs config (copy config files, symlink packages)
-    setup_emacs_config(worktree_path)
-    setup_stash()
+    _setup_container_env(worktree_path, config)
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
         write_prompt_file(worktree_path, args.agent, args.prompt)
 
-    # Start devcontainer only if not already running (or --new forces restart)
-    if args.new or not is_container_running(worktree_path):
-        if not devcontainer_up(worktree_path, remove_existing=args.new):
+    if args.recreate or not is_container_running(worktree_path):
+        if not devcontainer_up(worktree_path, remove_existing=args.recreate):
             sys.exit("Error: Failed to start devcontainer")
 
     if args.prompt:
@@ -1290,17 +1296,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
         parsed_copies = [parse_copy(c, project_name) for c in args.copy]
         copy_user_files(parsed_copies, project_path)
 
-    # Set up secrets in environment
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-
-    # Copy AI credentials for container isolation
-    setup_credential_cache(project_path)
-    setup_notification_hooks(project_path, config.get("notify_threshold", 60))
-
-    # Set up Emacs config (copy config files, symlink packages)
-    setup_emacs_config(project_path)
-    setup_stash()
+    _setup_container_env(project_path, config)
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
@@ -1391,11 +1387,8 @@ def run_init_mode(args: argparse.Namespace) -> None:
     if result.returncode != 0:
         sys.exit("Error: Failed to initialize git repository")
 
-    # Sync or scaffold .devcontainer
-    if args.sync:
-        sync_devcontainer(project_name, project_path, config=config)
-        sync_skill_templates(project_path)
-        sync_template_files(project_path)
+    if args.recreate:
+        _sync_config(project_name, project_path, config)
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
@@ -1430,16 +1423,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
         parsed_copies = [parse_copy(c, project_name) for c in args.copy]
         copy_user_files(parsed_copies, project_path)
 
-    # Set up secrets in environment
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-
-    # Copy AI credentials for container isolation
-    setup_credential_cache(project_path)
-    setup_notification_hooks(project_path, config.get("notify_threshold", 60))
-
-    # Set up Emacs config (copy config files, symlink packages)
-    setup_emacs_config(project_path)
+    _setup_container_env(project_path, config)
 
     # Write prompt file before starting container so entrypoint picks it up
     if args.prompt:
@@ -1505,6 +1489,10 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
 
     print(f"Spawning {n} worktrees: {', '.join(worktree_names)}")
 
+    # Set up secrets once (get_secrets shells out to pass/gh)
+    secrets = get_secrets(config)
+    os.environ.update(secrets)
+
     # Create worktrees and scaffold devcontainers
     worktree_paths = []
     for i, name in enumerate(worktree_names):
@@ -1520,19 +1508,13 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             from_branch=args.from_branch,
         )
 
-        # Sync .devcontainer if requested
-        if args.sync:
-            sync_devcontainer(
-                name, target_dir=worktree_path, config=config, port=port
-            )
-            sync_skill_templates(worktree_path)
-            sync_template_files(worktree_path)
+        if args.recreate:
+            _sync_config(name, worktree_path, config, port=port)
 
-        # Update devcontainer.json with correct port if not syncing (sync handles it)
         devcontainer_json = (
             worktree_path / ".devcontainer" / "devcontainer.json"
         )
-        if devcontainer_json.exists() and not args.sync:
+        if devcontainer_json.exists() and not args.recreate:
             content = json.loads(devcontainer_json.read_text())
             if "containerEnv" not in content:
                 content["containerEnv"] = {}
@@ -1549,28 +1531,18 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             parsed_copies = [parse_copy(c, name) for c in args.copy]
             copy_user_files(parsed_copies, worktree_path)
 
-        # Set up credentials and emacs config
-        setup_credential_cache(worktree_path)
-        setup_notification_hooks(
-            worktree_path, config.get("notify_threshold", 60)
-        )
-        setup_emacs_config(worktree_path)
-        setup_stash()
+        _setup_container_env(worktree_path, config)
 
         (worktree_path / ".devcontainer" / ".zsh-state").mkdir(exist_ok=True)
 
         worktree_paths.append(worktree_path)
-
-    # Set up secrets in environment
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
 
     # Start containers in parallel
     print(f"Starting {n} containers...")
     processes = []
     for i, path in enumerate(worktree_paths):
         cmd = ["devcontainer", "up", "--workspace-folder", str(path)]
-        if args.new:
+        if args.recreate:
             cmd.append("--remove-existing-container")
         verbose_cmd(cmd)
         proc = subprocess.Popen(
@@ -1796,19 +1768,6 @@ def _build_research_agent_cmd(
     return f"nohup {agent_cmd} -p {quoted_prompt} > {logfile} 2>&1 &"
 
 
-def _setup_research_container(config: dict, research_home: Path) -> None:
-    """Common setup: credentials, hooks, emacs, and ensure container runs."""
-    secrets = get_secrets(config)
-    os.environ.update(secrets)
-    setup_credential_cache(research_home)
-    setup_notification_hooks(research_home, config.get("notify_threshold", 60))
-    setup_emacs_config(research_home)
-
-    if not is_container_running(research_home):
-        if not devcontainer_up(research_home):
-            sys.exit("Error: Failed to start research container")
-
-
 def run_research_mode(args: argparse.Namespace) -> None:
     """Run research in a persistent container at ~/jolo/research/."""
     from datetime import datetime, timezone
@@ -1821,7 +1780,10 @@ def run_research_mode(args: argparse.Namespace) -> None:
     slug = slugify_prompt(prompt)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
 
-    _setup_research_container(config, research_home)
+    _setup_container_env(research_home, config)
+    if not is_container_running(research_home):
+        if not devcontainer_up(research_home):
+            sys.exit("Error: Failed to start research container")
 
     if getattr(args, "deep", False):
         _run_research_deep(config, research_home, prompt, slug, ts)
@@ -1921,7 +1883,7 @@ def _build_delete_picker_items() -> list[dict]:
     """
     containers = list_all_devcontainers()
     seen_roots: set[Path] = set()
-    items: list[dict] = []
+    roots: list[Path] = []
 
     for _, folder, _, _ in containers:
         folder_path = Path(folder)
@@ -1931,24 +1893,29 @@ def _build_delete_picker_items() -> list[dict]:
         if root is None or root in seen_roots:
             continue
         seen_roots.add(root)
+        roots.append(root)
 
-        # Add the main project
+    roots.sort(key=_last_attach_mtime, reverse=True)
+
+    items: list[dict] = []
+    for root in roots:
+        label = _format_container_display(str(root))
         items.append(
             {
                 "path": root,
-                "label": f"{root.name:<24} (project)",
+                "label": f"{label:<24} (project)",
                 "type": "project",
                 "git_root": root,
                 "branch": None,
             }
         )
 
-        # Add worktrees
         for wt_path, commit, branch in _find_deletable_worktrees(root):
+            wt_label = _format_container_display(str(wt_path))
             items.append(
                 {
                     "path": wt_path,
-                    "label": f"  {wt_path.name:<22} ({branch}) [{commit[:7]}]",
+                    "label": f"  {wt_label:<22} [{commit[:7]}]",
                     "type": "worktree",
                     "git_root": root,
                     "branch": branch,
@@ -2108,29 +2075,13 @@ def run_delete_mode(args: argparse.Namespace) -> None:
             sys.exit("No worktrees or projects found to delete.")
 
         labels = [item["label"] for item in items]
+        selected_line = _fzf_pick("Pick item to delete:", labels)
+        if selected_line is None:
+            return
 
-        selected_idx = None
         try:
-            result = subprocess.run(
-                [
-                    "fzf",
-                    "--header",
-                    "Pick item to delete:",
-                    "--height",
-                    "~10",
-                    "--layout",
-                    "reverse",
-                    "--no-multi",
-                ],
-                input="\n".join(labels),
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                return
-            selected_line = result.stdout.rstrip("\n")
             selected_idx = labels.index(selected_line)
-        except (KeyboardInterrupt, ValueError):
+        except ValueError:
             return
 
         selected = items[selected_idx]
@@ -2217,7 +2168,7 @@ def main(argv: list[str] | None = None) -> None:
         check_tmux_guard()
 
     # Dispatch to appropriate mode
-    if cmd == "attach":
+    if cmd in ("attach", "a"):
         run_attach_mode(args)
     elif cmd == "clone":
         run_clone_mode(args)
