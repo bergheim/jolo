@@ -60,6 +60,11 @@ Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to qu
 URL, and tool invocation. Never hardcode a port number. Run `echo $PORT` if
 you need the current value.
 
+**The dev server is ALWAYS running.** Assume `just dev` is running on `$PORT`
+with `--reload`. It auto-reloads on file changes. NEVER start a temporary
+server on another port for screenshots or testing — just use the running dev
+server directly: `browser-check http://localhost:$PORT/page --screenshot`.
+
 **Always bind to `0.0.0.0`**, not `localhost` or `127.0.0.1`. Container networking requires it — `localhost` inside the container is not reachable from outside.
 
 **Servers** (bind to `0.0.0.0`):
