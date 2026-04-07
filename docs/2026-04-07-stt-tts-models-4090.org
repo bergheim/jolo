@@ -1,0 +1,84 @@
+#+TITLE: Best STT/TTS models for a 4090 GPU in 2026
+#+DATE: 2026-04-07
+#+PROPERTY: PROMPT best STT and TTS models for self-hosted voice on a 4090 GPU, for use with Speaches + Open WebUI
+
+* Summary
+- *STT*: =Systran/faster-distil-whisper-large-v3= is a solid default but =whisper-large-v3-turbo= is better for multilingual; both run trivially on a 4090
+- NVIDIA Canary Qwen 2.5B beats all Whisper variants on accuracy (5.63% vs 7.4% WER) but doesn't work with Speaches (different architecture)
+- *TTS*: Kokoro-82M is the clear winner for speed (<0.3s) and quality in its class; only lacks voice cloning
+- For the 4090 with Ollama + gemma4 already loaded, STT+TTS together use ~6-8GB VRAM leaving plenty of headroom
+- Speaches supports faster-whisper models for STT and Kokoro/Piper for TTS — stick with these for drop-in OpenAI API compatibility
+
+* Findings
+
+** Speech-to-Text (STT)
+
+*** Models ranked for 4090
+
+| Model | WER | Speed (RTFx) | VRAM | Multilingual | Speaches? |
+|---|---|---|---|---|---|
+| NVIDIA Canary Qwen 2.5B | 5.63% | 418x | ~8GB | Limited | No |
+| Whisper Large V3 | 7.4% | ~100x | ~10GB | Yes (99+ langs) | Yes |
+| Whisper Large V3 Turbo | 7.75% | ~216x | ~6GB | Yes | Yes |
+| Distil-Whisper Large V3 | ~7.4% | ~300x+ | ~5GB | English best | Yes |
+| Distil-Whisper Large V3.5 | ~7.3% | 1.5x faster than turbo | ~5GB | English best | Yes |
+| Parakeet TDT 1.1B | ~8% | >2000x | ~4GB | English only | No |
+
+*** Recommendation: =Systran/faster-distil-whisper-large-v3= or =openai/whisper-large-v3-turbo=
+- Distil is fastest, Turbo is most multilingual — both work in Speaches
+- On a 4090, the speed difference is negligible (both are <50ms for a 5s clip)
+- Norwegian support matters for this project → *Turbo* is the safer pick since distil models are English-optimized
+- =faster-distil-whisper-large-v3= was our initial pick; switch to turbo if Norwegian accuracy is poor
+
+*** Models that DON'T work with Speaches
+- NVIDIA Canary/Parakeet — different architecture (NeMo/FastConformer), not Whisper-based
+- These need their own serving infrastructure (NeMo, Triton)
+- Better accuracy but not worth the complexity for a voice chat use case
+
+** Text-to-Speech (TTS)
+
+*** Models ranked for 4090
+
+| Model | Quality | Speed | VRAM | Voice cloning | Speaches? |
+|---|---|---|---|---|---|
+| Kokoro-82M | Very good | <0.3s, 96x realtime | <1GB | No | Yes |
+| Fish Audio S1 (4B) | Excellent, expressive | Slower | ~8GB+ | Yes (zero-shot) | No |
+| Dia2 | Excellent, streaming | Fast | ~4GB | Limited | No |
+| Piper | Good (for size) | Instant | <100MB | No | Yes |
+| SparkTTS | Good | Medium | ~2GB | Yes (zero-shot) | No |
+
+*** Recommendation: =speaches-ai/Kokoro-82M-v1.0-ONNX=
+- Kokoro is #1 on TTS Arena, runs on CPU or GPU, tiny footprint
+- Only weakness: no voice cloning and slightly "AI-sounding" vs Fish Audio
+- But for voice chat with a coding agent, naturalness matters less than speed
+- Piper is a fallback if Kokoro has issues — much smaller, faster, but lower quality
+
+** VRAM budget on the 4090 (24GB)
+
+| Component | VRAM |
+|---|---|
+| Ollama + gemma4:26b (Q4) | ~14-16GB |
+| Whisper Large V3 Turbo | ~6GB |
+| Kokoro-82M | <1GB |
+| Open WebUI | minimal |
+| *Total* | ~21-23GB |
+
+Tight but fits. If VRAM is an issue:
+- Use =whisper-large-v3-turbo= with =int8_float32= quantization (~4GB)
+- Speaches dynamically loads/unloads models (TTL=300s default) — STT and Ollama don't run simultaneously in a voice chat turn
+- Or run STT on CPU (still fast enough: ~1s for a 5s clip)
+
+* Links
+- [[https://northflank.com/blog/best-open-source-speech-to-text-stt-model-in-2026-benchmarks][Northflank — Best open source STT in 2026 (benchmarks)]]
+- [[https://huggingface.co/blog/norwooodsystems/faster-whisper-vs-canary-qwen-2-5b][faster-whisper vs Canary Qwen 2.5B comparison]]
+- [[https://www.bentoml.com/blog/exploring-the-world-of-open-source-text-to-speech-models][BentoML — Best open-source TTS in 2026]]
+- [[https://www.digitalocean.com/community/tutorials/best-text-to-speech-models][DigitalOcean — F5-TTS, Kokoro, SparkTTS, CSM comparison]]
+- [[https://huggingface.co/distil-whisper/distil-large-v3.5][Distil-Whisper Large V3.5 on HuggingFace]]
+- [[https://huggingface.co/openai/whisper-large-v3-turbo][Whisper Large V3 Turbo on HuggingFace]]
+- [[https://github.com/speaches-ai/speaches][Speaches — OpenAI-compatible STT/TTS server]]
+
+* Open Questions
+- Does =Systran/faster-distil-whisper-large-v3= handle Norwegian well enough, or should we switch to turbo?
+- Can Speaches dynamically switch between models per-request, or is it one model at a time?
+- Is the Kokoro model on berghome:4014 the same as =speaches-ai/Kokoro-82M-v1.0-ONNX=, or a different build?
+- Worth exploring: Canary Qwen as a separate NeMo container if accuracy becomes important later
