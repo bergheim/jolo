@@ -1,0 +1,201 @@
+#+TITLE: Bridging Open WebUI to devcontainers — voice-driven development
+#+DATE: 2026-04-07
+#+PROPERTY: PROMPT How to connect Open WebUI (with voice via Speaches) to devcontainers for self-hosted voice-driven development. Compare to bespoke PWA approach.
+
+* Summary
+- Open WebUI has *native MCP support* (Streamable HTTP, since v0.6.31) — this is the cleanest bridge to devcontainers
+- Run an MCP server inside each devcontainer exposing filesystem + shell tools over Streamable HTTP → Open WebUI connects to it as a tool server → any LLM can use it
+- *Open Terminal* is Open WebUI's built-in shell integration but the Docker backend requires Enterprise license and provisions its own containers — it doesn't connect to existing devcontainers
+- A *custom Open WebUI Tool* (Python script) can =podman exec= into a named container — simplest approach, zero new infrastructure
+- A *bespoke PWA* gives full control but duplicates what Open WebUI already provides (voice, chat, auth, model switching)
+- Recommendation: MCP server in devcontainer (most flexible) or custom Tool (quickest to ship)
+
+* Findings
+
+** Option 1: MCP server in each devcontainer (RECOMMENDED)
+
+*** How it works
+- Run a lightweight MCP server inside the devcontainer that exposes:
+  - =shell_exec= tool — run commands, return stdout/stderr/exit code
+  - =read_file=, =write_file=, =list_dir= — filesystem access
+  - =git_status=, =git_diff= — project context
+- Server listens on a port (e.g. =$PORT + 100= or a fixed offset) over Streamable HTTP
+- Open WebUI connects to it via Admin → External Tools → Add MCP Server
+- Any LLM (gemma4, llama, etc.) can then call these tools during a voice conversation
+
+*** Architecture
+#+begin_example
+Phone → Open WebUI (voice/STT/TTS via Speaches)
+         → Ollama (gemma4:26b)
+         → MCP Server in devcontainer (shell + filesystem tools)
+              → project files, git, tests, etc.
+#+end_example
+
+*** Pros
+- Standard protocol — MCP is the emerging standard for tool access
+- Works with ANY LLM backend, not just Claude
+- Per-devcontainer isolation — each container runs its own MCP server with its own tools
+- Open WebUI handles auth, voice, model switching, conversation history
+- Accessible from =p<PORT>.dev.glvortex.net= (already set up via Caddy)
+- Can reuse existing MCP servers: [[https://github.com/cyanheads/filesystem-mcp-server][filesystem-mcp-server]], [[https://github.com/sonirico/mcp-shell][mcp-shell]]
+
+*** Cons
+- Need to run an MCP server in each devcontainer (add to Containerfile or entrypoint)
+- Open WebUI MCP support is Streamable HTTP only — need an HTTP-based MCP server, not stdio
+- Stdio MCP servers need [[https://github.com/sparfenyuk/mcp-proxy][mcp-proxy]] or [[https://github.com/open-webui/openapi-servers][mcpo]] to bridge to HTTP
+- MCP support in Open WebUI is still maturing — "expect occasional breaking changes"
+
+*** Implementation sketch
+1. Add an MCP server to the devcontainer image (Python, lightweight)
+2. Server exposes =/mcp= endpoint on a port (e.g. =PORT+100=)
+3. In Open WebUI: Admin → External Tools → Add MCP Server → =http://<tailscale-ip>:<PORT+100>/mcp=
+4. Create an Open WebUI Agent that binds the MCP tools + a system prompt with project context
+5. Voice chat with the agent from phone → it reads code, runs tests, edits files
+
+** Option 2: Custom Open WebUI Tool (QUICKEST)
+
+*** How it works
+- Write a Python Tool in Open WebUI's Workspace that calls =podman exec= on the host
+- Tool takes a container name + command, returns output
+- No new infrastructure — runs inside Open WebUI's Python runtime
+
+*** Example tool code
+#+begin_src python
+import subprocess
+
+class Tools:
+    def __init__(self):
+        self.valves = self.Valves()
+
+    class Valves(BaseModel):
+        container_name: str = "my-devcontainer"
+
+    def exec_in_container(self, command: str) -> str:
+        """Execute a command inside the devcontainer and return output."""
+        result = subprocess.run(
+            ["podman", "exec", self.valves.container_name, "bash", "-c", command],
+            capture_output=True, text=True, timeout=30
+        )
+        return f"stdout: {result.stdout}\nstderr: {result.stderr}\nexit: {result.returncode}"
+#+end_src
+
+*** Pros
+- Zero new infrastructure — just a Python script in Open WebUI
+- Works today, 10 minutes to set up
+- Can be parameterized per-container via Valves
+
+*** Cons
+- Open WebUI container needs access to host's podman socket (security concern)
+- Tight coupling to podman — won't work if devcontainers move to another host
+- No standard protocol — bespoke, harder to reuse
+- Limited: can't easily stream output, handle long-running processes, or do file uploads
+
+** Option 3: Open Terminal (built-in, but limited)
+
+*** How it works
+- Open WebUI's =open-terminal= is a REST API that gives LLMs shell + file access
+- It provisions isolated Docker containers per user — NOT your existing devcontainers
+- Can mount Docker socket for host access
+
+*** Limitations
+- *Docker backend requires Enterprise license*
+- Provisions its OWN containers — doesn't exec into existing devcontainers
+- Designed for sandboxed execution, not project-specific development
+- Could theoretically be pointed at a devcontainer's IP but that's not the intended use
+
+*** Verdict
+Not suitable for our use case. It's a sandbox for code execution, not a bridge to existing project environments.
+
+** Option 4: Bespoke PWA in each devcontainer
+
+*** How it works
+- Build a minimal web app (FastAPI + vanilla JS) that runs in each devcontainer
+- Big mic button → Web Speech API or record + POST to Speaches for STT
+- Text goes to an LLM (via Ollama API or direct) with tool-use for shell/filesystem
+- Response → POST to Kokoro/Speaches for TTS → play audio back
+- Served at =p<PORT>.dev.glvortex.net=, installable as PWA
+
+*** Pros
+- Full control over UX — optimized for voice-first mobile experience
+- Self-contained per container — no external dependencies except Speaches
+- Can integrate deeply with the project (custom tools, test runners, etc.)
+- No Open WebUI dependency — works standalone
+
+*** Cons
+- Significant development effort — build and maintain chat UI, auth, conversation history, tool calling
+- Duplicates 80% of what Open WebUI already provides
+- Each devcontainer needs to serve this app (port management)
+- Browser STT (Web Speech API) sends audio to Google on Chrome — need Speaches for self-hosted STT
+- Need to build the LLM ↔ tool-use loop yourself (or use a framework like Pipecat)
+
+*** When it makes sense
+- If Open WebUI's MCP integration proves too immature
+- If you need a radically different UX (e.g., continuous voice, not push-to-talk)
+- If you want to ship a general-purpose "voice dev" tool for other people to use
+
+** Option 5: Pipecat (voice agent framework)
+
+*** What it is
+- [[https://github.com/pipecat-ai/pipecat][Pipecat]] is an open-source framework for building voice + multimodal AI agents
+- Handles the full pipeline: STT → LLM → TTS → audio streaming over WebSocket/WebRTC
+- Supports tool calling, custom logic, multiple LLM backends
+- Sub-second latency possible on good hardware
+
+*** Relevance
+- Could replace the entire Open WebUI + Speaches stack with a purpose-built voice agent
+- More work than using Open WebUI but gives full control over the voice pipeline
+- Would run inside or alongside each devcontainer
+- Better for continuous voice conversation than Open WebUI's push-to-record
+
+*** Verdict
+Overkill for now. Interesting if the goal evolves toward a dedicated voice coding assistant product.
+
+* Comparison matrix
+
+| | MCP in container | Custom Tool | Open Terminal | Bespoke PWA | Pipecat |
+|---|---|---|---|---|---|
+| *Setup effort* | Medium | Small | N/A (Enterprise) | Large | Large |
+| *New infrastructure* | MCP server per container | None | None | Web app per container | Agent per container |
+| *Works with any LLM* | Yes | Yes | Yes | Yes | Yes |
+| *Voice support* | Via Open WebUI | Via Open WebUI | Via Open WebUI | Custom | Built-in |
+| *Project isolation* | Per-container | Per-container (valve) | Per-user sandbox | Per-container | Per-container |
+| *Standard protocol* | MCP (emerging standard) | Bespoke | REST | Bespoke | WebSocket |
+| *Mobile UX* | Open WebUI (good) | Open WebUI (good) | Open WebUI (good) | Custom (best) | Custom (best) |
+| *Self-hosted* | Yes | Yes | Yes | Yes | Yes |
+| *Maturity* | MCP is new but growing | Proven pattern | Mature but wrong fit | DIY | Framework is mature |
+
+* Recommendation
+
+** Start with: Custom Tool (Option 2)
+Quickest path to "voice → devcontainer" working today. Write a 20-line Python tool in Open WebUI
+that =podman exec=​s into a named container. Mount the podman socket into the Open WebUI container.
+Test the voice workflow end-to-end.
+
+** Then migrate to: MCP server in devcontainers (Option 1)
+Once the workflow is validated, add a lightweight MCP server to the devcontainer image.
+This decouples Open WebUI from podman, works across hosts/networks, and follows the
+standard protocol. Each devcontainer becomes a self-contained "tool server" that any
+MCP-compatible client can talk to.
+
+** Skip: Bespoke PWA
+Unless Open WebUI proves fundamentally insufficient (unlikely), building a custom voice
+UI is wasted effort. Open WebUI already handles auth, voice, conversation history,
+model switching, and mobile.
+
+* Links
+- [[https://docs.openwebui.com/features/extensibility/mcp/][Open WebUI MCP docs]]
+- [[https://docs.openwebui.com/features/extensibility/plugin/tools/][Open WebUI Tools docs]]
+- [[https://github.com/open-webui/open-terminal][Open Terminal — shell access for Open WebUI]]
+- [[https://github.com/open-webui/openapi-servers][OpenAPI Tool Servers for Open WebUI]]
+- [[https://github.com/sonirico/mcp-shell][mcp-shell — MCP server for shell commands]]
+- [[https://github.com/cyanheads/filesystem-mcp-server][filesystem-mcp-server — MCP server for file ops]]
+- [[https://github.com/sparfenyuk/mcp-proxy][mcp-proxy — stdio/SSE to Streamable HTTP bridge]]
+- [[https://github.com/pipecat-ai/pipecat][Pipecat — voice agent framework]]
+- [[https://github.com/mcpjungle/MCPJungle][MCPJungle — self-hosted MCP gateway]]
+
+* Open Questions
+- Does Open WebUI support switching MCP servers per-chat/per-agent, or is it global?
+- Can we auto-register MCP servers when =jolo up= starts a container (API call to Open WebUI)?
+- What's the simplest MCP server that exposes shell + filesystem over Streamable HTTP?
+- Should the MCP server port be exposed on the tailnet only, or also via =dev.glvortex.net=?
+- Can gemma4:26b reliably use tools (function calling)? Need to test tool-use quality
