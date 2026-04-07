@@ -46,23 +46,32 @@
    yay -S ntfysh-bin
    systemctl --user enable --now ntfy-client
    #+end_example
-** TODO Research TTS — audio notifications via Kokoro
-   :PROPERTIES:
-   :BRANCH: feat/research-tts
-   :END:
+** TODO Voice-driven development on the go (Android → devcontainers)
+   Goal: develop with Claude from your phone using voice — speak prompts,
+   hear results. See =docs/2026-04-07-voice-dev-on-the-go.org= for full research.
 
-   When =jolo research= completes, generate an mp3 of the full org report via
-   Kokoro TTS and attach it to the ntfy notification. Tap play on the phone.
+*** TODO Phase 1: Merge TTS branch + Remote Control workflow
+    :PROPERTIES:
+    :BRANCH: feat/research-tts
+    :END:
+    1. Merge =feat/research-tts= (1 commit ahead) — TTS output via Kokoro + ntfy
+    2. Verify Kokoro at =berghome.ts.glvortex.net:4014= — check if it's Kokoro-FastAPI or bare model
+    3. Test: =claude --remote-control= in container → connect from Claude Android app
+    4. Use Android keyboard voice typing for input (works today, zero code)
+    5. Verify ntfy audio attachments play on phone
 
-   Code on =feat/research-tts= branch (1 commit ahead of main). Needs image
-   rebuild + live testing with Kokoro at =berghome.ts.glvortex.net:4014=.
+*** TODO Phase 2: PWA voice interface
+    Build a lightweight PWA with a big mic button:
+    - Web Speech API (Chrome Android) for continuous STT
+    - WebSocket relay to feed text into Claude Code session
+    - Kokoro TTS for streaming audio responses back
+    - Host at =p<PORT>.dev.glvortex.net= (Caddy + basicauth already set up)
+    - Consider upgrading Kokoro to [[https://github.com/remsky/Kokoro-FastAPI][Kokoro-FastAPI]] for OpenAI-compatible API
 
-*** Verification
-    1. Rebuild image, restart container
-    2. =export KOKORO_URL=http://berghome.ts.glvortex.net:4014=
-    3. =jolo research "what is an apple"=
-    4. Phone: text notification (instant) + audio (seconds later)
-    5. Unset =KOKORO_URL=, verify text-only still works
+*** TODO Phase 3: Self-hosted STT (optional, privacy)
+    Replace Chrome's Google-backed STT with self-hosted faster-whisper on berghome.
+    PWA records audio → POST to whisper API → text → session.
+    All voice processing on own infrastructure.
 ** DONE Install codex ACP for agent-shell
    :PROPERTIES:
    :DATE: 2026-03-01
@@ -114,9 +123,20 @@
    =agent-shell-search-history= → =shell-maker-search-history=,
    =agent-shell-rename-buffer= → =shell-maker-rename-buffer=,
    =agent-shell-insert-file= / =agent-shell-send-current-file= → =agent-shell-send-file=.
-** TODO Delete openspec skills and =openspec/= directory
-   11 unused =openspec-*= skills pollute the skill list. User hasn't used them in months.
-   Also remove =openspec/= top-level directory (stale change artifacts).
+** DONE Delete openspec skills and =openspec/= directory
+   Removed 11 =openspec-*= skills, 10 =opsx:*= command aliases, and =openspec/= directory.
+** TODO Automate wildcard cert renewal for =*.dev.glvortex.net=
+   :PROPERTIES:
+   :DEADLINE: 2026-07-01
+   :END:
+   Current cert expires 2026-07-06 (issued manually via certbot DNS-01).
+   Set up =acme-dns= on berghome to automate renewal:
+   1. Run acme-dns (Docker)
+   2. Add permanent CNAME in uniweb: =_acme-challenge.dev= → acme-dns
+   3. Configure certbot to use acme-dns hook for unattended =certbot renew=
+   Also watch DNS-PERSIST-01 (Let's Encrypt Q2 2026) as a simpler alternative.
+   Caddy config: =*.dev.glvortex.net= with basicauth, port range 4000-5000,
+   reverse_proxy to =100.64.0.2:{port}=.
 ** TODO Verify NOTIFY_PATH env inheritance in automated hooks
    =export NOTIFY_PATH=/foo= in agent shell may or may not be inherited by
    Claude Code's hook subprocess. If not, update hook commands to pass

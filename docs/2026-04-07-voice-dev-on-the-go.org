@@ -1,0 +1,134 @@
+#+TITLE: Voice-driven development on the go — Android to devcontainers
+#+DATE: 2026-04-07
+#+PROPERTY: PROMPT Android voice interface for AI coding agents - speech-to-text input and TTS output for remote devcontainers. Kokoro TTS, Web Speech API, ntfy integration, mobile-first voice workflows for development on the go
+
+* Summary
+- Claude Code has *built-in* Remote Control (=/rc=) + voice dictation (=/voice=) — this is the fastest path to voice-driven mobile dev, but =/voice= does NOT work remotely (requires local mic)
+- The missing piece is voice INPUT on mobile: Claude mobile app supports text input to remote sessions but not voice-to-text-to-session yet
+- Kokoro TTS (already on berghome:4014) provides the audio OUTPUT side — attach mp3 to ntfy notifications for listening to results on the go
+- For full two-way voice: a lightweight web app (PWA) using Web Speech API for STT + Kokoro for TTS, proxied through =dev.glvortex.net=, talking to Claude Code via its CLI or a session bridge
+- Kokoro-FastAPI ([[https://github.com/remsky/Kokoro-FastAPI][github]]) is the production-ready wrapper — OpenAI-compatible API, streaming, Docker, multiple formats
+
+* Findings
+
+** What already works today
+
+*** Claude Code Remote Control
+- Run =claude remote-control= (or =/rc= in session) in a devcontainer
+- Scan QR or open [[https://claude.ai/code][claude.ai/code]] on your phone
+- Full session control from Android: send messages, approve tools, see results
+- Session runs locally in the container — phone is just a window
+- Supports =--spawn worktree= for concurrent sessions (up to 32)
+- Reconnects automatically after sleep/network drops
+- Available on Pro/Max/Team/Enterprise plans
+- Docs: [[https://code.claude.com/docs/en/remote-control][Remote Control]]
+
+*** Claude Code Voice Dictation
+- =/voice= enables push-to-talk (hold Space) in the terminal
+- Transcription tuned for coding vocabulary (regex, OAuth, JSON, localhost)
+- 20 languages supported (Norwegian included)
+- *Limitation*: requires local microphone — does NOT work in remote sessions, SSH, or =claude.ai/code= web interface
+- Audio streams to Anthropic servers for transcription (not local)
+- Docs: [[https://code.claude.com/docs/en/voice-dictation][Voice Dictation]]
+
+*** Claude Mobile App Voice
+- Claude iOS/Android app has voice mode (since May 2025)
+- Works for general Claude conversations
+- Can be used with Remote Control to *type* into a remote session from the app
+- But: no native push-to-talk voice → remote session integration yet
+
+** Kokoro TTS — the audio output side
+
+*** What we have
+- Kokoro running on berghome at =:4014=
+- Branch =feat/research-tts= (1 commit ahead of main): generates mp3 from research reports, attaches to ntfy notifications
+- Tap play on phone to hear research results
+
+*** Kokoro-FastAPI (recommended upgrade)
+- [[https://github.com/remsky/Kokoro-FastAPI][github.com/remsky/Kokoro-FastAPI]] — production wrapper with OpenAI-compatible API
+- Docker: =docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-gpu:latest=
+- Supports streaming audio, multiple formats (MP3, WAV, Opus, FLAC)
+- 50+ voices, multi-language (EN, JA, KO, ZH)
+- Weighted voice combinations, word-level timestamps
+- Drop-in replacement for OpenAI TTS API — any tool expecting =/v1/audio/speech= works
+- Cost: ~$0.06/hour of audio output (self-hosted = free)
+
+** Speech-to-text options for mobile input
+
+*** Option 1: Android built-in STT → Claude app (easiest, works now)
+- Open Claude app → connect to Remote Control session → use Android keyboard voice input (microphone icon on keyboard)
+- Android transcribes locally, sends text to session
+- No extra infrastructure needed
+- Limitation: not seamless — requires tapping mic icon, typing send
+
+*** Option 2: Web Speech API PWA (custom, best UX)
+- Build a lightweight PWA hosted at =p<PORT>.dev.glvortex.net=
+- Uses browser's =SpeechRecognition= API (works on Chrome Android)
+- Sends transcribed text to Claude Code session via WebSocket or HTTP POST
+- Can also play Kokoro TTS responses back
+- Full two-way voice loop: speak → STT → Claude → response → TTS → play
+- Chrome on Android has best SpeechRecognition support
+- Limitation: Chrome sends audio to Google for transcription (not self-hosted)
+- PWA install on home screen for app-like experience
+
+*** Option 3: Whisper self-hosted STT (fully private)
+- [[https://github.com/SYSTRAN/faster-whisper][faster-whisper]] or [[https://github.com/innovatorved/whisper.api][whisper.api]] on berghome
+- Record audio on phone → POST to whisper API → get text → send to session
+- Fully self-hosted, no Google/Anthropic STT dependency
+- More latency (~500ms-1s for transcription)
+- WhisperX adds 4x speed improvement, word-level timestamps
+
+*** Option 4: Tasker/Automate (Android automation)
+- [[https://joaoapps.com/autovoice/][AutoVoice]] plugin for Tasker handles STT
+- Tasker HTTP POST action sends transcribed text to an endpoint
+- Could POST to ntfy topic that triggers a hook in the container
+- Or POST directly to a simple HTTP endpoint in the container
+- Most programmable option — can add wake words, continuous listening
+
+*** Option 5: VoiceMode MCP plugin (desktop-oriented)
+- [[https://github.com/mbailey/voicemode][github.com/mbailey/voicemode]] — two-way voice for Claude Code
+- Uses Whisper (local) for STT + Kokoro (local) for TTS
+- Installs as MCP server / Claude Code plugin
+- *Desktop only* — no mobile/Android support
+- Could run in container if it had microphone access (it doesn't)
+
+** Proposed architecture: voice dev on the go
+
+*** Phase 1: Quick wins (works today, zero code)
+1. Start =claude --remote-control= in devcontainer
+2. Open Claude app on Android, connect to session
+3. Use Android keyboard voice typing for input
+4. Merge =feat/research-tts= branch — get TTS output via ntfy
+5. Workflow: voice-type prompt → Claude works → ntfy + audio notification when done
+
+*** Phase 2: PWA voice interface (custom, best experience)
+1. Build minimal PWA: single page with a big mic button
+2. Web Speech API for continuous STT (Chrome Android)
+3. WebSocket to a thin relay in the container that feeds text to Claude Code
+4. Kokoro TTS for responses — stream audio back to the PWA
+5. Host at =p<PORT>.dev.glvortex.net= — accessible from anywhere
+6. Basic auth already in place via Caddy config
+
+*** Phase 3: Fully self-hosted (optional, privacy)
+1. Replace Chrome STT with self-hosted faster-whisper on berghome
+2. PWA records audio → POST to whisper endpoint → get text
+3. All voice processing stays on your infrastructure
+4. Higher latency but zero cloud dependency
+
+* Links
+- [[https://code.claude.com/docs/en/remote-control][Claude Code Remote Control docs]]
+- [[https://code.claude.com/docs/en/voice-dictation][Claude Code Voice Dictation docs]]
+- [[https://github.com/remsky/Kokoro-FastAPI][Kokoro-FastAPI — OpenAI-compatible TTS server]]
+- [[https://github.com/eduardolat/kokoro-web][Kokoro Web — lightweight TTS web UI]]
+- [[https://github.com/mbailey/voicemode][VoiceMode — two-way voice for Claude Code (desktop)]]
+- [[https://github.com/SYSTRAN/faster-whisper][faster-whisper — fast self-hosted STT]]
+- [[https://github.com/alphacep/vosk-api][Vosk — offline STT for Android/servers]]
+- [[https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API][Web Speech API — MDN docs]]
+- [[https://getvoicemode.com/][VoiceMode MCP — project site]]
+
+* Open Questions
+- Does Claude mobile app voice mode feed into Remote Control sessions, or only into regular Claude conversations?
+- Can we hook into Claude Code's stdin/session from a WebSocket relay without hacking the CLI?
+- Is Kokoro on berghome:4014 already Kokoro-FastAPI, or the older bare model? Check API compatibility
+- Should the PWA voice interface be a general tool (works with any devcontainer) or Claude-specific?
+- What's the latency budget? Voice → STT → Claude → TTS → playback — is 5-10s acceptable for coding on the go?
