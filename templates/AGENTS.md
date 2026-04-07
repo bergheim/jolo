@@ -164,6 +164,8 @@ This applies to `claude`, `codex`, and any agent that checks for API keys before
 
 Pre-commit hooks are already installed. They run automatically on `git commit`. If a commit fails, fix the issues and commit again.
 
+- **Never skip hooks**: NEVER use `git commit --no-verify`. Pre-commit hooks (ruff, format, tests, codespell) are the guardrails that keep code clean. If a hook blocks the commit, fix the underlying issue — add the word to the codespell allowlist, fix the lint error, fix the failing test. Skipping hooks to save time means shipping broken formatting, lint errors, and test failures that compound into a mess. No exceptions.
+
 To run manually: `pre-commit run --all-files`
 
 ## Coding Style

@@ -339,6 +339,8 @@ browser-check https://myapp.com --screenshot --errors --output debug.png
 
 **Always set up pre-commit hooks** when scaffolding or working on a project. This catches issues before commits. The specific hooks depend on the project type.
 
+- **Never skip hooks**: NEVER use `git commit --no-verify`. Pre-commit hooks (ruff, format, tests, codespell) are the guardrails that keep code clean. If a hook blocks the commit, fix the underlying issue — add the word to the codespell allowlist, fix the lint error, fix the failing test. Skipping hooks to save time means shipping broken formatting, lint errors, and test failures that compound into a mess. No exceptions.
+
 ### When to add hooks (decision heuristics)
 
 **Every project** gets basic hygiene hooks:
