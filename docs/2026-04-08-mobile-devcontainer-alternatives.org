@@ -1,0 +1,114 @@
+#+TITLE: Mobile-to-devcontainer: are we overengineering? Alternatives compared
+#+DATE: 2026-04-08
+#+PROPERTY: PROMPT Are we overengineering with Open WebUI + Open Terminal? Compare to Telegram bots, Claude Code Channels, OpenClaw, and other approaches people actually use in 2026.
+
+* Summary
+- We are NOT overengineering — Open WebUI + Open Terminal is the right stack for self-hosted, provider-agnostic, voice-enabled dev from a phone
+- The main alternative is *Telegram/Discord bots* — simpler setup, no custom infra, but no voice and locked to one messaging platform
+- *Claude Code Channels* (Telegram/Discord) is the closest competitor but requires Claude subscription and Anthropic auth — NOT self-hosted
+- *OpenClaw* (188k GitHub stars) is the popular general-purpose self-hosted agent with Telegram/Discord, but it's a whole platform, not a dev-focused tool
+- The simplest "just works" approach: *Telegram bot → LLM → shell access* (50 lines of Python). Good MVP, bad long-term UX
+- Our approach wins on: voice support, self-hosted STT/TTS, provider-agnostic, existing Open WebUI ecosystem, file browser UI
+
+* Findings
+
+** What people actually use in 2026
+
+*** Claude Code Channels (March 2026)
+- Official Anthropic feature: Telegram, Discord, iMessage → Claude Code session
+- Messages go to a running Claude Code instance with full filesystem/git access
+- Architecture: MCP plugin bridges messaging platform to CLI session
+- *Requires Claude subscription + claude.ai auth* — not self-hosted LLM
+- No voice support — text only
+- No STT/TTS integration
+- Excellent for Claude users, useless for self-hosters who want provider independence
+- [[https://code.claude.com/docs/en/channels][Docs]]
+
+*** OpenClaw (formerly Clawdbot, 188k stars)
+- Self-hosted AI agent: Telegram, Discord, WhatsApp, Slack
+- Can run shell commands, browse web, manage files, read email
+- LLM-agnostic: Claude, GPT, Gemini, DeepSeek, Ollama
+- Full platform with memory, multi-agent routing, calendar integration
+- *Overkill for "voice → devcontainer"* — it's a life management agent, not a dev tool
+- No built-in voice/STT/TTS
+- [[https://docs.openclaw.ai/][Docs]]
+
+*** Telegram bot + Ollama (DIY, popular)
+- 50-100 lines of Python: receive message → send to Ollama → return response
+- Add =subprocess.run= for shell access
+- Many open-source examples: [[https://github.com/mlloliveira/TelegramBot][TelegramBot]], [[https://github.com/evgenyigumnov/ai-agent-telegram-bot][ai-agent-telegram-bot]]
+- Voice: Telegram has built-in voice messages → can be transcribed via Whisper
+- *Pros*: simple, uses existing Telegram app, no new UI to maintain
+- *Cons*: no rich file browser, limited tool calling, bespoke code, no conversation history management
+
+*** AnythingLLM
+- All-in-one AI app with RAG, agents, Telegram/Discord connectors
+- =@agent= command invokes skills from Telegram
+- Self-hosted, Docker-based
+- *Pros*: good UI, RAG built-in, multi-model
+- *Cons*: separate ecosystem from Open WebUI, no STT/TTS voice chat
+
+*** n8n + Ollama + Telegram
+- Visual workflow automation: Telegram trigger → Ollama → response → Telegram
+- Can add shell execution nodes
+- *Pros*: visual, flexible, connects to anything
+- *Cons*: another platform to maintain, no voice, workflow-oriented not chat-oriented
+
+*** Vitalik Buterin's setup (April 2026)
+- Runs Qwen3.5:35B locally on NVIDIA 5090, NixOS, bubblewrap sandboxes
+- llama-server on localhost, local Wikipedia dump
+- *No mobile access described* — he acknowledges the gap but doesn't solve it
+- Privacy-maximalist approach: no cloud, no remote, laptop-only
+- [[https://vitalik.eth.limo/general/2026/04/02/secure_llms.html][Blog post]]
+
+** Comparison matrix
+
+| Approach | Voice | Self-hosted LLM | Shell access | Setup effort | Mobile UX | Provider-agnostic |
+|---|---|---|---|---|---|---|
+| *Open WebUI + Open Terminal (ours)* | Yes (Speaches) | Yes (Ollama) | Yes (Open Terminal) | Medium | Good (web) | Yes |
+| Claude Code Channels | No | No (Claude only) | Yes (full CLI) | Small | Good (Telegram) | No |
+| OpenClaw | No | Yes (any LLM) | Yes | Medium | Good (Telegram) | Yes |
+| Telegram bot + Ollama | Partial (voice msgs) | Yes | DIY | Small | Native app | Yes |
+| AnythingLLM + Telegram | No | Yes | Agent skills | Medium | Good (Telegram) | Yes |
+| n8n + Telegram | No | Yes | Workflow nodes | Medium | Native app | Yes |
+| Claude Remote Control | Keyboard voice | No (Claude only) | Yes (full CLI) | Tiny | App | No |
+
+** Are we overengineering?
+
+*No.* Here's why:
+
+1. *Voice is the differentiator.* None of the Telegram/Discord approaches have real voice chat — at best they have voice message transcription (async, not conversational). We have live STT + TTS via Speaches. This is the whole point: develop on the go, hands-free.
+
+2. *We already have all the pieces running.* Open WebUI + Speaches + Ollama are already deployed. Open Terminal is already installed in the devcontainer. We're connecting existing infrastructure, not building from scratch.
+
+3. *Provider-agnostic.* Claude Code Channels is the slickest competitor but locks you to Anthropic. Our setup works with any LLM.
+
+4. *The Telegram bot approach is simpler but worse.* No voice, no file browser, no rich UI, no conversation history management, bespoke code to maintain. It's a great MVP but a bad long-term solution.
+
+** What WOULD be overengineering
+
+- Building a bespoke PWA voice interface (we correctly skipped this)
+- Custom MCP servers when Open Terminal exists
+- Podman socket hacking when Open Terminal exists
+- Building our own Telegram bot when Open WebUI already handles the chat UI
+
+** The one thing simpler than our approach
+
+If you don't need voice: *Claude Code Channels* with Telegram is a 5-minute setup. You get full Claude Code with filesystem access, controlled from your phone. But it requires a Claude subscription and isn't self-hosted.
+
+For self-hosted + voice, our stack is the minimum viable solution.
+
+* Links
+- [[https://code.claude.com/docs/en/channels][Claude Code Channels docs]]
+- [[https://docs.openclaw.ai/][OpenClaw docs]]
+- [[https://docs.anythingllm.com/channels/telegram][AnythingLLM Telegram docs]]
+- [[https://github.com/mlloliveira/TelegramBot][TelegramBot — Telegram + Ollama bot]]
+- [[https://github.com/evgenyigumnov/ai-agent-telegram-bot][ai-agent-telegram-bot — Rust, shell access]]
+- [[https://github.com/memohai/Memoh][Memoh — always-on containerized agent platform]]
+- [[https://vitalik.eth.limo/general/2026/04/02/secure_llms.html][Vitalik's self-sovereign LLM setup]]
+- [[https://github.com/open-webui/open-terminal][Open Terminal — shell API for Open WebUI]]
+
+* Open Questions
+- Should we ALSO set up Claude Code Channels (Telegram) for when we want Claude specifically? It's orthogonal — not a replacement, an addition
+- Is the Open Terminal "verify connection" failure a version mismatch? Might need a newer Open WebUI
+- Could we add a Telegram bot as a SECOND interface to the same devcontainer, for text-only quick commands?
