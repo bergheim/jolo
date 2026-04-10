@@ -18,6 +18,25 @@
    open Chromium on Wayland; clipboard copy should be explicit/opt-in.
    Falls back to clipboard-only or URL print without Wayland.
    Also toggles headless behavior appropriately for local browser tooling on Wayland.
+** TODO Decide how to ship Claude Code plugins in devcontainers
+   Concrete case: =openai/codex-plugin-cc= marketplace. Plugins live in
+   =~/.claude/plugins/= on the host (=installed_plugins.json=,
+   =known_marketplaces.json=, cloned marketplace repos). Currently jolo copies
+   =.claude.json= and =settings.json= but not the =plugins/= dir, so plugin
+   state never reaches containers.
+
+   Options considered:
+   - Mount =~/.claude/plugins/= read-only from host (one line in =BASE_MOUNTS=,
+     host is source of truth, requires host-side install).
+   - Bake into image: =git clone= the marketplace + hand-write
+     =known_marketplaces.json= with =${USERNAME}= templating (~10 lines, fragile
+     to schema changes, but self-contained).
+   - Hybrid via overlayfs — rejected, too much machinery for the payoff.
+
+   Open question: do we even want =codex-plugin-cc=? The =codex= CLI binary is
+   already installed via npm; the plugin is separate Claude-side wiring (slash
+   commands / subagent integration). Decide whether the integration is worth
+   it before plumbing the install path.
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
