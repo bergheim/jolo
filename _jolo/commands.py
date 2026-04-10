@@ -594,21 +594,17 @@ def _last_attach_mtime(workspace: Path) -> float:
         return 0.0
 
 
-def _pick_container(include_stopped: bool = False) -> Path | None:
-    """Show fzf picker for containers, return workspace path or None."""
+def _pick_container() -> Path | None:
+    """Show fzf picker for all containers (running and stopped)."""
     containers = list_all_devcontainers()
     candidates = [
-        (name, folder)
+        (name, folder, state)
         for name, folder, state, image_id in containers
-        if (state == "running" or include_stopped) and Path(folder).exists()
+        if Path(folder).exists()
     ]
 
     if not candidates:
-        sys.exit(
-            "No containers found."
-            if include_stopped
-            else "No running containers found."
-        )
+        sys.exit("No containers found.")
 
     if len(candidates) == 1:
         return Path(candidates[0][1])
@@ -618,9 +614,10 @@ def _pick_container(include_stopped: bool = False) -> Path | None:
     )
 
     labels = []
-    for _, folder in candidates:
+    for _, folder, state in candidates:
         label = _format_container_display(folder)
-        labels.append(f"{label:<30} {folder}")
+        marker = "" if state == "running" else f" [{state}]"
+        labels.append(f"{label}{marker:<12} {folder}")
 
     selected = _fzf_pick("Pick a container:", labels)
     if selected is None:
@@ -629,13 +626,16 @@ def _pick_container(include_stopped: bool = False) -> Path | None:
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:
-    """Run attach mode: pick a running container and attach to it."""
-    folder = _pick_container(include_stopped=args.recreate)
+    """Run attach mode: pick a container, start if stopped, and attach."""
+    folder = _pick_container()
     if not folder:
         return
 
     if args.recreate:
         _update_container(folder)
+    elif not is_container_running(folder):
+        if not devcontainer_up(folder):
+            sys.exit("Error: Failed to start container")
 
     devcontainer_exec_tmux(folder)
 
