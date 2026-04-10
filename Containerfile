@@ -218,6 +218,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo "alias icat='kitten icat'" >> $HOME/.zshrc.container && \
     echo 'export EDITOR=nvim' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
+    echo 'export HISTFILE=$HOME/.zsh-state/.histfile' >> $HOME/.zshrc.container && \
     echo '[ "$(tmux display-message -p "#{window_name}" 2>/dev/null)" = "shell" ] && motd 2>/dev/null' >> $HOME/.zshrc.container
 
 ENV EMACS_CONTAINER=1
