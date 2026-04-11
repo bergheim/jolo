@@ -183,6 +183,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
+    (uv tool install open-terminal) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
     curl -fsSL https://claude.ai/install.sh | bash && \
     command -v claude >/dev/null && \

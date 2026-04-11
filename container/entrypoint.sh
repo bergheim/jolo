@@ -41,6 +41,13 @@ export NO_AT_BRIDGE=1
 # export XCURSOR_PATH=${XCURSOR_PATH}:~/.local/share/icons
 # export XCURSOR_THEME=cursor_theme_name
 
+# Start open-terminal on the last port in the container's range
+if [ -n "$PORT" ] && command -v open-terminal >/dev/null 2>&1; then
+    OT_PORT=$((PORT + 3))
+    open-terminal run --host 0.0.0.0 --port "$OT_PORT" --api-key "${OPEN_TERMINAL_API_KEY:-devcontainer}" &
+    echo "open-terminal: listening on port $OT_PORT"
+fi
+
 if [ "$START_EMACS" = "true" ]; then
     exec emacs --fg-daemon
 else
