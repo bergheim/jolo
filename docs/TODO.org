@@ -79,18 +79,23 @@
     4. Use Android keyboard voice typing for input (works today, zero code)
     5. Verify ntfy audio attachments play on phone
 
-*** TODO Phase 2: PWA voice interface
-    Build a lightweight PWA with a big mic button:
-    - Web Speech API (Chrome Android) for continuous STT
-    - WebSocket relay to feed text into Claude Code session
-    - Kokoro TTS for streaming audio responses back
-    - Host at =p<PORT>.dev.glvortex.net= (Caddy + basicauth already set up)
-    - Consider upgrading Kokoro to [[https://github.com/remsky/Kokoro-FastAPI][Kokoro-FastAPI]] for OpenAI-compatible API
+*** TODO Phase 2: Open WebUI + Open Terminal voice interface
+    Open WebUI (already running on berghome:4010) with Speaches for STT/TTS.
+    Open Terminal runs in each devcontainer on PORT+3.
+    - [X] Speaches deployed (Whisper STT + Kokoro TTS)
+    - [X] =open-terminal= installed in container image
+    - [X] =open-terminal= starts on PORT+3 in entrypoint
+    - [ ] Fix Open WebUI tool server verify connection failure
+    - [ ] Register open-terminal as tool server in Open WebUI (global or user)
+    - [ ] Test gemma4 tool calling with Open Terminal endpoints
+    - [ ] Automate registration in =jolo up= via Open WebUI API
+    - [ ] Create Open WebUI Agent with tools pre-enabled + dev system prompt
+    See =docs/2026-04-07-openwebui-devcontainer-bridge.org= for architecture.
 
-*** TODO Phase 3: Self-hosted STT (optional, privacy)
-    Replace Chrome's Google-backed STT with self-hosted faster-whisper on berghome.
-    PWA records audio → POST to whisper API → text → session.
-    All voice processing on own infrastructure.
+*** TODO Phase 3: Claude Code Channels (Telegram, optional)
+    Orthogonal to Open WebUI — text-only, uses Claude subscription.
+    Good for quick commands when voice isn't needed.
+    5-minute setup: =/plugin install telegram@claude-plugins-official=
 ** DONE Install codex ACP for agent-shell
    :PROPERTIES:
    :DATE: 2026-03-01

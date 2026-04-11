@@ -19,7 +19,7 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Flavors use =-web= / =-bare= suffix convention: =typescript-web=, =rust-bare=, etc. :jolo:templates:
 - =FLAVOR_LANGUAGE= maps flavor to base language for hooks/coverage :jolo:templates:
 - =@elysiajs/static= serves files at =/public/= prefix by default but only works via real server, not =app.handle()= :elysia:bun:
-- OpenSpec CLI is image-provided via =pnpm add -g fission-ai/openspec@latest= (intentionally unpinned) :openspec:container:
+- OpenSpec removed — SDD overhead not justified for this project; AGENTS.md + plan-before-act is sufficient :openspec:workflow:
 - Do not force =TERM=tmux-direct= in devcontainer env/shell; let tmux negotiate TERM and enable =terminal-features ...:extkeys= for rich key input :tmux:term-keys:
 - Host =~/.tmux.conf= =set -g terminal-features= (non-appending) clobbers =/etc/tmux.conf=; must use =set -as= :tmux:terminal:
 - =clipboard= terminal-feature (tmux 3.2+) replaces the old =Ms= terminal-override for OSC 52 :tmux:clipboard:
@@ -40,10 +40,18 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Biome reformats =={{VAR}}== in JSX as ={{ VAR }}= (adds spaces) — wrap in string expression ={"{{VAR}}"}= to preserve placeholder :typescript:templates:biome:
 - rustfmt is the canonical Rust formatter (no real alternatives); install via =apk add rustfmt= on Alpine :rust:formatting:
 - Bun defaults =SO_REUSEPORT=true= on Linux — second server silently binds but is unreachable; set =reusePort: false= in templates :bun:elysia:
-- =rusty_v8= has no musl prebuilts (any version); =codex-acp= pinned to =678a99ec= to avoid v8 build failure :alpine:musl:codex:
+- =codex-acp= renamed: =@zed-industries/claude-agent-acp= → =@agentclientprotocol/claude-agent-acp= (pure TS now, no Rust/cargo build needed) :acp:codex:
+- =@fission-ai/openspec= removed from Containerfile — openspec skills deleted, SDD replaced by AGENTS.md workflow :openspec:container:
 - =jolo up --sync= now syncs AGENTS.md/CLAUDE.md/GEMINI.md if unmodified (hash-tracked in =.template-hashes.json=) :jolo:sync:
 - Each container forwards =WORKTREE_PORTS= (3) extra ports above base for agent-shell worktrees; =replace_port_args()= in =container.py= :jolo:ports:
 - =browser-check= defaults screenshots/PDFs to =scratch/= dir, creates it automatically :browser:automation:
+- =open-terminal= installed via =uv tool install open-terminal= in Containerfile; starts on =PORT+3= in entrypoint :open-terminal:container:
+- Open WebUI + Speaches provides self-hosted voice (STT: faster-whisper, TTS: Kokoro) on berghome :voice:openwebui:
+- Open Terminal is the bridge: Open WebUI → tool server → devcontainer shell/filesystem :open-terminal:openwebui:
+- =*.dev.glvortex.net= wildcard DNS → Caddy on berghome with basicauth + port regex (4000-5000 range) :caddy:networking:
+- passt/pasta port forwarding: services reachable on tailscale IP but NOT on localhost from host :podman:networking:gotcha:
+- Anthropic blocked third-party tools from using Claude Max subscription quota on 2026-04-04 :claude:api:billing:
+- Claude Code ACP in Zed still uses subscription; only programmatic API calls require API key :claude:acp:zed:
 - =jolo attach= sorts by MRU via =.devcontainer/.last-attach= mtime; touched on every =devcontainer_exec_tmux()= call :jolo:attach:
 - =--sync= and =--new= merged into single =--recreate= flag; aligns with docker compose =--force-recreate= convention :jolo:cli:
 - =jolo a= is alias for =jolo attach=; =jolo a --recreate= syncs config + rebuilds from anywhere via fzf :jolo:cli:
