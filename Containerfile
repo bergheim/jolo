@@ -166,15 +166,10 @@ RUN pnpm add -g \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
     @agentclientprotocol/claude-agent-acp@latest \
+    @zed-industries/codex-acp@latest \
     markdownlint-cli
 
 RUN cargo install bacon --locked --root $HOME/.local
-
-# build alpine support for codex-acp (pinned — newer v8 has no musl prebuilts)
-RUN git clone https://github.com/zed-industries/codex-acp.git /tmp/codex-acp && \
-      (cd /tmp/codex-acp && git checkout 678a99ec && cargo build --release) && \
-      install -Dm755 /tmp/codex-acp/target/release/codex-acp "$PNPM_HOME/codex-acp" && \
-      rm -rf /tmp/codex-acp
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
