@@ -39,6 +39,16 @@ Shared, non-reproducible resources across projects go in the stash: host `~/stas
 
 `scratch/` is a gitignored directory for experiments, generated assets, and throwaway work. Do not treat its contents as project code.
 
+## Screenshots
+
+When the user says they took a screenshot, read the latest one:
+
+```bash
+ls -t /workspaces/stash/shot-*.png | head -1
+```
+
+Then use the Read tool on that file to view it.
+
 ## Task Tracking
 
 `docs/TODO.org` is the active work log, not a reference document. Treat it as the single source of truth for what needs doing.
