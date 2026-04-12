@@ -569,6 +569,7 @@ def get_project_init_commands(
             f"config :{app_name}, {module_name}Web.Endpoint,",
             "  http: [ip: {0, 0, 0, 0}, port: port]",
             f"config :{app_name}, {module_name}.Repo,",
+            '  username: System.get_env("USER"),',
             '  socket_dir: "/tmp"',
         ]
         escaped = "\\n".join(lines)
