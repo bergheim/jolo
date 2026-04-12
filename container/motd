@@ -21,27 +21,11 @@ elif [ -n "$PORT" ]; then
     header="$header  :$PORT  (in clipboard)"
 fi
 
-# Hint line
-hint=""
-if [ -f justfile ] || [ -f Justfile ]; then
-    hint="Run tasks with: just <recipe>"
-fi
-stash=""
-[ -d /workspaces/stash ] && stash="Stash: /workspaces/stash (shared)"
+hint="Run tasks with: just <recipe>"
+stash="Stash: /workspaces/stash (shared)"
 
 # Print bordered header
 gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${stash:+"$stash"}
 
-# Show justfile targets, static MOTD, or fallback
-if [ -f justfile ] || [ -f Justfile ]; then
-    echo ""
-    just --list --unsorted 2>/dev/null
-elif [ -f MOTD ]; then
-    echo ""
-    cat MOTD
-else
-    echo ""
-    echo "  browser-check URL --describe    Inspect a page"
-    echo "  pre-commit run --all-files      Run linters"
-    echo "  just                            Run tasks (add a justfile)"
-fi
+echo ""
+just --list --unsorted

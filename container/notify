@@ -95,16 +95,12 @@ fi
 TITLE="${PROJECT} - ${AGENT} done${ELAPSED_INFO:-}"
 BODY=""
 
-LAST_COMMIT=""
-if command -v git >/dev/null 2>&1; then
-    LAST_COMMIT=$(git -C "${WORKSPACE:-$PWD}" log -1 --pretty=%s 2>/dev/null || true)
-fi
+LAST_COMMIT=$(git -C "${WORKSPACE:-$PWD}" log -1 --pretty=%s 2>/dev/null || true)
 [ -n "$LAST_COMMIT" ] && BODY="${LAST_COMMIT}"
 
 COMMIT_URL=""
-if command -v git >/dev/null 2>&1; then
-    REPO_URL=$(git -C "${WORKSPACE:-$PWD}" remote get-url origin 2>/dev/null || true)
-    SHA=$(git -C "${WORKSPACE:-$PWD}" rev-parse HEAD 2>/dev/null || true)
+REPO_URL=$(git -C "${WORKSPACE:-$PWD}" remote get-url origin 2>/dev/null || true)
+SHA=$(git -C "${WORKSPACE:-$PWD}" rev-parse HEAD 2>/dev/null || true)
     if [ -n "$REPO_URL" ] && [ -n "$SHA" ]; then
         REPO_URL=${REPO_URL%.git}
         case "$REPO_URL" in
@@ -135,10 +131,7 @@ if [ -n "${NOTIFY_APP:-}" ] && [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; the
 fi
 
 # Button 2: PR if on a branch, otherwise commit
-PR_URL=""
-if command -v gh >/dev/null 2>&1; then
-    PR_URL=$(gh pr view --json url -q .url 2>/dev/null || true)
-fi
+PR_URL=$(gh pr view --json url -q .url 2>/dev/null || true)
 if [ -n "$PR_URL" ]; then
     [ -z "$CLICK_HEADER" ] && CLICK_HEADER="Click: ${PR_URL}"
     ACTIONS="${ACTIONS:+${ACTIONS}; }view, View PR, ${PR_URL}"

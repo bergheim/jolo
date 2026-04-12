@@ -6,7 +6,7 @@ run:
 
 # Run with auto-reload (logs to dev.log for agent visibility)
 dev:
-    uv run uvicorn {{MODULE_NAME}}.app:app --host 0.0.0.0 --port ${PORT:-4000} --reload --app-dir src 2>&1 | tee dev.log
+    uv run uvicorn {{MODULE_NAME}}.app:app --host 0.0.0.0 --port $PORT --reload --app-dir src 2>&1 | tee dev.log
 
 # Run tests
 test:
@@ -23,7 +23,7 @@ add *packages:
 # Open in browser
 browse:
     #!/bin/sh
-    u="http://${DEV_HOST:-localhost}:${PORT:-4000}"
+    u="http://$DEV_HOST:$PORT"
     if [ -n "$WAYLAND_DISPLAY" ]; then
         chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
         echo "Opened browser: $u"
