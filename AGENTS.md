@@ -12,6 +12,16 @@ Assume the user is an experienced developer. Skip basic explanations, don't over
 
 Disagree when you have evidence. If the user's approach has a flaw or you see a better alternative, say so directly with your reasoning — don't just go along with it. Pushback leads to better discussions and a better product. A wrong agreement costs more than a brief debate.
 
+## Screenshots
+
+When the user says they took a screenshot, read the latest one:
+
+```bash
+ls -t /workspaces/stash/shot-*.png | head -1
+```
+
+Then use the Read tool on that file to view it.
+
 ## Scratch Directories
 
 `scratch/` and `reference/` are gitignored scratch spaces. Use `scratch/` for experiments, generated assets (logos, mockups), and throwaway work. These directories are not part of the project and should be ignored during reviews, searches, and status checks.
