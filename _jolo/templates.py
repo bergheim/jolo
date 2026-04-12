@@ -558,15 +558,8 @@ def get_project_init_commands(
         )
         commands.append(
             [
-                "mix",
-                "phx.new",
-                ".",
-                "--app",
-                app_name,
-                "--module",
-                module_name,
-                "--live",
-                "--install",
+                f"yes | mix phx.new . --app {app_name}"
+                f" --module {module_name} --live --install"
             ]
         )
         # Write dev.local.exs for container overrides (PORT + PG socket)
