@@ -33,6 +33,9 @@ RUN apk update && apk add --no-cache \
     git \
     github-cli \
     gnupg \
+    elixir \
+    erlang-dev \
+    inotify-tools \
     go \
     golangci-lint \
     gstreamer \

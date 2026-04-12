@@ -1123,9 +1123,13 @@ def run_create_mode(args: argparse.Namespace) -> None:
     # Python module names use underscores, not hyphens
     module_name = project_name.replace("-", "_")
 
+    pascal_name = "".join(w.capitalize() for w in module_name.split("_"))
+
     def replace_placeholders(text: str) -> str:
-        return text.replace("{{PROJECT_NAME}}", project_name).replace(
-            "{{PROJECT_NAME_UNDERSCORE}}", module_name
+        return (
+            text.replace("{{PROJECT_NAME}}", project_name)
+            .replace("{{PROJECT_NAME_UNDERSCORE}}", module_name)
+            .replace("{{MODULE_NAME}}", pascal_name)
         )
 
     if test_config.get("config_file"):

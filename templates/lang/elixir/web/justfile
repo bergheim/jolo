@@ -1,0 +1,49 @@
+set shell := ["bash", "-eo", "pipefail", "-c"]
+
+# Run the project
+run:
+    mix phx.server
+
+# Run with auto-reload (logs to dev.log for agent visibility)
+dev: db
+    mix phx.server 2>&1 | tee dev.log
+
+# Run tests
+test:
+    mix test
+
+# Run tests continuously (on file change)
+test-watch:
+    fd -e ex -e exs -e heex | entr -cn mix test
+
+# Add a dependency (add to mix.exs manually, then run this)
+add:
+    mix deps.get
+
+# Setup database
+setup:
+    mix ecto.setup
+
+# Run migrations
+migrate:
+    mix ecto.migrate
+
+# Reset database
+reset:
+    mix ecto.reset
+
+# Open in browser
+browse:
+    #!/bin/sh
+    u="http://$DEV_HOST:$PORT"
+    if [ -n "$WAYLAND_DISPLAY" ]; then
+        chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
+        echo "Opened browser: $u"
+    else
+        printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty
+        echo "Copied to clipboard: $u"
+    fi
+
+# Start PostgreSQL (init on first run)
+db *args="start":
+    db {{args}}
