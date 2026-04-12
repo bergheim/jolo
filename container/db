@@ -1,0 +1,35 @@
+#!/bin/sh
+# pg — start/stop/status PostgreSQL (data in .devcontainer/.pgdata/)
+set -e
+
+PGDATA="${WORKSPACE_FOLDER:-.}/.devcontainer/.pgdata"
+
+case "${1:-start}" in
+    start)
+        if [ ! -d "$PGDATA" ]; then
+            initdb -D "$PGDATA" --auth=trust --no-locale -E UTF8
+            echo "host all all 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
+            cat >> "$PGDATA/postgresql.conf" <<PGCONF
+listen_addresses = '*'
+unix_socket_directories = '/tmp'
+PGCONF
+            pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" start
+            createdb -h /tmp "$(whoami)"
+        else
+            pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" start
+        fi
+        ;;
+    stop)
+        pg_ctl -D "$PGDATA" stop
+        ;;
+    status)
+        pg_ctl -D "$PGDATA" status
+        ;;
+    log)
+        tail -f "$PGDATA/server.log"
+        ;;
+    *)
+        echo "Usage: pg [start|stop|status|log]"
+        exit 1
+        ;;
+esac
