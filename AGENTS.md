@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Communication
 
-Assume the user is an experienced developer. Skip basic explanations, don't over-qualify statements, and don't pad responses with filler ("great question!", "certainly!").
+Assume the user is an experienced developer. Skip basic explanations, don't over-qualify statements, and don't pad responses with filler ("great question!", "certainly!"). Never use the phrase "smoke test" — just say "test" or "verify".
 
 Disagree when you have evidence. If the user's approach has a flaw or you see a better alternative, say so directly with your reasoning — don't just go along with it. Pushback leads to better discussions and a better product. A wrong agreement costs more than a brief debate.
 
