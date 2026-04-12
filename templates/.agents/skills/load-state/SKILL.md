@@ -1,9 +1,9 @@
 ---
-name: jolo:load-state
+name: j:load-state
 description: Load shared project knowledge and current priorities at session start.
 ---
 
-# /jolo:load-state
+# /j:load-state
 
 Prime the agent with accumulated project knowledge. Run at the start of a session
 to pick up where previous sessions left off.

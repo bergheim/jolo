@@ -38,7 +38,9 @@
    Replace broad =GH_TOKEN= with fine-grained personal access tokens
    scoped to specific repos. Reduces blast radius if a token is exfiltrated.
    GitHub fine-grained tokens support per-repo permissions since 2023.
-** TODO Add ntfy desktop notifications on Linux
+** DONE Add ntfy desktop notifications on Linux
+   Cancelled — phone notifications sufficient. =ntfysh-bin= AUR package
+   didn't ship a working systemd unit.
    Install =ntfysh-bin= (AUR), configure =~/.config/ntfy/client.yml= to subscribe
    to the =jolo= topic and pipe to =notify-send=, enable =ntfy-client= user service.
    #+begin_src yaml

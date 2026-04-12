@@ -1,9 +1,9 @@
 ---
-name: jolo:doc-critique
+name: j:doc-critique
 description: Critique and improve prose documents while preserving the author's voice. Use when the user asks to review, critique, or sanity-check docs, READMEs, proposals, blog posts, product notes, or other writing, and they want feedback, gaps, and suggestions rather than a full rewrite.
 ---
 
-# /jolo:doc-critique
+# /j:doc-critique
 
 ## Overview
 Provide a focused critique of writing quality, structure, and completeness while keeping the author's tone intact. Emphasize suggestions and minimal examples over rewriting.

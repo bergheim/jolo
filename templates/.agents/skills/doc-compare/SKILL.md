@@ -1,9 +1,9 @@
 ---
-name: jolo:doc-compare
+name: j:doc-compare
 description: Compare two or more document versions and provide a narrative summary of meaningful differences. Use when the user wants a human-readable summary of changes across versions (A/B/C), change impacts, regressions, or missing content, without a line-by-line diff or rewrite.
 ---
 
-# /jolo:doc-compare
+# /j:doc-compare
 
 ## Overview
 Summarize differences across multiple document versions in a narrative form, focused on impact and meaning rather than mechanical diffs.

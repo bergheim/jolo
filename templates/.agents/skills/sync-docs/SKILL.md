@@ -1,9 +1,9 @@
 ---
-name: jolo:sync-docs
+name: j:sync-docs
 description: Reconcile project docs (MEMORY.org, TODO.org, AGENTS.md) with the current state of the code and recent commits.
 ---
 
-# /jolo:sync-docs
+# /j:sync-docs
 
 Audit project documentation against the actual codebase and fix drift.
 

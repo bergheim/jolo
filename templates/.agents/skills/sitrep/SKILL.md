@@ -1,9 +1,9 @@
 ---
-name: jolo:sitrep
+name: j:sitrep
 description: Generate a short natural-language status update focused on the most recent changes and current priorities.
 ---
 
-# /jolo:sitrep
+# /j:sitrep
 
 Produce a concise, human-readable status update that gets the user back up to speed quickly.
 
