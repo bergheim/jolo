@@ -60,6 +60,7 @@ VERBOSE = False
 VALID_FLAVORS = [
     "typescript-web",
     "typescript-bare",
+    "elixir-web",
     "go-web",
     "go-bare",
     "python-web",
@@ -75,6 +76,7 @@ VALID_FLAVORS = [
 FLAVOR_LANGUAGE = {
     "typescript-web": "typescript",
     "typescript-bare": "typescript",
+    "elixir-web": "elixir",
     "go-web": "go",
     "go-bare": "go",
     "python-web": "python",

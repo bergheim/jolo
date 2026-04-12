@@ -235,6 +235,12 @@ def get_coverage_config(flavor: str) -> dict:
             "run_command": "cargo llvm-cov",
         }
 
+    elif lang == "elixir":
+        return {
+            "config_addition": None,
+            "run_command": "mix test --cover",
+        }
+
     # Shell, prose, other, and unknown languages have no standard coverage
     return {
         "config_addition": None,
@@ -364,6 +370,14 @@ def get_test_framework_config(flavor: str) -> dict:
             "config_content": "# Rust uses built-in testing. Run tests with: cargo test",
             "example_test_file": "src/main.rs",
             "example_test_content": main_rs,
+        }
+
+    elif lang == "elixir":
+        return {
+            "config_file": None,
+            "config_content": "# Elixir uses ExUnit. Run tests with: mix test",
+            "example_test_file": None,
+            "example_test_content": "",
         }
 
     return {
@@ -535,6 +549,43 @@ def get_project_init_commands(
             commands.append(["cargo", "add", "serde", "-F", "derive"])
             commands.append(["cargo", "add", "--dev", "tower"])
             commands.append(["just", "setup"])
+    elif lang == "elixir":
+        app_name = project_name.replace("-", "_")
+        module_name = "".join(w.capitalize() for w in app_name.split("_"))
+        commands.append(["mix", "local.hex", "--force"])
+        commands.append(
+            ["mix", "archive.install", "hex", "phx_new", "--force"]
+        )
+        commands.append(
+            [
+                "mix",
+                "phx.new",
+                ".",
+                "--app",
+                app_name,
+                "--module",
+                module_name,
+                "--live",
+                "--install",
+                "--force",
+            ]
+        )
+        # Write dev.local.exs for container overrides (PORT + PG socket)
+        dev_local = (
+            "import Config\n"
+            f'port = String.to_integer(System.get_env("PORT") || "4000")\n'
+            f"config :{app_name}, {module_name}Web.Endpoint,\n"
+            "  http: [ip: {0, 0, 0, 0}, port: port]\n"
+            f"config :{app_name}, {module_name}.Repo,\n"
+            '  socket_dir: "/tmp"\n'
+        )
+        commands.append(
+            [
+                "sh",
+                "-c",
+                f"cat > config/dev.local.exs << 'ELIXIR_EOF'\n{dev_local}ELIXIR_EOF",
+            ]
+        )
     elif lang == "shell":
         commands.append(["mkdir", "-p", "src"])
     elif lang == "prose":
