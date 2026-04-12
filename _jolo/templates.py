@@ -574,6 +574,13 @@ def get_project_init_commands(
         ]
         escaped = "\\n".join(lines)
         commands.append([f"printf '%b' '{escaped}' > config/dev.local.exs"])
+        # Ensure dev.exs imports dev.local.exs
+        commands.append(
+            [
+                "grep -q dev.local config/dev.exs"
+                " || echo 'import_config \"dev.local.exs\"' >> config/dev.exs"
+            ]
+        )
     elif lang == "shell":
         commands.append(["mkdir", "-p", "src"])
     elif lang == "prose":
