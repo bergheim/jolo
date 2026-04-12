@@ -18,25 +18,10 @@
    open Chromium on Wayland; clipboard copy should be explicit/opt-in.
    Falls back to clipboard-only or URL print without Wayland.
    Also toggles headless behavior appropriately for local browser tooling on Wayland.
-** TODO Decide how to ship Claude Code plugins in devcontainers
-   Concrete case: =openai/codex-plugin-cc= marketplace. Plugins live in
-   =~/.claude/plugins/= on the host (=installed_plugins.json=,
-   =known_marketplaces.json=, cloned marketplace repos). Currently jolo copies
-   =.claude.json= and =settings.json= but not the =plugins/= dir, so plugin
-   state never reaches containers.
-
-   Options considered:
-   - Mount =~/.claude/plugins/= read-only from host (one line in =BASE_MOUNTS=,
-     host is source of truth, requires host-side install).
-   - Bake into image: =git clone= the marketplace + hand-write
-     =known_marketplaces.json= with =${USERNAME}= templating (~10 lines, fragile
-     to schema changes, but self-contained).
-   - Hybrid via overlayfs — rejected, too much machinery for the payoff.
-
-   Open question: do we even want =codex-plugin-cc=? The =codex= CLI binary is
-   already installed via npm; the plugin is separate Claude-side wiring (slash
-   commands / subagent integration). Decide whether the integration is worth
-   it before plumbing the install path.
+** DONE Decide how to ship Claude Code plugins in devcontainers
+   Went with RO mount of =~/.claude/plugins/= from host. One line in
+   =BASE_MOUNTS=. Stops the LSP plugin recommendation prompt and makes all
+   host-installed plugins available in containers.
 ** TODO Add Phoenix LiveView scaffold support (Elixir)
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
@@ -161,11 +146,11 @@
    Also watch DNS-PERSIST-01 (Let's Encrypt Q2 2026) as a simpler alternative.
    Caddy config: =*.dev.glvortex.net= with basicauth, port range 4000-5000,
    reverse_proxy to =100.64.0.2:{port}=.
-** TODO Verify NOTIFY_PATH env inheritance in automated hooks
-   =export NOTIFY_PATH=/foo= in agent shell may or may not be inherited by
-   Claude Code's hook subprocess. If not, update hook commands to pass
-   =--path "$NOTIFY_PATH"= explicitly. Threshold was temporarily set to 1s
-   for testing — reset to 20s after verification.
+** DONE Verify NOTIFY_PATH env inheritance in automated hooks
+   Env vars exported in the user's shell are NOT inherited by Claude's hook
+   subprocesses. Solved with =notify set-path /foo= which persists the path
+   to =~/.notify-path=. The notify script reads it at send time. Agents call
+   =notify set-path= when working on a specific route.
 ** DONE Add ollama integration (OLLAMA_HOST=http://berghome:11434)
    Ollama runs on berghome with gemma4:26b + others. Pass =OLLAMA_HOST= env
    to containers. Research shows ollama overhead is ~5-13% vs raw llama.cpp,
