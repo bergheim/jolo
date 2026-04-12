@@ -571,21 +571,16 @@ def get_project_init_commands(
             ]
         )
         # Write dev.local.exs for container overrides (PORT + PG socket)
-        dev_local = (
-            "import Config\n"
-            f'port = String.to_integer(System.get_env("PORT") || "4000")\n'
-            f"config :{app_name}, {module_name}Web.Endpoint,\n"
-            "  http: [ip: {0, 0, 0, 0}, port: port]\n"
-            f"config :{app_name}, {module_name}.Repo,\n"
-            '  socket_dir: "/tmp"\n'
-        )
-        commands.append(
-            [
-                "sh",
-                "-c",
-                f"cat > config/dev.local.exs << 'ELIXIR_EOF'\n{dev_local}ELIXIR_EOF",
-            ]
-        )
+        lines = [
+            "import Config",
+            'port = String.to_integer(System.get_env("PORT") || "4000")',
+            f"config :{app_name}, {module_name}Web.Endpoint,",
+            "  http: [ip: {0, 0, 0, 0}, port: port]",
+            f"config :{app_name}, {module_name}.Repo,",
+            '  socket_dir: "/tmp"',
+        ]
+        escaped = "\\n".join(lines)
+        commands.append([f"printf '%b' '{escaped}' > config/dev.local.exs"])
     elif lang == "shell":
         commands.append(["mkdir", "-p", "src"])
     elif lang == "prose":
