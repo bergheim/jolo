@@ -6,6 +6,7 @@ PGDATA="${WORKSPACE_FOLDER:-.}/.devcontainer/.pgdata"
 
 case "${1:-start}" in
     start)
+        pg_ctl -D "$PGDATA" status >/dev/null 2>&1 && exit 0
         if [ ! -d "$PGDATA" ]; then
             initdb -D "$PGDATA" --auth=trust --no-locale -E UTF8
             echo "host all all 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
