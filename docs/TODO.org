@@ -22,7 +22,10 @@
    Went with RO mount of =~/.claude/plugins/= from host. One line in
    =BASE_MOUNTS=. Stops the LSP plugin recommendation prompt and makes all
    host-installed plugins available in containers.
-** TODO Add Phoenix LiveView scaffold support (Elixir)
+** DONE Add Phoenix LiveView scaffold support (Elixir)
+   Added =elixir-web= flavor. Containerfile: =elixir=, =erlang-dev=, =inotify-tools=.
+   =mix phx.new= with =--live= generates full project. =config/dev.local.exs=
+   overrides PORT and PG socket. Justfile has =dev: db= for auto-start.
    Include dev-mode LiveView hot reload and browser live reload defaults.
    Update =Containerfile= to include Elixir/Erlang/Phoenix tooling needed by scaffolded projects.
 ** TODO Investigate network egress monitoring for devcontainers
