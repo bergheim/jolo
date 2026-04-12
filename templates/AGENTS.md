@@ -85,6 +85,25 @@ server directly: `browser-check http://localhost:$PORT/page --screenshot`.
 | curl | `curl http://localhost:$PORT/healthz` |
 | playwright-cli | `playwright-cli open http://localhost:$PORT` |
 
+## Notifications
+
+Push notifications fire automatically when you finish a response (via hooks).
+For web projects, the notification includes an "Open app" button linking to the
+dev server URL. By default it points to `/`.
+
+When working on a specific page or route, set the notification path so the
+button links there instead:
+
+```bash
+notify set-path /dashboard
+notify set-path /article/123
+notify set-path /          # reset to root
+```
+
+This persists across responses until changed. Set it whenever you start working
+on a specific route so the user can tap the notification and land on the right
+page.
+
 ## Development Workflow
 
 Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloads on file changes. Only use `just run` for one-off executions (e.g., scripts, CLI tools).

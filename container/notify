@@ -42,6 +42,12 @@ if [ "${1:-}" = "stamp" ]; then
     exit 0
 fi
 
+# --- set-path: persist path for next notification ---
+if [ "${1:-}" = "set-path" ]; then
+    echo "${2:-}" > "$HOME/.notify-path"
+    exit 0
+fi
+
 # --- --path: set NOTIFY_PATH from arg ---
 if [ "${1:-}" = "--path" ]; then
     NOTIFY_PATH="${2:-}"
@@ -115,6 +121,11 @@ if command -v git >/dev/null 2>&1; then
 fi
 CLICK_HEADER=""
 ACTIONS=""
+
+# Read persisted path if not already set
+if [ -z "${NOTIFY_PATH:-}" ] && [ -f "$HOME/.notify-path" ]; then
+    NOTIFY_PATH=$(cat "$HOME/.notify-path")
+fi
 
 # Button 1: dev app URL (only for web projects with NOTIFY_APP=1)
 if [ -n "${NOTIFY_APP:-}" ] && [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
