@@ -150,6 +150,28 @@ MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
 git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 ```
 
+## Local Models (Ollama)
+
+`OLLAMA_HOST` is set in the container environment, pointing to a self-hosted ollama instance with GPU. Use it for tasks where a free local model is good enough — drafting, summarization, embeddings, throwaway experiments — instead of burning API credits.
+
+```bash
+# Check available models
+curl -s $OLLAMA_HOST/api/tags | jq '.models[].name'
+
+# Generate (streaming)
+curl -s $OLLAMA_HOST/api/generate -d '{"model":"gemma4:26b","prompt":"..."}'
+
+# Chat (OpenAI-compatible endpoint)
+curl -s $OLLAMA_HOST/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemma4:26b","messages":[{"role":"user","content":"..."}]}'
+
+# Embeddings
+curl -s $OLLAMA_HOST/api/embed -d '{"model":"bge-m3","input":"..."}'
+```
+
+Python/JS SDKs that support OpenAI-compatible APIs work with `$OLLAMA_HOST/v1` as the base URL. The `ollama` CLI is not installed — use HTTP calls or SDK clients.
+
 ## Cross-Agent Reviews
 
 When shelling out to another agent CLI for a code review or second opinion, **unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`** so the agent uses its own CLI auth instead of falling back to direct API-key mode.
