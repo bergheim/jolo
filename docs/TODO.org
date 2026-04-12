@@ -159,9 +159,13 @@
    acceptable for multi-model switching. Try =OLLAMA_LLAMA_CPP=1= if a
    model is slow. See =RESEARCH.org= "Ollama vs llama.cpp" for benchmarks.
 ** TODO Get agent-browser working with container Chromium
-   [[https://github.com/vercel-labs/agent-browser][agent-browser]] should support custom browser executables via config.
-   Latest commits suggest it works, but it doesn't in practice.
-   See: https://github.com/vercel-labs/agent-browser?tab=readme-ov-file#custom-browser-executable
+   [[https://github.com/vercel-labs/agent-browser][agent-browser]] supports =--executable-path= and =AGENT_BROWSER_EXECUTABLE_PATH=
+   for custom Chromium. System Chromium launches fine (verified), but
+   the agent-browser daemon IPC hangs on Alpine/musl — CLI never returns.
+   Likely a musl compatibility issue with the Go daemon binary
+   (=agent-browser-linux-musl-x64=). Not fixable on our side.
+   =playwright-cli= and =browser-check= work fine as alternatives.
+   Revisit if upstream fixes musl support.
 ** DONE Diagnose Elpaca bootstrap regression after image update
    :PROPERTIES:
    :DATE: 2026-03-01
