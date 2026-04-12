@@ -194,6 +194,7 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/${localEnv:USER}/.claude/.credentials.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.claude-cache/settings.json,target=/home/${localEnv:USER}/.claude/settings.json,type=bind",
     "source=${localEnv:HOME}/.claude/statsig,target=/home/${localEnv:USER}/.claude/statsig,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/plugins,target=/home/${localEnv:USER}/.claude/plugins,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
