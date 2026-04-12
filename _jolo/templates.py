@@ -562,23 +562,20 @@ def get_project_init_commands(
                 f" --module {module_name} --live --install"
             ]
         )
-        # Write dev.local.exs for container overrides (PORT + PG socket)
-        lines = [
-            "import Config",
-            'port = String.to_integer(System.get_env("PORT") || "4000")',
-            f"config :{app_name}, {module_name}Web.Endpoint,",
-            "  http: [ip: {0, 0, 0, 0}, port: port]",
-            f"config :{app_name}, {module_name}.Repo,",
-            '  username: System.get_env("USER"),',
-            '  socket_dir: "/tmp"',
-        ]
-        escaped = "\\n".join(lines)
-        commands.append([f"printf '%b' '{escaped}' > config/dev.local.exs"])
-        # Ensure dev.exs imports dev.local.exs
+        # Patch dev.exs: use $PORT, current user, and Unix socket
         commands.append(
             [
-                "grep -q dev.local config/dev.exs"
-                " || echo 'import_config \"dev.local.exs\"' >> config/dev.exs"
+                """sed -i 's/username: "postgres"/username: System.get_env("USER")/' config/dev.exs"""
+            ]
+        )
+        commands.append(
+            [
+                """sed -i 's/hostname: "localhost"/socket_dir: "\\/tmp"/' config/dev.exs"""
+            ]
+        )
+        commands.append(
+            [
+                r"""sed -i 's/ip: {127, 0, 0, 1}, port: 4000/ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")/' config/dev.exs"""
             ]
         )
     elif lang == "shell":
