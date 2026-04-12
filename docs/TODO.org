@@ -159,6 +159,9 @@
    acceptable for multi-model switching. Try =OLLAMA_LLAMA_CPP=1= if a
    model is slow. See =RESEARCH.org= "Ollama vs llama.cpp" for benchmarks.
 ** TODO Get agent-browser working with container Chromium
+   :PROPERTIES:
+   :SCHEDULED: 2026-05-12
+   :END:
    [[https://github.com/vercel-labs/agent-browser][agent-browser]] supports =--executable-path= and =AGENT_BROWSER_EXECUTABLE_PATH=
    for custom Chromium. System Chromium launches fine (verified), but
    the agent-browser daemon IPC hangs on Alpine/musl — CLI never returns.
