@@ -9,7 +9,7 @@ dev: db
     mix phx.server 2>&1 | tee dev.log
 
 # Run tests
-test:
+test: db
     mix test
 
 # Run tests continuously (on file change)

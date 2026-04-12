@@ -16,6 +16,7 @@ unix_socket_directories = '/tmp'
 PGCONF
             pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" start
             createdb -h /tmp "$(whoami)"
+            psql -h /tmp -c "CREATE ROLE postgres WITH LOGIN CREATEDB SUPERUSER;" 2>/dev/null || true
         else
             # Ensure socket directory exists (may differ from /tmp in older configs)
             sock_dir=$(grep unix_socket_directories "$PGDATA/postgresql.conf" | sed "s/.*= *'//;s/'.*//")
