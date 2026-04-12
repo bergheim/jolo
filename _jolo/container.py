@@ -88,6 +88,7 @@ def build_devcontainer_json(
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "OLLAMA_HOST": "${localEnv:OLLAMA_HOST}",
+            "PGHOST": "/tmp",
             "PROJECT": project_name,
             "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
             **({"NOTIFY_APP": "1"} if has_web else {}),

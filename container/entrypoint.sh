@@ -41,6 +41,19 @@ export NO_AT_BRIDGE=1
 # export XCURSOR_PATH=${XCURSOR_PATH}:~/.local/share/icons
 # export XCURSOR_THEME=cursor_theme_name
 
+# PostgreSQL: init on first boot, start in background
+PGDATA="$HOME/.local/share/postgresql"
+if [ ! -d "$PGDATA" ]; then
+    initdb -D "$PGDATA" --auth=trust --no-locale -E UTF8
+    echo "host all all 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
+    cat >> "$PGDATA/postgresql.conf" <<PGCONF
+listen_addresses = '*'
+unix_socket_directories = '/tmp'
+PGCONF
+fi
+pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" start
+createdb -h /tmp "$(whoami)" 2>/dev/null || true
+
 # Start open-terminal on the last port in the container's range
 if [ -n "$PORT" ] && command -v open-terminal >/dev/null 2>&1; then
     OT_PORT=$((PORT + 3))
