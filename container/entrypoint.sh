@@ -42,7 +42,7 @@ export NO_AT_BRIDGE=1
 # export XCURSOR_THEME=cursor_theme_name
 
 # PostgreSQL: init on first boot, start in background
-PGDATA="$HOME/.local/share/postgresql"
+PGDATA="${WORKSPACE_FOLDER:-.}/.devcontainer/.pgdata"
 if [ ! -d "$PGDATA" ]; then
     initdb -D "$PGDATA" --auth=trust --no-locale -E UTF8
     echo "host all all 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
