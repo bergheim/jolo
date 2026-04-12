@@ -5,8 +5,12 @@ run:
     mix phx.server
 
 # Run with auto-reload (logs to dev.log for agent visibility)
-dev: db
+dev: db _ensure-db
     mix phx.server 2>&1 | tee dev.log
+
+# Create database if it doesn't exist and run migrations
+_ensure-db:
+    mix ecto.create 2>/dev/null; mix ecto.migrate
 
 # Run tests
 test: db
