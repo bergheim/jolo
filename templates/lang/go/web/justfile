@@ -35,3 +35,7 @@ browse:
         printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty
         echo "Copied to clipboard: $u"
     fi
+
+# Start PostgreSQL (init on first run)
+db *args="start":
+    db {{args}}
