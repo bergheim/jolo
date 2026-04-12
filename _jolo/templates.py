@@ -567,7 +567,6 @@ def get_project_init_commands(
                 module_name,
                 "--live",
                 "--install",
-                "--force",
             ]
         )
         # Write dev.local.exs for container overrides (PORT + PG socket)
