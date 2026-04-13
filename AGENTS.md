@@ -303,7 +303,7 @@ Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hado
 
 Browser automation: browser-check (uses Playwright with system Chromium)
 
-Image tooling: prefer `vips`/`vipsthumbnail` for conversion, resizing, and thumbnails. Do not add ImageMagick or Pillow unless the project explicitly requires them.
+Image tooling: vips/vipsthumbnail, avifenc/avifdec (AVIF), cwebp/dwebp (WebP). Prefer AVIF > WebP > PNG/JPEG. Do not add ImageMagick or Pillow unless the project explicitly requires them.
 
 ## Browser Automation Tool Guide
 

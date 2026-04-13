@@ -187,7 +187,25 @@ Read the screenshot to confirm the result looks correct, and check the error out
 
 ## Image Tooling
 
-Prefer `vips`/`vipsthumbnail` for image conversion, resizing, and thumbnails. Do not add ImageMagick or Pillow unless the project explicitly requires them.
+**Format preference:** AVIF > WebP > PNG/JPEG. AVIF has the best compression and 95%+ browser support. Use WebP as fallback for older browsers. PNG only for lossless needs (logos, icons with transparency).
+
+**Tools available:**
+- `vips`/`vipsthumbnail` — preferred for conversion, resizing, thumbnails (supports AVIF, WebP, JPEG, PNG)
+- `avifenc`/`avifdec` — standalone AVIF encoding/decoding
+- `cwebp`/`dwebp` — standalone WebP encoding/decoding
+
+Do not add ImageMagick or Pillow unless the project explicitly requires them.
+
+```bash
+# Convert to AVIF (quality 30 = good balance)
+vips copy input.png output.avif[Q=30]
+
+# Convert to WebP
+cwebp -q 80 input.png -o output.webp
+
+# Resize and convert in one step
+vipsthumbnail input.jpg -s 800x -o output.avif[Q=30]
+```
 
 ## Git Workflow
 
