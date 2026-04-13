@@ -8,11 +8,11 @@ Jolo is meant to help you get a project up in minutes. Spin up isolated devconta
 
 This project started as a way to isolate my Emacs config automatically to be able to easily try changes there. But Emacs is just a git repo. So I made it work with any repo, and now Emacs is just there along for the ride.
 
-Alpine Linux container with Emacs, agents (Claude, Gemini, Codex, Pi) without permission checks, language servers, browser automation, lots of guard rails (linters, pre-commit hooks), and all the developer tools I've come to expect on regular systems.
+Alpine Linux container with Emacs, agents (Claude, Gemini, Codex, Pi) without permission checks, language servers, PostgreSQL + pgvector, browser automation, lots of guard rails (linters, pre-commit hooks), and all the developer tools I've come to expect on regular systems.
 
 Each ~jolo up~ invocation gets an isolated container with its own (permanent) port, shell history, and AI credentials. Every container starts a 7-window tmux session: Emacs, Claude, Codex, Gemini, Pi, dev, and a shell.
 
-All agents share the same skills and project memory (~docs/~). Skills are namespaced with ~jolo:~ to avoid collision with third-party skill packs. Agents get push notifications via ntfy when they finish, with buttons that link to the commit, PR, or the running app depending on context.
+All agents share the same skills and project memory (~docs/~). Skills are namespaced with ~j:~ for quick invocation (e.g. ~/j:next~, ~/j:review~). Agents get push notifications via ntfy when they finish, with buttons that link to the commit, PR, or the running app depending on context.
 
 ~spawn~ mode fans out N worktrees with agents round-robin through Claude, Gemini, Codex, and Pi. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 
@@ -41,6 +41,7 @@ The dev server URL is also copied to clipboard via OSC 52 on ~jolo up~, so you c
 | ~python-bare~ | uv | — | Ruff | pytest |
 | ~go-web~ | Go + Templ + Air | ~air~ (live-reload) | golangci-lint | ~go test~ |
 | ~go-bare~ | Go | — | golangci-lint | ~go test~ |
+| ~elixir-web~ | Phoenix + LiveView + Ecto | ~mix phx.server~ | — | ~mix test~ |
 | ~rust-web~ | Axum + Askama | ~bacon~ | clippy | ~cargo test~ |
 | ~rust-bare~ | Rust | — | clippy | ~cargo test~ |
 | ~shell~ | POSIX sh / Bash | — | ShellCheck | — |
