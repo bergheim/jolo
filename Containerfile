@@ -47,6 +47,8 @@ RUN apk update && apk add --no-cache \
     kitty-kitten \
     chafa \
     vips-tools \
+    libwebp-tools \
+    libavif-apps \
     libsixel \
     libsixel-tools \
     mesa \
