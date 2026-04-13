@@ -565,7 +565,7 @@ def get_project_init_commands(
         # Patch dev.exs: use $PORT, current user, and Unix socket
         commands.append(
             [
-                """sed -i 's/username: "postgres"/username: System.get_env("USER")/' config/dev.exs"""
+                """sed -i "s/username: \\"postgres\\"/username: \\"$(whoami)\\"/" config/dev.exs"""
             ]
         )
         commands.append(
@@ -575,7 +575,7 @@ def get_project_init_commands(
         )
         commands.append(
             [
-                r"""sed -i 's/ip: {127, 0, 0, 1}, port: 4000/ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")/' config/dev.exs"""
+                r"""sed -i 's/ip: {127, 0, 0, 1}/ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")/' config/dev.exs"""
             ]
         )
     elif lang == "shell":
