@@ -28,4 +28,6 @@ stash="Stash: /workspaces/stash (shared)"
 gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${stash:+"$stash"}
 
 echo ""
-just --list --unsorted
+if [ -f justfile ] || [ -f Justfile ]; then
+    just --list --unsorted
+fi
