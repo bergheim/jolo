@@ -217,12 +217,16 @@ jolo up -d # start detached
 - `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
 - `container/motd` - Message of the day shown on shell login
 - `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
+- `container/notify` - Push notification on agent completion (ntfy)
+- `container/db` - On-demand PostgreSQL (init/start/stop/status/log)
 - `jolo.py` + `_jolo/` - Devcontainer CLI split into a package: `constants.py`, `cli.py`, `templates.py`, `container.py`, `setup.py`, `worktree.py`, `commands.py`
 
 **Environment:**
 - `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `PNPM_HOME` - pnpm global package path (no sudo needed)
+- `PGHOST=/tmp` - PostgreSQL Unix socket directory
+- `OLLAMA_HOST` - Ollama API endpoint (passed from host)
 
 ## Notifications
 
@@ -238,7 +242,9 @@ Use `test` only for ad-hoc/manual test pings (e.g., `NTFY_TOPIC=test`).
 
 Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server
 
-Runtimes: Go, Rust, Python, Ruby, Node.js, Bun, pnpm, mise (version manager)
+Runtimes: Go, Rust, Python, Ruby, Elixir/Erlang, Node.js, Bun, pnpm, mise (version manager)
+
+Database: PostgreSQL 18 + pgvector (on-demand via `db start` or `just db`, data in `.devcontainer/.pgdata/`)
 
 CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload), postgresql-client
 

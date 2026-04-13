@@ -60,11 +60,28 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Cross-agent reviews: unset =ANTHROPIC_API_KEY= and =OPENAI_API_KEY= when shelling out to =claude -p= or =codex= so CLI auth is used :workflow:agents:
 - =.claude.json= injection: =hasTrustDialogAccepted= and =effortCalloutV2Dismissed= set during =setup_credential_cache()= :jolo:claude:
 - Codex =config.toml= injection: =trust_level = "trusted"= set for container workspace path during setup :jolo:codex:
-- Custom skills use =jolo:= namespace prefix to avoid collision with third-party skill packs (e.g. superpowers) :skills:workflow:
+- Custom skills use =j:= namespace prefix (shortened from =jolo:=) :skills:workflow:
 - ntfy notifications support up to 3 action buttons (semicolon-separated); current setup: "Open app" (web projects) + "View PR" or "View commit" :ntfy:notifications:
 - =NOTIFY_APP=1= in =containerEnv= gates the "Open app" button; only set for =-web= flavors via =has_web= param :ntfy:jolo:
 - =NOTIFY_PATH= env var or =notify --path /foo= appends to dev URL for page-specific notification links :ntfy:notifications:
 - =_save_template_hashes= creates =.devcontainer/= early; =scaffold_devcontainer= must check for =devcontainer.json= existence, not directory :jolo:gotcha:
+- =jolo a= shows stopped containers with state marker (=[exited]=); auto-starts before attaching :jolo:attach:
+- Host =~/.zshrc= =HISTFILE=~/.histfile= overrides container env var; =.zshrc.container= must re-export =HISTFILE=$HOME/.zsh-state/.histfile= :zsh:histfile:gotcha:
+- =notify set-path /foo= persists to =~/.notify-path=; notify reads it at send time — env vars don't inherit into hook subprocesses :ntfy:notifications:
+- =~/.claude/plugins/= mounted RO from host into containers; stops LSP plugin prompts :claude:plugins:
+- =OLLAMA_HOST= passed via =${localEnv:OLLAMA_HOST}= — must be set in host =~/.zshrc= (not =.zshenv=, which isn't mounted) :ollama:container:
+- PostgreSQL server in image: =postgresql=, =postgresql-contrib=, =postgresql-pgvector= :postgresql:container:
+- =db= script: init on first run (=.devcontainer/.pgdata/=), =postgres= superuser created, socket in =/tmp= :postgresql:db:
+- =PGHOST=/tmp= set in =containerEnv= so =psql= connects without =-h= flag :postgresql:container:
+- PostgreSQL is on-demand (=just db= / =db start=), NOT auto-started in entrypoint :postgresql:design:
+- Elixir/Phoenix: =mix phx.new= needs =yes= piped (dir not empty prompt); =--force= removed in Phoenix 1.8 :elixir:phoenix:
+- Phoenix 1.8 =config/dev.exs=: sed-patch username/hostname/ip after scaffold; =System.get_env("USER")= returns nil in config context :elixir:phoenix:gotcha:
+- Justfile common recipes (browse, db) extracted to =templates/lang/common/justfile.common=, appended by =get_justfile_content()= :jolo:templates:
+- =to_snake_case()= and =to_pascal_case()= in =templates.py= shared by =commands.py= and =templates.py= :jolo:naming:
+- Containerfile: script COPYs (e, wt, motd, notify, db) placed after heavy layers (pnpm, cargo) to avoid cache busting; use =--chmod=755= for non-root COPY :containerfile:optimization:
+- =agent-browser= daemon IPC hangs on Alpine/musl; upstream issue #1035, postponed to May 2026 :agent-browser:musl:
+- Skills renamed from =jolo:= prefix to =j:= for brevity :skills:workflow:
+- Screenshot workflow: =jolo-shot= on local machine → scp to =berghome:stash/= → agents read latest =shot-*.png= :workflow:screenshots:
 
 * Terminal Image Display                                       :terminal:images:
 
