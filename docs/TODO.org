@@ -67,9 +67,14 @@ CLOSED: [2026-04-13 Mon 12:12]
    Goal: develop with Claude from your phone using voice — speak prompts,
    hear results. See =docs/2026-04-07-voice-dev-on-the-go.org= for full research.
 
-*** TODO Phase 1: Merge TTS branch + Remote Control workflow
+*** DONE Phase 1: Merge TTS branch + Remote Control workflow
+CLOSED: [2026-04-13 Mon 15:23]
     :PROPERTIES:
     :BRANCH: feat/research-tts
+    :END:
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2026-04-13 Mon 15:23] \\
+      Rebased onto main, dropped stale TODO.org from branch, fast-forward merged.
     :END:
     1. Merge =feat/research-tts= (1 commit ahead) — TTS output via Kokoro + ntfy
     2. Verify Kokoro at =berghome.ts.glvortex.net:4014= — check if it's Kokoro-FastAPI or bare model
