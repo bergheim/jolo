@@ -194,3 +194,8 @@ CLOSED: [2026-04-13 Mon 12:12]
    Root cause: ~elpaca-use-package-by-default~ no longer applied; packages were
    not ensured by default. Fix is ~use-package-always-ensure t~ in the
    ~elpaca-use-package~ bootstrap block.
+
+** TODO Add automated accessibility testing (axe-core or similar)
+   Investigate axe-core, pa11y, or Lighthouse CI for automated WCAG checks.
+   Could integrate with =browser-check= or run as a pre-commit/CI step.
+   Check what runs on Alpine/musl without heavy deps.
