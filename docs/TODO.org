@@ -11,7 +11,12 @@
    Replaced MCP-first guidance with =playwright-cli= sessions (stateful, token-efficient artifacts in =.playwright-cli/=).
    Added scaffolded =.playwright/cli.config.json= for Alpine system Chromium.
    Dropped =templates/mcp/playwright.json= and replaced =@playwright/mcp= with =@playwright/cli= in =Containerfile=.
-** DONE Wayland-aware =just browse= — open Chromium on host display
+** CANCELLED Wayland-aware =just browse= — open Chromium on host display
+CLOSED: [2026-04-13 Mon 12:12]
+:LOGBOOK:
+- State "CANCELLED"  from "TODO"       [2026-04-13 Mon 12:12] \\
+  Chromium in rootless Podman on Wayland crashes (seccomp blocks sched_getscheduler). Interactive input also broken. just browse + OSC 52 clipboard is sufficient.
+:END:
    Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
    When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
    Update behavior: stop auto URL copy on =jolo up/create=. =just browse= should
@@ -125,7 +130,12 @@
    Add =interprogram-cut-function= with OSC 52 to =modules/base.el= inside
    =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.
    See RESEARCH.org for the elisp snippet.
-** DONE Symlink .claude/ and .agents/ into git worktrees
+** CANCELLED Symlink .claude/ and .agents/ into git worktrees
+CLOSED: [2026-04-13 Mon 12:12]
+:LOGBOOK:
+- State "CANCELLED"  from "TODO"       [2026-04-13 Mon 12:12] \\
+  .agents/ is tracked so skills survive in worktrees. Container-side .claude/ config handled by setup_credential_cache() mounts.
+:END:
    Agent-shell worktrees (=agent-shell-new-worktree-shell=) and jolo worktrees
    don't get =.claude/= or =.agents/= since they're gitignored. Without them,
    custom slash commands (=/afk=, etc.) silently stall. Need Emacs advice on

@@ -82,6 +82,8 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - =agent-browser= daemon IPC hangs on Alpine/musl; upstream issue #1035, postponed to May 2026 :agent-browser:musl:
 - Skills renamed from =jolo:= prefix to =j:= for brevity :skills:workflow:
 - Screenshot workflow: =jolo-shot= on local machine → scp to =berghome:stash/= → agents read latest =shot-*.png= :workflow:screenshots:
+- Always use =emacsclient --eval= for org state changes (TODO→DONE/CANCELLED) — never edit keywords manually. Use =org-todo=, =org-add-log-note=, =org-store-log-note= to get CLOSED timestamps and LOGBOOK entries with reasons :org:workflow:emacs:
+- =org-element-map= lambda context breaks =org-todo= logging hooks — use =re-search-forward= + =beginning-of-line= to position point instead :org:emacs:gotcha:
 
 * Terminal Image Display                                       :terminal:images:
 

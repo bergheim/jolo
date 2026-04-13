@@ -56,11 +56,56 @@ Then use the Read tool on that file to view it.
 - **Before starting work**: check TODO.org for existing tasks — don't duplicate effort
 - **When you complete a task**: mark it `DONE` immediately, not at the end of the session
 - **When you discover new work**: add it as a `TODO` heading right away
-- **When a task is no longer relevant**: mark it `DONE` with a note explaining why
-- **Never delete body text** when closing a TODO — the original description, context, and notes are valuable history. Append a cancellation/completion note instead of replacing the body.
-- **Use emacsclient to toggle state**: run `emacsclient --eval '(with-current-buffer (find-file-noselect "PATH") (goto-char POS) (org-todo "DONE") (save-buffer))'` so org-mode handles timestamps and logging. Do NOT manually edit the `TODO`/`DONE` keyword with a text editor.
+- **When a task is no longer relevant**: mark it `CANCELLED` with a reason
+- **Never delete body text** when closing a TODO — the original description, context, and notes are valuable history. The reason goes in the LOGBOOK, not as a replacement for the body.
 
-Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties).
+### Editing org files with emacsclient
+
+**Always use emacsclient for org state changes** — never manually edit TODO/DONE keywords with a text editor. Org-mode adds CLOSED timestamps, LOGBOOK entries, and state transition metadata automatically.
+
+**Toggle TODO state (DONE, CANCELLED, etc.):**
+
+```bash
+emacsclient --eval '
+(with-current-buffer (find-file-noselect "docs/TODO.org")
+  (goto-char (point-min))
+  (re-search-forward "TODO Heading text here")
+  (beginning-of-line)
+  (org-todo "DONE")
+  (save-buffer))'
+```
+
+**Toggle with a reason note** (required for CANCELLED, optional for DONE):
+
+```bash
+emacsclient --eval '
+(with-current-buffer (find-file-noselect "docs/TODO.org")
+  (goto-char (point-min))
+  (re-search-forward "TODO Heading text here")
+  (beginning-of-line)
+  (let ((org-log-note-purpose (quote state))
+        (org-log-note-state "CANCELLED")
+        (org-log-note-previous-state "TODO"))
+    (org-todo "CANCELLED")
+    (org-add-log-note)
+    (insert "The reason this was cancelled")
+    (org-store-log-note))
+  (save-buffer))'
+```
+
+This produces proper org metadata:
+
+```org
+** CANCELLED The task heading
+CLOSED: [2026-04-13 Mon 12:08]
+:LOGBOOK:
+- State "CANCELLED"  from "TODO"  [2026-04-13 Mon 12:08] \\
+  The reason this was cancelled
+:END:
+   Original body text preserved here...
+```
+
+Available states: `TODO`, `INPROGRESS`, `NEXT`, `WAITING`, `DONE`, `CANCELLED`.
 
 ## Emacs
 
