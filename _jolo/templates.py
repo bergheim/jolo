@@ -7,6 +7,16 @@ from _jolo import constants
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 
+def to_snake_case(name: str) -> str:
+    """Convert hyphenated project name to snake_case."""
+    return name.replace("-", "_")
+
+
+def to_pascal_case(name: str) -> str:
+    """Convert hyphenated or snake_case name to PascalCase."""
+    return "".join(w.capitalize() for w in name.replace("-", "_").split("_"))
+
+
 def _read_template(path: str) -> str:
     """Read a template file relative to templates/ dir."""
     return (_TEMPLATES_DIR / path).read_text()
@@ -278,11 +288,14 @@ def get_justfile_content(flavor: str, project_name: str) -> str:
     Returns:
         justfile content string
     """
-    module_name = project_name.replace("-", "_")
+    module_name = to_snake_case(project_name)
     template_path = _flavor_template_path(flavor, "justfile")
     template = _read_template(template_path)
+    common = _read_template("lang/common/justfile.common")
     return _render(
-        template, PROJECT_NAME=project_name, MODULE_NAME=module_name
+        template + "\n" + common,
+        PROJECT_NAME=project_name,
+        MODULE_NAME=module_name,
     )
 
 
@@ -550,8 +563,8 @@ def get_project_init_commands(
             commands.append(["cargo", "add", "--dev", "tower"])
             commands.append(["just", "setup"])
     elif lang == "elixir":
-        app_name = project_name.replace("-", "_")
-        module_name = "".join(w.capitalize() for w in app_name.split("_"))
+        app_name = to_snake_case(project_name)
+        module_name = to_pascal_case(project_name)
         commands.append(["mix", "local.hex", "--force"])
         commands.append(
             ["mix", "archive.install", "hex", "phx_new", "--force"]
@@ -562,7 +575,6 @@ def get_project_init_commands(
                 f" --module {module_name} --live --install"
             ]
         )
-        # Patch dev.exs: use $PORT, current user, and Unix socket
         commands.append(
             [
                 """sed -i "s/username: \\"postgres\\"/username: \\"$(whoami)\\"/" config/dev.exs"""
