@@ -221,8 +221,7 @@ ENV EMACS_CONTAINER=1
 ENV LANG=en_US.UTF-8
 
 # Container scripts (late layer — changes here don't bust pnpm/cargo cache)
-COPY container/e container/wt container/motd container/notify container/db /usr/local/bin/
-RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd /usr/local/bin/notify /usr/local/bin/db
+COPY --chmod=755 container/e container/wt container/motd container/notify container/db /usr/local/bin/
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
 RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
