@@ -35,19 +35,3 @@ migrate:
 # Reset database
 reset:
     mix ecto.reset
-
-# Open in browser
-browse:
-    #!/bin/sh
-    u="http://$DEV_HOST:$PORT"
-    if [ -n "$WAYLAND_DISPLAY" ]; then
-        chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
-        echo "Opened browser: $u"
-    else
-        printf '\e]52;c;%s\a' "$(printf '%s' "$u" | base64)" > /dev/tty
-        echo "Copied to clipboard: $u"
-    fi
-
-# Start PostgreSQL (init on first run)
-db *args="start":
-    db {{args}}

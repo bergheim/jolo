@@ -19,7 +19,3 @@ test-watch:
 # Add a dependency
 add *packages:
     bun add {{packages}}
-
-# Start PostgreSQL (init on first run)
-db *args="start":
-    db {{args}}

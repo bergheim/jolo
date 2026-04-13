@@ -72,6 +72,8 @@ from _jolo.templates import (
     get_scaffold_files,
     get_test_framework_config,
     get_type_checker_config,
+    to_pascal_case,
+    to_snake_case,
 )
 from _jolo.worktree import (
     branch_exists,
@@ -1120,10 +1122,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Write test framework config for primary flavor
     test_config = get_test_framework_config(primary_flavor)
-    # Python module names use underscores, not hyphens
-    module_name = project_name.replace("-", "_")
-
-    pascal_name = "".join(w.capitalize() for w in module_name.split("_"))
+    module_name = to_snake_case(project_name)
+    pascal_name = to_pascal_case(project_name)
 
     def replace_placeholders(text: str) -> str:
         return (

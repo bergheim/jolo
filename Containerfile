@@ -132,15 +132,9 @@ RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
     echo 'set -s set-clipboard on' >> /etc/tmux.conf && \
     echo 'set -as terminal-features ",*:clipboard:sixel:extkeys"' >> /etc/tmux.conf
 
-# Root-level files and setup
-COPY container/e /usr/local/bin/e
-COPY container/wt /usr/local/bin/wt
-COPY container/motd /usr/local/bin/motd
-COPY container/notify /usr/local/bin/notify
-COPY container/db /usr/local/bin/db
+# Root-level setup (no script COPYs here — those go after heavy layers to avoid cache busting)
 COPY container/browser-check.js /usr/local/lib/browser-check.js
-RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd /usr/local/bin/notify && \
-    ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
+RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint && \
     mkdir -p /workspaces /opt/pre-commit-cache && \
@@ -226,7 +220,9 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
 ENV EMACS_CONTAINER=1
 ENV LANG=en_US.UTF-8
 
-# Container scripts, tmuxinator layout, and zimfw
+# Container scripts (late layer — changes here don't bust pnpm/cargo cache)
+COPY container/e container/wt container/motd container/notify container/db /usr/local/bin/
+RUN chmod +x /usr/local/bin/e /usr/local/bin/wt /usr/local/bin/motd /usr/local/bin/notify /usr/local/bin/db
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
 RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
