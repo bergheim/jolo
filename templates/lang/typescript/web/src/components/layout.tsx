@@ -10,7 +10,8 @@ export const Layout = ({ children }: PropsWithChildren) => (
 			<script src="/public/htmx.min.js"></script>
 		</head>
 		<body class="bg-slate-50 text-slate-900 min-h-screen">
-			<main class="container mx-auto px-4 py-8">{children}</main>
+			<a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
+			<main id="main" class="container mx-auto px-4 py-8">{children}</main>
 			<script>
 				{
 					'new EventSource("/dev/reload").onmessage=function(){location.reload()}'
