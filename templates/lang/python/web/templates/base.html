@@ -7,6 +7,9 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-    {% block content %}{% endblock %}
+    <a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
+    <main id="main">
+        {% block content %}{% endblock %}
+    </main>
 </body>
 </html>

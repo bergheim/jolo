@@ -207,6 +207,51 @@ cwebp -q 80 input.png -o output.webp
 vipsthumbnail input.jpg -s 800x -o output.avif[Q=30]
 ```
 
+## Accessibility & Semantic HTML
+
+All web output must follow universal design principles. This is not optional polish — it is a baseline requirement.
+
+### Structure
+
+- Use semantic elements: `<main>`, `<nav>`, `<header>`, `<footer>`, `<section>`, `<article>`, `<aside>`
+- One `<h1>` per page. Headings must follow hierarchy (`h1` → `h2` → `h3`) — never skip levels
+- Add a skip-nav link as the first child of `<body>`: `<a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>`
+- Set `lang` attribute on `<html>` to the correct language (e.g., `lang="nb"` for Norwegian Bokmål)
+
+### Forms & Interactive Elements
+
+- Every `<input>` must have a visible `<label>` (or `aria-label` if the design hides it)
+- Use `<button>` for actions, `<a>` for navigation — never `<div onclick>`
+- All interactive elements must be keyboard-reachable and have visible focus styles
+- Group related inputs with `<fieldset>` and `<legend>`
+
+### Images & Media
+
+- All `<img>` elements need `alt` text. Decorative images get `alt=""`
+- Complex images (charts, diagrams) need extended descriptions
+- Avoid text in images — use real text with CSS styling
+
+### Color & Contrast
+
+- Minimum 4.5:1 contrast ratio for normal text, 3:1 for large text (WCAG AA)
+- Never convey information by color alone — add icons, patterns, or text labels
+
+### Verification
+
+Use `browser-check` to audit pages:
+
+```bash
+# Get ARIA tree to check landmark structure
+browser-check http://localhost:$PORT --aria
+
+# Check only interactive elements (buttons, links, inputs)
+browser-check http://localhost:$PORT --aria --interactive
+```
+
+### Reference
+
+Follow [WCAG 2.2 AA](https://www.w3.org/WAI/WCAG22/quickref/?levels=aaa) as the minimum standard.
+
 ## Git Workflow
 
 Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
