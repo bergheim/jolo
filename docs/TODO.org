@@ -11,13 +11,11 @@
    Replaced MCP-first guidance with =playwright-cli= sessions (stateful, token-efficient artifacts in =.playwright-cli/=).
    Added scaffolded =.playwright/cli.config.json= for Alpine system Chromium.
    Dropped =templates/mcp/playwright.json= and replaced =@playwright/mcp= with =@playwright/cli= in =Containerfile=.
-** TODO Wayland-aware =just browse= — open Chromium on host display
-   Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
-   When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
-   Update behavior: stop auto URL copy on =jolo up/create=. =just browse= should
-   open Chromium on Wayland; clipboard copy should be explicit/opt-in.
-   Falls back to clipboard-only or URL print without Wayland.
-   Also toggles headless behavior appropriately for local browser tooling on Wayland.
+** DONE Wayland-aware =just browse= — open Chromium on host display
+   Cancelled — Chromium in rootless Podman on Wayland crashes (seccomp blocks
+   =sched_getscheduler=, GPU subprocess dies). Interactive input also broken.
+   Not worth the complexity. =just browse= copies URL via OSC 52, user opens
+   in host browser. Playwright handles headless automation fine.
 ** DONE Decide how to ship Claude Code plugins in devcontainers
    Went with RO mount of =~/.claude/plugins/= from host. One line in
    =BASE_MOUNTS=. Stops the LSP plugin recommendation prompt and makes all
