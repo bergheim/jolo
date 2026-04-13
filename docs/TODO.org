@@ -120,14 +120,10 @@
    Add =interprogram-cut-function= with OSC 52 to =modules/base.el= inside
    =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.
    See RESEARCH.org for the elisp snippet.
-** TODO Symlink .claude/ and .agents/ into git worktrees
-   Agent-shell worktrees (=agent-shell-new-worktree-shell=) and jolo worktrees
-   don't get =.claude/= or =.agents/= since they're gitignored. Without them,
-   custom slash commands (=/afk=, etc.) silently stall. Need Emacs advice on
-   =agent-shell-new-worktree-shell= to symlink from the main repo root and
-   set per-worktree =PORT= (base + offset). Port range forwarding is done
-   (=WORKTREE_PORTS=3= extra ports per container). Elisp advice is designed
-   but not yet written into host config.
+** DONE Symlink .claude/ and .agents/ into git worktrees
+   Cancelled — =.agents/= is tracked so skills survive in worktrees.
+   Container-side =.claude/= config handled by =setup_credential_cache()= mounts.
+   Not needed.
 ** TODO Add agent-shell keybinding =SPC oa= for send-dwim
    =agent-shell-send-dwim= sends region or error at point — closest to
    =gptel-add= (=SPC ja=). Also consider =SPC oC= for =agent-shell-cycle-session-mode=.
