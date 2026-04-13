@@ -12,10 +12,15 @@
    Added scaffolded =.playwright/cli.config.json= for Alpine system Chromium.
    Dropped =templates/mcp/playwright.json= and replaced =@playwright/mcp= with =@playwright/cli= in =Containerfile=.
 ** DONE Wayland-aware =just browse= — open Chromium on host display
-   Cancelled — Chromium in rootless Podman on Wayland crashes (seccomp blocks
+   Branch: =feat/wayland-browse= (2 commits, reviewed, not merged).
+   When =WAYLAND_DISPLAY= is set, opens system Chromium with =--ozone-platform=wayland=.
+   Update behavior: stop auto URL copy on =jolo up/create=. =just browse= should
+   open Chromium on Wayland; clipboard copy should be explicit/opt-in.
+   Falls back to clipboard-only or URL print without Wayland.
+   Also toggles headless behavior appropriately for local browser tooling on Wayland.
+   *Cancelled:* Chromium in rootless Podman on Wayland crashes (seccomp blocks
    =sched_getscheduler=, GPU subprocess dies). Interactive input also broken.
-   Not worth the complexity. =just browse= copies URL via OSC 52, user opens
-   in host browser. Playwright handles headless automation fine.
+   =just browse= copies URL via OSC 52; user opens in host browser.
 ** DONE Decide how to ship Claude Code plugins in devcontainers
    Went with RO mount of =~/.claude/plugins/= from host. One line in
    =BASE_MOUNTS=. Stops the LSP plugin recommendation prompt and makes all
@@ -121,9 +126,15 @@
    =(use-package emacs)= block, guarded by =(getenv "EMACS_CONTAINER")=.
    See RESEARCH.org for the elisp snippet.
 ** DONE Symlink .claude/ and .agents/ into git worktrees
-   Cancelled — =.agents/= is tracked so skills survive in worktrees.
+   Agent-shell worktrees (=agent-shell-new-worktree-shell=) and jolo worktrees
+   don't get =.claude/= or =.agents/= since they're gitignored. Without them,
+   custom slash commands (=/afk=, etc.) silently stall. Need Emacs advice on
+   =agent-shell-new-worktree-shell= to symlink from the main repo root and
+   set per-worktree =PORT= (base + offset). Port range forwarding is done
+   (=WORKTREE_PORTS=3= extra ports per container). Elisp advice is designed
+   but not yet written into host config.
+   *Cancelled:* =.agents/= is tracked so skills survive in worktrees.
    Container-side =.claude/= config handled by =setup_credential_cache()= mounts.
-   Not needed.
 ** TODO Add agent-shell keybinding =SPC oa= for send-dwim
    =agent-shell-send-dwim= sends region or error at point — closest to
    =gptel-add= (=SPC ja=). Also consider =SPC oC= for =agent-shell-cycle-session-mode=.

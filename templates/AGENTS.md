@@ -56,7 +56,9 @@ Then use the Read tool on that file to view it.
 - **Before starting work**: check TODO.org for existing tasks — don't duplicate effort
 - **When you complete a task**: mark it `DONE` immediately, not at the end of the session
 - **When you discover new work**: add it as a `TODO` heading right away
-- **When a task is no longer relevant**: remove or mark it `DONE` with a note
+- **When a task is no longer relevant**: mark it `DONE` with a note explaining why
+- **Never delete body text** when closing a TODO — the original description, context, and notes are valuable history. Append a cancellation/completion note instead of replacing the body.
+- **Use emacsclient to toggle state**: run `emacsclient --eval '(with-current-buffer (find-file-noselect "PATH") (goto-char POS) (org-todo "DONE") (save-buffer))'` so org-mode handles timestamps and logging. Do NOT manually edit the `TODO`/`DONE` keyword with a text editor.
 
 Use standard org TODO states (`TODO`, `DONE`) and org structure (headings, checklists, properties).
 
