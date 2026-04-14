@@ -700,8 +700,7 @@ def sync_skill_templates(target_dir: Path) -> None:
     """Sync template skills into an existing project.
 
     Copies each skill directory from templates/.agents/skills into
-    .agents/skills, overwriting matching skills but preserving any
-    extra skills the project may have added.
+    .agents/skills, overwriting matching skills and removing stale ones.
     """
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     skills_src = templates_dir / ".agents" / "skills"
@@ -713,33 +712,40 @@ def sync_skill_templates(target_dir: Path) -> None:
 
     if skills_dst.resolve() == skills_src.resolve():
         verbose_print("Skills dst is symlinked to src, skipping sync")
-        return
+    else:
+        template_skills = {e.name for e in skills_src.iterdir() if e.is_dir()}
 
-    template_skills = {e.name for e in skills_src.iterdir() if e.is_dir()}
+        for entry in skills_dst.iterdir():
+            if entry.is_dir() and entry.name not in template_skills:
+                shutil.rmtree(entry)
+                verbose_print(f"Removed stale skill: {entry.name}")
 
-    # Remove skills not in template
-    for entry in skills_dst.iterdir():
-        if entry.is_dir() and entry.name not in template_skills:
-            shutil.rmtree(entry)
-            verbose_print(f"Removed stale skill: {entry.name}")
+        for entry in skills_src.iterdir():
+            if not entry.is_dir():
+                continue
+            dst = skills_dst / entry.name
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(entry, dst, symlinks=True)
+            verbose_print(f"Synced skill: {entry.name}")
 
-    for entry in skills_src.iterdir():
-        if not entry.is_dir():
-            continue
-        dst = skills_dst / entry.name
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(entry, dst, symlinks=True)
-        verbose_print(f"Synced skill: {entry.name}")
-
-    # Ensure agent skill symlinks exist
+    desired_target = "../.agents/skills"
     for agent_dir in [".claude", ".codex", ".gemini", ".pi"]:
         link_dir = target_dir / agent_dir
         link_dir.mkdir(parents=True, exist_ok=True)
         link_path = link_dir / "skills"
-        if not link_path.exists() and not link_path.is_symlink():
-            os.symlink("../.agents/skills", link_path)
-            verbose_print(f"Created {agent_dir}/skills symlink")
+        if link_path.is_symlink():
+            if os.readlink(link_path) == desired_target:
+                continue
+            link_path.unlink()
+        elif link_path.exists():
+            if link_path.is_dir():
+                shutil.rmtree(link_path)
+            else:
+                link_path.unlink()
+
+        os.symlink(desired_target, link_path)
+        verbose_print(f"Updated {agent_dir}/skills symlink")
 
 
 def get_secrets(config: dict | None = None) -> dict[str, str]:
