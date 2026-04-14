@@ -80,7 +80,7 @@ def generate_precommit_config(flavors: list[str]) -> str:
     """Generate .pre-commit-config.yaml content based on selected flavors.
 
     Args:
-        flavors: List of flavor codes (e.g., ['python-web', 'typescript-bare'])
+        flavors: List of flavor codes (e.g., ['python-web', 'typescript'])
 
     Returns:
         Valid YAML string for .pre-commit-config.yaml
@@ -180,7 +180,7 @@ def get_type_checker_config(flavor: str) -> dict | None:
     For languages with built-in type checking (Go, Rust), returns None.
 
     Args:
-        flavor: The project flavor (e.g., 'python-web', 'typescript-bare')
+        flavor: The project flavor (e.g., 'python-web', 'typescript')
 
     Returns:
         dict with 'config_file' and 'config_content' keys, or None if no
@@ -212,7 +212,7 @@ def get_coverage_config(flavor: str) -> dict:
     For languages without standard coverage tooling, returns None values.
 
     Args:
-        flavor: The project flavor (e.g., 'python-web', 'go-bare')
+        flavor: The project flavor (e.g., 'python-web', 'go')
 
     Returns:
         dict with keys:
@@ -262,8 +262,8 @@ def _flavor_template_path(flavor: str, filename: str) -> str:
     """Resolve template path for a flavor.
 
     Flavors like 'go-web' map to 'lang/go/web/<filename>',
-    'go-bare' maps to 'lang/go/<filename>' (bare is the base variant).
-    Non-split flavors like 'rust' map to 'lang/rust/<filename>'.
+    'go' maps to 'lang/go/<filename>' (base variant).
+    Non-split flavors like 'shell' map to 'lang/shell/<filename>'.
     Falls back to 'lang/other/<filename>' when the resolved path doesn't exist.
     """
     lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
@@ -282,7 +282,7 @@ def get_justfile_content(flavor: str, project_name: str) -> str:
     """Generate justfile content for a project based on flavor.
 
     Args:
-        flavor: The project flavor (e.g., 'python-web', 'go-bare')
+        flavor: The project flavor (e.g., 'python-web', 'go')
         project_name: The project name
 
     Returns:
@@ -320,7 +320,7 @@ def get_test_framework_config(flavor: str) -> dict:
     For languages with built-in testing (Go, Rust), config_file is None.
 
     Args:
-        flavor: The project flavor (e.g., 'python-web', 'typescript-bare')
+        flavor: The project flavor (e.g., 'python-web', 'typescript')
 
     Returns:
         dict with keys:
@@ -505,7 +505,7 @@ def get_project_init_commands(
     Each inner list is a command + arguments.
 
     Args:
-        flavor: The project flavor (e.g., 'python-web', 'go-bare')
+        flavor: The project flavor (e.g., 'python-web', 'go')
         project_name: The name of the project (used in go mod init, cargo new, etc.)
 
     Returns:
@@ -523,7 +523,7 @@ def get_project_init_commands(
             commands.append(["uv", "add", "--dev", "httpx"])
     elif lang == "typescript":
         commands.append(["bun", "init", "-y"])
-        if flavor == "typescript-bare":
+        if flavor == "typescript":
             commands.append(["mkdir", "-p", "src"])
             commands.append(["mv", "index.ts", "src/index.ts"])
         else:

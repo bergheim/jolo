@@ -125,7 +125,7 @@ class TestGetProjectInitCommands(unittest.TestCase):
 
     def test_python_bare_creates_tests_dir(self):
         """Python bare should create tests directory."""
-        commands = jolo.get_project_init_commands("python-bare", "myproject")
+        commands = jolo.get_project_init_commands("python", "myproject")
         self.assertIn(["mkdir", "-p", "tests"], commands)
 
     def test_typescript_web_returns_bun_init(self):
@@ -176,38 +176,36 @@ class TestGetProjectInitCommands(unittest.TestCase):
 
     def test_python_bare_returns_no_scaffold_files(self):
         """Python bare should return no additional scaffold files."""
-        files = jolo.get_scaffold_files("python-bare")
+        files = jolo.get_scaffold_files("python")
         self.assertEqual(files, [])
 
     def test_typescript_bare_returns_no_scaffold_files(self):
         """Bare TypeScript should skip BETH scaffold files."""
-        files = jolo.get_scaffold_files("typescript-bare")
+        files = jolo.get_scaffold_files("typescript")
         self.assertEqual(files, [])
 
     def test_typescript_bare_init_commands_skip_elysia(self):
         """Bare TypeScript should not install BETH deps."""
-        commands = jolo.get_project_init_commands(
-            "typescript-bare", "myproject"
-        )
+        commands = jolo.get_project_init_commands("typescript", "myproject")
         flat = str(commands)
         self.assertNotIn("elysia", flat)
         self.assertIn(["bun", "init", "-y"], commands)
 
     def test_typescript_bare_justfile_uses_ts_not_tsx(self):
         """Bare TypeScript justfile should reference .ts files."""
-        content = jolo.get_justfile_content("typescript-bare", "myproject")
+        content = jolo.get_justfile_content("typescript", "myproject")
         self.assertIn("src/index.ts", content)
         self.assertNotIn(".tsx", content)
 
     def test_typescript_bare_test_has_no_elysia(self):
         """Bare TypeScript example test should not import elysia."""
-        config = jolo.get_test_framework_config("typescript-bare")
+        config = jolo.get_test_framework_config("typescript")
         self.assertNotIn("elysia", config["example_test_content"])
         self.assertIn("bun:test", config["example_test_content"])
 
     def test_go_bare_returns_go_mod_init(self):
         """Go bare should return go mod init with project name."""
-        commands = jolo.get_project_init_commands("go-bare", "myproject")
+        commands = jolo.get_project_init_commands("go", "myproject")
         self.assertIn(["go", "mod", "init", "myproject"], commands)
 
     def test_go_web_returns_templ_commands(self):
@@ -227,7 +225,7 @@ class TestGetProjectInitCommands(unittest.TestCase):
 
     def test_rust_returns_cargo_init(self):
         """Rust should return cargo init commands."""
-        commands = jolo.get_project_init_commands("rust-bare", "myproject")
+        commands = jolo.get_project_init_commands("rust", "myproject")
         self.assertIn(["cargo", "init", "--name", "myproject"], commands)
 
     def test_rust_web_returns_cargo_add_and_setup(self):
@@ -276,29 +274,29 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_python_bare_config_file(self):
         """Python bare should use pyproject.toml for config."""
-        result = jolo.get_test_framework_config("python-bare")
+        result = jolo.get_test_framework_config("python")
         self.assertEqual(result["config_file"], "pyproject.toml")
 
     def test_python_bare_config_content_pytest(self):
         """Python bare config should include pytest configuration."""
-        result = jolo.get_test_framework_config("python-bare")
+        result = jolo.get_test_framework_config("python")
         self.assertIn("[tool.pytest.ini_options]", result["config_content"])
 
     def test_python_bare_example_test_file(self):
         """Python bare should create tests/test_main.py."""
-        result = jolo.get_test_framework_config("python-bare")
+        result = jolo.get_test_framework_config("python")
         self.assertEqual(result["example_test_file"], "tests/test_main.py")
 
     def test_python_bare_example_test_content(self):
         """Python bare example test should use pytest."""
-        result = jolo.get_test_framework_config("python-bare")
+        result = jolo.get_test_framework_config("python")
         content = result["example_test_content"]
         self.assertIn("def test_", content)
         self.assertIn("assert", content)
 
     def test_typescript_bare_config_file(self):
         """TypeScript bare has no config file (bun built-in testing)."""
-        result = jolo.get_test_framework_config("typescript-bare")
+        result = jolo.get_test_framework_config("typescript")
         self.assertTrue(
             result["config_file"] is None or result["config_file"] == "",
             f"Expected None or empty, got: {result['config_file']}",
@@ -306,18 +304,18 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_typescript_bare_config_content_bun(self):
         """TypeScript bare config should mention bun built-in testing."""
-        result = jolo.get_test_framework_config("typescript-bare")
+        result = jolo.get_test_framework_config("typescript")
         content = result["config_content"]
         self.assertIn("bun", content.lower())
 
     def test_typescript_bare_example_test_file(self):
         """TypeScript bare should create src/example.test.ts."""
-        result = jolo.get_test_framework_config("typescript-bare")
+        result = jolo.get_test_framework_config("typescript")
         self.assertEqual(result["example_test_file"], "src/example.test.ts")
 
     def test_typescript_bare_example_test_content(self):
         """TypeScript bare example test should use bun:test syntax."""
-        result = jolo.get_test_framework_config("typescript-bare")
+        result = jolo.get_test_framework_config("typescript")
         content = result["example_test_content"]
         self.assertIn("bun:test", content)
         self.assertIn("describe", content)
@@ -326,7 +324,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_go_bare_config_file_none(self):
         """Go bare has no extra config file (built-in testing)."""
-        result = jolo.get_test_framework_config("go-bare")
+        result = jolo.get_test_framework_config("go")
         self.assertTrue(
             result["config_file"] is None or result["config_file"] == "",
             f"Expected None or empty, got: {result['config_file']}",
@@ -334,7 +332,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_go_bare_config_content_empty_or_comment(self):
         """Go bare config content should be empty or a comment."""
-        result = jolo.get_test_framework_config("go-bare")
+        result = jolo.get_test_framework_config("go")
         self.assertTrue(
             result["config_content"] == ""
             or "built-in" in result["config_content"].lower(),
@@ -343,19 +341,19 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_go_bare_example_test_file(self):
         """Go bare should create example_test.go."""
-        result = jolo.get_test_framework_config("go-bare")
+        result = jolo.get_test_framework_config("go")
         self.assertTrue(result["example_test_file"].endswith("_test.go"))
 
     def test_go_bare_example_test_content(self):
         """Go bare example test should use testing package."""
-        result = jolo.get_test_framework_config("go-bare")
+        result = jolo.get_test_framework_config("go")
         content = result["example_test_content"]
         self.assertIn("testing", content)
         self.assertIn("func Test", content)
 
     def test_rust_config_file_none(self):
         """Rust has no extra config file (built-in testing)."""
-        result = jolo.get_test_framework_config("rust-bare")
+        result = jolo.get_test_framework_config("rust")
         self.assertTrue(
             result["config_file"] is None or result["config_file"] == "",
             f"Expected None or empty, got: {result['config_file']}",
@@ -363,7 +361,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_config_content_empty_or_comment(self):
         """Rust config content should be empty or a comment."""
-        result = jolo.get_test_framework_config("rust-bare")
+        result = jolo.get_test_framework_config("rust")
         self.assertTrue(
             result["config_content"] == ""
             or "built-in" in result["config_content"].lower(),
@@ -372,7 +370,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_example_test_file(self):
         """Rust example test location."""
-        result = jolo.get_test_framework_config("rust-bare")
+        result = jolo.get_test_framework_config("rust")
         self.assertTrue(
             "src/" in result["example_test_file"]
             or "tests/" in result["example_test_file"],
@@ -381,7 +379,7 @@ class TestGetTestFrameworkConfig(unittest.TestCase):
 
     def test_rust_example_test_content(self):
         """Rust example test should use #[test] attribute."""
-        result = jolo.get_test_framework_config("rust-bare")
+        result = jolo.get_test_framework_config("rust")
         content = result["example_test_content"]
         self.assertIn("#[test]", content)
         self.assertIn("fn test_", content)
@@ -408,7 +406,7 @@ class TestGetCoverageConfig(unittest.TestCase):
 
     def test_python_config_addition(self):
         """Python should return pytest-cov config for pyproject.toml."""
-        result = jolo.get_coverage_config("python-bare")
+        result = jolo.get_coverage_config("python")
         config = result["config_addition"]
         self.assertIsNotNone(config)
         self.assertIn("[tool.pytest.ini_options]", config)
@@ -422,7 +420,7 @@ class TestGetCoverageConfig(unittest.TestCase):
 
     def test_typescript_config_addition(self):
         """TypeScript should return None for config_addition."""
-        result = jolo.get_coverage_config("typescript-bare")
+        result = jolo.get_coverage_config("typescript")
         config = result["config_addition"]
         self.assertIsNone(config)
 
@@ -434,7 +432,7 @@ class TestGetCoverageConfig(unittest.TestCase):
 
     def test_go_config_addition_is_none(self):
         """Go should return None for config_addition."""
-        result = jolo.get_coverage_config("go-bare")
+        result = jolo.get_coverage_config("go")
         self.assertIsNone(result["config_addition"])
 
     def test_go_run_command(self):
@@ -445,12 +443,12 @@ class TestGetCoverageConfig(unittest.TestCase):
 
     def test_rust_config_addition_is_none(self):
         """Rust should return None for config_addition."""
-        result = jolo.get_coverage_config("rust-bare")
+        result = jolo.get_coverage_config("rust")
         self.assertIsNone(result["config_addition"])
 
     def test_rust_run_command(self):
         """Rust should return cargo llvm-cov command."""
-        result = jolo.get_coverage_config("rust-bare")
+        result = jolo.get_coverage_config("rust")
         cmd = result["run_command"]
         self.assertEqual(cmd, "cargo llvm-cov")
 
@@ -484,7 +482,7 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
     def test_python_returns_ty_config(self):
         """Python should return ty configuration."""
-        result = jolo.get_type_checker_config("python-bare")
+        result = jolo.get_type_checker_config("python")
         self.assertIsNotNone(result)
         self.assertIsInstance(result, dict)
         self.assertIn("config_file", result)
@@ -494,7 +492,7 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
     def test_typescript_bare_returns_tsconfig(self):
         """TypeScript bare should return tsconfig.json with strict mode."""
-        result = jolo.get_type_checker_config("typescript-bare")
+        result = jolo.get_type_checker_config("typescript")
         self.assertIsNotNone(result)
         self.assertIsInstance(result, dict)
         self.assertEqual(result["config_file"], "tsconfig.json")
@@ -505,12 +503,12 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
     def test_go_returns_none(self):
         """Go should return None (type checking built into compiler)."""
-        result = jolo.get_type_checker_config("go-bare")
+        result = jolo.get_type_checker_config("go")
         self.assertIsNone(result)
 
     def test_rust_returns_none(self):
         """Rust should return None (type checking built into compiler)."""
-        result = jolo.get_type_checker_config("rust-bare")
+        result = jolo.get_type_checker_config("rust")
         self.assertIsNone(result)
 
     def test_shell_returns_none(self):
@@ -545,7 +543,7 @@ class TestGetTypeCheckerConfig(unittest.TestCase):
 
     def test_typescript_bare_tsconfig_no_jsx(self):
         """TypeScript bare config should not have JSX options."""
-        result = jolo.get_type_checker_config("typescript-bare")
+        result = jolo.get_type_checker_config("typescript")
         config = json.loads(result["config_content"])
         options = config["compilerOptions"]
         self.assertTrue(options.get("strict"))
@@ -563,7 +561,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_returns_valid_yaml(self):
         """Should return valid YAML structure."""
-        result = jolo.generate_precommit_config(["python-bare"])
+        result = jolo.generate_precommit_config(["python"])
         self.assertTrue(result.startswith("repos:"))
         self.assertIn("  - repo:", result)
         self.assertIn("    rev:", result)
@@ -594,7 +592,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_python_adds_ruff_hooks(self):
         """Python flavor should add ruff system hooks."""
-        result = jolo.generate_precommit_config(["python-bare"])
+        result = jolo.generate_precommit_config(["python"])
 
         self.assertIn("id: ruff", result)
         self.assertIn("id: ruff-format", result)
@@ -616,7 +614,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_rust_adds_rustfmt_and_cargo_check(self):
         """Rust flavor should add rustfmt and cargo-check system hooks."""
-        result = jolo.generate_precommit_config(["rust-bare"])
+        result = jolo.generate_precommit_config(["rust"])
 
         self.assertIn("id: rustfmt", result)
         self.assertIn("id: cargo-check", result)
@@ -639,9 +637,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_multiple_flavors_combine_correctly(self):
         """Multiple flavors should combine all their hooks."""
-        result = jolo.generate_precommit_config(
-            ["python-web", "typescript-bare"]
-        )
+        result = jolo.generate_precommit_config(["python-web", "typescript"])
 
         self.assertIn("trailing-whitespace", result)
         self.assertIn("gitleaks", result)
@@ -653,9 +649,9 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         result = jolo.generate_precommit_config(
             [
                 "python-web",
-                "go-bare",
+                "go",
                 "typescript-web",
-                "rust-bare",
+                "rust",
                 "shell",
                 "prose",
             ]
@@ -692,14 +688,14 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
     def test_no_duplicate_hooks_same_base_language(self):
         """Web and bare of same language should not duplicate hooks."""
-        result = jolo.generate_precommit_config(["python-web", "python-bare"])
+        result = jolo.generate_precommit_config(["python-web", "python"])
 
         count = result.count("id: ruff\n")
         self.assertEqual(count, 1)
 
     def test_prose_with_python(self):
         """Prose and Python together should have all hooks."""
-        result = jolo.generate_precommit_config(["prose", "python-bare"])
+        result = jolo.generate_precommit_config(["prose", "python"])
 
         self.assertIn("ruff", result)
         self.assertIn("markdownlint", result)
