@@ -301,7 +301,7 @@ Spell-checking: aspell, hunspell, enchant2
 
 Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
 
-Browser automation: browser-check (uses Playwright with system Chromium)
+Browser automation: browser-check (uses Playwright with system Chromium), pa11y (WCAG 2.2 AA accessibility auditing)
 
 Image tooling: vips/vipsthumbnail, avifenc/avifdec (AVIF), cwebp/dwebp (WebP). Prefer AVIF > WebP > PNG/JPEG. Do not add ImageMagick or Pillow unless the project explicitly requires them.
 
