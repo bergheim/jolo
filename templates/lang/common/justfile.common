@@ -10,6 +10,10 @@ browse:
         echo "Copied to clipboard: $u"
     fi
 
+# Run accessibility audit (WCAG 2.2 AA)
+a11y *args:
+    pa11y http://localhost:${PORT} {{args}}
+
 # Start PostgreSQL (init on first run)
 db *args="start":
     db {{args}}

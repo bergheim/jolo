@@ -170,7 +170,8 @@ RUN pnpm add -g \
     @mariozechner/pi-coding-agent \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
-    markdownlint-cli
+    markdownlint-cli \
+    pa11y
 
 RUN cargo install bacon --locked --root $HOME/.local
 

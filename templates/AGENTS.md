@@ -238,10 +238,16 @@ All web output must follow universal design principles. This is not optional pol
 
 ### Verification
 
-Use `browser-check` to audit pages:
+**After any UI change, run `just a11y` before marking work as done.** This runs pa11y (WCAG 2.2 AA) against the dev server and reports violations with exact selectors and rule references. Fix all errors — they represent real barriers for real people.
 
 ```bash
-# Get ARIA tree to check landmark structure
+# Full accessibility audit
+just a11y
+
+# Audit a specific page
+just a11y --include-notices http://localhost:$PORT/some-page
+
+# Quick structural check via ARIA tree
 browser-check http://localhost:$PORT --aria
 
 # Check only interactive elements (buttons, links, inputs)
