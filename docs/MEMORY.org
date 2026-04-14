@@ -148,3 +148,4 @@ Conclusion: mostly ceremony for our setup. Details:
 - =emacsclient -nw= crash on pgtk was =bergheim/disable-pgtk-im= config bug, not a pgtk issue — container uses =emacs-pgtk-nativecomp= :emacs:pgtk:
 - Tmux 3.6 sends CSI u but doesn't respond to KKP probe — =kkp.el= must be force-enabled; =tty-setup-hook= alone insufficient in daemon mode (elpaca async loading race) :emacs:tmux:keys:
 - =term-keys= (CyberShadow) uses =\e[27;mod;code~= format, not CSI u — does nothing in tmux; kkp.el is the correct decoder for tmux =extkeys= :emacs:tmux:keys:
+- Host-installed Codex skills do NOT propagate to devcontainers: =setup_credential_cache()= copies only =config.toml= and =auth.json= from =~/.codex= into =.devcontainer/.codex-cache=, then mounts that cache as container =~/.codex=. Shared skills must live in repo =.agents/skills= (template source: =templates/.agents/skills=) unless jolo grows explicit copy/mount support for Codex skills :codex:skills:jolo:

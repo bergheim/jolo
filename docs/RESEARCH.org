@@ -1798,3 +1798,50 @@ packages don't conflict but =term-keys= does nothing in tmux.
 - =/usr/share/emacs/30.2/lisp/term/xterm.el.gz= — =xterm--init-modify-other-keys= sends =\e[>4;1m=
 - =~/.config/emacs/modules/base.el= — where kkp.el goes
 - =~/.cache/emacs/elpaca/sources/kkp/kkp.el= — kkp source, lines 709-733 for the probe logic
+
+* Host-installed Codex skills do not reach devcontainers       :codex:skills:jolo:
+:PROPERTIES:
+:DATE: 2026-04-14
+:END:
+
+Checked whether installing [[https://github.com/obra/superpowers][superpowers]] on the host is enough for Codex inside
+our devcontainers. It is enough for host Codex after restart, but not for
+container Codex.
+
+** Upstream install model
+
+The upstream Codex install uses native skill discovery:
+
+- clone the repo into =~/.codex/superpowers=
+- symlink =~/.codex/superpowers/skills= to =~/.agents/skills/superpowers=
+- restart Codex
+
+Ref: [[https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.codex/INSTALL.md][obra/superpowers INSTALL.md]]
+
+** Root cause
+
+=jolo= does not mount host =~/.codex= into containers. During setup it copies
+only two files from host =~/.codex= into the project-local cache:
+
+- =config.toml=
+- =auth.json=
+
+Then the container bind-mounts =.devcontainer/.codex-cache= as container
+=~/.codex=. Any host =~/.codex/skills= or host =~/.agents/skills= content is
+therefore invisible inside the container.
+
+Claude behaves differently: host =~/.claude/plugins= is mounted directly, so
+host-installed Claude plugins appear in containers immediately.
+
+** Relevant code
+
+- =_jolo/setup.py= — copies host Codex =config.toml= and =auth.json= only
+- =_jolo/constants.py= — mounts =.devcontainer/.codex-cache= to container =~/.codex=
+- =_jolo/setup.py= — project agent skill dirs are symlinked to repo =.agents/skills=
+
+** Implication
+
+The right place for shared devcontainer skills is repo =.agents/skills=
+(template source: =templates/.agents/skills=), not host =~/.codex/skills=.
+If we want host-global Codex skills to propagate into containers, =jolo= needs
+an explicit copy or bind mount for that path.

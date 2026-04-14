@@ -45,6 +45,20 @@ CLOSED: [2026-04-13 Mon 12:12]
    - eBPF-based connection tracking (=bpftrace=, =cilium=)
    - Simple =ss= / =conntrack= polling from host
    Goal: after-the-fact audit trail, not real-time blocking.
+** TODO Decide how to ship host-installed Codex skills into devcontainers
+   Host Codex skill installs (for example =obra/superpowers= in =~/.codex= with
+   =~/.agents/skills/superpowers= symlink) work for host Codex after restart,
+   but not in devcontainers. Current =jolo= behavior copies only host
+   =config.toml= and =auth.json= into =.devcontainer/.codex-cache=, then mounts
+   that cache as container =~/.codex=.
+
+   Options:
+   - Copy host =~/.codex/skills= into =.devcontainer/.codex-cache/skills=
+   - Bind-mount host =~/.codex/skills= directly into the container
+   - Vendor desired shared skills into =templates/.agents/skills=
+
+   Repo-managed shared skills are the clean default. Host-global propagation is
+   only needed if we want Codex to behave more like Claude plugins.
 ** TODO Use scoped GitHub tokens per project
    Replace broad =GH_TOKEN= with fine-grained personal access tokens
    scoped to specific repos. Reduces blast radius if a token is exfiltrated.
