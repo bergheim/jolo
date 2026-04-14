@@ -1,5 +1,6 @@
 """Container management functions for jolo."""
 
+import functools
 import json
 import os
 import shutil
@@ -305,6 +306,7 @@ def devcontainer_exec_command(
     subprocess.run(cmd, cwd=workspace_dir)
 
 
+@functools.lru_cache
 def get_container_runtime() -> str | None:
     """Detect available container runtime (docker or podman)."""
     if shutil.which("docker"):
