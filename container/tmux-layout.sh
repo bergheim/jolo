@@ -2,10 +2,12 @@
 set -e
 SESSION="dev"
 
-# Reattach if session already exists (-d detaches other clients for proper resizing)
+# Reattach if session already exists
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-    exec tmux attach-session -d -t "$SESSION"
+    exec tmux attach-session -t "$SESSION"
 fi
+
+tmux set-option -g window-size largest 2>/dev/null || true
 
 CONFIG="$HOME/.config/tmuxinator/dev.yml"
 WS="${WORKSPACE_FOLDER:-$(pwd)}"

@@ -262,7 +262,7 @@ def devcontainer_exec_tmux(workspace_dir: Path) -> None:
     _touch_last_attach(workspace_dir)
     shell_cmd = (
         'if [ -x "$HOME/tmux-layout.sh" ]; then exec "$HOME/tmux-layout.sh"; '
-        "else tmux attach-session -d -t dev || tmux new-session -s dev; fi"
+        "else tmux attach-session -t dev || tmux new-session -s dev; fi"
     )
 
     if _runtime_exec(workspace_dir, shell_cmd, interactive=True):
