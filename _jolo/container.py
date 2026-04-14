@@ -89,6 +89,7 @@ def build_devcontainer_json(
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "OLLAMA_HOST": "${localEnv:OLLAMA_HOST}",
             "PGHOST": "/tmp",
+            "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",
             "PROJECT": project_name,
             "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
