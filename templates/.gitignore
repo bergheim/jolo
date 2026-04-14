@@ -513,6 +513,8 @@ mlruns/
 .devcontainer/.emacs-config/
 .devcontainer/.emacs-cache/
 .devcontainer/.histfile
+.devcontainer/.zsh-state/
+.devcontainer/.pgdata/
 .devcontainer/.agent-prompt
 .devcontainer/.agent-name
 .devcontainer/.last-attach
