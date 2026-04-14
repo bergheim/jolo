@@ -41,6 +41,42 @@ def _patch_json_with_jq(
     path.write_text(result.stdout)
 
 
+def _copy_tree(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dst, symlinks=False, dirs_exist_ok=True)
+
+
+def sync_agent_skill_cache(workspace_dir: Path) -> None:
+    """Build shared agent skills cache for the container.
+
+    Host ~/.agents/skills are copied first, then project .agents/skills are
+    overlaid so project-owned skills win on name collisions.
+    """
+    home = Path.home()
+    cache_root = workspace_dir / ".devcontainer" / ".agents-cache"
+    skills_dst = cache_root / "skills"
+
+    if cache_root.exists():
+        clear_directory_contents(cache_root)
+    else:
+        cache_root.mkdir(parents=True)
+    skills_dst.mkdir(parents=True, exist_ok=True)
+
+    host_skills = home / ".agents" / "skills"
+    if host_skills.is_dir():
+        try:
+            _copy_tree(host_skills, skills_dst)
+        except OSError as e:
+            print(
+                f"Warning: Failed to sync host skills from {host_skills}: {e}",
+                file=sys.stderr,
+            )
+
+    project_skills = workspace_dir / ".agents" / "skills"
+    if project_skills.exists():
+        _copy_tree(project_skills, skills_dst)
+
+
 def setup_emacs_config(workspace_dir: Path) -> None:
     """Set up Emacs config by copying to .devcontainer/.emacs-config/.
 
@@ -158,6 +194,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     home = Path.home()
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     mcp_templates = templates_dir / "mcp"
+
+    sync_agent_skill_cache(workspace_dir)
 
     # Claude credentials
     claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
