@@ -47,7 +47,6 @@ def build_devcontainer_json(
 
     mounts = constants.BASE_MOUNTS.copy()
 
-    # Only add Wayland mount if WAYLAND_DISPLAY is set
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(constants.WAYLAND_MOUNT)
 

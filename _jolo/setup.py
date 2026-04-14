@@ -715,6 +715,14 @@ def sync_skill_templates(target_dir: Path) -> None:
         verbose_print("Skills dst is symlinked to src, skipping sync")
         return
 
+    template_skills = {e.name for e in skills_src.iterdir() if e.is_dir()}
+
+    # Remove skills not in template
+    for entry in skills_dst.iterdir():
+        if entry.is_dir() and entry.name not in template_skills:
+            shutil.rmtree(entry)
+            verbose_print(f"Removed stale skill: {entry.name}")
+
     for entry in skills_src.iterdir():
         if not entry.is_dir():
             continue
