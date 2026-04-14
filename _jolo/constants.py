@@ -204,7 +204,6 @@ BASE_MOUNTS = [
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.pi-cache,target=/home/${localEnv:USER}/.pi,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.agents-cache/skills,target=/home/${localEnv:USER}/.gemini/skills,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/.agents-cache/skills,target=/home/${localEnv:USER}/.codex/skills,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.agents-cache/skills,target=/home/${localEnv:USER}/.pi/skills,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
