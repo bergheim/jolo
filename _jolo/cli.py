@@ -110,7 +110,7 @@ def select_flavors_interactive() -> list[str]:
     """Show interactive multi-select picker for project flavors.
 
     Returns:
-        List of selected flavor codes, e.g. ['python-web', 'typescript-bare'].
+        List of selected flavor codes, e.g. ['python-web', 'typescript'].
         First selected = primary flavor. Returns empty list if user cancels.
     """
     try:
@@ -143,7 +143,7 @@ def select_flavors_interactive() -> list[str]:
 def detect_flavors(project_dir: Path) -> list[str]:
     """Auto-detect project flavors from files in the directory.
 
-    Returns list of detected flavor codes, e.g. ['python-web', 'typescript-bare'].
+    Returns list of detected flavor codes, e.g. ['python-web', 'typescript'].
     """
     flavors = []
 
@@ -168,13 +168,13 @@ def detect_flavors(project_dir: Path) -> list[str]:
     has_web = any((project_dir / d).exists() for d in web_indicators)
 
     if has_py:
-        flavors.append("python-web" if has_web else "python-bare")
+        flavors.append("python-web" if has_web else "python")
     if has_ts:
-        flavors.append("typescript-web" if has_web else "typescript-bare")
+        flavors.append("typescript-web" if has_web else "typescript")
     if has_go:
-        flavors.append("go-web" if has_web else "go-bare")
+        flavors.append("go-web" if has_web else "go")
     if has_rust:
-        flavors.append("rust-web" if has_web else "rust-bare")
+        flavors.append("rust-web" if has_web else "rust")
     if has_shell and not flavors:
         flavors.append("shell")
 
@@ -428,7 +428,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=parse_flavor_arg,
         default=None,
         metavar="FLAVOR[,...]",
-        help="Project flavor(s): typescript-web, typescript-bare, go-web, go-bare, python-web, python-bare, rust, shell, prose, other",
+        help="Project flavor(s): typescript-web, typescript, go-web, go, python-web, python, rust-web, rust, shell, prose, other",
     )
 
     # clone: prompt, agent, detach, exec, mounts, recreate, verbose

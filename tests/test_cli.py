@@ -477,16 +477,16 @@ class TestFlavorArgParsing(unittest.TestCase):
     def test_flavor_flag_comma_separated(self):
         """--flavor should accept comma-separated values."""
         args = jolo.parse_args(
-            ["create", "test", "--flavor", "python-web,typescript-bare"]
+            ["create", "test", "--flavor", "python-web,typescript"]
         )
-        self.assertEqual(args.flavor, ["python-web", "typescript-bare"])
+        self.assertEqual(args.flavor, ["python-web", "typescript"])
 
     def test_flavor_flag_multiple_values(self):
         """--flavor should handle multiple comma-separated values."""
         args = jolo.parse_args(
-            ["create", "test", "--flavor", "python-bare,go-web,rust-bare"]
+            ["create", "test", "--flavor", "python,go-web,rust"]
         )
-        self.assertEqual(args.flavor, ["python-bare", "go-web", "rust-bare"])
+        self.assertEqual(args.flavor, ["python", "go-web", "rust"])
 
     def test_flavor_valid_values(self):
         """--flavor should accept all valid flavor values."""
@@ -509,10 +509,10 @@ class TestFlavorArgParsing(unittest.TestCase):
     def test_flavor_with_create(self):
         """--flavor can combine with create."""
         args = jolo.parse_args(
-            ["create", "myproject", "--flavor", "python-web,typescript-bare"]
+            ["create", "myproject", "--flavor", "python-web,typescript"]
         )
         self.assertEqual(args.name, "myproject")
-        self.assertEqual(args.flavor, ["python-web", "typescript-bare"])
+        self.assertEqual(args.flavor, ["python-web", "typescript"])
 
     def test_flavor_whitespace_handling(self):
         """--flavor should handle values with whitespace around commas."""
@@ -521,12 +521,10 @@ class TestFlavorArgParsing(unittest.TestCase):
                 "create",
                 "test",
                 "--flavor",
-                "python-web, typescript-bare, go-web",
+                "python-web, typescript, go-web",
             ]
         )
-        self.assertEqual(
-            args.flavor, ["python-web", "typescript-bare", "go-web"]
-        )
+        self.assertEqual(args.flavor, ["python-web", "typescript", "go-web"])
 
 
 class TestExecArgParsing(unittest.TestCase):
@@ -552,7 +550,7 @@ class TestDetectFlavors(unittest.TestCase):
     def test_detects_python_bare(self):
         Path(self.tmpdir, "pyproject.toml").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["python-bare"])
+        self.assertEqual(result, ["python"])
 
     def test_detects_python_web(self):
         Path(self.tmpdir, "pyproject.toml").touch()
@@ -563,23 +561,23 @@ class TestDetectFlavors(unittest.TestCase):
     def test_detects_typescript_bare(self):
         Path(self.tmpdir, "package.json").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["typescript-bare"])
+        self.assertEqual(result, ["typescript"])
 
     def test_detects_go_bare(self):
         Path(self.tmpdir, "go.mod").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["go-bare"])
+        self.assertEqual(result, ["go"])
 
     def test_detects_rust_bare(self):
         Path(self.tmpdir, "Cargo.toml").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["rust-bare"])
+        self.assertEqual(result, ["rust"])
 
     def test_detects_multiple_languages(self):
         Path(self.tmpdir, "pyproject.toml").touch()
         Path(self.tmpdir, "package.json").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["python-bare", "typescript-bare"])
+        self.assertEqual(result, ["python", "typescript"])
 
     def test_empty_dir_returns_empty(self):
         result = jolo.detect_flavors(Path(self.tmpdir))
@@ -594,7 +592,7 @@ class TestDetectFlavors(unittest.TestCase):
         Path(self.tmpdir, "deploy.sh").touch()
         Path(self.tmpdir, "go.mod").touch()
         result = jolo.detect_flavors(Path(self.tmpdir))
-        self.assertEqual(result, ["go-bare"])
+        self.assertEqual(result, ["go"])
 
 
 if __name__ == "__main__":

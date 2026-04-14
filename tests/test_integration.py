@@ -47,7 +47,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
                 "create",
                 "testproj",
                 "--flavor",
-                "python-web,typescript-bare",
+                "python-web,typescript",
                 "-d",
             ]
         )
@@ -72,7 +72,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
             mocks["devcontainer_up"].return_value = True
             with mock.patch(
                 "_jolo.commands.select_flavors_interactive",
-                return_value=["go-bare"],
+                return_value=["go"],
             ) as mock_selector:
                 jolo.run_create_mode(args)
                 mock_selector.assert_called_once()
@@ -87,7 +87,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_generates_precommit_config(self):
         """create should generate .pre-commit-config.yaml based on flavors."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "rust-bare", "-d"]
+            ["create", "testproj", "--flavor", "rust", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -107,7 +107,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_copies_gitignore_from_templates(self):
         """create should copy .gitignore from templates/."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "python-bare", "-d"]
+            ["create", "testproj", "--flavor", "python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -122,7 +122,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_copies_editorconfig_from_templates(self):
         """create should copy .editorconfig from templates/."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "python-bare", "-d"]
+            ["create", "testproj", "--flavor", "python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -141,7 +141,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
                 "create",
                 "testproj",
                 "--flavor",
-                "python-bare,typescript-web",
+                "python,typescript-web",
                 "-d",
             ]
         )
@@ -160,9 +160,9 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
             )
 
     def test_create_writes_test_framework_config_for_python(self):
-        """create with python-bare should write pytest config to pyproject.toml."""
+        """create with python should write pytest config to pyproject.toml."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "python-bare", "-d"]
+            ["create", "testproj", "--flavor", "python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -179,7 +179,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_installs_test_hooks(self):
         """create should install pre-commit hooks and set test defaults."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "python-bare", "-d"]
+            ["create", "testproj", "--flavor", "python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -215,9 +215,9 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
             )
 
     def test_create_writes_test_framework_config_for_typescript(self):
-        """create with typescript-bare should create example test with bun:test."""
+        """create with typescript should create example test with bun:test."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "typescript-bare", "-d"]
+            ["create", "testproj", "--flavor", "typescript", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -271,7 +271,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_first_flavor_is_primary(self):
         """First flavor in list should be treated as primary for init commands."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "go-bare,python-bare", "-d"]
+            ["create", "testproj", "--flavor", "go,python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
@@ -395,7 +395,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
     def test_create_template_files_are_copied(self):
         """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""
         args = jolo.parse_args(
-            ["create", "testproj", "--flavor", "python-bare", "-d"]
+            ["create", "testproj", "--flavor", "python", "-d"]
         )
 
         with self._mock_devcontainer_calls() as mocks:
