@@ -7,6 +7,13 @@ PGDATA="${WORKSPACE_FOLDER:-.}/.devcontainer/.pgdata"
 case "${1:-start}" in
     start)
         pg_ctl -D "$PGDATA" status >/dev/null 2>&1 && exit 0
+        # Remove stale PID file from previous container run
+        if [ -f "$PGDATA/postmaster.pid" ]; then
+            PID=$(head -1 "$PGDATA/postmaster.pid")
+            if ! kill -0 "$PID" 2>/dev/null; then
+                rm -f "$PGDATA/postmaster.pid"
+            fi
+        fi
         if [ ! -d "$PGDATA" ]; then
             initdb -D "$PGDATA" --auth=trust --no-locale -E UTF8
             echo "host all all 0.0.0.0/0 trust" >> "$PGDATA/pg_hba.conf"
