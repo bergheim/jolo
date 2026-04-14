@@ -84,6 +84,16 @@ Tag entries with keywords (e.g., =:auth:perf:musl:=) for searchability.
 - Screenshot workflow: =jolo-shot= on local machine → scp to =berghome:stash/= → agents read latest =shot-*.png= :workflow:screenshots:
 - Always use =emacsclient --eval= for org state changes (TODO→DONE/CANCELLED) — never edit keywords manually. Use =org-todo=, =org-add-log-note=, =org-store-log-note= to get CLOSED timestamps and LOGBOOK entries with reasons :org:workflow:emacs:
 - =org-element-map= lambda context breaks =org-todo= logging hooks — use =re-search-forward= + =beginning-of-line= to position point instead :org:emacs:gotcha:
+- Flavor naming: =LANG= for bare, =LANG-web= for web (dropped =-bare= suffix); e.g. =typescript=, =typescript-web= :jolo:templates:
+- =PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium= in =containerEnv= — pa11y, puppeteer, and anything using Puppeteer finds system Chromium :chromium:container:
+- =pa11y= for automated WCAG 2.2 AA auditing; =just a11y= recipe in web templates :a11y:workflow:
+- Image format preference: AVIF > WebP > PNG/JPEG; tools: =vips=, =avifenc=, =cwebp= :images:formats:
+- tmux multi-client: removed =-d= from =tmux attach-session=, set =window-size largest= so biggest client sets dimensions :tmux:multi-client:
+- =sync_skill_templates()= now removes skills not in template — cleans openspec leftovers on =--recreate= :jolo:sync:
+- =db= script: auto-removes stale =postmaster.pid= if process is dead; handles comma-separated =unix_socket_directories= :postgresql:db:
+- Claude plugins mounted RW (not RO) — installs persist to host, shared across all containers :claude:plugins:
+- =axe-core/cli= uses Selenium+ChromeDriver (broken on Alpine); =pa11y= uses Puppeteer (works with system Chromium) :a11y:alpine:gotcha:
+- =UV_LINK_MODE=copy= suppresses uv hardlink warning on Podman overlay filesystems :python:uv:podman:
 
 * Terminal Image Display                                       :terminal:images:
 
