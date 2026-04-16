@@ -61,36 +61,27 @@ Then use the Read tool on that file to view it.
 
 ### Editing org files with emacsclient
 
-**Always use emacsclient for org state changes** — never manually edit TODO/DONE keywords with a text editor. Org-mode adds CLOSED timestamps, LOGBOOK entries, and state transition metadata automatically.
+**Always use `bergheim/agent-org-set-state` for org state changes** — never manually
+edit TODO/DONE keywords with a text editor. Org-mode adds CLOSED timestamps, LOGBOOK
+entries, and state transition metadata automatically. The helper handles buffer
+staleness, note capture, and save in one call.
 
-**Toggle TODO state (DONE, CANCELLED, etc.):**
+**Mark a TODO as DONE:**
 
 ```bash
-emacsclient --eval '
-(with-current-buffer (find-file-noselect "docs/TODO.org")
-  (goto-char (point-min))
-  (re-search-forward "TODO Heading text here")
-  (beginning-of-line)
-  (org-todo "DONE")
-  (save-buffer))'
+emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE")'
 ```
 
-**Toggle with a reason note** (required for CANCELLED, optional for DONE):
+**Mark as DONE with a reason note:**
 
 ```bash
-emacsclient --eval '
-(with-current-buffer (find-file-noselect "docs/TODO.org")
-  (goto-char (point-min))
-  (re-search-forward "TODO Heading text here")
-  (beginning-of-line)
-  (let ((org-log-note-purpose (quote state))
-        (org-log-note-state "CANCELLED")
-        (org-log-note-previous-state "TODO"))
-    (org-todo "CANCELLED")
-    (org-add-log-note)
-    (insert "The reason this was cancelled")
-    (org-store-log-note))
-  (save-buffer))'
+emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE" "Resolved by commit abc1234.")'
+```
+
+**Cancel a TODO with a reason:**
+
+```bash
+emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "CANCELLED" "No longer relevant because X.")'
 ```
 
 This produces proper org metadata:
@@ -100,7 +91,7 @@ This produces proper org metadata:
 CLOSED: [2026-04-13 Mon 12:08]
 :LOGBOOK:
 - State "CANCELLED"  from "TODO"  [2026-04-13 Mon 12:08] \\
-  The reason this was cancelled
+  No longer relevant because X.
 :END:
    Original body text preserved here...
 ```
