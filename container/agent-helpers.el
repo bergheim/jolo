@@ -67,7 +67,8 @@ On same-second collision, appends a counter suffix to the ID.
 Returns the absolute file path. Safe for emacsclient --eval."
   (let* ((id (format-time-string "%Y%m%dT%H%M%S"))
          (slug (bergheim/agent-denote--slugify title))
-         (clean-kw (mapcar #'bergheim/agent-denote--sanitize-keyword keywords))
+         (clean-kw (seq-filter (lambda (s) (not (string-empty-p s)))
+                               (mapcar #'bergheim/agent-denote--sanitize-keyword keywords)))
          (kw-part (if clean-kw (concat "__" (mapconcat #'identity clean-kw "_")) ""))
          (dir (expand-file-name dir))
          (date-str (format-time-string "[%Y-%m-%d %a %H:%M]"))
@@ -75,25 +76,36 @@ Returns the absolute file path. Safe for emacsclient --eval."
                        (concat ":" (mapconcat #'identity clean-kw ":") ":")
                      ""))
          filepath filename final-id)
+    (when (string-empty-p slug)
+      (setq slug "untitled"))
     (unless (file-directory-p dir)
       (make-directory dir t))
     (setq final-id id
           filename (concat final-id "--" slug kw-part ".org")
           filepath (expand-file-name filename dir))
-    (let ((counter 1))
-      (while (file-exists-p filepath)
-        (setq final-id (format "%s-%d" id counter)
-              filename (concat final-id "--" slug kw-part ".org")
-              filepath (expand-file-name filename dir)
-              counter (1+ counter))))
-    (with-temp-file filepath
-      (insert (format "#+title:      %s\n" title))
-      (insert (format "#+date:       %s\n" date-str))
-      (insert (format "#+filetags:   %s\n" tags-str))
-      (insert (format "#+identifier: %s\n" final-id))
-      (insert "\n")
-      (when body (insert body "\n")))
-    filepath))
+    (let ((counter 0)
+          (content (concat (format "#+title:      %s\n" title)
+                           (format "#+date:       %s\n" date-str)
+                           (format "#+filetags:   %s\n" tags-str)
+                           (format "#+identifier: %s\n" id)
+                           "\n"
+                           (if body (concat body "\n") "")))
+          (written nil))
+      (while (not written)
+        (condition-case nil
+            (progn
+              (write-region content nil filepath nil nil nil 'excl)
+              (setq written t))
+          (file-already-exists
+           (setq counter (1+ counter)
+                 final-id (format "%s-%d" id counter)
+                 filename (concat final-id "--" slug kw-part ".org")
+                 filepath (expand-file-name filename dir)
+                 content (replace-regexp-in-string
+                          "^#+identifier:.*$"
+                          (format "#+identifier: %s" final-id)
+                          content)))))
+      filepath)))
 
 (defun bergheim/agent-denote-find (dir &optional keywords title-re)
   "Find denote notes in DIR, optionally filtered by KEYWORDS and TITLE-RE.
