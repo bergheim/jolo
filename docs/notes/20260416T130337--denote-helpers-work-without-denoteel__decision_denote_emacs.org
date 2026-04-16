@@ -1,0 +1,11 @@
+#+title:      Denote helpers work without denote.el
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :decision:denote:emacs:
+#+identifier: 20260416T130337
+
+The agent denote helpers (agent-denote-create, find, list, read) follow
+denote's filename convention but don't require denote.el to be installed.
+This is intentional: elpaca may not have built denote in the container.
+
+Files are fully compatible with denote on the host — same naming, same
+front matter format. The host's denote can manage them natively.

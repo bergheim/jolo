@@ -1,0 +1,12 @@
+#+title:      Super-save-mode races with agent buffer mutations
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :gotcha:emacs:agent:
+#+identifier: 20260416T130336
+
+super-save-mode auto-saves buffers on idle and focus loss. When an agent
+helper does revert-buffer then modifies and saves, super-save can trigger
+save-buffer mid-operation during buffer switches (e.g. inside
+org-store-log-note). This can write half-modified state.
+
+Fix: wrap agent mutations in (let ((super-save-mode nil)) ...) to
+suppress super-save's hooks for the duration.

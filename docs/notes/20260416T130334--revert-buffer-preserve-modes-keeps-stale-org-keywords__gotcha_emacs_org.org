@@ -1,0 +1,12 @@
+#+title:      Revert-buffer preserve-modes keeps stale org keywords
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :gotcha:emacs:org:
+#+identifier: 20260416T130334
+
+(revert-buffer t t t) with preserve-modes=t preserves buffer-local
+org-todo-keywords-1 from a prior session. If the buffer was first visited
+when org config hadn't loaded, it gets (TODO DONE) and preserve-modes
+never refreshes that.
+
+Fix: use (revert-buffer t t) without the third arg. This re-runs org-mode
+and picks up the current global org-todo-keywords.
