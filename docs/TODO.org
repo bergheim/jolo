@@ -45,7 +45,12 @@ CLOSED: [2026-04-13 Mon 12:12]
    - eBPF-based connection tracking (=bpftrace=, =cilium=)
    - Simple =ss= / =conntrack= polling from host
    Goal: after-the-fact audit trail, not real-time blocking.
-** TODO Decide how to ship host-installed Codex skills into devcontainers
+** DONE Decide how to ship host-installed Codex skills into devcontainers
+   CLOSED: [2026-04-16 Thu 11:16]
+   :LOGBOOK:
+   - State "DONE"       from "TODO"       [2026-04-16 Thu 11:16] \\
+     Resolved by commits 40c4382 + c2bd080: sync_agent_skill_cache copies ~/.agents/skills into .devcontainer/.agents-cache/skills, bind-mounted into all four agents.
+   :END:
    Host Codex skill installs (for example =obra/superpowers= in =~/.codex= with
    =~/.agents/skills/superpowers= symlink) work for host Codex after restart,
    but not in devcontainers. Current =jolo= behavior copies only host
