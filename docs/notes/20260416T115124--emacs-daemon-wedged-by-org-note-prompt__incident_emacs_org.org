@@ -1,0 +1,10 @@
+#+title:      Emacs daemon wedged by org note prompt
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :incident:emacs:org:
+#+identifier: 20260416T115124
+
+2026-04-15: emacsclient --eval with org-add-log-note wedged the daemon.
+Root cause: DONE(d@) annotation pops interactive *Org Note* buffer.
+Contributing: stale buffer from prior session triggered supersession prompt.
+Resolution: built bergheim/agent-org-set-state helper.
+Prevention: all agent elisp must avoid interactive prompts.

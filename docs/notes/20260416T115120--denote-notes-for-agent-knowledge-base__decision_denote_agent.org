@@ -1,0 +1,14 @@
+#+title:      Denote notes for agent knowledge base
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :decision:denote:agent:
+#+identifier: 20260416T115120
+
+Replacing monolithic MEMORY.org and RESEARCH.org with per-topic denote notes.
+
+Key decisions:
+- Write-once, link-many (no append/mutation of existing notes)
+- Two-layer keywords: fixed kind (memory, research, decision, gotcha, convention, incident) + free-form topics
+- Sort by denote ID timestamp, not filesystem mtime (git rewrites mtime)
+- Notes don't require denote.el — pure filename convention
+- Project-local in docs/notes/, tracked in git
+- Agent-private notes in docs/notes/private/ (gitignored)

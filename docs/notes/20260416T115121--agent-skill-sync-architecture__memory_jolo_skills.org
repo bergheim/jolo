@@ -1,0 +1,9 @@
+#+title:      Agent skill sync architecture
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :memory:jolo:skills:
+#+identifier: 20260416T115121
+
+sync_agent_skill_cache() in _jolo/setup.py copies ~/.agents/skills/ (host)
+into .devcontainer/.agents-cache/skills/, then project .agents/skills/ overlays.
+The cache is bind-mounted into all four agents at ~/.claude/skills, ~/.codex/skills, etc.
+Commits: 40c4382, c2bd080.

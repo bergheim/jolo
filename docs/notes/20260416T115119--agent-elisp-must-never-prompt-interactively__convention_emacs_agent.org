@@ -1,0 +1,11 @@
+#+title:      Agent elisp must never prompt interactively
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :convention:emacs:agent:
+#+identifier: 20260416T115119
+
+All agent elisp helpers called via emacsclient --eval must:
+- Force-revert buffers before modifying (revert-buffer t t)
+- Stub or avoid interactive prompts (yes-or-no-p, org-add-log-note)
+- Disable super-save-mode and auto-revert-mode during mutations
+- Check (default-value 'post-command-hook) not buffer-local value
+- Verify state changes succeeded (don't trust silent failures)

@@ -1,0 +1,10 @@
+#+title:      Org-todo note capture in emacsclient
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :research:emacs:org:
+#+identifier: 20260416T115122
+
+org-todo with @ annotation schedules org-add-log-note on post-command-hook.
+In emacsclient --eval context, post-command-hook fires AFTER eval returns.
+Solution: check (default-value 'post-command-hook) for org-add-log-note,
+remove it, call org-add-log-note directly, then write into *Org Note* buffer
+and call org-store-log-note. See bergheim/agent-org-set-state.

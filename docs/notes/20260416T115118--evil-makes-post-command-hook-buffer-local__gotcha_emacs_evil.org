@@ -1,0 +1,9 @@
+#+title:      Evil makes post-command-hook buffer-local
+#+date:       [2026-04-16 Thu 11:51]
+#+filetags:   :gotcha:emacs:evil:
+#+identifier: 20260416T115118
+
+Evil-mode makes post-command-hook buffer-local in org buffers.
+org-add-log-setup adds to the global hook via add-hook without LOCAL arg.
+Checking (memq 'org-add-log-note post-command-hook) reads the buffer-local
+value and misses it. Use (default-value 'post-command-hook) instead.
