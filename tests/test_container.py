@@ -63,6 +63,12 @@ class TestSyncDevcontainer(unittest.TestCase):
 class TestContainerRuntime(unittest.TestCase):
     """Test container runtime detection."""
 
+    def setUp(self):
+        jolo.get_container_runtime.cache_clear()
+
+    def tearDown(self):
+        jolo.get_container_runtime.cache_clear()
+
     def test_get_container_runtime_finds_docker(self):
         """Should detect docker if available."""
         with mock.patch("shutil.which") as mock_which:
