@@ -1,0 +1,9 @@
+#+title:      agents-cache must be gitignored in generated projects
+#+date:       [2026-04-16 Thu 13:08]
+#+filetags:   :gotcha:jolo:git:
+#+identifier: 20260416T130832
+
+.devcontainer/.agents-cache/ is populated by sync_agent_skill_cache()
+on every jolo up. It must be in .gitignore or it shows as 64+ staged
+files in new projects. Fixed in templates/.gitignore (commit d3a3f76).
+Existing projects need: git rm -r --cached .devcontainer/.agents-cache/

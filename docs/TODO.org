@@ -228,3 +228,14 @@ CLOSED: [2026-04-14 Tue 11:12]
    Investigate axe-core, pa11y, or Lighthouse CI for automated WCAG checks.
    Could integrate with =browser-check= or run as a pre-commit/CI step.
    Check what runs on Alpine/musl without heavy deps.
+** TODO Add denote note linking support
+   Phase 1 (create + find + list + read) is done. Phase 2:
+   - Ensure =denote.el= loads in container Emacs (elpaca)
+   - Implement =bergheim/agent-denote-link= using =denote:= protocol links
+   - Decide how linking interacts with write-once (related-notes section at creation?)
+   - Consider backlinks via =denote-backlinks= or filename grep
+** TODO Ensure denote.el is available in container Emacs
+   Currently denote isn't built by elpaca in the container. Agent helpers
+   work without it (pure filename convention), but linking requires it.
+   Options: add =denote= to Containerfile pnpm/elpaca bootstrapping,
+   or pre-build it in the shared elpaca cache.

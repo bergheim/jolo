@@ -1,0 +1,18 @@
+#+title:      bergheim/agent-org-set-state design
+#+date:       [2026-04-16 Thu 13:08]
+#+filetags:   :memory:emacs:org:agent:
+#+identifier: 20260416T130830
+
+Deterministic org-todo state transitions via emacsclient --eval.
+
+Key behaviors:
+- revert-buffer without preserve-modes (forces org keyword refresh)
+- let-binds auto-revert-mode and super-save-mode to nil
+- Checks (default-value 'post-command-hook) for org-add-log-note (evil buffer-local)
+- Removes hook entry and calls org-add-log-note directly
+- Writes note into *Org Note* buffer then calls org-store-log-note
+- Verifies state actually changed (catches silent blocking)
+- Returns t on success, errors on failure
+
+Lives in: ~/.config/emacs/modules/orgmode/helpers.el
+Tracked copy: container/agent-helpers.el

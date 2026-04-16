@@ -1,0 +1,13 @@
+#+title:      Denote linking deferred to phase two
+#+date:       [2026-04-16 Thu 13:08]
+#+filetags:   :decision:denote:agent:
+#+identifier: 20260416T130831
+
+Phase 1 implements create + find only. Linking deferred because:
+- Requires denote.el or custom link type for denote: protocol
+- file: links work without denote.el but need relative path handling
+- Write-once constraint conflicts with inserting links into existing notes
+- Codex review: link only for semantic relationships, not keyword overlap
+
+Next steps: user will ensure denote.el is available in containers,
+then implement bergheim/agent-denote-link using proper denote: links.
