@@ -27,8 +27,8 @@ Safe to call from `emacsclient --eval' — never prompts interactively."
   t)
 
 ;;; Denote-compatible agent helpers
-;; These follow denote's filename convention without requiring denote.el.
-;; Files are valid denote notes and can be managed by denote on the host.
+;; Create/find/list/read follow denote's filename convention without requiring
+;; denote.el. Linking requires denote.el for proper [[denote:ID]] links.
 
 (defun bergheim/agent-denote--slugify (title)
   "Convert TITLE to a denote-compatible filename slug."
@@ -143,5 +143,45 @@ Each entry is a plist with :id :title :keywords :path."
          (n (or limit 10)))
     (seq-take all n)))
 
-(provide 'bergheim-org-helpers)
-;;; helpers.el ends here
+(defun bergheim/agent-denote-link (source-path target-paths)
+  "Add denote links from SOURCE-PATH to each file in TARGET-PATHS.
+Appends a \"Related notes\" section if absent, then adds any links not
+already present. Uses denote.el APIs for proper [[denote:ID]] links.
+TARGET-PATHS is a list of absolute paths to denote notes.
+Safe for emacsclient --eval."
+  (require 'denote)
+  (let ((denote-directory (file-name-directory source-path))
+        (source-buf (find-file-noselect source-path t)))
+    (with-current-buffer source-buf
+      (let ((auto-revert-mode nil)
+            (super-save-mode nil))
+        (revert-buffer t t)
+        (let ((links-to-add
+               (delq nil
+                     (mapcar
+                      (lambda (target)
+                        (let* ((id (denote-retrieve-filename-identifier target))
+                               (title (denote-retrieve-front-matter-title-value target 'org))
+                               (link (denote-format-link target title 'org nil)))
+                          (goto-char (point-min))
+                          (unless (search-forward (concat "denote:" id) nil t)
+                            link)))
+                      target-paths))))
+          (when links-to-add
+            (goto-char (point-min))
+            (if (re-search-forward "^\\* Related notes" nil t)
+                (progn
+                  (if (re-search-forward "^\\*" nil t)
+                      (forward-line -1)
+                    (goto-char (point-max)))
+                  (unless (bolp) (insert "\n")))
+              (goto-char (point-max))
+              (unless (bolp) (insert "\n"))
+              (insert "\n* Related notes\n"))
+            (dolist (link links-to-add)
+              (insert "- " link "\n"))
+            (save-buffer)))))
+    (length target-paths)))
+
+(provide 'bergheim-agent-helpers)
+;;; bergheim-agent-helpers.el ends here
