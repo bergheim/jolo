@@ -1,0 +1,16 @@
+#+title:      Atomic file creation with write-region excl
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :convention:emacs:agent:
+#+identifier: 20260416T130338
+
+When creating files that might collide (same-second denote notes, temp
+files), use write-region with the MUSTBENEW flag ('excl):
+
+  (write-region content nil filepath nil nil nil 'excl)
+
+This is atomic at the OS level (O_EXCL). If the file exists, it signals
+file-already-exists instead of silently overwriting. Wrap in condition-case
+with a counter loop for collision handling.
+
+* Related notes
+- [[denote:20260416T130337][Denote helpers work without denote.el]]

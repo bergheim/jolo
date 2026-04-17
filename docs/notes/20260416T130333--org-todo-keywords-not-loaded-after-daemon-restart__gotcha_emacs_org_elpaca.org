@@ -1,0 +1,17 @@
+#+title:      Org-todo keywords not loaded after daemon restart
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :gotcha:emacs:org:elpaca:
+#+identifier: 20260416T130333
+
+After killing and restarting the Emacs daemon, org-todo-keywords defaults to
+just (TODO DONE). The user's custom keywords (INPROGRESS, NEXT, WAITING, etc)
+from base.el are set via (use-package org :defer t :config ...) which only
+loads when org-mode is first triggered via elpaca.
+
+Workaround: (bergheim/load-file "modules/orgmode/base.el") or open any .org
+file interactively. The agent-org-set-state helper uses revert-buffer without
+preserve-modes to force org-mode re-init with current global keywords.
+
+* Related notes
+- [[denote:20260416T130334][Revert-buffer preserve-modes keeps stale org keywords]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]

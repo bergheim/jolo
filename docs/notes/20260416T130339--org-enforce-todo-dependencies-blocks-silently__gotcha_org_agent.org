@@ -1,0 +1,16 @@
+#+title:      Org-enforce-todo-dependencies blocks silently
+#+date:       [2026-04-16 Thu 13:03]
+#+filetags:   :gotcha:org:agent:
+#+identifier: 20260416T130339
+
+When org-enforce-todo-dependencies is t, org-todo silently refuses to
+transition a parent to DONE/CANCELLED if children are incomplete.
+No error is raised in non-interactive context — the state just doesn't
+change. Same for org-enforce-todo-checkbox-dependencies with unchecked
+checkbox items.
+
+bergheim/agent-org-set-state checks actual state after org-todo and
+errors with: State change blocked: TODO -> DONE (got TODO)
+
+* Related notes
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]
