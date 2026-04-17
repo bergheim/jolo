@@ -1,3 +1,5 @@
+;;; bergheim-agent-helpers.el --- Agent helpers for org-mode and denote -*- lexical-binding: t; -*-
+
 (defun bergheim/agent-org-set-state (file heading-re new-state &optional note)
   "Transition the first TODO matching HEADING-RE in FILE to NEW-STATE.
 Safe to call from `emacsclient --eval' — never prompts interactively."
@@ -102,7 +104,7 @@ Returns the absolute file path. Safe for emacsclient --eval."
                  filename (concat final-id "--" slug kw-part ".org")
                  filepath (expand-file-name filename dir)
                  content (replace-regexp-in-string
-                          "^#+identifier:.*$"
+                          "^#\\+identifier:.*$"
                           (format "#+identifier: %s" final-id)
                           content)))))
       filepath)))
@@ -163,9 +165,10 @@ Safe for emacsclient --eval."
                         (let* ((id (denote-retrieve-filename-identifier target))
                                (title (denote-retrieve-front-matter-title-value target 'org))
                                (link (denote-format-link target title 'org nil)))
-                          (goto-char (point-min))
-                          (unless (search-forward (concat "denote:" id) nil t)
-                            link)))
+                          (save-excursion
+                            (goto-char (point-min))
+                            (unless (search-forward (concat "denote:" id) nil t)
+                              link))))
                       target-paths))))
           (when links-to-add
             (goto-char (point-min))
@@ -180,8 +183,8 @@ Safe for emacsclient --eval."
               (insert "\n* Related notes\n"))
             (dolist (link links-to-add)
               (insert "- " link "\n"))
-            (save-buffer)))))
-    (length target-paths)))
+            (save-buffer))
+          (length links-to-add))))))
 
 (provide 'bergheim-agent-helpers)
 ;;; bergheim-agent-helpers.el ends here
