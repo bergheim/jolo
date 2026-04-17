@@ -121,26 +121,76 @@ Available states: `TODO`, `INPROGRESS`, `NEXT`, `WAITING`, `DONE`, `CANCELLED`.
 
 ## Project Memory
 
-Shared knowledge lives in `docs/` — all agents read and write these files.
+### Structured files
 
 | File | Purpose |
 |------|---------|
 | `docs/PROJECT.org` | Project context, architecture, key decisions |
-| `docs/MEMORY.org` | Shared conventions, patterns, gotchas |
 | `docs/TODO.org` | Actionable work items |
-| `docs/RESEARCH.org` | Deep investigations and findings |
+| `docs/MEMORY.org` | Legacy shared conventions (being replaced by denote notes) |
+| `docs/RESEARCH.org` | Legacy investigations (being replaced by denote notes) |
 
-**On session start:** Read `docs/PROJECT.org`, `docs/MEMORY.org` and `docs/TODO.org` for project context and current tasks.
+### Denote notes (`docs/notes/`)
 
-**On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:jolo:tmux:`).
+Per-topic knowledge notes following denote's filename convention. Each note is a
+single topic in its own file — no monolithic dumps. Notes are write-once: to add
+to a topic, create a new note and reference the original.
 
-**Personal memory** goes to your agent-specific file (not shared):
+**Filename format:** `YYYYMMDDTHHMMSS--title-slug__kind_topic1_topic2.org`
+
+**Note kinds** (fixed vocabulary, always the first keyword):
+`memory`, `research`, `decision`, `gotcha`, `convention`, `incident`
+
+**Topic keywords** (free-form, project-specific):
+`emacs`, `org`, `jolo`, `musl`, `evil`, `agent`, `skills`, `denote`, etc.
+
+**Creating notes via emacsclient:**
+
+```bash
+emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic1" "topic2")) "Body text.")'
+```
+
+**Finding notes:**
+
+```bash
+# All notes with keyword "emacs"
+emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
+
+# Notes matching keyword + title pattern
+emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
+
+# List 10 most recent
+emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
+```
+
+**Linking notes:**
+
+```bash
+# Add links from one note to related notes (idempotent, appends "Related notes" section)
+emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
+```
+
+Link when there is a real semantic relationship (one note explains, caused, or
+depends on another). Do not link just because notes share a keyword.
+
+**On session start:**
+1. Read `docs/PROJECT.org` and `docs/TODO.org`
+2. Scan note filenames: `(bergheim/agent-denote-list "docs/notes")`
+3. Read full content of notes relevant to current task
+
+**On discoveries:** Create a new denote note with the appropriate kind and topics.
+Link to existing related notes. Do not append to existing notes or to `MEMORY.org`.
+
+### Personal memory
+
+Agent-specific files (not shared):
 - Claude: `.claude/MEMORY.md`
 - Gemini: `.gemini/MEMORY.md`
 - Codex: `.codex/MEMORY.md`
 - Pi: `.pi/MEMORY.md`
 
-Use personal memory for workflow preferences, mistake patterns, and agent-specific learnings. Use shared memory for anything another agent would benefit from knowing.
+Use personal memory for workflow preferences and agent-specific learnings.
+Use denote notes for anything another agent would benefit from knowing.
 
 ## Emacs
 

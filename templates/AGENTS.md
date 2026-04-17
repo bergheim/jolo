@@ -12,28 +12,70 @@ Disagree when you have evidence. If the user's approach has a flaw or you see a 
 
 ## Project Memory
 
-Shared knowledge lives in org-mode files under `docs/` that all agents read and write:
+### Structured files
 
-| File | Purpose | Content |
-|------|---------|---------|
-| `docs/PROJECT.org` | Project context | Why it exists, who it's for, architecture, key decisions |
-| `docs/MEMORY.org` | Shared memory | Conventions, patterns, gotchas — tag with keywords |
-| `docs/TODO.org` | Work items | Actionable items: `TODO`/`DONE` headings |
-| `docs/RESEARCH.org` | Findings and investigations | Root causes, solutions, technical discoveries |
+| File | Purpose |
+|------|---------|
+| `docs/PROJECT.org` | Project context, architecture, key decisions |
+| `docs/TODO.org` | Actionable work items |
 
 **Before any implementation:** If `docs/PROJECT.org` doesn't exist, do not start coding. First discuss with the user: what is this project, who is it for, what are the key constraints and architectural decisions? Write the answers to `docs/PROJECT.org` before proceeding.
 
-**On session start:** Read `docs/PROJECT.org`, `docs/MEMORY.org` and `docs/TODO.org` to pick up where others left off.
+### Denote notes (`docs/notes/`)
 
-**On discoveries:** Write conventions, patterns, and gotchas to `docs/MEMORY.org` with keyword tags (e.g., `:musl:auth:perf:`).
+Per-topic knowledge notes following denote's filename convention. Each note is a
+single topic in its own file. Notes are write-once: to add to a topic, create a
+new note and reference the original.
 
-**Personal memory** goes to your agent-specific file (not shared):
+**Filename format:** `YYYYMMDDTHHMMSS--title-slug__kind_topic1_topic2.org`
+
+**Note kinds** (fixed vocabulary, always the first keyword):
+`memory`, `research`, `decision`, `gotcha`, `convention`, `incident`
+
+**Creating notes via emacsclient:**
+
+```bash
+emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic1" "topic2")) "Body text.")'
+```
+
+**Finding notes:**
+
+```bash
+# All notes with keyword "emacs"
+emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
+
+# List 10 most recent
+emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
+```
+
+**Linking notes:**
+
+```bash
+# Add links from one note to related notes (idempotent, appends "Related notes" section)
+emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
+```
+
+Link when there is a real semantic relationship (one note explains, caused, or
+depends on another). Do not link just because notes share a keyword.
+
+**On session start:**
+1. Read `docs/PROJECT.org` and `docs/TODO.org`
+2. Scan note filenames: `(bergheim/agent-denote-list "docs/notes")`
+3. Read full content of notes relevant to current task
+
+**On discoveries:** Create a new denote note with the appropriate kind and topics.
+Link to existing related notes.
+
+### Personal memory
+
+Agent-specific files (not shared):
 - Claude: `.claude/MEMORY.md`
 - Gemini: `.gemini/MEMORY.md`
 - Codex: `.codex/MEMORY.md`
 - Pi: `.pi/MEMORY.md`
 
-Use personal memory for workflow preferences, mistake patterns, and agent-specific learnings. Use shared memory for anything another agent would benefit from knowing.
+Use personal memory for workflow preferences and agent-specific learnings.
+Use denote notes for anything another agent would benefit from knowing.
 
 Shared, non-reproducible resources across projects go in the stash: host `~/stash` is mounted at `/workspaces/stash` in devcontainers.
 

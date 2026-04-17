@@ -9,79 +9,68 @@ Persist what you've learned this session so it survives context loss and is avai
 
 ## Instructions
 
-### 1. Shared project state (for all agents)
+### 1. Create denote notes for discoveries
 
-Everything about the project goes in `docs/` — this is the shared knowledge base that all agents read.
+For each significant discovery, convention, gotcha, decision, or investigation from
+this session, create a denote note in `docs/notes/`:
 
-**`docs/MEMORY.org`** — conventions, patterns, gotchas:
-
-- Add new patterns, conventions, or gotchas discovered this session
-- Tag with relevant keywords (e.g., `:musl:auth:perf:`)
-- Remove or update entries that are no longer true
-
-**`docs/RESEARCH.org`** — findings, investigations, technical knowledge:
-
-- Create the file if it doesn't exist (use the template below)
-- Add a new top-level heading with a descriptive title
-- Include: what was investigated, root cause, solution, key files, links
-- Tag with relevant keywords (e.g., `:musl:nodejs:container:`)
-- Use org-mode format: headings, lists, src blocks
-
-Template for new file:
-```org
-#+TITLE: Research Notes
-#+STARTUP: overview
-
+```bash
+emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title" (quote ("kind" "topic1" "topic2")) "Body text.")'
 ```
 
-Example entry:
+**Choose the right kind** (first keyword):
+- `memory` — convention, pattern, how something works
+- `research` — investigation, root cause analysis, benchmarks
+- `decision` — architectural choice with rationale
+- `gotcha` — trap that will bite someone again
+- `convention` — coding standard, naming rule, process agreement
+- `incident` — what broke, why, how it was fixed
+
+If the emacsclient helper isn't available, create the file directly following
+denote naming: `YYYYMMDDTHHMMSS--title-slug__kind_topic.org` with front matter:
+
 ```org
-* Gemini CLI crashes on Alpine/musl                        :musl:nodejs:gemini:
-:PROPERTIES:
-:DATE: 2026-02-09
-:END:
+#+title:      Title here
+#+date:       [2026-04-16 Thu 12:00]
+#+filetags:   :kind:topic1:topic2:
+#+identifier: 20260416T120000
 
-node-pty prebuilt binary segfaults during PTY cleanup on musl libc.
-
-** Root cause
-~@lydell/node-pty-linux-x64/pty.node~ is compiled against glibc.
-The ~forkpty()~ call works but cleanup/destroy segfaults on musl.
-
-** Fix
-Set ~tools.shell.enableInteractiveShell: false~ in gemini settings.
-This bypasses node-pty and uses ~child_process~ fallback.
-
-** Refs
-- https://github.com/google-gemini/gemini-cli/issues/14087
+Body text.
 ```
 
-**`docs/TODO.org`** — tasks, plans, action items:
+**Do not append to existing notes.** Notes are write-once. To add to a topic,
+create a new note referencing the original.
+
+### 2. Update TODO.org
 
 - Add new tasks discovered during the session as `TODO` headings
-- Mark completed tasks as `DONE`
+- Mark completed tasks as `DONE` using `bergheim/agent-org-set-state`
 - Update existing task notes with new information
 
-### 2. Agent-private memory (for you only)
+### 3. Agent-private memory (for you only)
 
-Only put things here that are specific to YOUR workflow — mistake patterns, personal preferences, agent-specific quirks. Everything about the project itself goes in `docs/`.
+Only put things here that are specific to YOUR workflow — mistake patterns,
+personal preferences, agent-specific quirks. Everything about the project goes
+in denote notes.
 
 - **Claude**: `.claude/MEMORY.md`
 - **Gemini**: `.gemini/MEMORY.md`
 - **Codex**: `.codex/MEMORY.md`
 - **Pi**: `.pi/MEMORY.md`
 
-### 3. Commit
+### 4. Commit
 
-Always `git commit` the changes to docs/ without waiting for the user to ask. Use a short commit message like "save-state: <brief summary>".
+Always `git commit` the changes to docs/ without waiting for the user to ask.
+Use a short commit message like "save-state: <brief summary>".
 
-### 4. Summary
+### 5. Summary
 
 After saving and committing, print a brief summary of what was written and where.
 
 ## Rules
 
-- **Org-mode format only** for TODO.org, MEMORY.org, and RESEARCH.org
-- **Append, don't overwrite** — add new headings, don't replace existing content
+- **One topic per note** — don't create catch-all dumps
 - **Be concise** — future-you reads this months later; key facts only, no filler
-- **Tag generously** — tags make org-mode search useful
-- **No duplicates** — check existing entries before adding
+- **Tag generously** — kind + topics make search useful
+- **No duplicates** — check existing notes with `agent-denote-find` before creating
+- **Write-once** — never edit existing notes; create new ones instead
