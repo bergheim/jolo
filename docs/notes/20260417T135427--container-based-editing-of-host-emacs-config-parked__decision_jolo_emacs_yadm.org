@@ -1,0 +1,19 @@
+#+title:      Container-based editing of host emacs config parked
+#+date:       [2026-04-17 Fri 13:54]
+#+filetags:   :decision:jolo:emacs:yadm:
+#+identifier: 20260417T135427
+
+Editing host ~/.config/emacs inside a jolo devcontainer was considered and parked.
+
+The emacs config is managed by yadm (bare repo at ~/.local/share/yadm/repo.git,
+files tracked at $HOME paths). Supporting in-container edit+commit would require
+either baking yadm into the emacs-gui image (wrong scope — image is for project
+dev, not dotfile management) or symlinks that break yadm tracking (yadm would
+see a single symlink instead of the directory contents). Copying diverges the
+source of truth.
+
+Only clean path: split emacs config out of yadm into its own git repo. Then
+`jolo up ~/.config/emacs` works as a normal project with no special support.
+
+Until that split happens, edit emacs config with host Claude, not container
+Claude. Do not propose yadm-in-image or stash-symlink workarounds.
