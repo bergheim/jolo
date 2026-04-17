@@ -7,3 +7,6 @@
 on every jolo up. It must be in .gitignore or it shows as 64+ staged
 files in new projects. Fixed in templates/.gitignore (commit d3a3f76).
 Existing projects need: git rm -r --cached .devcontainer/.agents-cache/
+
+* Related notes
+- [[denote:20260416T115121][Agent skill sync architecture]]

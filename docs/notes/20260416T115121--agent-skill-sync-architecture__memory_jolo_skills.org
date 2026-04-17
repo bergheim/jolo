@@ -7,3 +7,6 @@ sync_agent_skill_cache() in _jolo/setup.py copies ~/.agents/skills/ (host)
 into .devcontainer/.agents-cache/skills/, then project .agents/skills/ overlays.
 The cache is bind-mounted into all four agents at ~/.claude/skills, ~/.codex/skills, etc.
 Commits: 40c4382, c2bd080.
+
+* Related notes
+- [[denote:20260416T130832][agents-cache must be gitignored in generated projects]]

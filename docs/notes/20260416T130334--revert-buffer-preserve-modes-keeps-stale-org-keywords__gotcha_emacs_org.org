@@ -10,3 +10,7 @@ never refreshes that.
 
 Fix: use (revert-buffer t t) without the third arg. This re-runs org-mode
 and picks up the current global org-todo-keywords.
+
+* Related notes
+- [[denote:20260416T130333][Org-todo keywords not loaded after daemon restart]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]

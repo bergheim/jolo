@@ -12,3 +12,7 @@ Key decisions:
 - Notes don't require denote.el — pure filename convention
 - Project-local in docs/notes/, tracked in git
 - Agent-private notes in docs/notes/private/ (gitignored)
+
+* Related notes
+- [[denote:20260416T130337][Denote helpers work without denote.el]]
+- [[denote:20260416T130831][Denote linking deferred to phase two]]

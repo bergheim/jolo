@@ -11,3 +11,7 @@ Phase 1 implements create + find only. Linking deferred because:
 
 Next steps: user will ensure denote.el is available in containers,
 then implement bergheim/agent-denote-link using proper denote: links.
+
+* Related notes
+- [[denote:20260416T115120][Denote notes for agent knowledge base]]
+- [[denote:20260416T130337][Denote helpers work without denote.el]]

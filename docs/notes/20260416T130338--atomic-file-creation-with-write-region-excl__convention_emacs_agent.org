@@ -11,3 +11,6 @@ files), use write-region with the MUSTBENEW flag ('excl):
 This is atomic at the OS level (O_EXCL). If the file exists, it signals
 file-already-exists instead of silently overwriting. Wrap in condition-case
 with a counter loop for collision handling.
+
+* Related notes
+- [[denote:20260416T130337][Denote helpers work without denote.el]]

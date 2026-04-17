@@ -8,3 +8,8 @@ In emacsclient --eval context, post-command-hook fires AFTER eval returns.
 Solution: check (default-value 'post-command-hook) for org-add-log-note,
 remove it, call org-add-log-note directly, then write into *Org Note* buffer
 and call org-store-log-note. See bergheim/agent-org-set-state.
+
+* Related notes
+- [[denote:20260416T115118][Evil makes post-command-hook buffer-local]]
+- [[denote:20260416T115124][Emacs daemon wedged by org note prompt]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]

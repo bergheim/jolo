@@ -10,3 +10,7 @@ org-store-log-note). This can write half-modified state.
 
 Fix: wrap agent mutations in (let ((super-save-mode nil)) ...) to
 suppress super-save's hooks for the duration.
+
+* Related notes
+- [[denote:20260416T115119][Agent elisp must never prompt interactively]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]

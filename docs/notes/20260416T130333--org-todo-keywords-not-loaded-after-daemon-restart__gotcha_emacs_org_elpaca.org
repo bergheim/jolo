@@ -11,3 +11,7 @@ loads when org-mode is first triggered via elpaca.
 Workaround: (bergheim/load-file "modules/orgmode/base.el") or open any .org
 file interactively. The agent-org-set-state helper uses revert-buffer without
 preserve-modes to force org-mode re-init with current global keywords.
+
+* Related notes
+- [[denote:20260416T130334][Revert-buffer preserve-modes keeps stale org keywords]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]

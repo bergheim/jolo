@@ -9,3 +9,9 @@ All agent elisp helpers called via emacsclient --eval must:
 - Disable super-save-mode and auto-revert-mode during mutations
 - Check (default-value 'post-command-hook) not buffer-local value
 - Verify state changes succeeded (don't trust silent failures)
+
+* Related notes
+- [[denote:20260416T115118][Evil makes post-command-hook buffer-local]]
+- [[denote:20260416T130336][Super-save-mode races with agent buffer mutations]]
+- [[denote:20260416T115124][Emacs daemon wedged by org note prompt]]
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]
