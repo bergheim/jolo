@@ -1,0 +1,15 @@
+#+title:      OSC 52 interprogram-cut-function breaks X11 clipboard
+#+date:       [2026-04-17 Fri 10:37]
+#+filetags:   :gotcha:emacs:clipboard:
+#+identifier: 20260417T103754
+
+Setting interprogram-cut-function to an OSC 52 lambda unconditionally replaces
+the default gui-select-text handler. Even with a (display-graphic-p) guard
+INSIDE the lambda, the function is still set — making it a no-op on GUI Emacs
+while preventing the default X11 handler from running. yy in Evil stops copying.
+
+Fix: only set interprogram-cut-function when EMACS_CONTAINER is set.
+The (unless (display-graphic-p)) guard inside the lambda is wrong — the
+function should simply not be installed on the host.
+
+File: ~/.config/emacs/modules/base.el, around line 95.

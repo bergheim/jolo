@@ -1,0 +1,19 @@
+#+title:      Agent-helpers.el loaded from stash
+#+date:       [2026-04-17 Fri 10:38]
+#+filetags:   :convention:emacs:agent:
+#+identifier: 20260417T103800
+
+agent-helpers.el lives in container/agent-helpers.el (tracked in git) and is
+copied to /workspaces/stash/agent-helpers.el (shared across containers).
+
+Host Emacs config loads it:
+  (when (getenv "EMACS_CONTAINER")
+    (load "/workspaces/stash/agent-helpers.el" nil t))
+
+Provides: bergheim/agent-org-set-state, bergheim/agent-denote-create,
+bergheim/agent-denote-find, bergheim/agent-denote-list,
+bergheim/agent-denote-read, bergheim/agent-denote-link.
+
+* Related notes
+- [[denote:20260416T130830][bergheim/agent-org-set-state design]]
+- [[denote:20260416T135626][Denote linking implemented with denote.el]]

@@ -1,0 +1,18 @@
+#+title:      Dir-locals dot for denote-directory avoids trust prompts
+#+date:       [2026-04-17 Fri 10:37]
+#+filetags:   :convention:denote:emacs:
+#+identifier: 20260417T103747
+
+Setting denote-directory via eval in .dir-locals.el triggers Emacs safe-variable
+prompts on every new project. Using a plain value of "." instead works because
+denote calls expand-file-name internally, which resolves "." relative to
+default-directory (the notes dir). No eval, no prompt.
+
+File: docs/notes/.dir-locals.el
+Content: ((org-mode . ((denote-directory . "."))))
+
+Also added to templates/docs/notes/ for generated projects.
+
+* Related notes
+- [[denote:20260416T135626][Denote linking implemented with denote.el]]
+- [[denote:20260416T115120][Denote notes for agent knowledge base]]
