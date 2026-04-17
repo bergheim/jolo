@@ -163,13 +163,23 @@ emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evi
 emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
 ```
 
+**Linking notes:**
+
+```bash
+# Add links from one note to related notes (idempotent, appends "Related notes" section)
+emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
+```
+
+Link when there is a real semantic relationship (one note explains, caused, or
+depends on another). Do not link just because notes share a keyword.
+
 **On session start:**
 1. Read `docs/PROJECT.org` and `docs/TODO.org`
 2. Scan note filenames: `(bergheim/agent-denote-list "docs/notes")`
 3. Read full content of notes relevant to current task
 
 **On discoveries:** Create a new denote note with the appropriate kind and topics.
-Do not append to existing notes or to `MEMORY.org`.
+Link to existing related notes. Do not append to existing notes or to `MEMORY.org`.
 
 ### Personal memory
 
