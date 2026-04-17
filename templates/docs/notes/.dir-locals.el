@@ -1,0 +1,1 @@
+((org-mode . ((denote-directory . "."))))
