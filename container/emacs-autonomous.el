@@ -21,11 +21,27 @@
 ;;     Sets :DISPATCHED: TS on the heading matching HEADING (stripped
 ;;     form from -select above) and saves the buffer.
 
+(require 'cl-lib)
 (require 'json)
 (require 'org)
 
 (defconst bergheim/agent-org--autonomous-dispatchable-states
   '("TODO" "NEXT" "INPROGRESS"))
+
+(defmacro bergheim/agent-org--with-quiet-buffer (abs-file &rest body)
+  "Visit ABS-FILE and run BODY without interactive prompts.
+
+Suppresses the \"File is read-only on disk; make buffer read-only too?\"
+prompt from `find-file-noselect-1', plus any other y/n or yes/no prompts
+that would block an autonomous call."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'y-or-n-p) #'ignore)
+             ((symbol-function 'yes-or-no-p) #'ignore))
+     (let ((inhibit-message t)
+           (find-file-suppress-same-file-warnings t))
+       (with-current-buffer (find-file-noselect ,abs-file)
+         (let ((inhibit-read-only t))
+           ,@body)))))
 
 (defun bergheim/agent-org--autonomous-body ()
   "Body of the entry at point with property and logbook drawers removed."
@@ -37,10 +53,10 @@
       (string-trim (buffer-substring-no-properties start end)))))
 
 (defun bergheim/agent-org-autonomous-select (org-file)
-  "Return JSON of :autonomous: entries without :DISPATCHED: in ORG-FILE."
+  "Return JSON array of :autonomous: entries without :DISPATCHED: in ORG-FILE."
   (let ((abs (expand-file-name org-file))
         (items nil))
-    (with-current-buffer (find-file-noselect abs)
+    (bergheim/agent-org--with-quiet-buffer abs
       (org-with-wide-buffer
        (org-map-entries
         (lambda ()
@@ -53,7 +69,9 @@
                     (body . ,(bergheim/agent-org--autonomous-body)))
                   items)))
         nil nil)))
-    (json-encode (nreverse items))))
+    ;; `json-encode' on nil returns "null"; force array encoding so the empty
+    ;; case round-trips as JSON "[]".
+    (json-encode-array (nreverse items))))
 
 (defun bergheim/agent-org-autonomous-mark-dispatched (org-file heading timestamp)
   "Set :DISPATCHED: TIMESTAMP on the :autonomous: entry matching HEADING.
@@ -64,7 +82,7 @@ cannot be mis-marked, and repeated dispatches of same-named items are
 applied to a distinct entry on each run."
   (let ((abs (expand-file-name org-file))
         (marked nil))
-    (with-current-buffer (find-file-noselect abs)
+    (bergheim/agent-org--with-quiet-buffer abs
       (org-with-wide-buffer
        (org-map-entries
         (lambda ()

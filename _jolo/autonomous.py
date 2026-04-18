@@ -43,7 +43,11 @@ def parse_emacsclient_json(raw: str) -> list[dict]:
         raise ValueError(f"emacsclient returned non-string: {unescaped!r}")
     if not unescaped:
         return []
-    return json.loads(unescaped)
+    decoded = json.loads(unescaped)
+    # Defensive: older elisp may emit "null" when no items match.
+    if decoded is None:
+        return []
+    return decoded
 
 
 def build_slug(heading: str) -> str:
