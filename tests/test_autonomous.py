@@ -66,7 +66,9 @@ class TestEmacsclientJSONParsing(unittest.TestCase):
         self.assertEqual(autonomous.parse_emacsclient_json("nil\n"), [])
 
     def test_parse_embedded_newlines(self):
-        raw = r'"[{\"heading\":\"H\",\"body\":\"line1\nline2\"}]"' + "\n"
+        # emacsclient prints the lisp-escaped JSON string; a JSON `\n` escape
+        # appears in the lisp form as `\\n` (backslash-backslash-n).
+        raw = r'"[{\"heading\":\"H\",\"body\":\"line1\\nline2\"}]"' + "\n"
         result = autonomous.parse_emacsclient_json(raw)
         self.assertEqual(result[0]["body"], "line1\nline2")
 
@@ -194,11 +196,13 @@ class TestMarkDispatched(unittest.TestCase):
     """Emacsclient-backed property setter."""
 
     def test_invokes_mark_function(self):
+        # Elisp returns headings with the TODO keyword stripped, so
+        # mark_dispatched sees the clean title.
         with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             autonomous.mark_dispatched(
                 Path("docs/TODO.org"),
-                "TODO Use scoped GitHub tokens",
+                "Use scoped GitHub tokens",
                 "2026-04-18T12:00:00Z",
             )
             args = mock_run.call_args[0][0]
@@ -209,7 +213,7 @@ class TestMarkDispatched(unittest.TestCase):
                 "bergheim/agent-org-autonomous-mark-dispatched", elisp
             )
             self.assertIn("2026-04-18T12:00:00Z", elisp)
-            self.assertIn("TODO Use scoped GitHub tokens", elisp)
+            self.assertIn("Use scoped GitHub tokens", elisp)
 
 
 class TestDispatchItem(unittest.TestCase):
