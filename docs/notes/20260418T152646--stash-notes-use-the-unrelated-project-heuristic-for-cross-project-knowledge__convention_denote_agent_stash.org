@@ -1,0 +1,10 @@
+#+title:      stash notes use the unrelated-project heuristic for cross-project knowledge
+#+date:       [2026-04-18 Sat 15:26]
+#+filetags:   :convention:denote:agent:stash:
+#+identifier: 20260418T152646
+
+Cross-project denote notes live in /workspaces/stash/notes, while repo-specific knowledge stays in docs/notes. The decision heuristic is: would I want this loaded at session start in an unrelated project? If yes, it belongs in stash. It is acceptable to write both a local incident note and a separate generalized stash note. The j:note-stash skill requires explicit user input, checks stash scope first, and does not silently create both local and stash notes.
+
+* Related notes
+- [[denote:20260416T115120][Denote notes for agent knowledge base]]
+- [[denote:20260416T135626][Denote linking implemented with denote.el]]

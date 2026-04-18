@@ -1,0 +1,9 @@
+#+title:      recreate preserves non-template project skills during template sync
+#+date:       [2026-04-18 Sat 15:26]
+#+filetags:   :decision:jolo:skills:recreate:
+#+identifier: 20260418T152646
+
+sync_skill_templates() now overwrites template-owned skill directories by name but does not prune extra project skills. Recreate should add missing template skills and refresh matching ones while leaving unrelated project-owned skills alone. This avoids deleting repo-specific skills on jolo a --recreate while still keeping template skills current. Implemented in commit 351e5e9.
+
+* Related notes
+- [[denote:20260416T115121][Agent skill sync architecture]]
