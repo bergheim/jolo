@@ -1,0 +1,18 @@
+#+title:      Open WebUI web-search env vars have no RAG_ prefix
+#+date:       [2026-04-18 Sat 13:05]
+#+filetags:   :gotcha:openwebui:config:
+#+identifier: 20260418T130515
+
+Current Open WebUI env var names for web search do NOT use the `RAG_` prefix that older docs and blog posts show.
+
+**Correct names** (from `backend/open_webui/config.py`):
+- `ENABLE_WEB_SEARCH` (not `ENABLE_RAG_WEB_SEARCH`)
+- `WEB_SEARCH_ENGINE` (not `RAG_WEB_SEARCH_ENGINE`)
+- `WEB_SEARCH_RESULT_COUNT` (not `RAG_WEB_SEARCH_RESULT_COUNT`)
+- `WEB_SEARCH_CONCURRENT_REQUESTS` (not `RAG_WEB_SEARCH_CONCURRENT_REQUESTS`)
+
+These are still correct and prefix-free: `WEB_LOADER_ENGINE`, `PLAYWRIGHT_WS_URL`, `SEARXNG_QUERY_URL`, `JINA_API_KEY`, `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`.
+
+**Why:** The rename happened in a past OWUI version; docs and community posts with the old names still rank high in search.
+
+**How to apply:** When adding web-search env vars to an OWUI compose file, grep `backend/open_webui/config.py` on main as the source of truth, not blog posts or old issues. Also remember these are `PersistentConfig` — set in Admin UI too or use `ENABLE_PERSISTENT_CONFIG=False`.

@@ -1,0 +1,12 @@
+#+title:      Open WebUI built-in web search is smart, not unconditional
+#+date:       [2026-04-18 Sat 13:06]
+#+filetags:   :memory:openwebui:websearch:
+#+identifier: 20260418T130602
+
+Open WebUI's built-in Web Search (when toggled on or set as a model's Default Feature) does NOT search every message. On every turn it runs a pre-flight LLM call `generate_queries` that returns a JSON `{queries: [...]}`. If the list is empty, OWUI emits a status event `No search query generated` and skips the whole search pipeline — no SearXNG hit, no scrape, no RAG.
+
+Found in `backend/open_webui/utils/middleware.py` — `chat_web_search_handler` explicitly `return form_data` when `len(queries) == 0`.
+
+**Consequence:** Built-in web search is essentially equivalent to a tool call in trigger behavior ("hello" skips search), but strictly better at the search pipeline itself — query rewriting, Playwright full-page scrape, chunk+embed+retrieve, cited output. A bare SearXNG tool returns only snippets.
+
+**How to apply:** For a general chat model, prefer enabling built-in Web Search as a Default Feature over attaching a SearXNG tool. Don't do both — redundant. Tool-calling only wins when the model's structured-JSON output for `generate_queries` is unreliable (rare for 4B+ models).

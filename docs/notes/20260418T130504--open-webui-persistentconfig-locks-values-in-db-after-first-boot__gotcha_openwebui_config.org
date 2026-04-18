@@ -1,0 +1,14 @@
+#+title:      Open WebUI PersistentConfig locks values in DB after first boot
+#+date:       [2026-04-18 Sat 13:05]
+#+filetags:   :gotcha:openwebui:config:
+#+identifier: 20260418T130504
+
+Most web-search and loader env vars in Open WebUI are wrapped in `PersistentConfig`. On first boot the value is copied into `webui.db` at keys like `rag.web.loader.engine`, `rag.web.loader.playwright_ws_url`, and subsequent reads come from the DB — env var changes after that are silently ignored.
+
+**Why:** Source at `backend/open_webui/config.py` has `class PersistentConfig` whose getter returns the DB value unless `ENABLE_PERSISTENT_CONFIG=False`. An empty string in DB still counts as a value and wins over env.
+
+**How to apply:** If a WEB_*/ PLAYWRIGHT_* / SEARXNG_* / RAG_* env change doesn't take effect after `--force-recreate`, go to Admin Panel → Settings → Web Search and either (a) paste the value into the field and Save (DB write updates it) or (b) add `ENABLE_PERSISTENT_CONFIG=False` so env always wins (cost: Admin UI fields become effectively read-only on restart). Symptom that confirms this trap: `podman exec open-webui env` shows the correct value but the Admin UI field is blank.
+
+* Related notes
+- [[denote:20260418T130515][Open WebUI web-search env vars have no RAG_ prefix]]
+- [[denote:20260418T130524][Open WebUI image does not ship Playwright browsers; use WS_URL pattern]]

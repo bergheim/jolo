@@ -1,0 +1,12 @@
+#+title:      berghome LLM + audio stack (llama-swap, Speaches)
+#+date:       [2026-04-18 Sat 13:05]
+#+filetags:   :memory:berghome:openwebui:llama:
+#+identifier: 20260418T130551
+
+**berghome:11434** — `llama-swap` (NOT Ollama). Speaks OpenAI-compat API; root `/` redirects to `/ui`. Hit `/v1/models` + `/v1/chat/completions`. Models swap in/out per alias. The `/api/tags` endpoint returns 404 (that's Ollama-only).
+
+**berghome:8000** — Speaches. OpenAI-compat audio. Ships `Systran/faster-distil-whisper-large-v3` (STT, English only) and `speaches-ai/Kokoro-82M-v1.0-ONNX` (TTS, ~50 voices, multi-language). The old docs reference to `berghome:4014` is DEAD — that port returns nothing; the `KOKORO_URL` env var in the devcontainer is empty for this reason.
+
+**berghome:4010** — Open WebUI (v0.8.x). `enable_api_keys=false` by default so the admin REST API requires flipping a setting.
+
+**How to apply:** When probing from this devcontainer use `$OLLAMA_HOST/v1/models` even though the env var name says "ollama" — it's llama-swap. When setting up STT/TTS in another service, point at `http://speaches:8000/v1` (compose DNS) or `http://berghome:8000/v1` (tailnet), never `:4014`. For Norwegian STT, the distil model must be swapped for `Systran/faster-whisper-large-v3` (multilingual).

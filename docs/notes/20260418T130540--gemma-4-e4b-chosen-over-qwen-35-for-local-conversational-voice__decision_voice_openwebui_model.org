@@ -1,0 +1,27 @@
+#+title:      Gemma 4 E4B chosen over Qwen 3.5 for local conversational voice
+#+date:       [2026-04-18 Sat 13:05]
+#+filetags:   :decision:voice:openwebui:model:
+#+identifier: 20260418T130540
+
+For Open WebUI Call-mode voice chat (local-only, Norwegian/English), picked `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (~5 GB) over Qwen 3.5 4B.
+
+**Why:**
+1. Norwegian support. Gemma 4 pre-trained on 140+ languages with 35+ out-of-the-box. Qwen 3.x multilingual strength is CJK + English; Scandinavian is weaker.
+2. Arena AI chat-preference in the 4B class favours Gemma 4 over Qwen 3.5. Qwen wins raw MMLU/HumanEval; Gemma wins "does it feel good to talk to" — which is what voice UX needs.
+3. Native audio encoder in E4B (ASR + multi-turn conversation tuning). llama.cpp doesn't yet pipe audio directly in (OWUI uses Whisper → text → LLM), but it's a future path.
+4. Fits alongside Whisper (1.5 GB) + Kokoro (0.3 GB) on the same GPU with headroom, unlike the 27–30B models that caused CUDA OOM.
+
+**llama-swap entry:**
+```yaml
+gemma4-voice:
+  cmd: llama-server --port ${PORT} -hf unsloth/gemma-4-E4B-it-GGUF:Q4_K_M -c 8192 --jinja
+  ttl: 120
+  aliases:
+    - "gemma4:e4b"
+    - "voice"
+```
+
+**How to apply:** Pick Gemma 4 E4B as the default when a) voice UX is primary, b) Norwegian/European languages matter, c) GPU must be shared with STT/TTS. Pick Qwen 3.5 small if pure English + tool-calling reliability matters more — Qwen is more consistent at structured function calls.
+
+* Related notes
+- [[denote:20260418T130551][berghome LLM + audio stack (llama-swap, Speaches)]]

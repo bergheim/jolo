@@ -1,0 +1,15 @@
+#+title:      Open WebUI image does not ship Playwright browsers; use WS_URL pattern
+#+date:       [2026-04-18 Sat 13:05]
+#+filetags:   :gotcha:openwebui:playwright:
+#+identifier: 20260418T130524
+
+The official `ghcr.io/open-webui/open-webui:main` image has the `playwright` Python package but NOT the Chromium binary, and `playwright install` inside the container fails at runtime with missing system libs like `libnspr4.so`. The image is deliberately slim.
+
+**Maintainer-recommended pattern** (official `docker-compose.playwright.yaml` in the repo): run a separate `mcr.microsoft.com/playwright:vX.Y.Z-noble` container, have OWUI connect to it over WebSocket via `PLAYWRIGHT_WS_URL=ws://playwright:3000`.
+
+**Version sync matters:** the MS image tag and the `npx playwright@X` pin MUST match the Python `playwright` version inside OWUI, or the WebSocket handshake fails. Check with `podman exec open-webui python -c "import playwright; print(playwright.__version__)"`.
+
+**How to apply:** Do NOT try `playwright install` in the OWUI container — it wastes time and won't work without also apt-installing ~15 native libs which Watchtower will wipe on next pull. Use the two-container pattern. `WEB_LOADER_ENGINE=playwright` + `PLAYWRIGHT_WS_URL` are the only env changes needed on the OWUI side.
+
+* Related notes
+- [[denote:20260418T130504][Open WebUI PersistentConfig locks values in DB after first boot]]
