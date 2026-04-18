@@ -65,6 +65,11 @@ class TestEmacsclientJSONParsing(unittest.TestCase):
         # If the elisp function returns nil, emacsclient prints `nil`
         self.assertEqual(autonomous.parse_emacsclient_json("nil\n"), [])
 
+    def test_parse_json_null(self):
+        # Older elisp (json-encode on an empty list) produced "null"
+        # instead of "[]"; parser must tolerate that.
+        self.assertEqual(autonomous.parse_emacsclient_json('"null"\n'), [])
+
     def test_parse_embedded_newlines(self):
         # emacsclient prints the lisp-escaped JSON string; a JSON `\n` escape
         # appears in the lisp form as `\\n` (backslash-backslash-n).
