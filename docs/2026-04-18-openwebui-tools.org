@@ -1,0 +1,131 @@
+#+TITLE: Popular / SOTA Open WebUI tools and functions in 2026 — starter set
+#+DATE: 2026-04-18
+#+PROPERTY: PROMPT popular and SOTA tools/plugins/functions to add to Open WebUI in 2026 — what's widely used, what adds the most value. Context: user has none installed, wants the best starter set. Cover community tools, official tools, common workflow additions (memory, RAG, code execution, image gen, etc.). Focus on self-hosted / local-friendly options.
+
+* Summary
+- Three extensibility layers in Open WebUI, easy to confuse: *Tools* (model-called functions, like web_search), *Functions* (filters + pipes that run inside OWUI — memory auto-save, thinking UI, artifacts, provider bridges), and *Pipelines* (external OpenAI-compatible mini-server for heavy workloads). For a self-hosted personal setup, Tools + Functions cover ~95%; Pipelines are only worth it for heavy compute offloading.
+- Minimum SOTA starter set (pure local, one-click install): *Adaptive Memory v3* (persistent user context), *Artifacts v2/v3* (Claude-style rendered HTML/JS/SVG), *Collapsible Thought Filter* (hides reasoning traces), *Auto Memory Filter* (automatic fact extraction from chats).
+- Built-in features to enable in Admin before installing anything: *Code Interpreter* (Python sandbox — already available), *Image Generation* (ComfyUI/AUTOMATIC1111 if you have a GPU), *Web Search* (SearXNG/Playwright, already set up), *Memory* (native, complements adaptive-memory plugin).
+- MCP path via =mcpo= proxy unlocks a large tool ecosystem: =mcp-server-fetch=, =mcp-server-time=, =mcp-server-filesystem= are the universally-useful trio; add =brave-search= if you want a search backup to SearXNG.
+- Haervwe's =open-webui-tools= GitHub repo is the single best curated multi-tool bundle — arXiv, Perplexica, image gen, Planner Agent, Semantic Router, Prompt Enhancer all in one place with maintained code.
+- Avoid installing everything at once — most community functions live indefinitely in your DB once added and create UI clutter. Add one per week and keep only what you actually use.
+
+* Findings
+
+** The extensibility model — what the three layers actually are
+- *Tools*: Python callables the LLM invokes via function-calling. Tools extend the model's abilities (weather, web search, stock prices). Model decides when/how to call them. Installed in =Workspace → Tools=, attached per-model in the model config.
+- *Functions*: Run on the OWUI server itself. Three subtypes:
+  - =Filter= — middleware that pre/post-processes messages (memory extraction, translation, thinking-tag folding, prompt enhancement).
+  - =Pipe= — shows up as a selectable "model" in the chat dropdown. Used for bridging providers (Anthropic, Vertex AI) or wrapping a multi-step agent as a single "model" (Planner Agent, Multi-Model Debate).
+  - =Action= — custom buttons in the chat UI.
+- *Pipelines*: A separate Python server (pip-installed on another host or container) that OWUI talks to over OpenAI-compatible HTTP. For heavy/long-running workloads you don't want inside the OWUI process. You likely don't need this.
+- Sources: [[https://docs.openwebui.com/features/extensibility/plugin/][OWUI extensibility docs]], [[https://zohaib.me/extending-openwebui-using-pipelines/][Zohaib — extending OpenWebUI]].
+
+** Memory (persistent user context across chats)
+- OWUI has a *native Memory* capability — manually curated "remember this" items. Useful but passive.
+- The community has built automatic extraction filters on top. Top picks:
+  - *[[https://openwebui.com/f/alexgrama7/adaptive_memory_v2][Adaptive Memory v3]]* (alexgrama7) — extract → filter → dedupe via embedding similarity → inject relevant memories into prompts. FIFO + relevance-based pruning. Actively maintained.
+  - *[[https://openwebui.com/f/ronaldc/auto_memory_retrieval_and_storage][Auto Memory Retrieval and Storage]]* — simpler automatic save/retrieve filter.
+  - *[[https://openwebui.com/f/nokodo/auto_memory][Auto Memory Filter]]* (nokodo) — lightweight auto-save, common choice.
+- Pick one (not all — they overlap). Adaptive Memory v3 is the most sophisticated; Auto Memory is the most lightweight.
+
+** Artifacts (Claude-style rendered HTML/JS/CSS/SVG)
+- OWUI parses code blocks in model output and renders HTML/CSS/JS/SVG in an artifact pane. Works for React too in enhanced forks.
+- Community versions:
+  - *[[https://openwebui.com/f/tokyohouseparty/artifacts_v2][Artifacts V2]]* — inspired by Claude Artifacts, the canonical one
+  - *[[https://openwebui.com/f/ronaldc/artifacts_v3][Artifacts V3]]* — updated for OWUI v0.5+
+  - *[[https://github.com/nick-tonjum/open-webui-artifacts-overhaul][artifacts-overhaul fork]]* — Monaco-based editor, design viewer, Tailwind support (full fork, not a drop-in function)
+- Install one. V3 is the safer pick if you're on current OWUI.
+
+** Thinking / reasoning output UI
+- Reasoning models (DeepSeek R1, QwQ, GPT o-series) emit =<think>…</think>= blocks. OWUI natively collapses these into "💭 Thought for N seconds" panels.
+- If your model uses non-standard tokens, a filter like *[[https://openwebui.com/f/projectmoon/collapsible_thought_filter][Collapsible Thought Filter]]* or *[[https://openwebui.com/f/trollek/thinking_filter][Thinking Filter]]* (configurable tokens) normalises them.
+- For Gemma 4 / Qwen 3.5 with default chat templates, you probably don't need this. Install only if you see raw =<think>= leaking into the response.
+
+** Web search — what's already built in (don't overthink it)
+- Already covered in our setup. Built-in pipeline: query-rewrite LLM call → SearXNG → Playwright scrape → chunk → embed → retrieve → cite. Skips search entirely when the pre-flight model returns empty queries.
+- Community "SearXNG as a tool" exists but is strictly a subset of the built-in (snippets only, no scrape/chunk/cite). Don't add both.
+- If you want a second engine for redundancy: *[[https://brave.com/search/api/guides/use-with-open-webui/][Brave Search]]* is directly supported as an engine option (free tier, API key).
+
+** Code interpreter
+- Built-in. Admin → Settings → Code Execution. Ships as *Jupyter/Pyodide-based Python sandbox* inside OWUI. No plugin needed.
+- What it does: model outputs Python, OWUI runs it, captures stdout + matplotlib figures, feeds back into the conversation. Handles math, quick scripts, plotting, CSV munging.
+- Enable *Default Features → Code Interpreter* on a model preset so the model uses it without the user toggling.
+
+** Image generation
+- Built-in support for three backends: *DALL-E* (API), *AUTOMATIC1111* (self-hosted Stable Diffusion), *ComfyUI* (self-hosted, node-based).
+- For local: *ComfyUI* is the standard choice in 2026 — modern workflows (Flux, SDXL Turbo, Qwen-Image-Edit) assume it.
+- Haervwe's repo adds pipes for *Qwen Edit 2509* (image-to-image with up to 3 refs), *ACE Step 1.5 Audio* (music gen), *WAN 2.2 Text-to-Video*. Install after the base ComfyUI integration works.
+
+** Translation
+- *[[https://docs.openwebui.com/tutorials/integrations/libre-translate/][LibreTranslate]]* — self-hosted translation API. OWUI has built-in integration (Admin → Settings → Audio/Translation).
+- Community *[[https://openwebui.com/t/nnaoycurt/webui_auto_translator][WebUI Auto Translator Tool]]* layers on top for per-message auto-translate.
+- Only relevant if you want non-English UX or mixed-language chats. Not a universal must-have.
+
+** Research / specialised knowledge access
+- *[[https://github.com/Haervwe/open-webui-tools][Haervwe's open-webui-tools]]* is the single best bundle. Useful tools:
+  - =arXiv Search= — no API key, queries arxiv.org directly
+  - =Perplexica Search= — if you run [[https://github.com/ItzCrazyKns/Perplexica][Perplexica]] locally, get AI-grounded web search with citations (stronger than SearXNG-only)
+  - =OpenWeatherMap= — interactive weather widget (API key required)
+  - =Pexels= — stock photo/video search
+  - =YouTube Search & Embed= — finds and embeds videos
+- Filters worth picking up from the same repo:
+  - *Semantic Router* — auto-selects appropriate model per query (vision re-routing when images attached)
+  - *Prompt Enhancer* — rewrites the user's prompt before sending. Significant quality bump on small models
+  - *Doodle Paint* — inline canvas for sketching inputs
+- Pipes:
+  - *Planner Agent v3* — autonomous multi-step agent with visible execution tracking. For "go research this and report back" tasks
+  - *Multi Model Conversations v2* — pit two models against each other in a debate
+
+** MCP server ecosystem via =mcpo= proxy
+- OWUI natively supports MCP tools, but stdio MCP servers need [[https://github.com/open-webui/mcpo][=mcpo=]] (official OWUI project) to bridge them to HTTP.
+- "Useful trio" that tool-calling LLMs assume exist:
+  - =mcp-server-fetch= — HTTP GET any URL, return content
+  - =mcp-server-time= — current time, timezone conversion (small models often hallucinate the date)
+  - =mcp-server-filesystem= — read/write files in a sandboxed directory
+- Add =brave-search= MCP if you want a second search engine (also works as a direct OWUI search engine option without MCP).
+- Running =mcpo= is a single container; worth the setup if you plan to also use MCP servers from Claude Desktop / other clients.
+
+** Pipe-function bridges (provider support)
+- Not relevant for a local-only setup. These exist so OWUI can talk to Anthropic, Google Vertex AI, Cohere, etc. without native support. Skip unless you change your mind on paid APIs.
+
+* Recommended starter set (what to install first)
+
+A curated minimum, ranked by effort-to-value:
+
+1. *Enable in Admin (no install needed):* Code Interpreter, Image Generation (ComfyUI), Web Search (already set up), native Memory. Set these as Default Features on your Voice model preset so they're on by default.
+2. *Install Function: Auto Memory Filter* (nokodo) or *Adaptive Memory v3* (alexgrama7) — pick one. Instantly adds persistent cross-chat context.
+3. *Install Function: Artifacts V3* — enables Claude-like in-chat rendering for HTML/CSS/JS/SVG model output.
+4. *Install from Haervwe's bundle: Prompt Enhancer + Semantic Router* — two filters that noticeably improve answer quality on small local models.
+5. *(Later) Set up =mcpo= + =mcp-server-fetch= + =mcp-server-time=* — gives the model real "fetch this URL" and "what time is it" abilities. Useful once you start asking the voice assistant for current info.
+6. *(Later) Planner Agent v3* — for multi-step research tasks. Significantly heavier; add when you want "go read 10 sources and write me a brief."
+
+Skip for now: Artifacts forks (stick with V3 drop-in), LibreTranslate (only if needed), OpenRouter pipes (paid), resume analyser / Mopidy / Letta (niche).
+
+** Installation pattern
+- Functions and tools from [[https://openwebui.com/][openwebui.com]]: click *Import* → it's live, no pip or restart.
+- Community site shows reviews and updated-date; check before installing something old.
+- Haervwe's repo: clone, copy individual Python files into =Workspace → Tools/Functions= via the UI's import-from-file path.
+- MCPO: separate container, expose its port to OWUI, register as a tool server.
+
+* Links
+- [[https://docs.openwebui.com/features/extensibility/plugin/][OWUI — Tools & Functions overview]]
+- [[https://docs.openwebui.com/features/extensibility/pipelines/][OWUI — Pipelines]]
+- [[https://openwebui.com/functions][openwebui.com — community Functions]]
+- [[https://openwebui.com/tools][openwebui.com — community Tools]]
+- [[https://github.com/Haervwe/open-webui-tools][Haervwe/open-webui-tools — curated toolkit]]
+- [[https://github.com/open-webui/mcpo][open-webui/mcpo — MCP-to-OpenAPI proxy]]
+- [[https://openwebui.com/f/alexgrama7/adaptive_memory_v2][Adaptive Memory v3]]
+- [[https://openwebui.com/f/tokyohouseparty/artifacts_v2][Artifacts V2]]
+- [[https://openwebui.com/f/ronaldc/artifacts_v3][Artifacts V3]]
+- [[https://openwebui.com/f/projectmoon/collapsible_thought_filter][Collapsible Thought Filter]]
+- [[https://docs.openwebui.com/tutorials/integrations/libre-translate/][LibreTranslate integration]]
+- [[https://brave.com/search/api/guides/use-with-open-webui/][Brave Search with OWUI]]
+- [[https://docs.openwebui.com/features/chat-conversations/chat-features/reasoning-models/][Reasoning / thinking models docs]]
+- [[https://zohaib.me/extending-openwebui-using-pipelines/][Extending OWUI with Pipelines]]
+
+* Open Questions
+- Does OWUI 0.8.x still require *Code Interpreter* to be explicitly enabled under user permissions, or is it now admin-gated only? Relevant if a second user is ever on the instance.
+- For tool-calling reliability: does Gemma 4 E4B reliably emit structured function calls at Q4_K_M, or should a Qwen 3.5 7B be used specifically for chats where MCP tools are attached? Worth benchmarking.
+- Is the *Planner Agent v3* worth the complexity given we have =claude-code= / =codex-cli= for real coding agent work? Suspect it's redundant; may only matter for non-coding research tasks.
+- If =mcpo= is running, does it support hot-reload of MCP server config, or does adding a server require container restart? Matters for the "add new MCP server ergonomically" flow.
