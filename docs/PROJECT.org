@@ -63,6 +63,6 @@ the container.
 * Direction
 
 - Multi-agent orchestration: agents working in parallel on worktrees
-- Ollama integration for local model access (server on berghome)
+- Local LLM integration via llama-swap + llama.cpp on berghome (OpenAI-compat API)
 - Better observability: egress monitoring, agent output review
 - Scoped credentials: per-project GitHub tokens instead of broad =GH_TOKEN=

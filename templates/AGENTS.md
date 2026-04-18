@@ -353,27 +353,41 @@ MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
 git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 ```
 
-## Local Models (Ollama)
+## Local Models (llama.cpp via llama-swap)
 
-`OLLAMA_HOST` is set in the container environment, pointing to a self-hosted ollama instance with GPU. Use it for tasks where a free local model is good enough — drafting, summarization, embeddings, throwaway experiments — instead of burning API credits.
+`OLLAMA_HOST` points to a self-hosted [llama-swap](https://github.com/mostlygeek/llama-swap) router fronting `llama.cpp` servers on GPU. The env var name is legacy — the backend is llama.cpp, not Ollama. Use it for tasks where a free local model is good enough — drafting, summarization, embeddings, throwaway experiments — instead of burning API credits.
+
+llama-swap speaks the OpenAI-compatible API and auto-loads/unloads the model named in the request. Requesting an unknown alias returns an error listing valid ones.
 
 ```bash
-# Check available models
-curl -s $OLLAMA_HOST/api/tags | jq '.models[].name'
+# List model aliases configured on the router
+curl -s $OLLAMA_HOST/v1/models | jq '.data[].id'
 
-# Generate (streaming)
-curl -s $OLLAMA_HOST/api/generate -d '{"model":"gemma4:26b","prompt":"..."}'
-
-# Chat (OpenAI-compatible endpoint)
+# Chat (set model to any alias from /v1/models — triggers swap if needed)
 curl -s $OLLAMA_HOST/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"gemma4:26b","messages":[{"role":"user","content":"..."}]}'
+  -d '{"model":"gemma4","messages":[{"role":"user","content":"..."}]}'
 
-# Embeddings
-curl -s $OLLAMA_HOST/api/embed -d '{"model":"bge-m3","input":"..."}'
+# Text completion
+curl -s $OLLAMA_HOST/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemma4","prompt":"..."}'
+
+# Embeddings (use an embedding-model alias, e.g. bge-m3)
+curl -s $OLLAMA_HOST/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"model":"bge-m3","input":"..."}'
+
+# Anthropic-compatible messages API (tool use supported)
+curl -s $OLLAMA_HOST/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{"model":"gemma4","max_tokens":1024,"messages":[{"role":"user","content":"..."}]}'
 ```
 
-Python/JS SDKs that support OpenAI-compatible APIs work with `$OLLAMA_HOST/v1` as the base URL. The `ollama` CLI is not installed — use HTTP calls or SDK clients.
+Python/JS SDKs that target the OpenAI API work with `$OLLAMA_HOST/v1` as the base URL — pass any string as the API key. The `ollama` CLI is not installed (and would not work: `/api/tags` and other Ollama-native endpoints return 404). Stick to `/v1/*`.
+
+Native llama.cpp endpoints (`/completion`, `/embedding`, `/tokenize`, `/props`, `/slots`, `/health`) are available on the underlying server but bypass llama-swap's routing — prefer `/v1/*` so the correct model is loaded on demand.
 
 ## Cross-Agent Reviews
 
