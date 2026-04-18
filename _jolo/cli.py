@@ -596,6 +596,30 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Assign a new random port",
     )
+    # autonomous: scan TODO.org for :autonomous: items and dispatch them
+    sub_autonomous = subparsers.add_parser(
+        "autonomous",
+        parents=[p_verbose],
+        help="Dispatch :autonomous:-tagged TODO items as fresh worktrees",
+    )
+    sub_autonomous.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would fire, without dispatching or marking",
+    )
+    sub_autonomous.add_argument(
+        "--agents",
+        default=None,
+        metavar="LIST",
+        help="Comma-separated agent list for round-robin (default: config)",
+    )
+    sub_autonomous.add_argument(
+        "--org-file",
+        default="docs/TODO.org",
+        metavar="PATH",
+        help="Path to TODO.org (default: docs/TODO.org)",
+    )
+
     # delete: target, purge, yes, verbose
     sub_delete = subparsers.add_parser(
         "delete",
