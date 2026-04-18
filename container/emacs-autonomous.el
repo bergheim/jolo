@@ -56,14 +56,28 @@
     (json-encode (nreverse items))))
 
 (defun bergheim/agent-org-autonomous-mark-dispatched (org-file heading timestamp)
-  "Set :DISPATCHED: TIMESTAMP on HEADING in ORG-FILE and save."
-  (let ((abs (expand-file-name org-file)))
+  "Set :DISPATCHED: TIMESTAMP on the :autonomous: entry matching HEADING.
+
+Only entries tagged :autonomous: and not already carrying :DISPATCHED:
+are considered, so a heading that collides with body text elsewhere
+cannot be mis-marked, and repeated dispatches of same-named items are
+applied to a distinct entry on each run."
+  (let ((abs (expand-file-name org-file))
+        (marked nil))
     (with-current-buffer (find-file-noselect abs)
       (org-with-wide-buffer
-       (goto-char (point-min))
-       (when (search-forward heading nil t)
-         (org-entry-put nil "DISPATCHED" timestamp)
-         (save-buffer))))))
+       (org-map-entries
+        (lambda ()
+          (when (and (not marked)
+                     (not (org-entry-get nil "DISPATCHED"))
+                     (string= heading
+                              (substring-no-properties
+                               (org-get-heading t t t t))))
+            (org-entry-put nil "DISPATCHED" timestamp)
+            (setq marked t)))
+        "+autonomous" nil))
+      (when marked (save-buffer)))
+    marked))
 
 (provide 'emacs-autonomous)
 

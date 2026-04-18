@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from _jolo.cli import slugify_prompt
+from _jolo.cli import find_git_root, slugify_prompt
 from _jolo.commands import load_config
 
 ELISP_SELECT_FN = "bergheim/agent-org-autonomous-select"
@@ -122,12 +122,13 @@ def _elisp_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def dispatch_item(slug: str, prompt: str, agent: str) -> None:
-    """Shell out to `jolo tree` with a prompt (detached by convention)."""
-    subprocess.run(
+def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
+    """Shell out to `jolo tree`. Return True iff the child exited 0."""
+    result = subprocess.run(
         ["jolo", "tree", slug, "-p", prompt, "--agent", agent],
         check=False,
     )
+    return result.returncode == 0
 
 
 def run_autonomous(args: argparse.Namespace) -> None:
@@ -136,7 +137,14 @@ def run_autonomous(args: argparse.Namespace) -> None:
     agents = resolve_agents(
         getattr(args, "agents", None), config.get("agents", ["claude"])
     )
+
+    git_root = find_git_root()
+    if git_root is None:
+        sys.exit("Error: jolo autonomous must run inside a git repository")
     org_file = Path(args.org_file)
+    if not org_file.is_absolute():
+        org_file = git_root / org_file
+
     items = get_autonomous_items(org_file)
 
     if not items:
@@ -162,5 +170,9 @@ def run_autonomous(args: argparse.Namespace) -> None:
         slug = build_slug(item["heading"])
         prompt = item.get("body", "").strip() or item["heading"]
         print(f"Dispatching {agent} -> {slug}")
-        mark_dispatched(org_file, item["heading"], ts)
-        dispatch_item(slug=slug, prompt=prompt, agent=agent)
+        if dispatch_item(slug=slug, prompt=prompt, agent=agent):
+            mark_dispatched(org_file, item["heading"], ts)
+        else:
+            sys.stderr.write(
+                f"dispatch failed for {slug}; leaving undispatched for retry\n"
+            )
