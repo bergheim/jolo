@@ -97,7 +97,7 @@ def build_devcontainer_json(
         },
     }
 
-    return json.dumps(config, indent=4)
+    return json.dumps(config, indent=4) + "\n"
 
 
 def is_container_running(workspace_dir: Path) -> bool:

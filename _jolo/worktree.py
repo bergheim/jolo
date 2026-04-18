@@ -233,7 +233,7 @@ def get_or_create_worktree(
         content["containerEnv"]["PORT"] = str(new_port)
         # Update workspaceFolder to match worktree name
         content["workspaceFolder"] = f"/workspaces/{worktree_name}"
-        devcontainer_json.write_text(json.dumps(content, indent=4))
+        devcontainer_json.write_text(json.dumps(content, indent=4) + "\n")
 
     # Add mount for main repo's .git directory so worktree git operations work
     main_git_dir = git_root / ".git"

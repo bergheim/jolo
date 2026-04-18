@@ -863,7 +863,7 @@ def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
             mount_str += ",readonly"
         content["mounts"].append(mount_str)
 
-    devcontainer_json_path.write_text(json.dumps(content, indent=4))
+    devcontainer_json_path.write_text(json.dumps(content, indent=4) + "\n")
 
 
 def copy_user_files(copies: list[dict], workspace_dir: Path) -> None:
@@ -919,7 +919,7 @@ def add_worktree_git_mount(
     git_mount = f"source={main_git_dir},target={main_git_dir},type=bind"
     content["mounts"].append(git_mount)
 
-    devcontainer_json_path.write_text(json.dumps(content, indent=4))
+    devcontainer_json_path.write_text(json.dumps(content, indent=4) + "\n")
 
 
 def write_prompt_file(workspace_dir: Path, agent: str, prompt: str) -> None:
