@@ -236,6 +236,20 @@ class TestDispatchItem(unittest.TestCase):
             self.assertIn("--agent", args)
             self.assertIn("claude", args)
 
+    def test_returns_true_on_success(self):
+        with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            self.assertTrue(
+                autonomous.dispatch_item(slug="x", prompt="y", agent="claude")
+            )
+
+    def test_returns_false_on_failure(self):
+        with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 1
+            self.assertFalse(
+                autonomous.dispatch_item(slug="x", prompt="y", agent="claude")
+            )
+
 
 class TestRunAutonomousIntegration(unittest.TestCase):
     """End-to-end orchestrator (mocked emacsclient + subprocess)."""
@@ -244,6 +258,7 @@ class TestRunAutonomousIntegration(unittest.TestCase):
         self.tmpdir = tempfile.mkdtemp()
         self.original_cwd = os.getcwd()
         os.chdir(self.tmpdir)
+        (Path(self.tmpdir) / ".git").mkdir()
         (Path(self.tmpdir) / "docs").mkdir()
         (Path(self.tmpdir) / "docs" / "TODO.org").write_text("* TODO x\n")
 
@@ -320,6 +335,86 @@ class TestRunAutonomousIntegration(unittest.TestCase):
             autonomous.run_autonomous(self._make_args())
             mark.assert_not_called()
             dispatch.assert_not_called()
+
+    def test_failed_dispatch_does_not_mark(self):
+        """If `jolo tree` exits non-zero, don't mark — let the next run retry."""
+        fake_items = [{"heading": "Do A", "body": "body A"}]
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=fake_items,
+            ),
+            mock.patch("_jolo.autonomous.dispatch_item", return_value=False),
+            mock.patch("_jolo.autonomous.mark_dispatched") as mark,
+        ):
+            autonomous.run_autonomous(self._make_args(agents="claude"))
+            mark.assert_not_called()
+
+    def test_successful_dispatch_marks(self):
+        fake_items = [{"heading": "Do A", "body": "body A"}]
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=fake_items,
+            ),
+            mock.patch("_jolo.autonomous.dispatch_item", return_value=True),
+            mock.patch("_jolo.autonomous.mark_dispatched") as mark,
+        ):
+            autonomous.run_autonomous(self._make_args(agents="claude"))
+            mark.assert_called_once()
+
+
+class TestRunAutonomousFromSubdir(unittest.TestCase):
+    """`jolo autonomous` run from a subdirectory resolves to the git root."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        root = Path(self.tmpdir)
+        (root / ".git").mkdir()
+        (root / "docs").mkdir()
+        (root / "docs" / "TODO.org").write_text("* TODO x :autonomous:\n")
+        (root / "subdir").mkdir()
+        os.chdir(root / "subdir")
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _make_args(self, **overrides):
+        import argparse
+
+        ns = argparse.Namespace(
+            command="autonomous",
+            dry_run=True,
+            agents="claude",
+            org_file="docs/TODO.org",
+            verbose=False,
+        )
+        for k, v in overrides.items():
+            setattr(ns, k, v)
+        return ns
+
+    def test_scans_git_root_todo_org_not_cwd(self):
+        """Caller in a subdir should still pick up the repo-root TODO.org."""
+        seen_paths = []
+
+        def fake_get(org_file):
+            seen_paths.append(org_file)
+            return []
+
+        with mock.patch(
+            "_jolo.autonomous.get_autonomous_items", side_effect=fake_get
+        ):
+            autonomous.run_autonomous(self._make_args())
+
+        self.assertEqual(len(seen_paths), 1)
+        # Must resolve to the root docs/TODO.org, not subdir/docs/TODO.org
+        self.assertTrue(seen_paths[0].is_absolute())
+        self.assertTrue(str(seen_paths[0]).endswith("docs/TODO.org"))
+        self.assertNotIn("/subdir/", str(seen_paths[0]))
 
 
 if __name__ == "__main__":
