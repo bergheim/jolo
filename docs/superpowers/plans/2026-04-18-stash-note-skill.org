@@ -1,0 +1,112 @@
+#+TITLE: Stash Note Skill Implementation Plan
+
+#+begin_quote
+For agentic workers: REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+#+end_quote
+
+* Goal
+
+Add a shared stash-note workflow that distinguishes project-local denote notes
+from cross-project stash denote notes, and scaffold the same behavior into
+generated devcontainers.
+
+* Architecture
+
+Keep project notes in =docs/notes/= and add an explicit stash note root at
+=/workspaces/stash/notes=. Teach agents the split in both repo-level and
+template =AGENTS.md=. Add a new =j:note-stash= skill that writes denote notes to
+the stash root via the existing Emacs helpers, requires freeform trailing text,
+and refuses to silently create both local and stash notes.
+
+* Tech Stack
+
+- Org-mode docs
+- Denote note helpers via =emacsclient=
+- Skill files in =.agents/skills/=
+- Template propagation via =templates/=
+
+* File Structure
+
+- Modify =AGENTS.md=
+  - Add stash-note guidance and stash-read-path guidance for this meta-repo.
+- Modify =templates/AGENTS.md=
+  - Add the same stash-note guidance for generated projects.
+- Create =.agents/skills/note-stash/SKILL.md=
+  - Active repo skill definition.
+- Create =templates/.agents/skills/note-stash/SKILL.md=
+  - Template copy for generated projects.
+- Optionally verify =container/agent-helpers.el=
+  - Only if helper signatures need clarifying in skill examples. No code change expected.
+- Add tests if there is already coverage for template skill sync/doc scaffolding.
+  - If no stable test harness exists for skill text propagation, verify by diff plus existing template-sync tests.
+
+* Task 1: Update Agent Guidance
+
+**Files**
+- Modify: =AGENTS.md=
+- Modify: =templates/AGENTS.md=
+
+- [ ] Add a rule that cross-project knowledge belongs in =/workspaces/stash/notes=.
+- [ ] Add the sharper heuristic:
+  - “Would I want this loaded at session start in an unrelated project?”
+- [ ] State that mild duplication is allowed:
+  - local incident note in =docs/notes/=
+  - generalized note in stash
+- [ ] Add read-path guidance:
+  - when working on shared tooling/workflow, scan stash note filenames and read relevant stash notes before acting
+- [ ] Verify wording does not tell agents to silently write both note types.
+
+* Task 2: Add =j:note-stash= Skill
+
+**Files**
+- Create: =.agents/skills/note-stash/SKILL.md=
+- Create: =templates/.agents/skills/note-stash/SKILL.md=
+
+- [ ] Define invocation with freeform trailing text, e.g.:
+  - =/j:note-stash firebase incident in open webui tool verification=
+- [ ] Require input:
+  - if no trailing text is provided, stop and ask for it
+- [ ] Require a stash-scope check before writing:
+  - if clearly project-local, say so and stop
+- [ ] Require a duplicate check against =/workspaces/stash/notes=
+- [ ] Require a brief “why this belongs in stash” section in the note body
+- [ ] Use existing =emacsclient= denote helpers with the stash root path
+- [ ] State that if both local and stash notes are warranted, the skill should say so explicitly rather than silently creating both
+
+* Task 3: Verify Template Propagation
+
+**Files**
+- Check: =templates/.agents/skills/note-stash/SKILL.md=
+- Check: =.agents/skills/note-stash/SKILL.md=
+- Check: existing skill sync behavior
+
+- [ ] Confirm the new template skill will be copied into recreated/generated projects by the existing skill sync path
+- [ ] Confirm current recreate semantics preserve extra project skills while still updating template skills
+- [ ] If needed, add or extend a focused test covering presence of the new skill in template sync
+
+* Task 4: Verification
+
+**Commands**
+
+- [ ] Review diff for:
+  - =AGENTS.md=
+  - =templates/AGENTS.md=
+  - =.agents/skills/note-stash/SKILL.md=
+  - =templates/.agents/skills/note-stash/SKILL.md=
+- [ ] Run targeted tests if any are added
+- [ ] Run the existing relevant test slice:
+  - =uv run -m unittest tests.test_setup=
+- [ ] Sanity-check the skill text for path consistency:
+  - stash root must be exactly =/workspaces/stash/notes=
+
+* Commit Plan
+
+- [ ] Commit docs + skill changes with a focused message, e.g.:
+  - =feat: add stash note workflow for shared denote knowledge=
+
+* Risks To Watch
+
+- Stash becoming a junk drawer if the scope heuristic is too weak
+- Agents writing stash notes without checking existing stash notes first
+- AGENTS write-path guidance without corresponding read-path guidance
+- Name churn between =note-stash= and =note-global=

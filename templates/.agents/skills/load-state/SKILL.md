@@ -41,6 +41,17 @@ ls -t docs/notes/*.org 2>/dev/null | head -15
 
 Denote filenames encode metadata: `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`
 
+If the session touches shared tooling or workflow (for example Emacs,
+org-mode, denote, devcontainers, agent behavior, or host integration), also
+scan stash note filenames:
+
+```bash
+emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
+```
+
+Read the full content of stash notes relevant to the current session. Skip
+stash notes that are clearly unrelated.
+
 ### 3. Read agent-private memory
 
 - **Claude**: `.claude/MEMORY.md` (auto-memory index)
