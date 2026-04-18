@@ -1523,7 +1523,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
             if "containerEnv" not in content:
                 content["containerEnv"] = {}
             content["containerEnv"]["PORT"] = str(port)
-            devcontainer_json.write_text(json.dumps(content, indent=4))
+            devcontainer_json.write_text(json.dumps(content, indent=4) + "\n")
 
         # Add user-specified mounts
         if args.mount:
