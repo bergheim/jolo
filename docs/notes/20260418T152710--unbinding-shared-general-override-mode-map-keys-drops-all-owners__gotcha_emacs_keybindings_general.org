@@ -1,0 +1,12 @@
+#+title:      Unbinding shared general-override-mode-map keys drops all owners
+#+date:       [2026-04-18 Sat 15:27]
+#+filetags:   :gotcha:emacs:keybindings:general:
+#+identifier: 20260418T152710
+
+bergheim/global-menu-keys expands to general-define-key with :keymaps (quote override), which writes into general-override-mode-map. Every module that uses this definer (ai.el, orgmode/keybindings.el, apps.el, etc.) writes to the SAME keymap. There is one binding per key; last evaluator wins.
+
+Consequence for unbinds: (general-define-key :keymaps (quote override) :prefix "SPC" "oa" nil) sets the slot to nil — there is no owner tracking. If the key was shared between two modules (e.g. ai.el said SPC oa → send-dwim, orgmode said SPC oa → org-agenda, orgmode loaded last so it won), unbinding drops the org binding too. Reloading orgmode restores it, but only if you load orgmode AFTER the unbind.
+
+Consequence for prefix install: if SPC k was a leaf (org-capture), install SPC k * prefix auto-unbinds the leaf via general-auto-unbind-keys. But if another module re-evaluates its block and re-installs "k" as a leaf, it clobbers the prefix and all its children silently. Fix: remove the leaf binding from the other module's source, not just from the live keymap.
+
+Safe unbind rule: only unbind keys pure-owned by the module you are relocating. For shared keys, just redefine from the other module's side (or trust that its re-evaluation will overwrite yours).

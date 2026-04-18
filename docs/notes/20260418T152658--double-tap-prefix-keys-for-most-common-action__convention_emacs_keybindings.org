@@ -1,0 +1,18 @@
+#+title:      Double-tap prefix keys for most common action
+#+date:       [2026-04-18 Sat 15:26]
+#+filetags:   :convention:emacs:keybindings:
+#+identifier: 20260418T152658
+
+Muscle memory convention across the leader map: SPC <prefix><prefix> always runs the most likely action for that prefix.
+
+Examples in use:
+- SPC jj → bergheim/gptel (smart dispatcher)
+- SPC kk → bergheim/agent-shell-switch-buffer (smart dispatcher)
+- SPC pp → bergheim/open-or-switch-to-project-tab
+- SPC bb → bergheim/switch-to-relevant-buffer
+- SPC ff → find-file
+- SPC ss → consult-line
+- SPC ww → activities-resume
+- SPC qq → save-buffers-kill-terminal
+
+When adding a new prefix, reserve the double-tap for the dispatcher the user hits first, not a bare library command. Raw entrypoints (e.g. SPC kn → agent-shell-new-shell) get other letters as explicit shortcuts.

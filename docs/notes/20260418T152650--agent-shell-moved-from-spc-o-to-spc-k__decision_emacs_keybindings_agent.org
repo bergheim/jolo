@@ -1,0 +1,22 @@
+#+title:      Agent-shell moved from SPC o to SPC k
+#+date:       [2026-04-18 Sat 15:26]
+#+filetags:   :decision:emacs:keybindings:agent:
+#+identifier: 20260418T152650
+
+Agent-shell was squatting on SPC o *, but SPC o is owned by org-mode (agenda, capture, clock, journal, super-links, contacts, org-ql — all subprefixes). Most collisions were silently resolved in org's favor because orgmode/keybindings.el loads after ai.el and both write to general-override-mode-map; whoever loads last wins per key.
+
+Chose SPC k over SPC A / SPC J / SPC j (shared with gptel):
+- Shared with gptel under SPC j: six semantic collisions on core verbs (a, s, t, x, c, j). Too cramped.
+- SPC A / SPC J: shift tax on every hot-loop action (send, file, compose).
+- SPC k: lowercase home-row, adjacent to j (gptel sibling), frees only a triple-aliased org-capture slot. Kept SPC C and SPC x as capture aliases.
+
+Double-tap convention: SPC kk is the smart dispatcher (bergheim/agent-shell-switch-buffer — completing-read that switches or creates), mirroring SPC jj → bergheim/gptel. Bare agent-shell command dropped; the dispatcher subsumes it.
+
+Trimmed 8 global bindings (kh km kM kC kR kX kL kT) that only make sense inside agent-shell; those live at SPC m * localleader. Added C to localleader for agent-shell-cycle-session-mode (new upstream function).
+
+Host changes required: modules/ai.el (replace agent-shell use-package block) and modules/orgmode/keybindings.el (delete the SPC k org-capture alias, otherwise it reclobbers on reload).
+
+* Related notes
+- [[denote:20260418T152658][Double-tap prefix keys for most common action]]
+- [[denote:20260418T152710][Unbinding shared general-override-mode-map keys drops all owners]]
+- [[denote:20260417T135427][Container-based editing of host emacs config parked]]

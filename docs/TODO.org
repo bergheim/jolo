@@ -249,3 +249,24 @@ CLOSED: [2026-04-16 Thu 13:18]
    work without it (pure filename convention), but linking requires it.
    Options: add =denote= to Containerfile pnpm/elpaca bootstrapping,
    or pre-build it in the shared elpaca cache.
+** TODO Scheduled autonomous pipeline runner                        :autonomous:
+   Periodically scan for TODO items marked autonomous (tag or dedicated
+   state) and dispatch them without user interaction. Goal: long-running
+   background tasks get picked up while I'm AFK — I tag, the scheduler runs.
+
+   Open design questions:
+   - Selector: =:autonomous:= tag, or a new state like =QUEUED=? Tag is
+     cheaper (no keyword-list change); state signals "ready to run".
+   - Scheduler host: systemd user timer on berghome, host cron, or an
+     Emacs timer? berghome systemd is the most reliable.
+   - Pipeline per item: =jolo up -p <prompt>= with a fresh worktree, or
+     hand off to the =afk= skill. Encode the prompt how — heading body,
+     a =:PROMPT:= property, or a dedicated drawer?
+   - Concurrency cap: don't fire ten containers at once.
+   - Result handling: ntfy on finish + state flip (=INPROGRESS= →
+     =DONE= or an =AUTO-DONE= state?), commit and push any changes.
+   - Idempotency: must not re-dispatch an in-flight or already-done task.
+     Needs a =:DISPATCHED:= timestamp property or similar.
+   - Failure surfacing: ntfy on non-zero exit, keep transcript/logs.
+
+   Interval: every 4h as a starting point; tunable per-task via property.
