@@ -82,6 +82,40 @@ class TestTemplateSystem(unittest.TestCase):
         content = (devcontainer_dir / "devcontainer.json").read_text()
         self.assertEqual(content, "existing")
 
+    def test_sync_skill_templates_keeps_extra_project_skills(self):
+        """Sync should overwrite template skills without deleting extras."""
+        project_dir = Path(self.tmpdir)
+        skills_dir = project_dir / ".agents" / "skills"
+        skills_dir.mkdir(parents=True)
+
+        extra_skill = skills_dir / "custom-skill"
+        extra_skill.mkdir()
+        (extra_skill / "SKILL.md").write_text("custom project skill\n")
+
+        template_skill = skills_dir / "browser-verify"
+        template_skill.mkdir()
+        (template_skill / "SKILL.md").write_text("stale template copy\n")
+
+        setup.sync_skill_templates(project_dir)
+
+        self.assertTrue(extra_skill.exists())
+        self.assertEqual(
+            (extra_skill / "SKILL.md").read_text(), "custom project skill\n"
+        )
+
+        template_skill_src = (
+            Path(__file__).resolve().parent.parent
+            / "templates"
+            / ".agents"
+            / "skills"
+            / "browser-verify"
+            / "SKILL.md"
+        )
+        self.assertEqual(
+            (template_skill / "SKILL.md").read_text(),
+            template_skill_src.read_text(),
+        )
+
 
 class TestSecretsManagement(unittest.TestCase):
     """Test secrets fetching from pass and environment."""
