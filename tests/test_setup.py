@@ -116,6 +116,23 @@ class TestTemplateSystem(unittest.TestCase):
             template_skill_src.read_text(),
         )
 
+    def test_copy_template_files_includes_stash_note_guidance_and_skill(self):
+        """Generated projects should get stash-note guidance and skill."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        setup.copy_template_files(project_dir)
+
+        agents = (project_dir / "AGENTS.md").read_text()
+        self.assertIn("/workspaces/stash/notes", agents)
+        self.assertIn("Would I want this loaded at session start", agents)
+
+        skill_file = (
+            project_dir / ".agents" / "skills" / "note-stash" / "SKILL.md"
+        )
+        self.assertTrue(skill_file.exists())
+        self.assertIn("name: j:note-stash", skill_file.read_text())
+
 
 class TestSecretsManagement(unittest.TestCase):
     """Test secrets fetching from pass and environment."""

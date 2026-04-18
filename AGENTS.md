@@ -181,6 +181,31 @@ depends on another). Do not link just because notes share a keyword.
 **On discoveries:** Create a new denote note with the appropriate kind and topics.
 Link to existing related notes. Do not append to existing notes or to `MEMORY.org`.
 
+### Stash notes (`/workspaces/stash/notes/`)
+
+Cross-project knowledge belongs in stash notes. If a discovery would still be
+useful in an unrelated project or for host-level workflow, save it in
+`/workspaces/stash/notes` instead of only in `docs/notes/`.
+
+Use this heuristic:
+- Would I want this loaded at session start in an unrelated project?
+
+If yes, it belongs in stash. If the note depends on this repo's files, paths,
+branches, or local architecture, it is project-specific and belongs in
+`docs/notes/`.
+
+It is fine to write both:
+- a local incident note in `docs/notes/`
+- a separate generalized note in `/workspaces/stash/notes/`
+
+When working on shared tooling, devcontainer workflow, Emacs, org-mode, denote,
+agent behavior, or other cross-project infrastructure, also scan stash note
+filenames and read relevant stash notes before acting:
+
+```bash
+emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
+```
+
 ### Personal memory
 
 Agent-specific files (not shared):
