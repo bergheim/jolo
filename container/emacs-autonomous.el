@@ -52,6 +52,12 @@ that would block an autonomous call."
                    (point-max))))
       (string-trim (buffer-substring-no-properties start end)))))
 
+(defun bergheim/agent-org--autonomous-eligible-p ()
+  "Non-nil if the entry at point is eligible for autonomous dispatch."
+  (and (not (org-entry-get nil "DISPATCHED"))
+       (member (org-get-todo-state)
+               bergheim/agent-org--autonomous-dispatchable-states)))
+
 (defun bergheim/agent-org-autonomous-select (org-file)
   "Return JSON array of :autonomous: entries without :DISPATCHED: in ORG-FILE."
   (let ((abs (expand-file-name org-file))
@@ -61,9 +67,7 @@ that would block an autonomous call."
        (org-map-entries
         (lambda ()
           (when (and (member "autonomous" (org-get-tags))
-                     (not (org-entry-get nil "DISPATCHED"))
-                     (member (org-get-todo-state)
-                             bergheim/agent-org--autonomous-dispatchable-states))
+                     (bergheim/agent-org--autonomous-eligible-p))
             (push `((heading . ,(substring-no-properties
                                  (org-get-heading t t t t)))
                     (body . ,(bergheim/agent-org--autonomous-body)))
@@ -87,7 +91,7 @@ applied to a distinct entry on each run."
        (org-map-entries
         (lambda ()
           (when (and (not marked)
-                     (not (org-entry-get nil "DISPATCHED"))
+                     (bergheim/agent-org--autonomous-eligible-p)
                      (string= heading
                               (substring-no-properties
                                (org-get-heading t t t t))))
