@@ -132,14 +132,21 @@ def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
     return result.returncode == 0
 
 
-def _unique_slugs(items: list[dict]) -> list[str]:
-    """Return per-item worktree slugs, disambiguating repeated headings."""
+def _unique_slugs(items: list[dict], suffix: str = "") -> list[str]:
+    """Per-item worktree slugs, disambiguating repeated headings.
+
+    When SUFFIX is non-empty, it is appended so successive runs produce
+    distinct worktree names even when the same item is redispatched (e.g.
+    after a prior mark failed). Worktree accumulation is managed by
+    `jolo prune`.
+    """
     seen: dict[str, int] = {}
     slugs: list[str] = []
     for item in items:
         base = build_slug(item["heading"])
         n = seen.get(base, 0)
-        slugs.append(base if n == 0 else f"{base}-{n + 1}")
+        disambig = base if n == 0 else f"{base}-{n + 1}"
+        slugs.append(f"{disambig}-{suffix}" if suffix else disambig)
         seen[base] = n + 1
     return slugs
 
@@ -169,7 +176,10 @@ def run_autonomous(args: argparse.Namespace) -> None:
         return
 
     pairs = assign_agents(items, agents)
-    slugs = _unique_slugs(items)
+    now = datetime.now(timezone.utc)
+    ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    slug_suffix = now.strftime("%Y%m%dT%H%M%S")
+    slugs = _unique_slugs(items, suffix=slug_suffix)
 
     if args.dry_run:
         print(f"Would dispatch {len(pairs)} item(s):")
@@ -182,13 +192,18 @@ def run_autonomous(args: argparse.Namespace) -> None:
             print(f"  {agent:8s} {slug:40s} {preview}")
         return
 
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Dispatch forward (preserves round-robin ordering), then mark in reverse:
+    # writing :DISPATCHED: to an earlier heading shifts bytes forward, which
+    # would invalidate later items' positions if we marked in file order.
+    dispatched_positions: list[int] = []
     for (item, agent), slug in zip(pairs, slugs, strict=True):
         prompt = item.get("body", "").strip() or item["heading"]
         print(f"Dispatching {agent} -> {slug}")
         if dispatch_item(slug=slug, prompt=prompt, agent=agent):
-            mark_dispatched(org_file, item["position"], ts)
+            dispatched_positions.append(item["position"])
         else:
             sys.stderr.write(
                 f"dispatch failed for {slug}; leaving undispatched for retry\n"
             )
+    for position in reversed(dispatched_positions):
+        mark_dispatched(org_file, position, ts)

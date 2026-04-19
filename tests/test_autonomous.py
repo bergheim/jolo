@@ -331,6 +331,45 @@ class TestRunAutonomousIntegration(unittest.TestCase):
                 dispatch.call_args_list[1].kwargs["agent"], "codex"
             )
 
+    def test_marks_applied_in_reverse_position_order(self):
+        """Later positions must be marked first so earlier edits don't shift them."""
+        fake_items = [
+            {"heading": "A", "body": "", "position": 100},
+            {"heading": "B", "body": "", "position": 200},
+            {"heading": "C", "body": "", "position": 300},
+        ]
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=fake_items,
+            ),
+            mock.patch("_jolo.autonomous.dispatch_item", return_value=True),
+            mock.patch("_jolo.autonomous.mark_dispatched") as mark,
+        ):
+            autonomous.run_autonomous(self._make_args(agents="claude"))
+            positions = [call.args[1] for call in mark.call_args_list]
+            self.assertEqual(positions, [300, 200, 100])
+
+    def test_slugs_include_run_timestamp_suffix(self):
+        """Retries pick up a fresh worktree by run-timestamp, not the old one."""
+        fake_items = [
+            {"heading": "Do A", "body": "body A", "position": 10},
+        ]
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=fake_items,
+            ),
+            mock.patch(
+                "_jolo.autonomous.dispatch_item", return_value=True
+            ) as dispatch,
+            mock.patch("_jolo.autonomous.mark_dispatched"),
+        ):
+            autonomous.run_autonomous(self._make_args(agents="claude"))
+            slug = dispatch.call_args.kwargs["slug"]
+            # suffix is YYYYMMDDTHHMMSS — 15 chars after a `-`
+            self.assertRegex(slug, r"^autonomous-do-a-\d{8}T\d{6}$")
+
     def test_no_items_is_noop(self):
         with (
             mock.patch(
@@ -400,6 +439,16 @@ class TestUniqueSlugs(unittest.TestCase):
                 "autonomous-do-a-2",
                 "autonomous-do-b",
                 "autonomous-do-a-3",
+            ],
+        )
+
+    def test_suffix_appended_to_every_slug(self):
+        items = [{"heading": "Do A"}, {"heading": "Do A"}]
+        self.assertEqual(
+            autonomous._unique_slugs(items, suffix="20260419T102120"),
+            [
+                "autonomous-do-a-20260419T102120",
+                "autonomous-do-a-2-20260419T102120",
             ],
         )
 
