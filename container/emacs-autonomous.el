@@ -33,13 +33,21 @@
 
 Suppresses the \"File is read-only on disk; make buffer read-only too?\"
 prompt from `find-file-noselect-1', plus any other y/n or yes/no prompts
-that would block an autonomous call."
+that would block an autonomous call.
+
+Also reverts the buffer from disk when safe (unmodified + stale modtime):
+if the host daemon already had this org file open from an earlier session,
+selection must reflect edits made outside Emacs (git checkout, other
+tooling) and marks must not save stale contents back over newer work."
   (declare (indent 1))
   `(cl-letf (((symbol-function 'y-or-n-p) #'ignore)
              ((symbol-function 'yes-or-no-p) #'ignore))
      (let ((inhibit-message t)
            (find-file-suppress-same-file-warnings t))
        (with-current-buffer (find-file-noselect ,abs-file)
+         (when (and (not (buffer-modified-p))
+                    (not (verify-visited-file-modtime)))
+           (revert-buffer t t t))
          (let ((inhibit-read-only t))
            ,@body)))))
 
