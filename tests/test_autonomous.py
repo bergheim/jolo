@@ -188,13 +188,13 @@ class TestGetAutonomousItems(unittest.TestCase):
             elisp = args[args.index("-e") + 1]
             self.assertIn("bergheim/agent-org-autonomous-select", elisp)
 
-    def test_missing_file_returns_empty(self):
-        # If the file isn't present, don't even shell out — return []
+    def test_emacsclient_failure_returns_empty(self):
         with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
-            (Path(self.tmpdir) / "docs" / "TODO.org").unlink()
+            mock_run.return_value.returncode = 1
+            mock_run.return_value.stderr = "some emacs error"
+            mock_run.return_value.stdout = ""
             result = autonomous.get_autonomous_items(Path("docs/TODO.org"))
             self.assertEqual(result, [])
-            mock_run.assert_not_called()
 
 
 class TestMarkDispatched(unittest.TestCase):

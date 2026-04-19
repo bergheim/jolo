@@ -44,7 +44,6 @@ def parse_emacsclient_json(raw: str) -> list[dict]:
     if not unescaped:
         return []
     decoded = json.loads(unescaped)
-    # Defensive: older elisp may emit "null" when no items match.
     if decoded is None:
         return []
     return decoded
@@ -76,17 +75,8 @@ def resolve_agents(flag: str | None, config_default: list[str]) -> list[str]:
     return agents
 
 
-def get_autonomous_items(org_file: Path) -> list[dict]:
-    """Return `[{"heading": ..., "body": ...}]` for items to dispatch.
-
-    If the org file is missing, return `[]` without invoking emacsclient.
-    """
-    org_path = (
-        org_file.resolve() if org_file.is_absolute() else Path.cwd() / org_file
-    )
-    if not org_path.exists():
-        return []
-    elisp = f'({ELISP_SELECT_FN} "{org_path}")'
+def _emacsclient_eval(elisp: str) -> str | None:
+    """Evaluate ELISP via emacsclient. Return stdout on success, None on failure."""
     result = subprocess.run(
         ["emacsclient", "-e", elisp],
         capture_output=True,
@@ -97,33 +87,28 @@ def get_autonomous_items(org_file: Path) -> list[dict]:
         sys.stderr.write(
             f"emacsclient failed ({result.returncode}): {result.stderr.strip()}\n"
         )
-        return []
-    return parse_emacsclient_json(result.stdout)
-
-
-def mark_dispatched(org_file: Path, heading: str, timestamp: str) -> None:
-    """Set `:DISPATCHED: <timestamp>` on the given heading via emacsclient."""
-    org_path = (
-        org_file.resolve() if org_file.is_absolute() else Path.cwd() / org_file
-    )
-    elisp = (
-        f'({ELISP_MARK_FN} "{org_path}" '
-        f'"{_elisp_escape(heading)}" "{timestamp}")'
-    )
-    result = subprocess.run(
-        ["emacsclient", "-e", elisp],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        sys.stderr.write(
-            f"failed to mark dispatched ({result.returncode}): {result.stderr.strip()}\n"
-        )
+        return None
+    return result.stdout
 
 
 def _elisp_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def get_autonomous_items(org_file: Path) -> list[dict]:
+    """Return `[{"heading": ..., "body": ...}]` for items to dispatch."""
+    output = _emacsclient_eval(f'({ELISP_SELECT_FN} "{org_file.resolve()}")')
+    if output is None:
+        return []
+    return parse_emacsclient_json(output)
+
+
+def mark_dispatched(org_file: Path, heading: str, timestamp: str) -> None:
+    """Set `:DISPATCHED: <timestamp>` on the given heading via emacsclient."""
+    _emacsclient_eval(
+        f'({ELISP_MARK_FN} "{org_file.resolve()}" '
+        f'"{_elisp_escape(heading)}" "{timestamp}")'
+    )
 
 
 def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
