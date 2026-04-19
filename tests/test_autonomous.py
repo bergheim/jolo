@@ -203,14 +203,14 @@ class TestGetAutonomousItems(unittest.TestCase):
 class TestMarkDispatched(unittest.TestCase):
     """Emacsclient-backed property setter."""
 
-    def test_invokes_mark_function(self):
-        # Elisp returns headings with the TODO keyword stripped, so
-        # mark_dispatched sees the clean title.
+    def test_invokes_mark_function_with_position(self):
+        # Mark by opaque buffer position, not heading, so duplicate-titled
+        # items can't clobber each other's DISPATCHED state.
         with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             autonomous.mark_dispatched(
                 Path("docs/TODO.org"),
-                "Use scoped GitHub tokens",
+                4242,
                 "2026-04-18T12:00:00Z",
             )
             args = mock_run.call_args[0][0]
@@ -221,7 +221,7 @@ class TestMarkDispatched(unittest.TestCase):
                 "bergheim/agent-org-autonomous-mark-dispatched", elisp
             )
             self.assertIn("2026-04-18T12:00:00Z", elisp)
-            self.assertIn("Use scoped GitHub tokens", elisp)
+            self.assertIn("4242", elisp)
 
 
 class TestDispatchItem(unittest.TestCase):
@@ -292,8 +292,8 @@ class TestRunAutonomousIntegration(unittest.TestCase):
 
     def test_dry_run_does_not_dispatch_or_mark(self):
         fake_items = [
-            {"heading": "TODO Do A", "body": "body A"},
-            {"heading": "TODO Do B", "body": "body B"},
+            {"heading": "TODO Do A", "body": "body A", "position": 100},
+            {"heading": "TODO Do B", "body": "body B", "position": 200},
         ]
         with (
             mock.patch(
@@ -309,8 +309,8 @@ class TestRunAutonomousIntegration(unittest.TestCase):
 
     def test_real_run_marks_and_dispatches(self):
         fake_items = [
-            {"heading": "TODO Do A", "body": "body A"},
-            {"heading": "TODO Do B", "body": "body B"},
+            {"heading": "TODO Do A", "body": "body A", "position": 100},
+            {"heading": "TODO Do B", "body": "body B", "position": 200},
         ]
         with (
             mock.patch(
@@ -346,7 +346,7 @@ class TestRunAutonomousIntegration(unittest.TestCase):
 
     def test_failed_dispatch_does_not_mark(self):
         """If `jolo tree` exits non-zero, don't mark — let the next run retry."""
-        fake_items = [{"heading": "Do A", "body": "body A"}]
+        fake_items = [{"heading": "Do A", "body": "body A", "position": 10}]
         with (
             mock.patch(
                 "_jolo.autonomous.get_autonomous_items",
@@ -358,8 +358,9 @@ class TestRunAutonomousIntegration(unittest.TestCase):
             autonomous.run_autonomous(self._make_args(agents="claude"))
             mark.assert_not_called()
 
-    def test_successful_dispatch_marks(self):
-        fake_items = [{"heading": "Do A", "body": "body A"}]
+    def test_successful_dispatch_marks_by_position(self):
+        """Mark uses the opaque position field, not the heading, as identity."""
+        fake_items = [{"heading": "Do A", "body": "body A", "position": 42}]
         with (
             mock.patch(
                 "_jolo.autonomous.get_autonomous_items",
@@ -370,6 +371,10 @@ class TestRunAutonomousIntegration(unittest.TestCase):
         ):
             autonomous.run_autonomous(self._make_args(agents="claude"))
             mark.assert_called_once()
+            call_args = mark.call_args
+            # mark_dispatched(org_file, position, timestamp) — assert the
+            # middle arg is our opaque identity (42), not the heading.
+            self.assertEqual(call_args.args[1], 42)
 
 
 class TestUniqueSlugs(unittest.TestCase):
@@ -472,7 +477,7 @@ class TestRunAutonomousLoadsConfigFromGitRoot(unittest.TestCase):
         with (
             mock.patch(
                 "_jolo.autonomous.get_autonomous_items",
-                return_value=[{"heading": "X", "body": ""}],
+                return_value=[{"heading": "X", "body": "", "position": 1}],
             ),
             mock.patch(
                 "_jolo.autonomous.dispatch_item", return_value=True
@@ -496,7 +501,7 @@ class TestRunAutonomousLoadsConfigFromGitRoot(unittest.TestCase):
         with (
             mock.patch(
                 "_jolo.autonomous.get_autonomous_items",
-                return_value=[{"heading": "X", "body": "b"}],
+                return_value=[{"heading": "X", "body": "b", "position": 1}],
             ),
             mock.patch(
                 "_jolo.autonomous.dispatch_item", return_value=True
