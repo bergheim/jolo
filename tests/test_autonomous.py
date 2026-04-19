@@ -188,13 +188,16 @@ class TestGetAutonomousItems(unittest.TestCase):
             elisp = args[args.index("-e") + 1]
             self.assertIn("bergheim/agent-org-autonomous-select", elisp)
 
-    def test_emacsclient_failure_returns_empty(self):
+    def test_emacsclient_failure_raises(self):
+        """Failure must surface, not silently look like an empty queue."""
         with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
             mock_run.return_value.returncode = 1
-            mock_run.return_value.stderr = "some emacs error"
+            mock_run.return_value.stderr = (
+                "symbol's function definition is void"
+            )
             mock_run.return_value.stdout = ""
-            result = autonomous.get_autonomous_items(Path("docs/TODO.org"))
-            self.assertEqual(result, [])
+            with self.assertRaises(autonomous.EmacsClientError):
+                autonomous.get_autonomous_items(Path("docs/TODO.org"))
 
 
 class TestMarkDispatched(unittest.TestCase):
@@ -367,6 +370,141 @@ class TestRunAutonomousIntegration(unittest.TestCase):
         ):
             autonomous.run_autonomous(self._make_args(agents="claude"))
             mark.assert_called_once()
+
+
+class TestUniqueSlugs(unittest.TestCase):
+    """Collision-free worktree slugs even when headings repeat."""
+
+    def test_single_heading_passes_through(self):
+        self.assertEqual(
+            autonomous._unique_slugs([{"heading": "Do A"}]),
+            ["autonomous-do-a"],
+        )
+
+    def test_duplicate_headings_get_counter_suffix(self):
+        items = [
+            {"heading": "Do A"},
+            {"heading": "Do A"},
+            {"heading": "Do B"},
+            {"heading": "Do A"},
+        ]
+        self.assertEqual(
+            autonomous._unique_slugs(items),
+            [
+                "autonomous-do-a",
+                "autonomous-do-a-2",
+                "autonomous-do-b",
+                "autonomous-do-a-3",
+            ],
+        )
+
+
+class TestRunAutonomousSurfacesEmacsClientError(unittest.TestCase):
+    """Setup errors (daemon down, helper missing) must fail loud."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+        (Path(self.tmpdir) / ".git").mkdir()
+        (Path(self.tmpdir) / "docs").mkdir()
+        (Path(self.tmpdir) / "docs" / "TODO.org").write_text("* TODO x\n")
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _make_args(self):
+        import argparse
+
+        return argparse.Namespace(
+            command="autonomous",
+            dry_run=False,
+            agents="claude",
+            org_file="docs/TODO.org",
+            verbose=False,
+        )
+
+    def test_selector_failure_exits_non_zero(self):
+        with mock.patch(
+            "_jolo.autonomous.get_autonomous_items",
+            side_effect=autonomous.EmacsClientError("daemon down"),
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                autonomous.run_autonomous(self._make_args())
+            self.assertNotEqual(ctx.exception.code, 0)
+
+
+class TestRunAutonomousLoadsConfigFromGitRoot(unittest.TestCase):
+    """`.jolo.toml` at the repo root must be honored when run from subdirs."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        root = Path(self.tmpdir)
+        (root / ".git").mkdir()
+        (root / "docs").mkdir()
+        (root / "docs" / "TODO.org").write_text("* TODO x :autonomous:\n")
+        (root / ".jolo.toml").write_text('agents = ["codex"]\n')
+        (root / "subdir").mkdir()
+        os.chdir(root / "subdir")
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _make_args(self):
+        import argparse
+
+        return argparse.Namespace(
+            command="autonomous",
+            dry_run=True,
+            agents=None,
+            org_file="docs/TODO.org",
+            verbose=False,
+        )
+
+    def test_repo_config_wins_from_subdir(self):
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=[{"heading": "X", "body": ""}],
+            ),
+            mock.patch(
+                "_jolo.autonomous.dispatch_item", return_value=True
+            ) as dispatch,
+            mock.patch("builtins.print"),
+        ):
+            autonomous.run_autonomous(self._make_args())
+            # dry_run=True so dispatch isn't called; assert agents came from
+            # repo config by switching to real-run mode via another args obj.
+
+        # Real-run variant to observe agent selection:
+        import argparse
+
+        real_args = argparse.Namespace(
+            command="autonomous",
+            dry_run=False,
+            agents=None,
+            org_file="docs/TODO.org",
+            verbose=False,
+        )
+        with (
+            mock.patch(
+                "_jolo.autonomous.get_autonomous_items",
+                return_value=[{"heading": "X", "body": "b"}],
+            ),
+            mock.patch(
+                "_jolo.autonomous.dispatch_item", return_value=True
+            ) as dispatch,
+            mock.patch("_jolo.autonomous.mark_dispatched"),
+        ):
+            autonomous.run_autonomous(real_args)
+            self.assertEqual(dispatch.call_args.kwargs["agent"], "codex")
 
 
 class TestRunAutonomousFromSubdir(unittest.TestCase):

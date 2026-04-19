@@ -75,8 +75,12 @@ def resolve_agents(flag: str | None, config_default: list[str]) -> list[str]:
     return agents
 
 
-def _emacsclient_eval(elisp: str) -> str | None:
-    """Evaluate ELISP via emacsclient. Return stdout on success, None on failure."""
+class EmacsClientError(RuntimeError):
+    """emacsclient exited non-zero — daemon unreachable or helper missing."""
+
+
+def _emacsclient_eval(elisp: str) -> str:
+    """Evaluate ELISP via emacsclient. Raise on non-zero exit."""
     result = subprocess.run(
         ["emacsclient", "-e", elisp],
         capture_output=True,
@@ -84,10 +88,9 @@ def _emacsclient_eval(elisp: str) -> str | None:
         check=False,
     )
     if result.returncode != 0:
-        sys.stderr.write(
-            f"emacsclient failed ({result.returncode}): {result.stderr.strip()}\n"
+        raise EmacsClientError(
+            f"emacsclient failed ({result.returncode}): {result.stderr.strip()}"
         )
-        return None
     return result.stdout
 
 
@@ -96,19 +99,29 @@ def _elisp_escape(s: str) -> str:
 
 
 def get_autonomous_items(org_file: Path) -> list[dict]:
-    """Return `[{"heading": ..., "body": ...}]` for items to dispatch."""
+    """Return `[{"heading": ..., "body": ...}]` for items to dispatch.
+
+    Raises `EmacsClientError` if emacsclient cannot reach the daemon or the
+    elisp helper isn't loaded — callers should treat that as a setup failure,
+    not as an empty work queue.
+    """
     output = _emacsclient_eval(f'({ELISP_SELECT_FN} "{org_file.resolve()}")')
-    if output is None:
-        return []
     return parse_emacsclient_json(output)
 
 
 def mark_dispatched(org_file: Path, heading: str, timestamp: str) -> None:
-    """Set `:DISPATCHED: <timestamp>` on the given heading via emacsclient."""
-    _emacsclient_eval(
-        f'({ELISP_MARK_FN} "{org_file.resolve()}" '
-        f'"{_elisp_escape(heading)}" "{timestamp}")'
-    )
+    """Set `:DISPATCHED: <timestamp>` on the given heading via emacsclient.
+
+    Failures are logged but swallowed; the next autonomous sweep retries the
+    item because the property didn't land.
+    """
+    try:
+        _emacsclient_eval(
+            f'({ELISP_MARK_FN} "{org_file.resolve()}" '
+            f'"{_elisp_escape(heading)}" "{timestamp}")'
+        )
+    except EmacsClientError as exc:
+        sys.stderr.write(f"mark_dispatched({heading!r}): {exc}\n")
 
 
 def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
@@ -120,32 +133,48 @@ def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
     return result.returncode == 0
 
 
+def _unique_slugs(items: list[dict]) -> list[str]:
+    """Return per-item worktree slugs, disambiguating repeated headings."""
+    seen: dict[str, int] = {}
+    slugs: list[str] = []
+    for item in items:
+        base = build_slug(item["heading"])
+        n = seen.get(base, 0)
+        slugs.append(base if n == 0 else f"{base}-{n + 1}")
+        seen[base] = n + 1
+    return slugs
+
+
 def run_autonomous(args: argparse.Namespace) -> None:
     """Scan org-file, dispatch each tagged item in a fresh worktree."""
-    config = load_config()
+    git_root = find_git_root()
+    if git_root is None:
+        sys.exit("Error: jolo autonomous must run inside a git repository")
+
+    config = load_config(project_dir=git_root)
     agents = resolve_agents(
         getattr(args, "agents", None), config.get("agents", ["claude"])
     )
 
-    git_root = find_git_root()
-    if git_root is None:
-        sys.exit("Error: jolo autonomous must run inside a git repository")
     org_file = Path(args.org_file)
     if not org_file.is_absolute():
         org_file = git_root / org_file
 
-    items = get_autonomous_items(org_file)
+    try:
+        items = get_autonomous_items(org_file)
+    except EmacsClientError as exc:
+        sys.exit(f"Error: {exc}")
 
     if not items:
         print("No autonomous items to dispatch.")
         return
 
     pairs = assign_agents(items, agents)
+    slugs = _unique_slugs(items)
 
     if args.dry_run:
         print(f"Would dispatch {len(pairs)} item(s):")
-        for item, agent in pairs:
-            slug = build_slug(item["heading"])
+        for (item, agent), slug in zip(pairs, slugs, strict=True):
             preview = (
                 item.get("body", "").splitlines()[0][:80]
                 if item.get("body")
@@ -155,8 +184,7 @@ def run_autonomous(args: argparse.Namespace) -> None:
         return
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    for item, agent in pairs:
-        slug = build_slug(item["heading"])
+    for (item, agent), slug in zip(pairs, slugs, strict=True):
         prompt = item.get("body", "").strip() or item["heading"]
         print(f"Dispatching {agent} -> {slug}")
         if dispatch_item(slug=slug, prompt=prompt, agent=agent):
