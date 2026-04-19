@@ -2156,6 +2156,12 @@ def main(argv: list[str] | None = None) -> None:
         run_port_mode(args)
         return
 
+    if cmd == "autonomous":
+        from _jolo.autonomous import run_autonomous
+
+        run_autonomous(args)
+        return
+
     # No subcommand — show help
     if cmd is None:
         args._parser.print_help()
