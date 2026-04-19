@@ -580,7 +580,7 @@ jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
 jolo autonomous                       # scan docs/TODO.org, dispatch :autonomous: items
 jolo autonomous --dry-run             # preview what would fire
 jolo autonomous --agents claude,codex # round-robin across a specific agent list
-# Requires host Emacs daemon to have loaded container/emacs-autonomous.el
+# Requires host Emacs daemon to have loaded container/agent-helpers.el
 # so the CLI's emacsclient calls can reach the selector/mark helpers.
 # Host is responsible for scheduling (systemd timer, cron, ...).
 ```
