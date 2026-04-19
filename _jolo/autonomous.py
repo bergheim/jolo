@@ -123,10 +123,18 @@ def mark_dispatched(org_file: Path, position: int, timestamp: str) -> None:
         sys.stderr.write(f"mark_dispatched(pos={position}): {exc}\n")
 
 
-def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
-    """Shell out to `jolo tree`. Return True iff the child exited 0."""
+def dispatch_item(
+    slug: str, prompt: str, agent: str, cwd: Path | None = None
+) -> bool:
+    """Shell out to `jolo tree`. Return True iff the child exited 0.
+
+    CWD pins the child's working directory so nested `load_config()` in
+    `run_tree_mode` picks up the right `.jolo.toml` when `jolo autonomous`
+    was invoked from a subdirectory.
+    """
     result = subprocess.run(
         ["jolo", "tree", slug, "-p", prompt, "--agent", agent],
+        cwd=cwd,
         check=False,
     )
     return result.returncode == 0
@@ -192,18 +200,20 @@ def run_autonomous(args: argparse.Namespace) -> None:
             print(f"  {agent:8s} {slug:40s} {preview}")
         return
 
-    # Dispatch forward (preserves round-robin ordering), then mark in reverse:
-    # writing :DISPATCHED: to an earlier heading shifts bytes forward, which
-    # would invalidate later items' positions if we marked in file order.
-    dispatched_positions: list[int] = []
-    for (item, agent), slug in zip(pairs, slugs, strict=True):
+    # Iterate in reverse position order. Two reasons:
+    # 1. Marking an earlier entry inserts bytes that invalidate later
+    #    positions; reverse-iterating means each mark only shifts bytes past
+    #    items we've already processed.
+    # 2. Marking immediately after each successful dispatch narrows the window
+    #    in which a concurrent sweep could reselect the same items (the user
+    #    is expected to flock at the host cron layer, but this keeps the
+    #    race tight as defense in depth).
+    for (item, agent), slug in reversed(list(zip(pairs, slugs, strict=True))):
         prompt = item.get("body", "").strip() or item["heading"]
         print(f"Dispatching {agent} -> {slug}")
-        if dispatch_item(slug=slug, prompt=prompt, agent=agent):
-            dispatched_positions.append(item["position"])
+        if dispatch_item(slug=slug, prompt=prompt, agent=agent, cwd=git_root):
+            mark_dispatched(org_file, item["position"], ts)
         else:
             sys.stderr.write(
                 f"dispatch failed for {slug}; leaving undispatched for retry\n"
             )
-    for position in reversed(dispatched_positions):
-        mark_dispatched(org_file, position, ts)

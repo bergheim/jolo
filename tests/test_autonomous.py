@@ -258,6 +258,17 @@ class TestDispatchItem(unittest.TestCase):
                 autonomous.dispatch_item(slug="x", prompt="y", agent="claude")
             )
 
+    def test_passes_cwd_to_subprocess(self):
+        """jolo tree must run from the repo root so it loads .jolo.toml."""
+        with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            autonomous.dispatch_item(
+                slug="x", prompt="y", agent="claude", cwd=Path("/some/root")
+            )
+            self.assertEqual(
+                mock_run.call_args.kwargs.get("cwd"), Path("/some/root")
+            )
+
 
 class TestRunAutonomousIntegration(unittest.TestCase):
     """End-to-end orchestrator (mocked emacsclient + subprocess)."""
@@ -323,13 +334,14 @@ class TestRunAutonomousIntegration(unittest.TestCase):
             autonomous.run_autonomous(self._make_args(agents="claude,codex"))
             self.assertEqual(mark.call_count, 2)
             self.assertEqual(dispatch.call_count, 2)
-            # Round-robin: first claude, second codex
-            self.assertEqual(
-                dispatch.call_args_list[0].kwargs["agent"], "claude"
-            )
-            self.assertEqual(
-                dispatch.call_args_list[1].kwargs["agent"], "codex"
-            )
+            # Round-robin is a property of the item index, not the iteration
+            # order: item 0 gets agent[0], item 1 gets agent[1].
+            prompts_to_agents = {
+                call.kwargs["prompt"]: call.kwargs["agent"]
+                for call in dispatch.call_args_list
+            }
+            self.assertEqual(prompts_to_agents["body A"], "claude")
+            self.assertEqual(prompts_to_agents["body B"], "codex")
 
     def test_marks_applied_in_reverse_position_order(self):
         """Later positions must be marked first so earlier edits don't shift them."""
