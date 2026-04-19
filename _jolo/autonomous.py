@@ -94,10 +94,6 @@ def _emacsclient_eval(elisp: str) -> str:
     return result.stdout
 
 
-def _elisp_escape(s: str) -> str:
-    return s.replace("\\", "\\\\").replace('"', '\\"')
-
-
 def get_autonomous_items(org_file: Path) -> list[dict]:
     """Return `[{"heading": ..., "body": ...}]` for items to dispatch.
 
@@ -109,19 +105,22 @@ def get_autonomous_items(org_file: Path) -> list[dict]:
     return parse_emacsclient_json(output)
 
 
-def mark_dispatched(org_file: Path, heading: str, timestamp: str) -> None:
-    """Set `:DISPATCHED: <timestamp>` on the given heading via emacsclient.
+def mark_dispatched(org_file: Path, position: int, timestamp: str) -> None:
+    """Set `:DISPATCHED: <timestamp>` on the entry at POSITION via emacsclient.
+
+    POSITION is an opaque buffer-offset identifier returned by the selector.
+    Using it rather than the heading text avoids mis-marking duplicate-titled
+    entries in the same file.
 
     Failures are logged but swallowed; the next autonomous sweep retries the
     item because the property didn't land.
     """
     try:
         _emacsclient_eval(
-            f'({ELISP_MARK_FN} "{org_file.resolve()}" '
-            f'"{_elisp_escape(heading)}" "{timestamp}")'
+            f'({ELISP_MARK_FN} "{org_file.resolve()}" {int(position)} "{timestamp}")'
         )
     except EmacsClientError as exc:
-        sys.stderr.write(f"mark_dispatched({heading!r}): {exc}\n")
+        sys.stderr.write(f"mark_dispatched(pos={position}): {exc}\n")
 
 
 def dispatch_item(slug: str, prompt: str, agent: str) -> bool:
@@ -188,7 +187,7 @@ def run_autonomous(args: argparse.Namespace) -> None:
         prompt = item.get("body", "").strip() or item["heading"]
         print(f"Dispatching {agent} -> {slug}")
         if dispatch_item(slug=slug, prompt=prompt, agent=agent):
-            mark_dispatched(org_file, item["heading"], ts)
+            mark_dispatched(org_file, item["position"], ts)
         else:
             sys.stderr.write(
                 f"dispatch failed for {slug}; leaving undispatched for retry\n"
