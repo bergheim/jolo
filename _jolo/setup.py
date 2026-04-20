@@ -166,6 +166,11 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     else:
         claude_cache.mkdir(parents=True)
 
+    # Claude Code only discovers skills under ~/.claude/skills. Point it at
+    # ~/.agents/skills via a relative symlink inside the cache so the container
+    # sees ~/.claude/skills -> ~/.agents/skills (bind-mounted from .jolo/skills).
+    (claude_cache / "skills").symlink_to("../.agents/skills")
+
     # .credentials.json is mounted RW directly from the host (token refreshes persist).
     # Only copy settings.json (we inject notification hooks into it).
     claude_dir = home / ".claude"
