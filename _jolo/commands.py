@@ -1705,9 +1705,9 @@ def ensure_research_repo(config: dict) -> Path:
 
     # Copy just the research skill
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
-    skill_src = templates_dir / ".agents" / "skills" / "j-research"
+    skill_src = templates_dir / "skills" / "j-research"
     if skill_src.exists():
-        skill_dst = research_home / ".agents" / "skills" / "j-research"
+        skill_dst = research_home / ".jolo" / "skills" / "j-research"
         skill_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(skill_src, skill_dst)
 

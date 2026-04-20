@@ -41,42 +41,6 @@ def _patch_json_with_jq(
     path.write_text(result.stdout)
 
 
-def _copy_tree(src: Path, dst: Path) -> None:
-    dst.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(src, dst, symlinks=False, dirs_exist_ok=True)
-
-
-def sync_agent_skill_cache(workspace_dir: Path) -> None:
-    """Build shared agent skills cache for the container.
-
-    Host ~/.agents/skills are copied first, then project .agents/skills are
-    overlaid so project-owned skills win on name collisions.
-    """
-    home = Path.home()
-    cache_root = workspace_dir / ".devcontainer" / ".agents-cache"
-    skills_dst = cache_root / "skills"
-
-    if cache_root.exists():
-        clear_directory_contents(cache_root)
-    else:
-        cache_root.mkdir(parents=True)
-    skills_dst.mkdir(parents=True, exist_ok=True)
-
-    host_skills = home / ".agents" / "skills"
-    if host_skills.is_dir():
-        try:
-            _copy_tree(host_skills, skills_dst)
-        except OSError as e:
-            print(
-                f"Warning: Failed to sync host skills from {host_skills}: {e}",
-                file=sys.stderr,
-            )
-
-    project_skills = workspace_dir / ".agents" / "skills"
-    if project_skills.exists():
-        _copy_tree(project_skills, skills_dst)
-
-
 def setup_emacs_config(workspace_dir: Path) -> None:
     """Set up Emacs config by copying to .devcontainer/.emacs-config/.
 
@@ -194,8 +158,6 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     home = Path.home()
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     mcp_templates = templates_dir / "mcp"
-
-    sync_agent_skill_cache(workspace_dir)
 
     # Claude credentials
     claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
@@ -610,7 +572,6 @@ def copy_template_files(target_dir: Path) -> None:
 
     # Copy template directories (skills, agent config, docs)
     template_dirs = [
-        ".agents",
         ".claude",
         ".codex",
         ".gemini",
@@ -627,6 +588,8 @@ def copy_template_files(target_dir: Path) -> None:
                 shutil.rmtree(dst)
             shutil.copytree(src, dst, symlinks=True)
             verbose_print(f"Copied template dir: {dirname}/")
+
+    sync_skill_templates(target_dir)
 
 
 def ensure_test_gate_script(target_dir: Path) -> None:
@@ -735,17 +698,17 @@ def sync_devcontainer(
 
 
 def sync_skill_templates(target_dir: Path) -> None:
-    """Sync template skills into an existing project.
+    """Sync template skills into a project's .jolo/skills/.
 
-    Copies each skill directory from templates/.agents/skills into
-    .agents/skills, overwriting matching skills and removing stale ones.
+    Overwrites template-named skill dirs; leaves unrelated project-owned
+    skills alone so custom skills survive --recreate.
     """
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
-    skills_src = templates_dir / ".agents" / "skills"
+    skills_src = templates_dir / "skills"
     if not skills_src.exists():
         return
 
-    skills_dst = target_dir / ".agents" / "skills"
+    skills_dst = target_dir / ".jolo" / "skills"
     skills_dst.mkdir(parents=True, exist_ok=True)
 
     if skills_dst.resolve() == skills_src.resolve():
@@ -760,14 +723,6 @@ def sync_skill_templates(target_dir: Path) -> None:
             shutil.rmtree(dst)
         shutil.copytree(entry, dst, symlinks=True)
         verbose_print(f"Synced skill: {entry.name}")
-
-    # Remove legacy per-agent skill symlinks created by older jolo versions.
-    # Agents now discover skills via ~/.agents/skills/ only.
-    for agent_dir in [".claude", ".codex", ".gemini", ".pi"]:
-        link_path = target_dir / agent_dir / "skills"
-        if link_path.is_symlink():
-            link_path.unlink()
-            verbose_print(f"Removed legacy symlink: {agent_dir}/skills")
 
 
 def get_secrets(config: dict | None = None) -> dict[str, str]:

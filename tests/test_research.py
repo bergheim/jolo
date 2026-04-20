@@ -185,7 +185,7 @@ class TestEnsureResearchRepo(unittest.TestCase):
 
         jolo.ensure_research_repo(config)
 
-        skill_dir = research_home / ".agents" / "skills" / "j-research"
+        skill_dir = research_home / ".jolo" / "skills" / "j-research"
         self.assertTrue(skill_dir.exists())
 
 

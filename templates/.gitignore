@@ -515,7 +515,6 @@ mlruns/
 .devcontainer/.histfile
 .devcontainer/.zsh-state/
 .devcontainer/.pgdata/
-.devcontainer/.agents-cache/
 .devcontainer/.agent-prompt
 .devcontainer/.agent-name
 .devcontainer/.last-attach

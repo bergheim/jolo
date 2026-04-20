@@ -85,7 +85,7 @@ class TestTemplateSystem(unittest.TestCase):
     def test_sync_skill_templates_keeps_extra_project_skills(self):
         """Sync should overwrite template skills without deleting extras."""
         project_dir = Path(self.tmpdir)
-        skills_dir = project_dir / ".agents" / "skills"
+        skills_dir = project_dir / ".jolo" / "skills"
         skills_dir.mkdir(parents=True)
 
         extra_skill = skills_dir / "custom-skill"
@@ -106,7 +106,6 @@ class TestTemplateSystem(unittest.TestCase):
         template_skill_src = (
             Path(__file__).resolve().parent.parent
             / "templates"
-            / ".agents"
             / "skills"
             / "j-browser-verify"
             / "SKILL.md"
@@ -128,7 +127,7 @@ class TestTemplateSystem(unittest.TestCase):
         self.assertIn("Would I want this loaded at session start", agents)
 
         skill_file = (
-            project_dir / ".agents" / "skills" / "j-note-stash" / "SKILL.md"
+            project_dir / ".jolo" / "skills" / "j-note-stash" / "SKILL.md"
         )
         self.assertTrue(skill_file.exists())
         self.assertIn("name: j-note-stash", skill_file.read_text())

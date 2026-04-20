@@ -198,7 +198,7 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.claude/statsig,target=/home/${localEnv:USER}/.claude/statsig,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/plugins,target=/home/${localEnv:USER}/.claude/plugins,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/.agents-cache,target=/home/${localEnv:USER}/.agents,type=bind",
+    "source=${localWorkspaceFolder}/.jolo/skills,target=/home/${localEnv:USER}/.agents/skills,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.pi-cache,target=/home/${localEnv:USER}/.pi,type=bind",
