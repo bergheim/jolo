@@ -32,6 +32,50 @@ Safe to call from `emacsclient --eval' — never prompts interactively."
           (save-buffer)))))
   t)
 
+(defun bergheim/agent-org-add-tag (file heading-re tag)
+  "Add TAG to the first heading matching HEADING-RE in FILE.
+TAG may be a string or a list of strings. Idempotent: no-op when the
+tag is already present. Saves only when tags actually change.
+Safe to call from `emacsclient --eval' — never prompts interactively."
+  (with-current-buffer (find-file-noselect file t)
+    (let ((auto-revert-mode nil)
+          (super-save-mode nil)
+          (new-tags (if (listp tag) tag (list tag))))
+      (revert-buffer t t)
+      (goto-char (point-min))
+      (unless (re-search-forward heading-re nil t)
+        (error "Heading not found: %s" heading-re))
+      (org-back-to-heading t)
+      (let* ((current (org-get-tags nil t))
+             (merged (cl-remove-duplicates
+                      (append current new-tags)
+                      :test #'string=)))
+        (unless (equal (sort (copy-sequence current) #'string<)
+                       (sort (copy-sequence merged) #'string<))
+          (org-set-tags merged)
+          (save-buffer)))))
+  t)
+
+(defun bergheim/agent-org-remove-tag (file heading-re tag)
+  "Remove TAG from the first heading matching HEADING-RE in FILE.
+TAG may be a string or a list of strings. Idempotent: no-op when the
+tag is absent. Safe to call from `emacsclient --eval'."
+  (with-current-buffer (find-file-noselect file t)
+    (let ((auto-revert-mode nil)
+          (super-save-mode nil)
+          (drop-tags (if (listp tag) tag (list tag))))
+      (revert-buffer t t)
+      (goto-char (point-min))
+      (unless (re-search-forward heading-re nil t)
+        (error "Heading not found: %s" heading-re))
+      (org-back-to-heading t)
+      (let* ((current (org-get-tags nil t))
+             (kept (cl-set-difference current drop-tags :test #'string=)))
+        (unless (equal (length current) (length kept))
+          (org-set-tags kept)
+          (save-buffer)))))
+  t)
+
 ;;; Denote-compatible agent helpers
 ;; Create/find/list/read follow denote's filename convention without requiring
 ;; denote.el. Linking requires denote.el for proper [[denote:ID]] links.
