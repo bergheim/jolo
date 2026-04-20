@@ -750,33 +750,16 @@ def sync_skill_templates(target_dir: Path) -> None:
 
     if skills_dst.resolve() == skills_src.resolve():
         verbose_print("Skills dst is symlinked to src, skipping sync")
-    else:
-        for entry in skills_src.iterdir():
-            if not entry.is_dir():
-                continue
-            dst = skills_dst / entry.name
-            if dst.exists():
-                shutil.rmtree(dst)
-            shutil.copytree(entry, dst, symlinks=True)
-            verbose_print(f"Synced skill: {entry.name}")
+        return
 
-    desired_target = "../.agents/skills"
-    for agent_dir in [".claude", ".codex", ".gemini", ".pi"]:
-        link_dir = target_dir / agent_dir
-        link_dir.mkdir(parents=True, exist_ok=True)
-        link_path = link_dir / "skills"
-        if link_path.is_symlink():
-            if os.readlink(link_path) == desired_target:
-                continue
-            link_path.unlink()
-        elif link_path.exists():
-            if link_path.is_dir():
-                shutil.rmtree(link_path)
-            else:
-                link_path.unlink()
-
-        os.symlink(desired_target, link_path)
-        verbose_print(f"Updated {agent_dir}/skills symlink")
+    for entry in skills_src.iterdir():
+        if not entry.is_dir():
+            continue
+        dst = skills_dst / entry.name
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(entry, dst, symlinks=True)
+        verbose_print(f"Synced skill: {entry.name}")
 
 
 def get_secrets(config: dict | None = None) -> dict[str, str]:
