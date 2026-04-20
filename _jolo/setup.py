@@ -698,11 +698,7 @@ def sync_devcontainer(
 
 
 def sync_skill_templates(target_dir: Path) -> None:
-    """Sync template skills into a project's .jolo/skills/.
-
-    Overwrites template-named skill dirs; leaves unrelated project-owned
-    skills alone so custom skills survive --recreate.
-    """
+    """cp -rf templates/skills/. <target>/.jolo/skills/ — preserves custom skills."""
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     skills_src = templates_dir / "skills"
     if not skills_src.exists():
@@ -712,16 +708,13 @@ def sync_skill_templates(target_dir: Path) -> None:
     skills_dst.mkdir(parents=True, exist_ok=True)
 
     if skills_dst.resolve() == skills_src.resolve():
-        verbose_print("Skills dst is symlinked to src, skipping sync")
         return
 
     for entry in skills_src.iterdir():
         if not entry.is_dir():
             continue
         dst = skills_dst / entry.name
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(entry, dst, symlinks=True)
+        shutil.copytree(entry, dst, symlinks=True, dirs_exist_ok=True)
         verbose_print(f"Synced skill: {entry.name}")
 
 
