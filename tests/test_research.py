@@ -240,7 +240,7 @@ class TestResearchMode(unittest.TestCase):
         self.assertEqual(call_args[0], research_home)
         exec_cmd = call_args[1]
         self.assertIn("2026-02-11-1430-what-is-an-apple.org", exec_cmd)
-        self.assertIn("/research", exec_cmd)
+        self.assertIn("/j-research", exec_cmd)
         self.assertIn("what is an apple", exec_cmd)
         self.assertIn("nohup", exec_cmd)
         self.assertIn("--dangerously-skip-permissions", exec_cmd)
