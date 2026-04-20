@@ -54,3 +54,21 @@ uv.lock
 
 # Claude Code transient state
 .claude/scheduled_tasks.lock
+
+# Agent memory and project notes — kept local, never tracked.
+# Scrubbed from history 2026-04-20; see commit 41b3d1e and earlier.
+# If these reappear in a commit, audit before allowing.
+.claude/MEMORY.md
+.codex/MEMORY.md
+.gemini/MEMORY.md
+.pi/MEMORY.md
+docs/MEMORY.org
+docs/TODO.org
+docs/RESEARCH.org
+docs/TROUBLESHOOTING.org
+docs/ARCHIVE.org
+docs/notes/
+docs/research/
+docs/superpowers/
+docs/2026-*.org
+docs/2027-*.org
