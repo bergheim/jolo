@@ -59,6 +59,7 @@ def build_devcontainer_json(
         "remoteUser": remote_user,
         "updateRemoteUserUID": False,
         "userEnvProbe": "none",
+        "postStartCommand": "ln -sfn $HOME/.agents/skills $HOME/.claude/skills",
         "runArgs": [
             "--hostname",
             project_name,
