@@ -1705,9 +1705,9 @@ def ensure_research_repo(config: dict) -> Path:
 
     # Copy just the research skill
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
-    skill_src = templates_dir / ".agents" / "skills" / "research"
+    skill_src = templates_dir / "skills" / "j-research"
     if skill_src.exists():
-        skill_dst = research_home / ".agents" / "skills" / "research"
+        skill_dst = research_home / ".jolo" / "skills" / "j-research"
         skill_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(skill_src, skill_dst)
 
@@ -1804,7 +1804,7 @@ def run_research_mode(args: argparse.Namespace) -> None:
 
     filename = f"{ts}-{slug}.org"
     agent_prompt = (
-        f"/research Write findings to {filename}. Question: {prompt}"
+        f"/j-research Write findings to {filename}. Question: {prompt}"
     )
     logfile = f"/tmp/research-{slug}.log"
     exec_cmd = _build_research_agent_cmd(
@@ -1831,8 +1831,8 @@ def _run_research_deep(
     log_b = f"/tmp/research-{slug}-codex.log"
     log_synth = f"/tmp/research-{slug}-synthesis.log"
 
-    prompt_a = f"/research Write findings to {file_a}. Question: {prompt}"
-    prompt_b = f"/research Write findings to {file_b}. Question: {prompt}"
+    prompt_a = f"/j-research Write findings to {file_a}. Question: {prompt}"
+    prompt_b = f"/j-research Write findings to {file_b}. Question: {prompt}"
 
     cmd_a = get_agent_command(config, "claude")
     cmd_b = get_agent_command(config, "codex")
