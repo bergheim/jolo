@@ -2,7 +2,7 @@
 set -e
 SESSION="dev"
 
-tmux set-option -g window-size largest 2>/dev/null || true
+tmux set-option -g window-size latest 2>/dev/null || true
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     exec tmux attach-session -t "$SESSION"
