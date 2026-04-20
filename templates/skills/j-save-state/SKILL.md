@@ -47,11 +47,35 @@ create a new note referencing the original.
 - Mark completed tasks as `DONE` using `bergheim/agent-org-set-state`
 - Update existing task notes with new information
 
-### 3. Agent-private memory (for you only)
+### 3. Agent-private memory — usually skip this
 
-Only put things here that are specific to YOUR workflow — mistake patterns,
-personal preferences, agent-specific quirks. Everything about the project goes
-in denote notes.
+**Default: do not write here.** Fragmented memory is worse than no memory.
+Project knowledge in your private file is invisible to the other agents and
+duplicates what belongs in denote notes.
+
+Filter test: *"If Gemini / Codex / Pi ran into this tomorrow, would it help
+them?"* If yes → denote note. Not private memory.
+
+**Belongs in denote notes (NOT here):**
+- Codebase quirks, file layouts, how a subsystem works
+- Patterns, conventions, naming rules
+- Gotchas that trip anyone working in the repo
+- Session context / "what shipped today" / running diaries
+- Decisions and their rationale
+- User preferences about the project or workflow
+
+**Belongs here (rare):**
+- Your own mistake patterns — "I over-architect when X; stop and ask first"
+- Tool-use quirks specific to your runtime — "Grep misses `_jolo/*.py`, fall back to bash grep"
+- Model-specific behavior — things another model wouldn't experience
+
+If you can't write the entry as "I tend to…" or "my tool X does…", it is not
+personal memory. Route it to a denote note.
+
+Do not use the running-log format (`2026-04-XX: …` dated entries). That pattern
+is almost always project history masquerading as personal memory.
+
+Files (only if the above filter passes):
 
 - **Claude**: `.claude/MEMORY.md`
 - **Gemini**: `.gemini/MEMORY.md`
