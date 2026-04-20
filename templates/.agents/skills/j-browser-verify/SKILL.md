@@ -1,9 +1,9 @@
 ---
-name: j:browser-verify
+name: j-browser-verify
 description: Verify a local web app is running and provide reproducible evidence using browser-check and optional Playwright screenshot capture.
 ---
 
-# /j:browser-verify
+# /j-browser-verify
 
 Use this skill when the user asks to check if the site is running, verify browser tooling, or collect browser evidence.
 

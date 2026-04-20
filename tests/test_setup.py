@@ -92,7 +92,7 @@ class TestTemplateSystem(unittest.TestCase):
         extra_skill.mkdir()
         (extra_skill / "SKILL.md").write_text("custom project skill\n")
 
-        template_skill = skills_dir / "browser-verify"
+        template_skill = skills_dir / "j-browser-verify"
         template_skill.mkdir()
         (template_skill / "SKILL.md").write_text("stale template copy\n")
 
@@ -108,7 +108,7 @@ class TestTemplateSystem(unittest.TestCase):
             / "templates"
             / ".agents"
             / "skills"
-            / "browser-verify"
+            / "j-browser-verify"
             / "SKILL.md"
         )
         self.assertEqual(
@@ -128,10 +128,10 @@ class TestTemplateSystem(unittest.TestCase):
         self.assertIn("Would I want this loaded at session start", agents)
 
         skill_file = (
-            project_dir / ".agents" / "skills" / "note-stash" / "SKILL.md"
+            project_dir / ".agents" / "skills" / "j-note-stash" / "SKILL.md"
         )
         self.assertTrue(skill_file.exists())
-        self.assertIn("name: j:note-stash", skill_file.read_text())
+        self.assertIn("name: j-note-stash", skill_file.read_text())
 
 
 class TestSecretsManagement(unittest.TestCase):

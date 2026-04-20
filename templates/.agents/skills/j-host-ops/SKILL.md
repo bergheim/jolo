@@ -1,9 +1,9 @@
 ---
-name: j:host-ops
+name: j-host-ops
 description: Plan and guide host-machine operations that must be run manually outside this devcontainer. Use when the task targets local/remote hosts (not the current workspace container), especially SSH/mosh/tmux/terminal/network setup.
 ---
 
-# /j:host-ops
+# /j-host-ops
 
 Use this skill when work must happen on real hosts instead of inside this container.
 

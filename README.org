@@ -12,7 +12,7 @@ Alpine Linux container with Emacs, agents (Claude, Gemini, Codex, Pi) without pe
 
 Each ~jolo up~ invocation gets an isolated container with its own (permanent) port, shell history, and AI credentials. Every container starts a 7-window tmux session: Emacs, Claude, Codex, Gemini, Pi, dev, and a shell.
 
-All agents share the same skills and project memory (~docs/~). Skills are namespaced with ~j:~ for quick invocation (e.g. ~/j:next~, ~/j:review~). Agents get push notifications via ntfy when they finish, with buttons that link to the commit, PR, or the running app depending on context.
+All agents share the same skills and project memory (~docs/~). Skills are namespaced with ~j-~ for quick invocation (e.g. ~/j-next~, ~/j-review~). Agents get push notifications via ntfy when they finish, with buttons that link to the commit, PR, or the running app depending on context.
 
 ~spawn~ mode fans out N worktrees with agents round-robin through Claude, Gemini, Codex, and Pi. Each gets a unique ~$PORT~ (4000, 4001, ...). Ports 4000-5000 are forwarded to the host.
 

@@ -1,9 +1,9 @@
 ---
-name: j:research
+name: j-research
 description: Web research workflow that collects sources and summarizes findings into an org file. Use when the user asks to research a topic, compare sources, or gather references.
 ---
 
-# /j:research
+# /j-research
 
 ## Overview
 

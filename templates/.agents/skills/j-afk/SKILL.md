@@ -1,9 +1,9 @@
 ---
-name: j:afk
+name: j-afk
 description: Work autonomously while the user is away. Create multiple feature branches sequentially, each with a self-contained improvement.
 ---
 
-# /j:afk
+# /j-afk
 
 Work autonomously while the user is away. Create multiple feature branches sequentially, each with a self-contained improvement.
 
@@ -69,8 +69,8 @@ Work autonomously while the user is away. Create multiple feature branches seque
 ## Example Usage
 
 ```
-/j:afk
-/j:afk 3
-/j:afk 5 --prefix experiment
-/j:afk 3 --from develop
+/j-afk
+/j-afk 3
+/j-afk 5 --prefix experiment
+/j-afk 3 --from develop
 ```

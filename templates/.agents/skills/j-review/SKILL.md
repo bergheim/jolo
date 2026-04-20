@@ -1,9 +1,9 @@
 ---
-name: j:review
+name: j-review
 description: Run pragmatic tests first, then get a second-opinion code review from another AI agent (claude, gemini, or codex) using the current git diff. Use when you want a fresh, correctness-focused review without heavy setup.
 ---
 
-# /j:review
+# /j-review
 
 Run pragmatic tests and then get a code review from a different AI agent for a fresh perspective.
 

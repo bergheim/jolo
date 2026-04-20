@@ -1,9 +1,9 @@
 ---
-name: j:feature-workflow
+name: j-feature-workflow
 description: "Structured workflow for feature-sized or risky changes: short intake questions, create a branch, use TDD where applicable, commit frequently, get an external agent review, fix issues, then get a second external review and optionally open a PR. Use when the user says a task is big, multi-step, high-risk, or explicitly wants TDD, frequent commits, or multi-agent review."
 ---
 
-# /j:feature-workflow
+# /j-feature-workflow
 
 ## Overview
 

@@ -1,9 +1,9 @@
 ---
-name: j:note-stash
+name: j-note-stash
 description: Use when the user explicitly wants to save a cross-project lesson, incident, convention, or gotcha to the shared stash denote notes.
 ---
 
-# /j:note-stash
+# /j-note-stash
 
 Write a shared denote note to `/workspaces/stash/notes` for knowledge that
 should survive across repos and host-level workflow.
@@ -15,7 +15,7 @@ should survive across repos and host-level workflow.
 Expected usage:
 
 ```text
-/j:note-stash firebase incident in open webui tool verification
+/j-note-stash firebase incident in open webui tool verification
 ```
 
 If the user does not provide freeform trailing text, stop and ask what should
