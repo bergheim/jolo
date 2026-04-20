@@ -761,6 +761,14 @@ def sync_skill_templates(target_dir: Path) -> None:
         shutil.copytree(entry, dst, symlinks=True)
         verbose_print(f"Synced skill: {entry.name}")
 
+    # Remove legacy per-agent skill symlinks created by older jolo versions.
+    # Agents now discover skills via ~/.agents/skills/ only.
+    for agent_dir in [".claude", ".codex", ".gemini", ".pi"]:
+        link_path = target_dir / agent_dir / "skills"
+        if link_path.is_symlink():
+            link_path.unlink()
+            verbose_print(f"Removed legacy symlink: {agent_dir}/skills")
+
 
 def get_secrets(config: dict | None = None) -> dict[str, str]:
     """Get API secrets from pass or environment variables."""
