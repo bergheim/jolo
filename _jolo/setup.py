@@ -833,7 +833,7 @@ def _host_skill_sources(home: Path) -> list[Path]:
 
     claude_plugin_cache = home / ".claude" / "plugins" / "cache"
     if claude_plugin_cache.exists():
-        sources.extend(claude_plugin_cache.glob("*/*/skills"))
+        sources.extend(claude_plugin_cache.glob("*/*/*/skills"))
 
     return sources
 
