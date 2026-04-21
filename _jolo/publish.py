@@ -342,7 +342,21 @@ def update_outer_gitignore(git_root: Path) -> None:
 
 
 def commit_outer(git_root: Path, *, scrubbed: bool) -> None:
-    subprocess.run(["git", "-C", str(git_root), "add", "-A"], check=True)
+    # Stage explicit paths rather than `git add -A`. Once docs/ is both
+    # gitignored and has a nested .git dir, `add -A` is safe in theory
+    # (gitignore blocks recursion) but relies on two rules aligning — any
+    # bug there and we could end up adding docs as a submodule pointer or
+    # re-staging private files. Explicit is cheap and auditable.
+    subprocess.run(
+        ["git", "-C", str(git_root), "add", ".gitignore"], check=True
+    )
+    # Pick up tracked-file deletions (notably docs/PROJECT.org removed by
+    # the move) and modifications. `-u` does not add new untracked files.
+    subprocess.run(["git", "-C", str(git_root), "add", "-u"], check=True)
+    if (git_root / "PROJECT.org").exists():
+        subprocess.run(
+            ["git", "-C", str(git_root), "add", "PROJECT.org"], check=True
+        )
     diff = subprocess.run(
         ["git", "-C", str(git_root), "diff", "--cached", "--quiet"]
     )
