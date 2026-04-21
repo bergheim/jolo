@@ -17,7 +17,8 @@
 
 (defmacro test-agent-helpers--with-file (body-string &rest body)
   "Create a temp org file containing BODY-STRING (prefixed with the keyword
-header), bind its path to `test-file', kill its buffer afterward."
+header), bind its path to `test-file', clock out any running clock, and
+kill the buffer afterward."
   (declare (indent 1))
   `(let* ((test-file (make-temp-file "agent-helpers-test-" nil ".org"))
           (inhibit-message t))
@@ -27,6 +28,11 @@ header), bind its path to `test-file', kill its buffer afterward."
              (insert test-agent-helpers--keyword-header)
              (insert ,body-string))
            ,@body)
+       ;; Clock-in/out tests may leave an active clock — close it so the
+       ;; buffer-kill below does not trigger org's "Save clock?" machinery
+       ;; which prompts on stdin and errors out in batch mode.
+       (when (and (fboundp 'org-clocking-p) (org-clocking-p))
+         (ignore-errors (org-clock-out nil t)))
        (dolist (buf (buffer-list))
          (when (and (buffer-file-name buf)
                     (string= (file-truename (buffer-file-name buf))
@@ -142,6 +148,36 @@ header), bind its path to `test-file', kill its buffer afterward."
     (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "BLOCKED")
     (should (string-match-p "^\\* BLOCKED Foo"
                             (test-agent-helpers--contents test-file)))))
+
+;; ----------------------------------------------------------------------------
+;; New: clock integration
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/clock-in-on-inprogress ()
+  "`set-state' with CLOCK starts an org-clock when transitioning to INPROGRESS."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
+    (let ((contents (test-agent-helpers--contents test-file)))
+      (should (string-match-p "^\\* INPROGRESS Foo" contents))
+      (should (string-match-p ":LOGBOOK:" contents))
+      (should (string-match-p "CLOCK:" contents)))))
+
+(ert-deftest agent-helpers/clock-out-on-done ()
+  "`set-state' with CLOCK closes an open clock when transitioning to DONE."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
+    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE" nil nil t)
+    (let ((contents (test-agent-helpers--contents test-file)))
+      (should (string-match-p "^\\* DONE Foo" contents))
+      ;; A closed clock line has the form `CLOCK: [...]--[...] => H:MM'.
+      (should (string-match-p "CLOCK:.*=>" contents)))))
+
+(ert-deftest agent-helpers/no-clock-when-disabled ()
+  "Without CLOCK arg, no clock entries are produced."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+    (should-not (string-match-p "CLOCK:"
+                                (test-agent-helpers--contents test-file)))))
 
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here

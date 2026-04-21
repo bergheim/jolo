@@ -3,6 +3,7 @@
 (require 'cl-lib)
 (require 'json)
 (require 'org)
+(require 'org-clock)
 (require 'org-id)
 
 ;;; Internal file/buffer lifecycle
