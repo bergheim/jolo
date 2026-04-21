@@ -129,6 +129,7 @@ def run_publish_mode(args) -> None:
             restore_docs(backup_dir, docs_dir)
 
     move_project_org(docs_dir, git_root)
+    untrack_docs_from_outer(git_root)
     init_notes_repo(docs_dir)
     update_outer_gitignore(git_root)
     commit_outer(git_root, scrubbed=args.scrub)
@@ -273,6 +274,19 @@ def init_notes_repo(docs_dir: Path) -> None:
     subprocess.run(
         ["git", "-C", str(docs_dir), "init", "-q", "-b", "main"], check=True
     )
+    # The nested repo inherits no config from the outer repo. Force signing
+    # off here because we generate the initial commit unattended; a user
+    # with global commit.gpgsign=true would otherwise see an interactive
+    # prompt or a signing failure. Users who want signing on their notes
+    # repo can re-enable it after the fact.
+    subprocess.run(
+        ["git", "-C", str(docs_dir), "config", "commit.gpgsign", "false"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(docs_dir), "config", "tag.gpgsign", "false"],
+        check=True,
+    )
     subprocess.run(["git", "-C", str(docs_dir), "add", "-A"], check=True)
     subprocess.run(
         [
@@ -283,6 +297,31 @@ def init_notes_repo(docs_dir: Path) -> None:
             "-q",
             "-m",
             "initial notes snapshot",
+        ],
+        check=True,
+    )
+
+
+def untrack_docs_from_outer(git_root: Path) -> None:
+    """Remove any previously-tracked docs/* paths from the outer index.
+
+    `.gitignore` does not untrack already-tracked files. Without this step,
+    a project whose docs/ used to be tracked would keep those files in the
+    outer history after publish — exactly the leak the flip is meant to
+    prevent. `--ignore-unmatch` makes this a no-op if nothing under docs/
+    is currently indexed.
+    """
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(git_root),
+            "rm",
+            "-r",
+            "--cached",
+            "--quiet",
+            "--ignore-unmatch",
+            "docs/",
         ],
         check=True,
     )

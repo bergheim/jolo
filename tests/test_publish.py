@@ -133,15 +133,47 @@ class TestHelpers(unittest.TestCase):
                 "GIT_AUTHOR_EMAIL": "t@example.com",
                 "GIT_COMMITTER_NAME": "Test",
                 "GIT_COMMITTER_EMAIL": "t@example.com",
-                "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "commit.gpgsign",
-                "GIT_CONFIG_VALUE_0": "false",
             }
             with mock.patch.dict(os.environ, env_overrides, clear=False):
                 publish.init_notes_repo(docs)
             self.assertTrue((docs / ".git").is_dir())
             log = _run(["git", "log", "--pretty=%s"], cwd=docs).stdout.strip()
             self.assertEqual(log, "initial notes snapshot")
+            # init_notes_repo must force signing off so it never prompts or
+            # fails under users with commit.gpgsign=true globally.
+            gpg = _run(
+                ["git", "-C", str(docs), "config", "commit.gpgsign"]
+            ).stdout.strip()
+            self.assertEqual(gpg, "false")
+
+    def test_untrack_docs_from_outer_removes_tracked(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _make_outer_repo(root)
+            docs = root / "docs"
+            docs.mkdir()
+            (docs / "TODO.org").write_text("* TODO\n")
+            (docs / "MEMORY.org").write_text("* notes\n")
+            _run(["git", "add", "docs/"], cwd=root)
+            _run(["git", "commit", "-q", "-m", "add docs"], cwd=root)
+
+            publish.untrack_docs_from_outer(root)
+
+            # Files still exist on disk.
+            self.assertTrue((docs / "TODO.org").exists())
+            self.assertTrue((docs / "MEMORY.org").exists())
+            # But the outer index no longer tracks them — ls-files shows none.
+            tracked = _run(
+                ["git", "ls-files", "docs/"], cwd=root
+            ).stdout.strip()
+            self.assertEqual(tracked, "")
+
+    def test_untrack_docs_from_outer_noop_when_not_tracked(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _make_outer_repo(root)
+            # docs/ does not exist yet — command must not error.
+            publish.untrack_docs_from_outer(root)
 
 
 class TestPublishSmoke(unittest.TestCase):
@@ -161,13 +193,15 @@ class TestPublishSmoke(unittest.TestCase):
             # Run publish in the temp root. Simulate `jolo publish --yes`.
             args = jolo.parse_args(["publish", "--yes"])
             old_cwd = Path.cwd()
+            env_overrides = {
+                "GIT_AUTHOR_NAME": "Test",
+                "GIT_AUTHOR_EMAIL": "t@example.com",
+                "GIT_COMMITTER_NAME": "Test",
+                "GIT_COMMITTER_EMAIL": "t@example.com",
+            }
             try:
                 os.chdir(root)
-                # init_notes_repo runs git without overriding commit.gpgsign.
-                # Mirror what the fixture did globally for this test only.
-                with mock.patch.object(
-                    publish, "init_notes_repo", _init_notes_repo_unsigned
-                ):
+                with mock.patch.dict(os.environ, env_overrides, clear=False):
                     publish.run_publish_mode(args)
             finally:
                 os.chdir(old_cwd)
@@ -185,35 +219,12 @@ class TestPublishSmoke(unittest.TestCase):
                 ["git", "log", "-1", "--pretty=%s"], cwd=root
             ).stdout.strip()
             self.assertIn("public-notes mode", last)
-
-
-def _init_notes_repo_unsigned(docs_dir: Path) -> None:
-    """Test helper: same as publish.init_notes_repo but disables signing."""
-    _run(["git", "-C", str(docs_dir), "init", "-q", "-b", "main"])
-    _run(["git", "-C", str(docs_dir), "config", "user.email", "t@example.com"])
-    _run(["git", "-C", str(docs_dir), "config", "user.name", "Test"])
-    _run(
-        [
-            "git",
-            "-C",
-            str(docs_dir),
-            "config",
-            "commit.gpgsign",
-            "false",
-        ]
-    )
-    _run(["git", "-C", str(docs_dir), "add", "-A"])
-    _run(
-        [
-            "git",
-            "-C",
-            str(docs_dir),
-            "commit",
-            "-q",
-            "-m",
-            "initial notes snapshot",
-        ]
-    )
+            # Outer repo must NOT track anything under docs/ anymore — this
+            # is the leak guard from review 1.
+            outer_tracked = _run(
+                ["git", "ls-files", "docs/"], cwd=root
+            ).stdout.strip()
+            self.assertEqual(outer_tracked, "")
 
 
 if __name__ == "__main__":
