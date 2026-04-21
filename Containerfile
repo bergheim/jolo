@@ -168,6 +168,7 @@ RUN pnpm add -g \
     @openai/codex \
     @google/gemini-cli \
     @mariozechner/pi-coding-agent \
+    pi-acp \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
