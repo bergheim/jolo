@@ -17,10 +17,12 @@ from _jolo.container import build_devcontainer_json
 
 DEFAULT_CODEX_REASONING_EFFORT = "high"
 PI_LLAMA_PROVIDER = "llama"
+PI_LLAMA_CONTEXT_WINDOW = 32768
+PI_LLAMA_MAX_TOKENS = 8192
 PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
     "qwen3-coder-next",
-    "qwen3.6",
     "qwen3-coder",
+    "qwen3.6",
     "qwen3.6-small",
     "qwen3.5",
 ]
@@ -445,8 +447,8 @@ def _write_pi_llama_config(pi_cache: Path, llama_host: str) -> None:
                 "name": f"{model_id} (llama.cpp)",
                 "reasoning": False,
                 "input": ["text"],
-                "contextWindow": 262144,
-                "maxTokens": 16384,
+                "contextWindow": PI_LLAMA_CONTEXT_WINDOW,
+                "maxTokens": PI_LLAMA_MAX_TOKENS,
                 "cost": {
                     "input": 0,
                     "output": 0,

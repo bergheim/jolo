@@ -748,12 +748,14 @@ class TestPiLlamaConfig(unittest.TestCase):
             [model["id"] for model in provider["models"]],
             ["qwen3-coder", "qwen3.6", "gemma4"],
         )
+        self.assertEqual(provider["models"][0]["contextWindow"], 32768)
+        self.assertEqual(provider["models"][0]["maxTokens"], 8192)
 
         settings = json.loads(
             (pi_cache / "agent" / "settings.json").read_text()
         )
         self.assertEqual(settings["defaultProvider"], "llama")
-        self.assertEqual(settings["defaultModel"], "qwen3.6")
+        self.assertEqual(settings["defaultModel"], "qwen3-coder")
 
     def test_preserves_existing_pi_models_json_providers(self):
         """Should merge the llama provider without deleting existing providers."""
