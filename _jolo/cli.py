@@ -638,6 +638,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Also remove project directories from disk",
     )
 
+    # publish: scrub, dry-run, yes, verbose
+    sub_publish = subparsers.add_parser(
+        "publish",
+        parents=[p_verbose, p_yes],
+        help="Flip project to public-notes mode (docs/ as nested private repo)",
+    )
+    sub_publish.add_argument(
+        "--scrub",
+        action="store_true",
+        help="Also run git-filter-repo to remove memory/notes from history (destructive)",
+    )
+    sub_publish.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the plan without making changes",
+    )
+
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
 

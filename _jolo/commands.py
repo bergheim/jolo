@@ -2162,6 +2162,12 @@ def main(argv: list[str] | None = None) -> None:
         run_autonomous(args)
         return
 
+    if cmd == "publish":
+        from _jolo.publish import run_publish_mode
+
+        run_publish_mode(args)
+        return
+
     # No subcommand — show help
     if cmd is None:
         args._parser.print_help()
