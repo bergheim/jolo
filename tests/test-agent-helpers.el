@@ -268,6 +268,8 @@ host git config."
              (call-process "git" nil nil nil "init" "-q" "-b" "main")
              (call-process "git" nil nil nil "config" "user.email" "t@example.com")
              (call-process "git" nil nil nil "config" "user.name" "Test")
+             (call-process "git" nil nil nil "config" "commit.gpgsign" "false")
+             (call-process "git" nil nil nil "config" "tag.gpgsign" "false")
              (call-process "git" nil nil nil "commit" "-q" "--allow-empty" "-m" "init"))
            ,@body)
        (delete-directory project t))))

@@ -29,18 +29,44 @@ nested `.git' subdir."
         (setq dir (unless (string= parent dir) parent))))
     found))
 
+(defun bergheim/agent-notes--async-push (root)
+  "Fire `git -C ROOT push' in the background; log failures via `message'.
+Async so a stalled remote never blocks a helper call."
+  (let ((proc (start-process "agent-notes-push"
+                             (get-buffer-create " *agent-notes-push*")
+                             "git" "-C" root "push")))
+    (set-process-sentinel
+     proc
+     (lambda (p event)
+       (unless (zerop (process-exit-status p))
+         (message "agent-notes: git push failed: %s" (string-trim event)))))))
+
 (defun bergheim/agent-notes--maybe-commit (file message)
-  "If FILE lives under a public-notes `docs/' repo, stage+commit+push.
-MESSAGE is the commit subject. No-op when no public-notes repo is found
-or when there are no staged changes. Push failures are swallowed so a
-broken network never fails the calling helper."
+  "If FILE lives under a public-notes `docs/' repo, stage and commit with
+MESSAGE, then fire `git push' in the background. Failures from `git add'
+or `git commit' are surfaced via `message' without signaling an error,
+so the calling helper's already-completed org edit is not rolled back.
+`git diff --cached --quiet' exit codes: 0 = nothing staged (no-op),
+1 = staged changes (commit), >1 = error (logged, no commit)."
   (when-let* ((root (bergheim/agent-notes--repo-root file)))
-    (let ((default-directory (file-name-as-directory root)))
-      (call-process "git" nil nil nil "add" "-A")
-      (when (= 1 (call-process "git" nil nil nil "diff" "--cached" "--quiet"))
-        (call-process "git" nil nil nil "commit" "-m" message)
-        (ignore-errors
-          (call-process "git" nil nil nil "push"))))))
+    (let* ((default-directory (file-name-as-directory root))
+           (add-rc (call-process "git" nil nil nil "add" "-A")))
+      (cond
+       ((not (zerop add-rc))
+        (message "agent-notes: git add -A failed (exit %d) in %s" add-rc root))
+       (t
+        (let ((diff-rc (call-process "git" nil nil nil "diff" "--cached" "--quiet")))
+          (cond
+           ((zerop diff-rc) nil) ;; Nothing staged.
+           ((= diff-rc 1)
+            (let ((commit-rc (call-process "git" nil nil nil "commit" "-m" message)))
+              (if (zerop commit-rc)
+                  (bergheim/agent-notes--async-push root)
+                (message "agent-notes: git commit failed (exit %d) in %s"
+                         commit-rc root))))
+           (t
+            (message "agent-notes: git diff --cached errored (exit %d) in %s"
+                     diff-rc root)))))))))
 
 ;;; Internal file/buffer lifecycle
 ;;
