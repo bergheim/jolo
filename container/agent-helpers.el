@@ -3,77 +3,234 @@
 (require 'cl-lib)
 (require 'json)
 (require 'org)
+(require 'org-clock)
+(require 'org-id)
 
-(defun bergheim/agent-org-set-state (file heading-re new-state &optional note)
-  "Transition the first TODO matching HEADING-RE in FILE to NEW-STATE.
-Safe to call from `emacsclient --eval' — never prompts interactively."
-  (with-current-buffer (find-file-noselect file t)
-    (let ((auto-revert-mode nil)
-          (super-save-mode nil))
-      (revert-buffer t t)
-      (goto-char (point-min))
-      (unless (re-search-forward heading-re nil t)
-        (error "Heading not found: %s" heading-re))
-      (org-back-to-heading t)
-      (let ((old-state (org-get-todo-state)))
-        (org-todo new-state)
-        (let ((actual-state (org-get-todo-state)))
-          (unless (equal actual-state new-state)
-            (error "State change blocked: %s -> %s (got %s)"
-                   old-state new-state actual-state))
-          (when (memq 'org-add-log-note (default-value 'post-command-hook))
-            (remove-hook 'post-command-hook 'org-add-log-note)
-            (org-add-log-note))
-          (when (get-buffer "*Org Note*")
-            (with-current-buffer "*Org Note*"
-              (goto-char (point-max))
-              (when note (insert note))
-              (org-store-log-note)))
-          (save-buffer)))))
+;;; Internal file/buffer lifecycle
+;;
+;; `--with-file' owns the agent-edit lifecycle: visit FILE, revert to disk
+;; state, execute BODY, and save atomically. Concurrent modification during
+;; BODY is detected via `verify-visited-file-modtime' and raised as an error
+;; instead of clobbering the other process's writes.
+
+(defmacro bergheim/agent-org--with-file (file &rest body)
+  "Visit FILE safely for an agent edit. If FILE is already open in an Emacs
+buffer with unsaved changes, error rather than clobbering them. Otherwise,
+revert to disk state, execute BODY at point-min, and save only if BODY
+modified the buffer. Errors on concurrent external modification before save."
+  (declare (indent 1) (debug t))
+  (let ((path (make-symbol "path"))
+        (existing (make-symbol "existing")))
+    `(let* ((,path ,file)
+            (,existing (get-file-buffer ,path)))
+       (when (and ,existing (buffer-modified-p ,existing))
+         (error "Refusing to edit %s: buffer has unsaved changes" ,path))
+       (with-current-buffer (find-file-noselect ,path t)
+         (let ((auto-revert-mode nil)
+               (super-save-mode nil))
+           (revert-buffer t t)
+           (goto-char (point-min))
+           (prog1
+               (progn ,@body)
+             (when (buffer-modified-p)
+               (unless (verify-visited-file-modtime (current-buffer))
+                 (error "File modified externally while editing: %s" ,path))
+               (save-buffer))))))))
+
+;;; Heading selectors
+
+(defun bergheim/agent-org--find-unique-heading (heading-re)
+  "Move point to the unique heading whose heading line matches HEADING-RE.
+Matches against heading lines only, not body text. Error if no match; on
+multiple matches, error with the line numbers of each matching heading."
+  (goto-char (point-min))
+  (let (matches)
+    (while (re-search-forward (concat "^\\*+ +.*" heading-re) nil t)
+      (save-excursion
+        (org-back-to-heading t)
+        (let* ((bol (line-beginning-position))
+               (line-num (line-number-at-pos bol)))
+          ;; De-dup if the HEADING-RE also happened to match earlier on the
+          ;; same heading line via a looser pattern.
+          (unless (assoc bol matches)
+            (push (cons bol line-num) matches)))
+        (end-of-line)))
+    (setq matches (nreverse matches))
+    (cond
+     ((null matches)
+      (error "Heading not found: %s" heading-re))
+     ((cdr matches)
+      (error "Heading regex %S is ambiguous (%d matches at lines %s)"
+             heading-re
+             (length matches)
+             (mapconcat (lambda (m) (number-to-string (cdr m))) matches ", ")))
+     (t
+      (goto-char (caar matches))
+      (point)))))
+
+(defun bergheim/agent-org--find-by-id (id)
+  "Move point to the heading carrying :ID: equal to ID in the current buffer.
+Error if not found. Returns point."
+  (goto-char (point-min))
+  (if (re-search-forward
+       (concat "^[[:space:]]*:ID:[[:space:]]+"
+               (regexp-quote id)
+               "[[:space:]]*$")
+       nil t)
+      (progn
+        (org-back-to-heading t)
+        (point))
+    (error "ID not found: %s" id)))
+
+;;; State transition
+
+(defun bergheim/agent-org--ensure-session-id ()
+  "Ensure the heading at point has a :SESSION_ID: property. Returns the ID."
+  (or (org-entry-get nil "SESSION_ID")
+      (let ((id (format "%s-%06x"
+                        (format-time-string "%Y%m%dT%H%M%SZ" (current-time) t)
+                        (random #xFFFFFF))))
+        (org-entry-put nil "SESSION_ID" id)
+        id)))
+
+(defun bergheim/agent-org--clock-in ()
+  "Clock in on the heading at point, non-interactively."
+  (let ((org-clock-in-resume nil)
+        (org-clock-persist nil))
+    (when (org-clocking-p)
+      (ignore-errors (org-clock-out nil t)))
+    (ignore-errors (org-clock-in))))
+
+(defun bergheim/agent-org--clocking-current-heading-p ()
+  "Non-nil when the active org clock is on the heading at point."
+  (and (org-clocking-p)
+       (markerp org-clock-hd-marker)
+       (marker-buffer org-clock-hd-marker)
+       (eq (current-buffer) (marker-buffer org-clock-hd-marker))
+       (save-excursion
+         (org-back-to-heading t)
+         (= (point) (marker-position org-clock-hd-marker)))))
+
+(defun bergheim/agent-org--clock-out ()
+  "Clock out only if the active clock is on the heading at point.
+Leaves clocks running on other headings alone."
+  (when (bergheim/agent-org--clocking-current-heading-p)
+    (ignore-errors (org-clock-out nil t))))
+
+(defun bergheim/agent-org--apply-state (new-state note ensure-session-id clock)
+  "At point-on-heading, apply NEW-STATE. Optionally attach NOTE, assign
+SESSION_ID (on INPROGRESS), and clock in/out on the state transition.
+Notes always land in the :LOGBOOK: drawer regardless of user config."
+  (let ((old-state (org-get-todo-state))
+        (org-log-into-drawer "LOGBOOK"))
+    (org-todo new-state)
+    (let ((actual-state (org-get-todo-state)))
+      (unless (equal actual-state new-state)
+        (error "State change blocked: %s -> %s (got %s)"
+               old-state new-state actual-state))
+      (when (and ensure-session-id (equal new-state "INPROGRESS"))
+        (bergheim/agent-org--ensure-session-id))
+      (when clock
+        (cond
+         ((equal new-state "INPROGRESS")
+          (bergheim/agent-org--clock-in))
+         ((member new-state '("DONE" "BLOCKED" "CANCELLED"))
+          (bergheim/agent-org--clock-out))))
+      ;; If a NOTE was requested but org-todo's state-change config did not
+      ;; trigger the log-setup machinery, force one so the note is persisted.
+      (when (and note
+                 (not (memq 'org-add-log-note (default-value 'post-command-hook)))
+                 (not (get-buffer "*Org Note*")))
+        (org-add-log-setup 'note nil nil 'findpos))
+      (when (memq 'org-add-log-note (default-value 'post-command-hook))
+        (remove-hook 'post-command-hook 'org-add-log-note)
+        (org-add-log-note))
+      (when (get-buffer "*Org Note*")
+        (with-current-buffer "*Org Note*"
+          (goto-char (point-max))
+          (when note (insert note))
+          (org-store-log-note))))))
+
+;;; Public API
+
+(defun bergheim/agent-org-set-state (file heading-re new-state
+                                          &optional note ensure-session-id clock)
+  "Transition the UNIQUE TODO matching HEADING-RE in FILE to NEW-STATE.
+Errors if HEADING-RE matches zero or multiple headings.
+
+Optional args:
+- NOTE: attach a state-transition log note
+- ENSURE-SESSION-ID: when non-nil and NEW-STATE is INPROGRESS, add
+  :SESSION_ID: property if absent
+- CLOCK: when non-nil, `org-clock-in' on INPROGRESS and `org-clock-out'
+  on DONE/BLOCKED/CANCELLED
+
+Safe from `emacsclient --eval' — never prompts interactively."
+  (bergheim/agent-org--with-file file
+    (bergheim/agent-org--find-unique-heading heading-re)
+    (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
+  t)
+
+(defun bergheim/agent-org-set-state-by-id (file id new-state
+                                                &optional note ensure-session-id clock)
+  "Like `bergheim/agent-org-set-state' but selects the heading by its
+:ID: property. IDs are globally unique so ambiguity is not possible."
+  (bergheim/agent-org--with-file file
+    (bergheim/agent-org--find-by-id id)
+    (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
+  t)
+
+(defun bergheim/agent-org-ensure-id (file heading-re)
+  "Ensure the unique heading matching HEADING-RE in FILE carries an :ID:.
+Uses `org-id-get-create'. Idempotent: returns the existing or new ID."
+  (let (id)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq id (org-id-get-create)))
+    id))
+
+(defun bergheim/agent-org-add-note (file heading-re note)
+  "Append NOTE to the :LOGBOOK: of the unique heading matching HEADING-RE
+in FILE, without changing the TODO state."
+  (bergheim/agent-org--with-file file
+    (bergheim/agent-org--find-unique-heading heading-re)
+    (let ((org-log-into-drawer "LOGBOOK"))
+      (org-add-log-setup 'note nil nil 'findpos)
+      (when (memq 'org-add-log-note (default-value 'post-command-hook))
+        (remove-hook 'post-command-hook 'org-add-log-note)
+        (org-add-log-note))
+      (when (get-buffer "*Org Note*")
+        (with-current-buffer "*Org Note*"
+          (goto-char (point-max))
+          (insert note)
+          (org-store-log-note)))))
   t)
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)
-  "Add TAG to the first heading matching HEADING-RE in FILE.
-TAG may be a string or a list of strings. Idempotent: no-op when the
-tag is already present. Saves only when tags actually change.
-Safe to call from `emacsclient --eval' — never prompts interactively."
-  (with-current-buffer (find-file-noselect file t)
-    (let ((auto-revert-mode nil)
-          (super-save-mode nil)
-          (new-tags (if (listp tag) tag (list tag))))
-      (revert-buffer t t)
-      (goto-char (point-min))
-      (unless (re-search-forward heading-re nil t)
-        (error "Heading not found: %s" heading-re))
-      (org-back-to-heading t)
-      (let* ((current (org-get-tags nil t))
-             (merged (cl-remove-duplicates
-                      (append current new-tags)
-                      :test #'string=)))
-        (unless (equal (sort (copy-sequence current) #'string<)
-                       (sort (copy-sequence merged) #'string<))
-          (org-set-tags merged)
-          (save-buffer)))))
+  "Add TAG (string or list of strings) to the unique heading matching
+HEADING-RE in FILE. Idempotent: saves only when tags actually change."
+  (bergheim/agent-org--with-file file
+    (bergheim/agent-org--find-unique-heading heading-re)
+    (let* ((new-tags (if (listp tag) tag (list tag)))
+           (current (org-get-tags nil t))
+           (merged (cl-remove-duplicates
+                    (append current new-tags)
+                    :test #'string=)))
+      (unless (equal (sort (copy-sequence current) #'string<)
+                     (sort (copy-sequence merged) #'string<))
+        (org-set-tags merged))))
   t)
 
 (defun bergheim/agent-org-remove-tag (file heading-re tag)
-  "Remove TAG from the first heading matching HEADING-RE in FILE.
-TAG may be a string or a list of strings. Idempotent: no-op when the
-tag is absent. Safe to call from `emacsclient --eval'."
-  (with-current-buffer (find-file-noselect file t)
-    (let ((auto-revert-mode nil)
-          (super-save-mode nil)
-          (drop-tags (if (listp tag) tag (list tag))))
-      (revert-buffer t t)
-      (goto-char (point-min))
-      (unless (re-search-forward heading-re nil t)
-        (error "Heading not found: %s" heading-re))
-      (org-back-to-heading t)
-      (let* ((current (org-get-tags nil t))
-             (kept (cl-set-difference current drop-tags :test #'string=)))
-        (unless (equal (length current) (length kept))
-          (org-set-tags kept)
-          (save-buffer)))))
+  "Remove TAG (string or list of strings) from the unique heading matching
+HEADING-RE in FILE. Idempotent: saves only when tags actually change."
+  (bergheim/agent-org--with-file file
+    (bergheim/agent-org--find-unique-heading heading-re)
+    (let* ((drop-tags (if (listp tag) tag (list tag)))
+           (current (org-get-tags nil t))
+           (kept (cl-set-difference current drop-tags :test #'string=)))
+      (unless (equal (length current) (length kept))
+        (org-set-tags kept))))
   t)
 
 ;;; Denote-compatible agent helpers
