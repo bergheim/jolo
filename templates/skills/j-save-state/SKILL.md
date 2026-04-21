@@ -84,8 +84,26 @@ Files (only if the above filter passes):
 
 ### 4. Commit
 
-Always `git commit` the changes to docs/ without waiting for the user to ask.
-Use a short commit message like "save-state: <brief summary>".
+Always `git commit` the changes without waiting for the user to ask. Use a
+short commit message like "save-state: <brief summary>".
+
+**Public-notes mode (nested `docs/.git/`):** if the project is a public repo
+where `docs/` is its own private notes repo (detect via `test -d docs/.git`),
+do the commit inside `docs/` instead of in the outer repo. The emacs helpers
+(`agent-org-set-state`, `agent-denote-create`, etc.) already auto-commit per
+call; save-state's commit sweeps up any free-form edits that bypassed them
+and pushes the lot.
+
+```bash
+if [ -d docs/.git ]; then
+  (cd docs && git add -A && git commit -m "save-state: <brief>" 2>/dev/null && git push 2>/dev/null) || true
+else
+  git add docs/ && git commit -m "save-state: <brief>"
+fi
+```
+
+In public-notes mode the outer repo's `docs/` is gitignored, so a second
+outer-repo commit is not needed.
 
 ### 5. Summary
 

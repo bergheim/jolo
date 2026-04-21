@@ -54,24 +54,33 @@ Prefer the strongest available model for review if the CLI supports model select
 
 Include test output and the diff. Use non-interactive / print mode for each agent.
 
-**Important:** Unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` when calling `claude` or `codex` so they use their own CLI auth instead of falling back to API-key mode.
+**Unset `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`** when calling `claude` or `codex` so they use their own CLI auth instead of API-key mode.
+
+**Keep the review lean.** Default `codex exec` is verbose — high reasoning, exploratory file reads via `sed`/`nl`/`rg`, and full test runs before writing a word. A 4-paragraph plan can produce 130KB of transcript and take 10 minutes. For a text-only review of piped content, scope it down.
+
+Prompt directive (use for every agent):
+
+> "Review only the text shown. Do not read other files. Do not run commands, tests, or searches. Be terse — flag real issues, not style nits. Under 300 words."
+
+Invocations:
 
 ```bash
-# Claude (unset API keys so CLI auth is used)
-echo "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY claude -p "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
+PROMPT="Review only the text shown. Do not read other files. Do not run commands, tests, or searches. Be terse — flag real issues, not style nits. Under 300 words. Tests: $TEST_OUTPUT"
+
+# Codex — read-only sandbox, low reasoning, capture final message only
+OUT=$(mktemp)
+printf '%s\n\n%s\n' "$PROMPT" "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex exec \
+  -s read-only -c model_reasoning_effort=low --ephemeral -o "$OUT" - > /dev/null 2>&1
+cat "$OUT"; rm -f "$OUT"
+
+# Claude
+echo "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY claude -p "$PROMPT"
 
 # Gemini
-echo "$content" | gemini -p "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
-
-# Codex (has a dedicated review subcommand)
-env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex review --uncommitted
+echo "$content" | gemini -p "$PROMPT"
 ```
 
-For codex, prefer `codex review --uncommitted` when reviewing the working tree.
-When reviewing specific files, pipe content like the other agents:
-```bash
-echo "$content" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex exec "Review this diff for bugs, logic errors, regressions, and missed edge cases. Be terse - only flag real issues, not style nits. Tests: $TEST_OUTPUT"
-```
+Use `codex review --uncommitted` (dedicated subcommand) **only** when you genuinely want codex to explore the whole working tree as part of the review. For a text-only "here's a diff, what's wrong" — use the lean `codex exec` invocation above. It keeps time and output size bounded.
 
 ### 5. Present the results
 
