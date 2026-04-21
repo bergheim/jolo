@@ -712,6 +712,96 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertEqual(len(dir_mounts), 0)
 
 
+class TestPiLlamaConfig(unittest.TestCase):
+    """Test Pi local llama.cpp provider setup."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_writes_llama_provider_and_default_model(self):
+        """Should configure Pi to use the best available llama-swap coding model."""
+        pi_cache = Path(self.tmpdir) / ".pi-cache"
+
+        with mock.patch(
+            "_jolo.setup._fetch_llama_model_ids",
+            return_value=["bge-m3", "qwen3-coder", "qwen3.6", "gemma4"],
+        ):
+            setup._write_pi_llama_config(
+                pi_cache, "http://berghome.ts.glvortex.net:11434/"
+            )
+
+        models = json.loads((pi_cache / "agent" / "models.json").read_text())
+        provider = models["providers"]["llama"]
+        self.assertEqual(
+            provider["baseUrl"], "http://berghome.ts.glvortex.net:11434/v1"
+        )
+        self.assertEqual(provider["api"], "openai-completions")
+        self.assertEqual(provider["apiKey"], "llama")
+        self.assertFalse(provider["compat"]["supportsDeveloperRole"])
+        self.assertFalse(provider["compat"]["supportsReasoningEffort"])
+        self.assertEqual(
+            [model["id"] for model in provider["models"]],
+            ["qwen3-coder", "qwen3.6", "gemma4"],
+        )
+
+        settings = json.loads(
+            (pi_cache / "agent" / "settings.json").read_text()
+        )
+        self.assertEqual(settings["defaultProvider"], "llama")
+        self.assertEqual(settings["defaultModel"], "qwen3.6")
+
+    def test_preserves_existing_pi_models_json_providers(self):
+        """Should merge the llama provider without deleting existing providers."""
+        pi_cache = Path(self.tmpdir) / ".pi-cache"
+        agent_dir = pi_cache / "agent"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "models.json").write_text(
+            json.dumps({"providers": {"custom": {"baseUrl": "https://x"}}})
+        )
+
+        with mock.patch(
+            "_jolo.setup._fetch_llama_model_ids",
+            return_value=["qwen3.6-small"],
+        ):
+            setup._write_pi_llama_config(pi_cache, "http://llama:11434")
+
+        models = json.loads((agent_dir / "models.json").read_text())
+        self.assertIn("custom", models["providers"])
+        self.assertIn("llama", models["providers"])
+
+    def test_setup_credential_cache_uses_llama_host(self):
+        """setup_credential_cache should generate Pi config from LLAMA_HOST."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        (home / ".pi" / "agent" / "settings.json").write_text(
+            '{"lastChangelogVersion":"0.67.68"}'
+        )
+
+        env = {"LLAMA_HOST": "http://llama:11434"}
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, env, clear=True):
+                with mock.patch(
+                    "_jolo.setup._fetch_llama_model_ids",
+                    return_value=["qwen3.6"],
+                ):
+                    jolo.setup_credential_cache(ws)
+
+        settings = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "settings.json"
+            ).read_text()
+        )
+        self.assertEqual(settings["defaultProvider"], "llama")
+        self.assertEqual(settings["defaultModel"], "qwen3.6")
+
+
 class TestPatchJsonWithJq(unittest.TestCase):
     """Test jq-based JSON patch helper."""
 

@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from _jolo import constants
@@ -14,6 +16,14 @@ from _jolo.cli import read_port_from_devcontainer, verbose_print
 from _jolo.container import build_devcontainer_json
 
 DEFAULT_CODEX_REASONING_EFFORT = "high"
+PI_LLAMA_PROVIDER = "llama"
+PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
+    "qwen3-coder-next",
+    "qwen3.6",
+    "qwen3-coder",
+    "qwen3.6-small",
+    "qwen3.5",
+]
 
 
 def clear_directory_contents(path: Path) -> None:
@@ -349,6 +359,10 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             else:
                 shutil.copy2(item, dst)
 
+    llama_host = os.environ.get("LLAMA_HOST")
+    if llama_host:
+        _write_pi_llama_config(pi_cache, llama_host)
+
 
 def _load_json_safe(path: Path) -> dict:
     """Load JSON from a file, returning empty dict on missing/corrupt files."""
@@ -358,6 +372,102 @@ def _load_json_safe(path: Path) -> dict:
         return json.loads(path.read_text())
     except (json.JSONDecodeError, ValueError):
         return {}
+
+
+def _llama_v1_base_url(llama_host: str) -> str:
+    return llama_host.rstrip("/") + "/v1"
+
+
+def _fetch_llama_model_ids(llama_host: str) -> list[str]:
+    models_url = _llama_v1_base_url(llama_host) + "/models"
+    try:
+        with urllib.request.urlopen(models_url, timeout=3) as response:
+            payload = json.loads(response.read().decode())
+    except (
+        OSError,
+        TimeoutError,
+        urllib.error.URLError,
+        json.JSONDecodeError,
+    ) as e:
+        print(
+            f"Warning: Failed to fetch llama-swap models from {models_url}: {e}",
+            file=sys.stderr,
+        )
+        return []
+
+    return [
+        item["id"]
+        for item in payload.get("data", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    ]
+
+
+def _pi_chat_model_ids(model_ids: list[str]) -> list[str]:
+    blocked = ("embed", "embedding", "bge", "e5")
+    return [
+        model_id
+        for model_id in model_ids
+        if not any(part in model_id.lower() for part in blocked)
+    ]
+
+
+def _pi_default_llama_model(model_ids: list[str]) -> str | None:
+    for preferred in PI_LLAMA_DEFAULT_MODEL_PRIORITY:
+        if preferred in model_ids:
+            return preferred
+    return model_ids[0] if model_ids else None
+
+
+def _write_pi_llama_config(pi_cache: Path, llama_host: str) -> None:
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    model_ids = _pi_chat_model_ids(_fetch_llama_model_ids(llama_host))
+    if not model_ids:
+        return
+
+    models_path = agent_dir / "models.json"
+    models = _load_json_safe(models_path)
+    providers = models.setdefault("providers", {})
+    providers[PI_LLAMA_PROVIDER] = {
+        "baseUrl": _llama_v1_base_url(llama_host),
+        "api": "openai-completions",
+        "apiKey": "llama",
+        "compat": {
+            "supportsDeveloperRole": False,
+            "supportsReasoningEffort": False,
+            "supportsUsageInStreaming": False,
+            "maxTokensField": "max_tokens",
+        },
+        "models": [
+            {
+                "id": model_id,
+                "name": f"{model_id} (llama.cpp)",
+                "reasoning": False,
+                "input": ["text"],
+                "contextWindow": 262144,
+                "maxTokens": 16384,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                },
+            }
+            for model_id in model_ids
+        ],
+    }
+    models_path.write_text(json.dumps(models, indent=2) + "\n")
+
+    default_model = _pi_default_llama_model(model_ids)
+    if default_model is None:
+        return
+
+    settings_path = agent_dir / "settings.json"
+    settings = _load_json_safe(settings_path)
+    settings["defaultProvider"] = PI_LLAMA_PROVIDER
+    settings["defaultModel"] = default_model
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 
 
 def setup_notification_hooks(

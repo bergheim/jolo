@@ -390,7 +390,7 @@ jolo up -d # start detached
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
 - `PNPM_HOME` - pnpm global package path (no sudo needed)
 - `PGHOST=/tmp` - PostgreSQL Unix socket directory
-- `OLLAMA_HOST` - llama-swap (llama.cpp, OpenAI-compat) endpoint; env var name is legacy, backend is not Ollama
+- `LLAMA_HOST` - llama-swap (llama.cpp, OpenAI-compat) endpoint
 
 ## Notifications
 

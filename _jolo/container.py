@@ -88,7 +88,7 @@ def build_devcontainer_json(
             "HISTFILE": f"/home/{remote_user}/.zsh-state/.histfile",
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
-            "OLLAMA_HOST": "${localEnv:OLLAMA_HOST}",
+            "LLAMA_HOST": "${localEnv:LLAMA_HOST}",
             "PGHOST": "/tmp",
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",

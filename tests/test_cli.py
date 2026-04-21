@@ -321,6 +321,17 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertNotIn("TERM", config["containerEnv"])
 
+    def test_llama_host_in_container_env(self):
+        """LLAMA_HOST should replace the old Ollama-named variable."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        self.assertEqual(
+            config["containerEnv"]["LLAMA_HOST"], "${localEnv:LLAMA_HOST}"
+        )
+        self.assertNotIn("OLLAMA_HOST", config["containerEnv"])
+
 
 class TestMountArgParsing(unittest.TestCase):
     """Test --mount argument parsing."""
