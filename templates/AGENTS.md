@@ -163,7 +163,58 @@ CLOSED: [2026-04-13 Mon 12:08]
    Original body text preserved here...
 ```
 
-Available states: `TODO`, `INPROGRESS`, `NEXT`, `WAITING`, `DONE`, `CANCELLED`.
+Available states: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`, `CANCELLED`.
+
+`BLOCKED` means "stalled on an external dependency" (vendor response, upstream
+bug, cert renewal, etc.). Use `WAITING` for "waiting on a person" and `BLOCKED`
+for "waiting on a system." When `:clock t` is passed to `set-state`, transitions
+to `BLOCKED` close an active clock — this is a project policy choice, not an
+org-mode semantic.
+
+### Additional org helpers
+
+All of these share the same ambiguity-safe heading lookup — if the regex matches
+multiple headings, the helper errors and lists the line numbers so you can
+disambiguate.
+
+**Add a log note without changing state:**
+
+```bash
+emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
+```
+
+**Ensure a stable `:ID:` property (returns the id):**
+
+```bash
+emacsclient -e '(bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading")'
+```
+
+**Transition by `:ID:` (immune to heading renames and duplicate headings):**
+
+```bash
+emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
+```
+
+**Track time on a transition (clock in on INPROGRESS, clock out on DONE/BLOCKED/CANCELLED):**
+
+```bash
+# Signature: set-state FILE HEADING-RE STATE &optional NOTE ENSURE-SESSION-ID CLOCK
+emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
+```
+
+The 5th arg (`ensure-session-id`) auto-adds `:SESSION_ID:` on INPROGRESS so logs
+and notifications can correlate back to the TODO. The 6th arg (`clock`) drives
+`org-clock-in`/`org-clock-out`.
+
+**Tag management:**
+
+```bash
+# Add :autonomous: tag (idempotent)
+emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+
+# Remove a tag (idempotent)
+emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+```
 
 ## Emacs
 
