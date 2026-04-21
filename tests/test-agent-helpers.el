@@ -251,5 +251,129 @@ on heading B."
                "\\* INPROGRESS Foo\\(.\\|\n\\)*CLOCK: \\[[^]]+\\]\\s-*$"
                contents)))))
 
+;;; Notes auto-commit (public-notes mode)
+
+(defmacro test-agent-helpers--with-notes-repo (var &rest body)
+  "Create a temp project with a git-inited `docs/' subdir. Bind VAR to the
+absolute path of the docs dir and execute BODY. Cleans up on exit.
+Configures a minimal committer identity so tests do not depend on the
+host git config."
+  (declare (indent 1))
+  `(let* ((project (make-temp-file "agent-notes-proj-" t))
+          (,var (expand-file-name "docs" project)))
+     (unwind-protect
+         (progn
+           (make-directory ,var)
+           (let ((default-directory (file-name-as-directory ,var)))
+             (call-process "git" nil nil nil "init" "-q" "-b" "main")
+             (call-process "git" nil nil nil "config" "user.email" "t@example.com")
+             (call-process "git" nil nil nil "config" "user.name" "Test")
+             (call-process "git" nil nil nil "config" "commit.gpgsign" "false")
+             (call-process "git" nil nil nil "config" "tag.gpgsign" "false")
+             (call-process "git" nil nil nil "commit" "-q" "--allow-empty" "-m" "init"))
+           ,@body)
+       (delete-directory project t))))
+
+(defun test-agent-helpers--git-log (dir)
+  "Return the output of `git log --pretty=%s` in DIR, as a list of subjects."
+  (let ((default-directory (file-name-as-directory dir)))
+    (with-temp-buffer
+      (call-process "git" nil t nil "log" "--pretty=%s")
+      (split-string (string-trim (buffer-string)) "\n" t))))
+
+(ert-deftest agent-helpers/notes-repo-root-finds-docs-with-git ()
+  (test-agent-helpers--with-notes-repo docs-dir
+    (let ((inside (expand-file-name "TODO.org" docs-dir)))
+      (should (equal (file-truename docs-dir)
+                     (file-truename
+                      (bergheim/agent-notes--repo-root inside)))))))
+
+(ert-deftest agent-helpers/notes-repo-root-returns-nil-without-git ()
+  (let* ((project (make-temp-file "agent-notes-plain-" t))
+         (docs-dir (expand-file-name "docs" project)))
+    (unwind-protect
+        (progn
+          (make-directory docs-dir)
+          (let ((inside (expand-file-name "TODO.org" docs-dir)))
+            (should-not (bergheim/agent-notes--repo-root inside))))
+      (delete-directory project t))))
+
+(ert-deftest agent-helpers/notes-repo-root-ignores-non-docs-git ()
+  "A `.git' in some other directory name must not trigger public-notes mode."
+  (let* ((project (make-temp-file "agent-notes-other-" t))
+         (other (expand-file-name "notebook" project)))
+    (unwind-protect
+        (progn
+          (make-directory other)
+          (make-directory (expand-file-name ".git" other))
+          (let ((inside (expand-file-name "foo.org" other)))
+            (should-not (bergheim/agent-notes--repo-root inside))))
+      (delete-directory project t))))
+
+(ert-deftest agent-helpers/maybe-commit-creates-commit ()
+  (test-agent-helpers--with-notes-repo docs-dir
+    (let ((f (expand-file-name "TODO.org" docs-dir)))
+      (with-temp-file f (insert "* TODO Foo\n"))
+      (bergheim/agent-notes--maybe-commit f "test: add TODO")
+      (let ((subjects (test-agent-helpers--git-log docs-dir)))
+        (should (equal (car subjects) "test: add TODO"))))))
+
+(ert-deftest agent-helpers/maybe-commit-noop-without-repo ()
+  "`maybe-commit' must be silent when `docs/.git' is absent."
+  (let* ((project (make-temp-file "agent-notes-plain-" t))
+         (docs-dir (expand-file-name "docs" project))
+         (f (expand-file-name "TODO.org" docs-dir)))
+    (unwind-protect
+        (progn
+          (make-directory docs-dir)
+          (with-temp-file f (insert "x"))
+          ;; Must not error, must not create a repo.
+          (bergheim/agent-notes--maybe-commit f "noise")
+          (should-not (file-directory-p (expand-file-name ".git" docs-dir))))
+      (delete-directory project t))))
+
+(ert-deftest agent-helpers/maybe-commit-noop-when-nothing-staged ()
+  (test-agent-helpers--with-notes-repo docs-dir
+    (let ((f (expand-file-name "TODO.org" docs-dir))
+          (before-count))
+      (with-temp-file f (insert "* TODO Foo\n"))
+      (bergheim/agent-notes--maybe-commit f "first")
+      (setq before-count (length (test-agent-helpers--git-log docs-dir)))
+      ;; Second call with no changes: no new commit.
+      (bergheim/agent-notes--maybe-commit f "second")
+      (should (equal before-count
+                     (length (test-agent-helpers--git-log docs-dir)))))))
+
+(ert-deftest agent-helpers/set-state-commits-in-public-notes-mode ()
+  "Helpers must auto-commit when the target file lives under a public-notes docs repo."
+  (test-agent-helpers--with-notes-repo docs-dir
+    (let* ((f (expand-file-name "TODO.org" docs-dir))
+           (inhibit-message t))
+      (with-temp-file f
+        (insert test-agent-helpers--keyword-header)
+        (insert "* TODO Foo\n"))
+      (let ((default-directory (file-name-as-directory docs-dir)))
+        (call-process "git" nil nil nil "add" "-A")
+        (call-process "git" nil nil nil "commit" "-q" "-m" "seed"))
+      (bergheim/agent-org-set-state f "TODO Foo" "DONE")
+      (let ((subjects (test-agent-helpers--git-log docs-dir)))
+        (should (string-match-p "^state: → DONE" (car subjects)))))))
+
+(ert-deftest agent-helpers/set-state-does-not-commit-in-private-mode ()
+  "In a plain `docs/' dir without nested `.git', helpers must not initialize a repo."
+  (let* ((project (make-temp-file "agent-notes-private-" t))
+         (docs-dir (expand-file-name "docs" project))
+         (f (expand-file-name "TODO.org" docs-dir))
+         (inhibit-message t))
+    (unwind-protect
+        (progn
+          (make-directory docs-dir)
+          (with-temp-file f
+            (insert test-agent-helpers--keyword-header)
+            (insert "* TODO Foo\n"))
+          (bergheim/agent-org-set-state f "TODO Foo" "DONE")
+          (should-not (file-directory-p (expand-file-name ".git" docs-dir))))
+      (delete-directory project t))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here
