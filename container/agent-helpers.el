@@ -14,12 +14,17 @@
 ;; instead of clobbering the other process's writes.
 
 (defmacro bergheim/agent-org--with-file (file &rest body)
-  "Visit FILE safely for an agent edit. Revert to disk first; execute BODY at
-point-min; save only if BODY modified the buffer. Errors on concurrent
-modification detected before save."
+  "Visit FILE safely for an agent edit. If FILE is already open in an Emacs
+buffer with unsaved changes, error rather than clobbering them. Otherwise,
+revert to disk state, execute BODY at point-min, and save only if BODY
+modified the buffer. Errors on concurrent external modification before save."
   (declare (indent 1) (debug t))
-  (let ((path (make-symbol "path")))
-    `(let ((,path ,file))
+  (let ((path (make-symbol "path"))
+        (existing (make-symbol "existing")))
+    `(let* ((,path ,file)
+            (,existing (get-file-buffer ,path)))
+       (when (and ,existing (buffer-modified-p ,existing))
+         (error "Refusing to edit %s: buffer has unsaved changes" ,path))
        (with-current-buffer (find-file-noselect ,path t)
          (let ((auto-revert-mode nil)
                (super-save-mode nil))
@@ -35,17 +40,20 @@ modification detected before save."
 ;;; Heading selectors
 
 (defun bergheim/agent-org--find-unique-heading (heading-re)
-  "Move point to the unique heading matching HEADING-RE in the current buffer.
-Error if no match, or list matches and error if more than one.
-Returns point on success."
+  "Move point to the unique heading whose heading line matches HEADING-RE.
+Matches against heading lines only, not body text. Error if no match; on
+multiple matches, error with the line numbers of each matching heading."
   (goto-char (point-min))
   (let (matches)
-    (while (re-search-forward heading-re nil t)
+    (while (re-search-forward (concat "^\\*+ +.*" heading-re) nil t)
       (save-excursion
         (org-back-to-heading t)
-        (push (cons (point) (line-number-at-pos)) matches)
-        ;; Move past this heading so the next search doesn't re-match it
-        ;; when HEADING-RE happens to span a multi-line region.
+        (let* ((bol (line-beginning-position))
+               (line-num (line-number-at-pos bol)))
+          ;; De-dup if the HEADING-RE also happened to match earlier on the
+          ;; same heading line via a looser pattern.
+          (unless (assoc bol matches)
+            (push (cons bol line-num) matches)))
         (end-of-line)))
     (setq matches (nreverse matches))
     (cond
@@ -57,7 +65,7 @@ Returns point on success."
              (length matches)
              (mapconcat (lambda (m) (number-to-string (cdr m))) matches ", ")))
      (t
-      (goto-char (car (car matches)))
+      (goto-char (caar matches))
       (point)))))
 
 (defun bergheim/agent-org--find-by-id (id)
@@ -93,9 +101,20 @@ Error if not found. Returns point."
       (ignore-errors (org-clock-out nil t)))
     (ignore-errors (org-clock-in))))
 
+(defun bergheim/agent-org--clocking-current-heading-p ()
+  "Non-nil when the active org clock is on the heading at point."
+  (and (org-clocking-p)
+       (markerp org-clock-hd-marker)
+       (marker-buffer org-clock-hd-marker)
+       (eq (current-buffer) (marker-buffer org-clock-hd-marker))
+       (save-excursion
+         (org-back-to-heading t)
+         (= (point) (marker-position org-clock-hd-marker)))))
+
 (defun bergheim/agent-org--clock-out ()
-  "Clock out if currently clocking. No-op otherwise."
-  (when (org-clocking-p)
+  "Clock out only if the active clock is on the heading at point.
+Leaves clocks running on other headings alone."
+  (when (bergheim/agent-org--clocking-current-heading-p)
     (ignore-errors (org-clock-out nil t))))
 
 (defun bergheim/agent-org--apply-state (new-state note ensure-session-id clock)
@@ -117,6 +136,12 @@ Notes always land in the :LOGBOOK: drawer regardless of user config."
           (bergheim/agent-org--clock-in))
          ((member new-state '("DONE" "BLOCKED" "CANCELLED"))
           (bergheim/agent-org--clock-out))))
+      ;; If a NOTE was requested but org-todo's state-change config did not
+      ;; trigger the log-setup machinery, force one so the note is persisted.
+      (when (and note
+                 (not (memq 'org-add-log-note (default-value 'post-command-hook)))
+                 (not (get-buffer "*Org Note*")))
+        (org-add-log-setup 'note nil nil 'findpos))
       (when (memq 'org-add-log-note (default-value 'post-command-hook))
         (remove-hook 'post-command-hook 'org-add-log-note)
         (org-add-log-note))

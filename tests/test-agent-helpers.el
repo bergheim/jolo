@@ -179,5 +179,77 @@ kill the buffer afterward."
     (should-not (string-match-p "CLOCK:"
                                 (test-agent-helpers--contents test-file)))))
 
+;; ----------------------------------------------------------------------------
+;; Review feedback: no silent clobber of unsaved edits in an open buffer
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/errors-on-unsaved-modifications-in-existing-buffer ()
+  "If FILE is already visited and the buffer has unsaved changes, the helper
+must error rather than silently revert (which would drop the user's work)."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (let ((buf (find-file-noselect test-file t)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buf
+              (goto-char (point-max))
+              (insert "\n* TODO Pending unsaved edit\n")
+              (should (buffer-modified-p)))
+            (should-error
+             (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
+             :type 'error)
+            (with-current-buffer buf
+              (should (buffer-modified-p))
+              (should (string-match-p "Pending unsaved edit" (buffer-string)))))
+        (with-current-buffer buf (set-buffer-modified-p nil))))))
+
+;; ----------------------------------------------------------------------------
+;; Review feedback: note is always persisted, regardless of org log config
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/note-persists-even-when-state-does-not-request-logging ()
+  "A NOTE passed to `set-state' lands in :LOGBOOK: even if the target state
+does not request a log-note through the user's org-log configuration."
+  (let ((org-log-done nil)
+        (org-todo-log-states nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (bergheim/agent-org-set-state test-file "TODO Foo" "DONE" "Because reasons")
+      (let ((contents (test-agent-helpers--contents test-file)))
+        (should (string-match-p "^\\* DONE Foo" contents))
+        (should (string-match-p ":LOGBOOK:" contents))
+        (should (string-match-p "Because reasons" contents))))))
+
+;; ----------------------------------------------------------------------------
+;; Review feedback: heading-re must match heading lines only, not body text
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/body-text-does-not-cause-false-ambiguity ()
+  "Body text containing the heading regex must not trigger ambiguity.
+The helper matches heading lines only."
+  (test-agent-helpers--with-file
+      "* TODO Foo\nA paragraph referencing TODO Foo in body text.\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
+    (should (string-match-p "^\\* DONE Foo"
+                            (test-agent-helpers--contents test-file)))))
+
+;; ----------------------------------------------------------------------------
+;; Review feedback: clock-out must target this heading, not any active clock
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/clock-out-leaves-clock-on-other-heading-alone ()
+  "Transitioning heading A to DONE with :clock must not stop a clock running
+on heading B."
+  (test-agent-helpers--with-file
+      "* TODO Foo\n* TODO Bar\n"
+    ;; Start a clock on Foo.
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
+    ;; Transition Bar to DONE with :clock. Foo's clock should survive.
+    (bergheim/agent-org-set-state test-file "TODO Bar" "DONE" nil nil t)
+    (should (org-clocking-p))
+    ;; The clock line on Foo must still be open (no `=>' duration yet).
+    (let ((contents (test-agent-helpers--contents test-file)))
+      (should (string-match-p
+               "\\* INPROGRESS Foo\\(.\\|\n\\)*CLOCK: \\[[^]]+\\]\\s-*$"
+               contents)))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here
