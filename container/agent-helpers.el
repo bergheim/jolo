@@ -6,6 +6,42 @@
 (require 'org-clock)
 (require 'org-id)
 
+;;; Notes auto-commit
+;;
+;; Public-notes mode: when a helper edits a file under a `docs/' directory
+;; that contains a `.git' subdir, auto-commit and best-effort push so the
+;; project's notes repo accumulates real history. Private projects have no
+;; nested `.git' and pay zero ceremony.
+
+(defun bergheim/agent-notes--repo-root (file)
+  "Return the `docs/' root for FILE when that directory contains `.git/',
+else nil. Walks ancestors looking for a directory named `docs' with a
+nested `.git' subdir."
+  (let ((dir (file-name-directory (expand-file-name file)))
+        (found nil))
+    (while (and dir (not found) (not (string= dir "/")))
+      (let* ((stripped (directory-file-name dir))
+             (basename (file-name-nondirectory stripped)))
+        (when (and (string= basename "docs")
+                   (file-directory-p (expand-file-name ".git" dir)))
+          (setq found stripped)))
+      (let ((parent (file-name-directory (directory-file-name dir))))
+        (setq dir (unless (string= parent dir) parent))))
+    found))
+
+(defun bergheim/agent-notes--maybe-commit (file message)
+  "If FILE lives under a public-notes `docs/' repo, stage+commit+push.
+MESSAGE is the commit subject. No-op when no public-notes repo is found
+or when there are no staged changes. Push failures are swallowed so a
+broken network never fails the calling helper."
+  (when-let* ((root (bergheim/agent-notes--repo-root file)))
+    (let ((default-directory (file-name-as-directory root)))
+      (call-process "git" nil nil nil "add" "-A")
+      (when (= 1 (call-process "git" nil nil nil "diff" "--cached" "--quiet"))
+        (call-process "git" nil nil nil "commit" "-m" message)
+        (ignore-errors
+          (call-process "git" nil nil nil "push"))))))
+
 ;;; Internal file/buffer lifecycle
 ;;
 ;; `--with-file' owns the agent-edit lifecycle: visit FILE, revert to disk
@@ -169,6 +205,8 @@ Safe from `emacsclient --eval' — never prompts interactively."
   (bergheim/agent-org--with-file file
     (bergheim/agent-org--find-unique-heading heading-re)
     (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
+  (bergheim/agent-notes--maybe-commit
+   file (format "state: → %s (%s)" new-state heading-re))
   t)
 
 (defun bergheim/agent-org-set-state-by-id (file id new-state
@@ -178,6 +216,8 @@ Safe from `emacsclient --eval' — never prompts interactively."
   (bergheim/agent-org--with-file file
     (bergheim/agent-org--find-by-id id)
     (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
+  (bergheim/agent-notes--maybe-commit
+   file (format "state: → %s (id %s)" new-state id))
   t)
 
 (defun bergheim/agent-org-ensure-id (file heading-re)
@@ -187,6 +227,8 @@ Uses `org-id-get-create'. Idempotent: returns the existing or new ID."
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq id (org-id-get-create)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "id: ensure %s" heading-re))
     id))
 
 (defun bergheim/agent-org-add-note (file heading-re note)
@@ -204,6 +246,8 @@ in FILE, without changing the TODO state."
           (goto-char (point-max))
           (insert note)
           (org-store-log-note)))))
+  (bergheim/agent-notes--maybe-commit
+   file (format "note: %s" heading-re))
   t)
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)
@@ -219,6 +263,10 @@ HEADING-RE in FILE. Idempotent: saves only when tags actually change."
       (unless (equal (sort (copy-sequence current) #'string<)
                      (sort (copy-sequence merged) #'string<))
         (org-set-tags merged))))
+  (bergheim/agent-notes--maybe-commit
+   file (format "tag: +%s (%s)"
+                (if (listp tag) (mapconcat #'identity tag ",") tag)
+                heading-re))
   t)
 
 (defun bergheim/agent-org-remove-tag (file heading-re tag)
@@ -231,6 +279,10 @@ HEADING-RE in FILE. Idempotent: saves only when tags actually change."
            (kept (cl-set-difference current drop-tags :test #'string=)))
       (unless (equal (length current) (length kept))
         (org-set-tags kept))))
+  (bergheim/agent-notes--maybe-commit
+   file (format "tag: -%s (%s)"
+                (if (listp tag) (mapconcat #'identity tag ",") tag)
+                heading-re))
   t)
 
 ;;; Denote-compatible agent helpers
@@ -312,6 +364,7 @@ Returns the absolute file path. Safe for emacsclient --eval."
                           "^#\\+identifier:.*$"
                           (format "#+identifier: %s" final-id)
                           content)))))
+      (bergheim/agent-notes--maybe-commit filepath (format "note: %s" title))
       filepath)))
 
 (defun bergheim/agent-denote-find (dir &optional keywords title-re)
@@ -389,6 +442,10 @@ Safe for emacsclient --eval."
             (dolist (link links-to-add)
               (insert "- " link "\n"))
             (save-buffer))
+          (when links-to-add
+            (bergheim/agent-notes--maybe-commit
+             source-path
+             (format "note: link %d related" (length links-to-add))))
           (length links-to-add))))))
 
 ;;; Autonomous dispatch selector/marker
@@ -501,6 +558,9 @@ POSITION is no longer `:autonomous:' or is no longer eligible."
          (org-entry-put nil "DISPATCHED" timestamp)
          (setq marked t)))
       (when marked (save-buffer)))
+    (when marked
+      (bergheim/agent-notes--maybe-commit
+       org-file (format "dispatch: mark %s" timestamp)))
     marked))
 
 (provide 'bergheim-agent-helpers)
