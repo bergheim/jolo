@@ -447,13 +447,41 @@ When shelling out to another agent CLI for a code review or second opinion, **un
 ```bash
 # Correct — uses CLI auth
 echo "$diff" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY claude -p "Review this..."
-env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex review --uncommitted
 
 # Wrong — may use API key billing instead of CLI auth
 echo "$diff" | claude -p "Review this..."
 ```
 
 This applies to `claude`, `codex`, and any agent that checks for API keys before falling back to OAuth/CLI credentials.
+
+### Keep reviews lean
+
+Default codex behavior is verbose: high reasoning effort, exploratory `sed`/`nl`/`rg` on every adjacent file, full test runs before writing a word. A 4-paragraph plan can produce 130KB of transcript and take 10 minutes. For a text-only review where the reviewer should just read what you piped in:
+
+```bash
+# Lean codex review — read-only sandbox, low reasoning, capture only the
+# final message. Suppresses the exploration transcript entirely.
+OUT=$(mktemp)
+printf '%s\n' "$PROMPT_PREFIX" "$DIFF_OR_PLAN" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex exec \
+  -s read-only \
+  -c model_reasoning_effort=low \
+  --ephemeral \
+  -o "$OUT" - > /dev/null 2>&1
+cat "$OUT"
+rm -f "$OUT"
+```
+
+In the prompt itself, add an explicit scope directive:
+
+> "Review only the text shown. Do not read other files, do not run commands or tests, do not search the codebase. Respond in under 300 words with findings and severity."
+
+Same idea for gemini (no reasoning flag, but the prompt directive still helps):
+
+```bash
+printf '%s\n' "$PROMPT_PREFIX" "$DIFF_OR_PLAN" | env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY gemini -p "Review only what's shown. No file reads, no commands. Under 300 words."
+```
+
+Use `codex review --uncommitted` (the dedicated subcommand) only when you genuinely want codex to explore the repo as part of the review. For "here's a diff, what's wrong" — use the lean invocation above.
 
 ## Code Quality
 
