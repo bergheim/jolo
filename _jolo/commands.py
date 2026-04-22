@@ -317,6 +317,48 @@ def run_list_global_mode() -> None:
             print(f"  {name:<24} {folder}  ({state})")
 
 
+def run_peers_mode(args: argparse.Namespace) -> None:
+    """Show other running jolo devcontainers across all projects.
+
+    From the host, verifies each registered peer is still running (via the
+    container runtime) and prunes stale entries. From inside a container
+    (no runtime available), prints the registry as-is — stale entries
+    decay when the host next runs `jolo peers`, `jolo down`, or `jolo prune`.
+    """
+    from _jolo import registry
+
+    runtime = get_container_runtime()
+    if runtime:
+        running = {
+            n for n, _, s, _ in list_all_devcontainers() if s == "running"
+        }
+        registry.prune_stale(is_running=lambda name: name in running)
+
+    peers = registry.read_all()
+
+    if getattr(args, "as_json", False):
+        print(json.dumps(peers, indent=2, sort_keys=True))
+        return
+
+    if not peers:
+        print("No running jolo containers registered.")
+        return
+
+    peers = sorted(peers, key=lambda p: p.get("project", ""))
+    for p in peers:
+        name = p.get("container", "?")
+        project = p.get("project", "?")
+        port = p.get("port", "-")
+        branch = p.get("branch", "-")
+        url = p.get("url", "")
+        line = (
+            f"  {name:<24} {project:<20} port {str(port):<5} branch {branch}"
+        )
+        if url:
+            line += f"  {url}"
+        print(line)
+
+
 def run_stop_mode(args: argparse.Namespace) -> None:
     """Run --stop mode: stop the devcontainer for current project."""
     git_root = pick_project()
@@ -2176,6 +2218,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "status":
         run_status_mode(args)
+        return
+
+    if cmd == "peers":
+        run_peers_mode(args)
         return
 
     if cmd == "doctor":

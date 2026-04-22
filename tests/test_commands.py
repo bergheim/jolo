@@ -138,6 +138,110 @@ class TestListMode(unittest.TestCase):
         self.assertFalse(args.all)
 
 
+class TestPeersMode(unittest.TestCase):
+    """`jolo peers` CLI parsing and dispatch."""
+
+    def test_peers_flag(self):
+        args = jolo.parse_args(["peers"])
+        self.assertEqual(args.command, "peers")
+        self.assertFalse(args.as_json)
+
+    def test_peers_json_flag(self):
+        args = jolo.parse_args(["peers", "--json"])
+        self.assertTrue(args.as_json)
+
+    def test_peers_prints_nothing_when_registry_empty(self):
+        args = jolo.parse_args(["peers"])
+        with (
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value=None
+            ),
+            mock.patch("_jolo.registry.read_all", return_value=[]),
+            mock.patch("builtins.print") as mock_print,
+        ):
+            jolo.run_peers_mode(args)
+            mock_print.assert_called_once_with(
+                "No running jolo containers registered."
+            )
+
+    def test_peers_prints_entries(self):
+        args = jolo.parse_args(["peers"])
+        entries = [
+            {
+                "container": "demo-main",
+                "project": "demo",
+                "port": 4000,
+                "branch": "main",
+                "url": "http://host.tailnet.ts.net:4000",
+            }
+        ]
+        with (
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value=None
+            ),
+            mock.patch("_jolo.registry.read_all", return_value=entries),
+            mock.patch("builtins.print") as mock_print,
+        ):
+            jolo.run_peers_mode(args)
+            printed = " ".join(
+                str(call.args[0]) for call in mock_print.call_args_list
+            )
+            self.assertIn("demo-main", printed)
+            self.assertIn("demo", printed)
+            self.assertIn("4000", printed)
+            self.assertIn("main", printed)
+            self.assertIn("http://host.tailnet.ts.net:4000", printed)
+
+    def test_peers_json_output(self):
+        args = jolo.parse_args(["peers", "--json"])
+        entries = [{"container": "c1", "port": 4000}]
+        with (
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value=None
+            ),
+            mock.patch("_jolo.registry.read_all", return_value=entries),
+            mock.patch("builtins.print") as mock_print,
+        ):
+            jolo.run_peers_mode(args)
+            output = mock_print.call_args_list[0].args[0]
+            import json as _json
+
+            parsed = _json.loads(output)
+            self.assertEqual(parsed, entries)
+
+    def test_peers_prunes_stale_when_runtime_available(self):
+        args = jolo.parse_args(["peers"])
+        with (
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value="docker"
+            ),
+            mock.patch(
+                "_jolo.commands.list_all_devcontainers",
+                return_value=[("live", "/ws", "running", "img")],
+            ),
+            mock.patch("_jolo.registry.prune_stale") as mock_prune,
+            mock.patch("_jolo.registry.read_all", return_value=[]),
+        ):
+            jolo.run_peers_mode(args)
+            mock_prune.assert_called_once()
+            predicate = mock_prune.call_args.kwargs["is_running"]
+            self.assertTrue(predicate("live"))
+            self.assertFalse(predicate("dead"))
+
+    def test_peers_skips_prune_when_no_runtime(self):
+        """From inside a container there's no runtime — trust registry as-is."""
+        args = jolo.parse_args(["peers"])
+        with (
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value=None
+            ),
+            mock.patch("_jolo.registry.prune_stale") as mock_prune,
+            mock.patch("_jolo.registry.read_all", return_value=[]),
+        ):
+            jolo.run_peers_mode(args)
+            mock_prune.assert_not_called()
+
+
 class TestStopMode(unittest.TestCase):
     """Test down functionality."""
 
