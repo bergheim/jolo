@@ -10,10 +10,11 @@ to pick up where previous sessions left off.
 
 ## Arguments
 
-- `[focus]` — optional keyword(s) to narrow the load. When given, bias note
-  selection and the summary toward that topic (e.g. `voice`, `jolo`, `skills`,
-  `security`, `autonomous`, `emacs`). Use it when you know what this session is
-  about — saves context and surfaces more relevant prior work.
+- `[focus]` — optional keyword(s) or short phrase to narrow the load. When
+  given, bias note selection and the summary toward that topic (e.g. `voice`,
+  `jolo skills`, `perf grafana`, `security`, `autonomous`, `emacs`). Use it
+  when you know what this session is about — saves context and surfaces more
+  relevant prior work.
 
 Without a focus argument, load broadly as before.
 
@@ -42,16 +43,18 @@ This returns the 15 most recent notes with titles and keywords. Read the full
 content of notes relevant to the current session (gotchas, conventions, recent
 decisions). Skip notes that are clearly unrelated.
 
-**If a focus argument was given**, prefer notes whose title or keywords match
-the focus — read their full bodies even if they fall outside the 15 most
-recent. Use a filename grep as a helper:
+**If a focus argument was given**, split it into useful keywords and prefer
+notes whose title or keywords match any of them — read their full bodies even
+if they fall outside the 15 most recent. Use filename greps as helpers:
 
 ```bash
-ls docs/notes/*__*_<focus>*.org 2>/dev/null   # keyword match
-ls docs/notes/*<focus>*.org 2>/dev/null        # title-slug match
+ls docs/notes/*__*_<keyword>*.org 2>/dev/null   # keyword match
+ls docs/notes/*<keyword>*.org 2>/dev/null        # title-slug match
 ```
 
-De-prioritize notes that clearly don't touch the focus — skim titles only.
+For multi-word focus like `perf grafana`, search each significant word and the
+slug form (`perf-grafana`). De-prioritize notes that clearly don't touch the
+focus — skim titles only.
 
 If the helper isn't available, fall back to listing filenames directly:
 

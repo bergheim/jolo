@@ -7,6 +7,15 @@ description: Save current session knowledge to shared project files and agent-pr
 
 Persist what you've learned this session so it survives context loss and is available to all agents.
 
+## Arguments
+
+- `[focus]` — optional keyword(s) or short phrase describing what to save
+  around (e.g. `perf`, `grafana dashboards`, `jolo skills`, `public notes`).
+  When given, bias note creation, TODO updates, commit message, and summary
+  toward that topic.
+
+Without a focus argument, save broadly as before.
+
 ## Instructions
 
 ### 1. Create denote notes for discoveries
@@ -41,11 +50,17 @@ Body text.
 **Do not append to existing notes.** Notes are write-once. To add to a topic,
 create a new note referencing the original.
 
+**If a focus argument was given**, prioritize discoveries whose title,
+keywords, or body match that focus. Still save off-focus discoveries only when
+they are important enough that another agent would need them soon.
+
 ### 2. Update TODO.org
 
 - Add new tasks discovered during the session as `TODO` headings
 - Mark completed tasks as `DONE` using `bergheim/agent-org-set-state`
 - Update existing task notes with new information
+- If a focus argument was given, prefer TODO updates connected to that focus.
+  Do not churn unrelated TODOs just because they are nearby.
 
 ### 3. Agent-private memory — usually skip this
 
@@ -87,6 +102,9 @@ Files (only if the above filter passes):
 Always `git commit` the changes without waiting for the user to ask. Use a
 short commit message like "save-state: <brief summary>".
 
+If a focus argument was given, include it in the brief summary when it makes the
+commit clearer, for example `save-state: grafana dashboard mount`.
+
 **Public-notes mode (nested `docs/.git/`):** if the project is a public repo
 where `docs/` is its own private notes repo (detect via `test -d docs/.git`),
 do the commit inside `docs/` instead of in the outer repo. The emacs helpers
@@ -108,6 +126,8 @@ outer-repo commit is not needed.
 ### 5. Summary
 
 After saving and committing, print a brief summary of what was written and where.
+If a focus argument was given, keep the summary scoped to that focus and mention
+any intentionally skipped unrelated state.
 
 ## Rules
 
