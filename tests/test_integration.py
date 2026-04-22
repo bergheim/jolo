@@ -139,9 +139,15 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertIn('language = "python"', content)
         self.assertIn("${JOLO_TAILNET_HOST}", content)
         self.assertIn("${PORT}", content)
-        # Placeholders should be gone — scaffold filled them.
         self.assertNotIn("{{PROJECT_NAME}}", content)
         self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
+
+        # The filled content must be valid TOML.
+        import tomllib
+
+        data = tomllib.loads(content)
+        self.assertEqual(data["project"]["name"], "testproj")
+        self.assertEqual(data["project"]["language"], "python")
 
     def test_create_copies_editorconfig_from_templates(self):
         """create should copy .editorconfig from templates/."""

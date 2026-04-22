@@ -32,7 +32,9 @@ perf:
     DIRTY=$(git diff-index --quiet HEAD -- && echo false || echo true)
     RIG=$(envsubst '$JOLO_TAILNET_HOST $PORT' < perf-rig.toml)
     case "$RIG" in
-      *localhost*|*127.0.0.1*) echo "perf-rig target.url resolves to localhost; k6 runs on the host and cannot reach it. Set the tailnet-visible URL." >&2; exit 1 ;;
+      *localhost*|*127.0.0.1*|*0.0.0.0*|*"[::1]"*|*"::1]"*)
+        echo "perf-rig target.url resolves to a loopback address; k6 runs on the host and cannot reach it. Set the tailnet-visible URL." >&2
+        exit 1 ;;
     esac
     PAYLOAD=$(printf '%s' "$RIG" | jq -R -s \
       --arg sha "$SHA" \

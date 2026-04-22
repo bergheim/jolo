@@ -679,13 +679,15 @@ def sync_template_files(target_dir: Path) -> None:
         if not src.exists():
             continue
         result = _sync_one_file(target_dir, filename, src.read_bytes(), hashes)
-        if result in {"written", "updated"}:
+        # "unchanged" also refreshes hashes[filename] so a stale or missing
+        # record gets healed. Include it so the refresh actually persists.
+        if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
     regenerated = _regenerated_justfile_bytes(target_dir)
     if regenerated is not None:
         result = _sync_one_file(target_dir, "justfile", regenerated, hashes)
-        if result in {"written", "updated"}:
+        if result in {"written", "updated", "unchanged"}:
             touched.append("justfile")
 
     if touched:

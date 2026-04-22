@@ -881,10 +881,11 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         content = jolo.get_justfile_content("python", "demokrato")
         self.assertIn("envsubst", content)
 
-    def test_refuses_localhost_target(self):
+    def test_refuses_loopback_targets(self):
+        # k6 runs on the host; any loopback in the rig is a trap.
         content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("localhost", content)
-        self.assertIn("127.0.0.1", content)
+        for needle in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+            self.assertIn(needle, content)
 
 
 if __name__ == "__main__":
