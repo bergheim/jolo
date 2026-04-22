@@ -1,8 +1,23 @@
 """Template and config generation functions for jolo."""
 
+import re
 from pathlib import Path
 
 from _jolo import constants
+
+
+def sanitize_for_testbed(name: str) -> str:
+    """Normalize a project name into the perf-host testbed slug.
+
+    The hub validates testbed with ^[a-z0-9][a-z0-9_-]*$. Templated
+    scaffolds must never produce a value the hub will 422.
+    """
+    slug = re.sub(r"[^a-z0-9_]+", "-", name.lower())
+    slug = slug.strip("-")
+    if not slug:
+        raise ValueError(f"project name {name!r} has no alphanumerics")
+    return slug
+
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
@@ -296,6 +311,7 @@ def get_justfile_content(flavor: str, project_name: str) -> str:
         template + "\n" + common,
         PROJECT_NAME=project_name,
         MODULE_NAME=module_name,
+        TESTBED=sanitize_for_testbed(project_name),
     )
 
 

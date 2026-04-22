@@ -17,3 +17,25 @@ a11y *args:
 # Start PostgreSQL (init on first run)
 db *args="start":
     db {{args}}
+
+# Submit perf-rig.toml to the host-side perf hub
+perf:
+    #!/bin/sh
+    set -eu
+    : "${PERF_HUB:=http://berghome.ts.glvortex.net:8888}"
+    : "${PERF_TESTBED:=dev-container-{{TESTBED}}}"
+    [ -f perf-rig.toml ] || { echo "perf-rig.toml not found at repo root" >&2; exit 1; }
+    git rev-parse --verify HEAD >/dev/null 2>&1 || { echo "just perf needs at least one git commit" >&2; exit 1; }
+    SHA=$(git rev-parse HEAD)
+    BRANCH=$(git branch --show-current)
+    DIRTY=$(git diff-index --quiet HEAD -- && echo false || echo true)
+    PAYLOAD=$(jq -n \
+      --rawfile rig perf-rig.toml \
+      --arg sha "$SHA" \
+      --arg branch "$BRANCH" \
+      --argjson dirty "$DIRTY" \
+      --arg testbed "$PERF_TESTBED" \
+      '{rig:$rig, sha:$sha, branch:$branch, dirty:$dirty, testbed:$testbed}')
+    curl --fail-with-body -sS -X POST "$PERF_HUB/api/run" \
+      -H 'content-type: application/json' \
+      -d "$PAYLOAD"

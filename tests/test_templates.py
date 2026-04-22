@@ -721,5 +721,99 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
         )
 
 
+class TestSanitizeForTestbed(unittest.TestCase):
+    """Project-name to testbed-slug normalization.
+
+    The perf-host testbed regex is ^[a-z0-9][a-z0-9_-]*$; templated
+    scaffolds must always produce a valid value.
+    """
+
+    def test_lowercases(self):
+        self.assertEqual(jolo.sanitize_for_testbed("MyApp"), "myapp")
+
+    def test_replaces_non_alnum_with_dash(self):
+        self.assertEqual(
+            jolo.sanitize_for_testbed("foo bar/baz.qux"),
+            "foo-bar-baz-qux",
+        )
+
+    def test_collapses_runs_of_dashes(self):
+        self.assertEqual(jolo.sanitize_for_testbed("a   b"), "a-b")
+
+    def test_preserves_existing_underscores(self):
+        self.assertEqual(jolo.sanitize_for_testbed("snake_case"), "snake_case")
+
+    def test_strips_leading_non_alnum(self):
+        self.assertEqual(jolo.sanitize_for_testbed("--foo"), "foo")
+
+    def test_strips_trailing_dash(self):
+        self.assertEqual(jolo.sanitize_for_testbed("foo--"), "foo")
+
+    def test_empty_raises(self):
+        with self.assertRaises(ValueError):
+            jolo.sanitize_for_testbed("")
+
+    def test_only_punctuation_raises(self):
+        with self.assertRaises(ValueError):
+            jolo.sanitize_for_testbed("!!!")
+
+
+class TestPerfRigTemplate(unittest.TestCase):
+    """templates/perf-rig.toml placeholder."""
+
+    def setUp(self):
+        self.template_path = (
+            Path(__file__).parent.parent / "templates" / "perf-rig.toml"
+        )
+
+    def test_exists(self):
+        self.assertTrue(self.template_path.exists())
+
+    def test_parses_as_toml(self):
+        import tomllib
+
+        data = tomllib.loads(self.template_path.read_text())
+        self.assertEqual(data["schema_version"], 1)
+        self.assertEqual(data["target"]["mode"], "external_url")
+        self.assertIn("url", data["target"])
+        self.assertGreaterEqual(len(data["routes"]), 1)
+
+    def test_has_obvious_placeholder_marker(self):
+        # First `just perf` should fail in a way that points the user at
+        # the URL, not mask it as a generic DNS/network error.
+        content = self.template_path.read_text()
+        self.assertIn("REPLACE", content.upper())
+
+
+class TestJustfilePerfRecipe(unittest.TestCase):
+    """The `perf` recipe appears with the project-specific testbed."""
+
+    def test_perf_recipe_emitted(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("\nperf:", content)
+
+    def test_testbed_substituted(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("PERF_TESTBED:=dev-container-demokrato", content)
+
+    def test_testbed_sanitized_for_weird_name(self):
+        content = jolo.get_justfile_content("python", "My Cool App!")
+        self.assertIn("PERF_TESTBED:=dev-container-my-cool-app", content)
+
+    def test_hub_env_overridable(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("PERF_HUB", content)
+        self.assertIn("berghome.ts.glvortex.net:8888", content)
+
+    def test_uses_raw_file_for_rig(self):
+        # --rawfile avoids the quoting landmines $(cat) + --arg had.
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("--rawfile rig perf-rig.toml", content)
+
+    def test_guards_against_no_initial_commit(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("git rev-parse --verify HEAD", content)
+
+
 if __name__ == "__main__":
     unittest.main()

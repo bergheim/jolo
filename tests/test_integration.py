@@ -119,6 +119,23 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
 
         self.assertTrue(gitignore.exists())
 
+    def test_create_copies_perf_rig_template(self):
+        """create should drop a placeholder perf-rig.toml at repo root."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "python", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        perf_rig = Path(self.tmpdir) / "testproj" / "perf-rig.toml"
+        self.assertTrue(perf_rig.exists())
+        content = perf_rig.read_text()
+        self.assertIn("schema_version = 1", content)
+        # First `just perf` should fail loudly pointing at the placeholder.
+        self.assertIn("REPLACE", content.upper())
+
     def test_create_copies_editorconfig_from_templates(self):
         """create should copy .editorconfig from templates/."""
         args = jolo.parse_args(
