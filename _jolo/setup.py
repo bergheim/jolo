@@ -12,7 +12,11 @@ import urllib.request
 from pathlib import Path
 
 from _jolo import constants
-from _jolo.cli import read_port_from_devcontainer, verbose_print
+from _jolo.cli import (
+    detect_flavors,
+    read_port_from_devcontainer,
+    verbose_print,
+)
 from _jolo.container import build_devcontainer_json
 
 DEFAULT_CODEX_REASONING_EFFORT = "high"
@@ -607,49 +611,87 @@ def _save_template_hashes(
     path.write_text(json.dumps(hashes, indent=2) + "\n")
 
 
+def _sync_one_file(
+    target_dir: Path, filename: str, new_bytes: bytes, hashes: dict
+) -> str:
+    """Sync one file with .jolonew fallback.
+
+    Returns one of:
+    - "written": dst didn't exist, new content installed.
+    - "updated": user hadn't edited; dst overwritten with new content.
+    - "jolonew": user edited; {filename}.jolonew written alongside dst.
+      The .jolonew file is always overwritten so the latest template
+      output is always visible without touching user edits.
+    - "unchanged": dst already matches new content.
+    """
+    dst = target_dir / filename
+    new_hash = hashlib.sha256(new_bytes).hexdigest()
+
+    if not dst.exists():
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        verbose_print(f"Copied: {filename}")
+        return "written"
+
+    current_hash = _file_hash(dst)
+
+    if current_hash == new_hash:
+        hashes[filename] = new_hash
+        return "unchanged"
+
+    stored_hash = hashes.get(filename)
+    if stored_hash == current_hash:
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        verbose_print(f"Synced: {filename}")
+        return "updated"
+
+    jolonew = target_dir / f"{filename}.jolonew"
+    jolonew.write_bytes(new_bytes)
+    print(f"  Template update available: {jolonew.name} (yours was edited)")
+    return "jolonew"
+
+
+def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
+    """Produce current justfile content for target_dir's flavor/name.
+
+    Returns None if flavor detection fails (leave the existing justfile alone).
+    """
+    from _jolo.templates import get_justfile_content
+
+    flavors = detect_flavors(target_dir)
+    if not flavors:
+        return None
+    return get_justfile_content(flavors[0], target_dir.name).encode()
+
+
 def sync_template_files(target_dir: Path) -> None:
-    """Sync template files, skipping any that were modified by the user."""
+    """Sync template files. User-edited files get a .jolonew sibling."""
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     if not templates_dir.exists():
         return
 
     hashes = _load_template_hashes(target_dir)
-    updated = []
+    touched: list[str] = []
 
     for filename in SYNCABLE_TEMPLATE_FILES:
         src = templates_dir / filename
         if not src.exists():
             continue
-        dst = target_dir / filename
+        result = _sync_one_file(target_dir, filename, src.read_bytes(), hashes)
+        # "unchanged" also refreshes hashes[filename] so a stale or missing
+        # record gets healed. Include it so the refresh actually persists.
+        if result in {"written", "updated", "unchanged"}:
+            touched.append(filename)
 
-        if not dst.exists():
-            shutil.copy2(src, dst)
-            verbose_print(f"Copied template: {filename}")
-            updated.append(filename)
-            continue
+    regenerated = _regenerated_justfile_bytes(target_dir)
+    if regenerated is not None:
+        result = _sync_one_file(target_dir, "justfile", regenerated, hashes)
+        if result in {"written", "updated", "unchanged"}:
+            touched.append("justfile")
 
-        stored_hash = hashes.get(filename)
-        current_hash = _file_hash(dst)
-
-        if stored_hash is None:
-            print(f"  Skipping {filename}: no hash record (manually verify)")
-            continue
-
-        if current_hash != stored_hash:
-            print(f"  Skipping {filename}: locally modified")
-            continue
-
-        new_hash = _file_hash(src)
-        if current_hash == new_hash:
-            verbose_print(f"  {filename} already up to date")
-            continue
-
-        shutil.copy2(src, dst)
-        verbose_print(f"  Synced {filename}")
-        updated.append(filename)
-
-    if updated:
-        _save_template_hashes(target_dir, updated, hashes)
+    if touched:
+        _save_template_hashes(target_dir, touched, hashes)
 
     for filename in COPY_IF_MISSING_TEMPLATES:
         src = templates_dir / filename

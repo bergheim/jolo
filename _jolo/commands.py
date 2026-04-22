@@ -1113,6 +1113,29 @@ def run_create_mode(args: argparse.Namespace) -> None:
     (project_path / "justfile").write_text(justfile_content)
     verbose_print("Generated justfile")
 
+    # Fill perf-rig.toml placeholders with the project's identity so the
+    # user isn't staring at REPLACE-ME on first open. target.url stays as
+    # ${JOLO_TAILNET_HOST}:${PORT} — resolved by envsubst at `just perf`
+    # time, never written to disk.
+    #
+    # json.dumps()[1:-1] escapes quotes/backslashes/control chars for TOML
+    # basic strings (TOML's escape rules are a subset of JSON's). Keeps
+    # weird project names from producing invalid TOML.
+    perf_rig_path = project_path / "perf-rig.toml"
+    if perf_rig_path.exists():
+        language = constants.FLAVOR_LANGUAGE.get(
+            primary_flavor, primary_flavor
+        )
+        content = perf_rig_path.read_text()
+        content = content.replace(
+            "{{PROJECT_NAME}}", json.dumps(project_name)[1:-1]
+        )
+        content = content.replace(
+            "{{PROJECT_LANGUAGE}}", json.dumps(language)[1:-1]
+        )
+        perf_rig_path.write_text(content)
+        verbose_print("Filled perf-rig.toml")
+
     # Generate and write .pre-commit-config.yaml based on selected flavors
     precommit_content = generate_precommit_config(flavors)
     (project_path / ".pre-commit-config.yaml").write_text(precommit_content)

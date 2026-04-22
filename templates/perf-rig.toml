@@ -1,20 +1,22 @@
 # perf-rig.toml v1 — declarative load spec for the host-side perf hub.
 #
-# `just perf` posts this file inline to
-# http://berghome.ts.glvortex.net:8888/api/run (override with PERF_HUB).
+# `just perf` substitutes ${JOLO_TAILNET_HOST} and ${PORT} via envsubst
+# before POSTing, so the resolved URL never lands in a committed file.
+# Set JOLO_TAILNET_HOST in your shell (or an env file); $PORT is exported
+# by the devcontainer. Override the hub with PERF_HUB if needed.
 #
 # The hub's k6 worker runs on the host and reaches this project over the
-# Tailscale network. The URL below must be your tailnet hostname plus the
-# devcontainer's forwarded $PORT — NOT localhost. Replace the marker.
+# tailnet, NOT via localhost. Keep the env-var form below as-is.
 
 schema_version = 1
 
 [project]
-name = "REPLACE-ME"
+name = "{{PROJECT_NAME}}"
+language = "{{PROJECT_LANGUAGE}}"
 
 [target]
 mode = "external_url"
-url = "http://REPLACE-ME-WITH-TAILNET-HOST:0"
+url = "http://${JOLO_TAILNET_HOST}:${PORT}"
 
 # One scenario per route. Do not multiplex routes inside one scenario —
 # it breaks per-route arrival-rate tracking.
@@ -35,6 +37,7 @@ max_dropped_iterations = 5
 max_failure_rate = 0.05
 
 [regression.landing]
-# Per-route latency budget. Crossed = k6 exits 99; validity can still
-# pass. Bencher will eventually own cross-commit baselines.
-p99_ms = 500
+# Dev-container default. Async frameworks with hot-reload have p99 tails
+# in the seconds, not the hundreds of millis. Tighten once you know your
+# actual baseline, or move perf runs to a hub-bare testbed.
+p99_ms = 3000

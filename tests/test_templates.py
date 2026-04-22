@@ -819,11 +819,27 @@ class TestPerfRigTemplate(unittest.TestCase):
         self.assertIn("url", data["target"])
         self.assertGreaterEqual(len(data["routes"]), 1)
 
-    def test_has_obvious_placeholder_marker(self):
-        # First `just perf` should fail in a way that points the user at
-        # the URL, not mask it as a generic DNS/network error.
+    def test_url_is_envsubst_form(self):
+        # target.url stays symbolic in the committed template. `just perf`
+        # resolves ${JOLO_TAILNET_HOST} and ${PORT} at POST time — no
+        # hostname ever lands on disk.
         content = self.template_path.read_text()
-        self.assertIn("REPLACE", content.upper())
+        self.assertIn("${JOLO_TAILNET_HOST}", content)
+        self.assertIn("${PORT}", content)
+
+    def test_project_placeholders_survive_for_create_substitution(self):
+        content = self.template_path.read_text()
+        self.assertIn("{{PROJECT_NAME}}", content)
+        self.assertIn("{{PROJECT_LANGUAGE}}", content)
+
+    def test_dev_realistic_regression_default(self):
+        # Prod-tight defaults (p99=500) blow up on dev-container baselines.
+        # Keep defaults dev-realistic; users tighten when they move to a
+        # hub-bare testbed.
+        import tomllib
+
+        data = tomllib.loads(self.template_path.read_text())
+        self.assertGreaterEqual(data["regression"]["landing"]["p99_ms"], 1000)
 
 
 class TestJustfilePerfRecipe(unittest.TestCase):
@@ -846,14 +862,30 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         self.assertIn("PERF_HUB", content)
         self.assertIn("berghome.ts.glvortex.net:8888", content)
 
-    def test_uses_raw_file_for_rig(self):
-        # --rawfile avoids the quoting landmines $(cat) + --arg had.
+    def test_envsubst_then_jq_for_rig(self):
+        # jq -R -s reads the substituted rig from stdin safely, no quoting
+        # landmines and no intermediate temp file.
         content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("--rawfile rig perf-rig.toml", content)
+        self.assertIn("envsubst '$JOLO_TAILNET_HOST $PORT'", content)
+        self.assertIn("jq -R -s", content)
 
     def test_guards_against_no_initial_commit(self):
         content = jolo.get_justfile_content("python", "demokrato")
         self.assertIn("git rev-parse --verify HEAD", content)
+
+    def test_requires_jolo_tailnet_host_env(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("JOLO_TAILNET_HOST", content)
+
+    def test_uses_envsubst_for_rig_substitution(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("envsubst", content)
+
+    def test_refuses_loopback_targets(self):
+        # k6 runs on the host; any loopback in the rig is a trap.
+        content = jolo.get_justfile_content("python", "demokrato")
+        for needle in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+            self.assertIn(needle, content)
 
 
 if __name__ == "__main__":
