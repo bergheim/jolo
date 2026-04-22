@@ -22,10 +22,12 @@ db *args="start":
 perf:
     #!/bin/sh
     set -eu
-    : "${PERF_HUB:=${JOLO_PERF_HUB:-http://berghome.ts.glvortex.net:8888}}"
+    : "${PERF_HUB:=${JOLO_PERF_HUB:-}}"
     : "${PERF_TESTBED:=dev-container-{{TESTBED}}}"
     [ -f perf-rig.toml ] || { echo "perf-rig.toml not found at repo root" >&2; exit 1; }
-    [ -n "${JOLO_TAILNET_HOST:-}" ] || { echo "JOLO_TAILNET_HOST not set (perf-rig target.url needs it; see envsubst placeholders)" >&2; exit 1; }
+    [ -n "$PERF_HUB" ] || { echo "JOLO_PERF_HUB not set (e.g. http://<your-host>:8888). No hub URL is baked into the template." >&2; exit 1; }
+    [ -n "${JOLO_TAILNET_HOST:-}" ] || { echo "JOLO_TAILNET_HOST not set (perf-rig target.url uses it)." >&2; exit 1; }
+    [ -n "${PORT:-}" ] || { echo "PORT not set (jolo devcontainers export it; running outside one?)" >&2; exit 1; }
     git rev-parse --verify HEAD >/dev/null 2>&1 || { echo "just perf needs at least one git commit" >&2; exit 1; }
     SHA=$(git rev-parse HEAD)
     BRANCH=$(git branch --show-current)

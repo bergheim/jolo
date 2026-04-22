@@ -857,10 +857,16 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         content = jolo.get_justfile_content("python", "My Cool App!")
         self.assertIn("PERF_TESTBED:=dev-container-my-cool-app", content)
 
-    def test_hub_env_overridable(self):
+    def test_hub_env_required(self):
+        # No hostname baked into the generated justfile — operators set
+        # JOLO_PERF_HUB (or PERF_HUB) in their shell/env file.
         content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("PERF_HUB", content)
-        self.assertIn("berghome.ts.glvortex.net:8888", content)
+        self.assertIn("JOLO_PERF_HUB", content)
+        self.assertNotIn("berghome.ts.glvortex.net", content)
+
+    def test_port_preflight(self):
+        content = jolo.get_justfile_content("python", "demokrato")
+        self.assertIn("PORT not set", content)
 
     def test_envsubst_then_jq_for_rig(self):
         # jq -R -s reads the substituted rig from stdin safely, no quoting
