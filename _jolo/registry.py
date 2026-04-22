@@ -15,8 +15,10 @@ it via the shared mount.
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import os
+import subprocess
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -91,6 +93,51 @@ def remove_entry(container: str) -> None:
     if len(new_entries) == len(entries):
         return
     _atomic_write(path, new_entries)
+
+
+def build_entry(
+    container: str,
+    workspace: Path,
+    port: int | None,
+    host: str | None = None,
+) -> dict[str, Any]:
+    """Gather a peer entry for a running container.
+
+    Pure data-gathering helper so commands.py / container.py don't need to
+    know the entry shape. Missing fields are omitted rather than stubbed.
+    """
+    entry: dict[str, Any] = {
+        "container": container,
+        "project": workspace.name,
+        "workspace": str(workspace),
+        "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="seconds"
+        ),
+    }
+    if port is not None:
+        entry["port"] = port
+    branch = _git_branch(workspace)
+    if branch:
+        entry["branch"] = branch
+    if host and port is not None:
+        entry["url"] = f"http://{host}:{port}"
+    return entry
+
+
+def _git_branch(workspace: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(workspace), "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    name = result.stdout.strip()
+    return name or None
 
 
 def prune_stale(is_running: Callable[[str], bool]) -> list[str]:

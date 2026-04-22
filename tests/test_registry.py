@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the peer registry (~/stash/.jolo/peers.json)."""
 
+import datetime
 import os
 import tempfile
 import unittest
@@ -203,6 +204,57 @@ class TestReadOnlyView(unittest.TestCase):
         entries[0]["port"] = 9999
         reread = registry.read_all()
         self.assertEqual(reread[0]["port"], 4000)
+
+
+class TestBuildEntry(unittest.TestCase):
+    """Assembling a registry entry from running container metadata."""
+
+    def test_minimal_fields(self):
+        with mock.patch.object(registry, "_git_branch", return_value=None):
+            e = registry.build_entry(
+                container="c1",
+                workspace=Path("/workspaces/demo"),
+                port=None,
+            )
+        self.assertEqual(e["container"], "c1")
+        self.assertEqual(e["project"], "demo")
+        self.assertEqual(e["workspace"], "/workspaces/demo")
+        self.assertIn("started_at", e)
+        self.assertNotIn("port", e)
+        self.assertNotIn("url", e)
+        self.assertNotIn("branch", e)
+
+    def test_all_fields(self):
+        with mock.patch.object(registry, "_git_branch", return_value="main"):
+            e = registry.build_entry(
+                container="c1",
+                workspace=Path("/workspaces/demo"),
+                port=4123,
+                host="host.tailnet.ts.net",
+            )
+        self.assertEqual(e["port"], 4123)
+        self.assertEqual(e["branch"], "main")
+        self.assertEqual(e["url"], "http://host.tailnet.ts.net:4123")
+
+    def test_no_url_without_host(self):
+        with mock.patch.object(registry, "_git_branch", return_value=None):
+            e = registry.build_entry(
+                container="c1",
+                workspace=Path("/workspaces/demo"),
+                port=4123,
+            )
+        self.assertNotIn("url", e)
+
+    def test_started_at_is_iso8601_utc(self):
+        with mock.patch.object(registry, "_git_branch", return_value=None):
+            e = registry.build_entry(
+                container="c1",
+                workspace=Path("/workspaces/demo"),
+                port=None,
+            )
+        # Should end with +00:00 (explicit UTC offset) and parse cleanly
+        self.assertTrue(e["started_at"].endswith("+00:00"), e["started_at"])
+        datetime.datetime.fromisoformat(e["started_at"])
 
 
 if __name__ == "__main__":
