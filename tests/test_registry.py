@@ -206,6 +206,51 @@ class TestReadOnlyView(unittest.TestCase):
         self.assertEqual(reread[0]["port"], 4000)
 
 
+class TestConcurrentWrites(unittest.TestCase):
+    """flock serializes concurrent RMW cycles from separate processes."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name)
+        self._home_patch = mock.patch.dict(
+            os.environ, {"HOME": str(self.home)}, clear=False
+        )
+        self._home_patch.start()
+        self._stash_patch = mock.patch.object(
+            registry, "_CONTAINER_STASH", Path("/nonexistent/stash")
+        )
+        self._stash_patch.start()
+
+    def tearDown(self):
+        self._stash_patch.stop()
+        self._home_patch.stop()
+        self.tmp.cleanup()
+
+    def test_parallel_writes_do_not_drop_entries(self):
+        import threading
+
+        def writer(tag: str):
+            for i in range(20):
+                registry.write_entry(
+                    {"container": f"{tag}-{i}", "port": 4000 + i}
+                )
+
+        t1 = threading.Thread(target=writer, args=("a",))
+        t2 = threading.Thread(target=writer, args=("b",))
+        t3 = threading.Thread(target=writer, args=("c",))
+        t1.start()
+        t2.start()
+        t3.start()
+        t1.join()
+        t2.join()
+        t3.join()
+
+        got = registry.read_all()
+        names = {e["container"] for e in got}
+        # All 60 unique entries should be present after parallel writes.
+        self.assertEqual(len(names), 60)
+
+
 class TestBuildEntry(unittest.TestCase):
     """Assembling a registry entry from running container metadata."""
 

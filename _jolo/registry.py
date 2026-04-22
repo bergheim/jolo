@@ -14,13 +14,15 @@ it via the shared mount.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import datetime
+import fcntl
 import json
 import os
 import subprocess
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +38,31 @@ def registry_path() -> Path:
     if _CONTAINER_STASH.is_dir():
         return _CONTAINER_STASH / ".jolo" / "peers.json"
     return Path(os.environ["HOME"]) / "stash" / ".jolo" / "peers.json"
+
+
+@contextlib.contextmanager
+def _locked(path: Path) -> Generator[None, None, None]:
+    """Hold an exclusive advisory lock on ``<path>.lock`` for the block.
+
+    Serializes read-modify-write cycles against concurrent ``jolo up``
+    invocations (e.g. ``jolo spawn`` launching N containers in parallel).
+    Falls through silently if the filesystem does not support flock.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        except OSError:
+            pass  # fs without flock support — best-effort
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        os.close(fd)
 
 
 def _load_raw(path: Path) -> list[dict[str, Any]]:
@@ -79,20 +106,24 @@ def write_entry(entry: dict[str, Any]) -> None:
     if "container" not in entry:
         raise ValueError("peer entry must include a 'container' key")
     path = registry_path()
-    entries = _load_raw(path)
-    entries = [e for e in entries if e.get("container") != entry["container"]]
-    entries.append(copy.deepcopy(entry))
-    _atomic_write(path, entries)
+    with _locked(path):
+        entries = _load_raw(path)
+        entries = [
+            e for e in entries if e.get("container") != entry["container"]
+        ]
+        entries.append(copy.deepcopy(entry))
+        _atomic_write(path, entries)
 
 
 def remove_entry(container: str) -> None:
     """Remove the entry for the given container name. No-op if missing."""
     path = registry_path()
-    entries = _load_raw(path)
-    new_entries = [e for e in entries if e.get("container") != container]
-    if len(new_entries) == len(entries):
-        return
-    _atomic_write(path, new_entries)
+    with _locked(path):
+        entries = _load_raw(path)
+        new_entries = [e for e in entries if e.get("container") != container]
+        if len(new_entries) == len(entries):
+            return
+        _atomic_write(path, new_entries)
 
 
 def build_entry(
@@ -147,15 +178,16 @@ def prune_stale(is_running: Callable[[str], bool]) -> list[str]:
     Returns the list of removed container names.
     """
     path = registry_path()
-    entries = _load_raw(path)
-    alive: list[dict[str, Any]] = []
-    removed: list[str] = []
-    for e in entries:
-        name = e.get("container", "")
-        if is_running(name):
-            alive.append(e)
-        else:
-            removed.append(name)
-    if removed:
-        _atomic_write(path, alive)
+    with _locked(path):
+        entries = _load_raw(path)
+        alive: list[dict[str, Any]] = []
+        removed: list[str] = []
+        for e in entries:
+            name = e.get("container", "")
+            if is_running(name):
+                alive.append(e)
+            else:
+                removed.append(name)
+        if removed:
+            _atomic_write(path, alive)
     return removed
