@@ -985,5 +985,36 @@ class TestEnsureTopLevelTomlKey(unittest.TestCase):
         self.assertIn('effort = "high"\n\n[servers]', result)
 
 
+class TestSyncCopyIfMissing(unittest.TestCase):
+    """sync_template_files drops COPY_IF_MISSING_TEMPLATES when absent,
+    but never overwrites existing files."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_first_sync_copies_perf_rig(self):
+        self.assertFalse((self.target / "perf-rig.toml").exists())
+        setup.sync_template_files(self.target)
+        self.assertTrue((self.target / "perf-rig.toml").exists())
+
+    def test_second_sync_preserves_user_edits(self):
+        # User creates the file and edits it.
+        user_content = "# user-edited rig, do not clobber\n"
+        (self.target / "perf-rig.toml").write_text(user_content)
+
+        setup.sync_template_files(self.target)
+
+        self.assertEqual(
+            (self.target / "perf-rig.toml").read_text(),
+            user_content,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

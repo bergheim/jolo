@@ -575,6 +575,13 @@ SYNCABLE_TEMPLATE_FILES = [
     "GEMINI.md",
 ]
 
+# Files that sync should drop in if missing but never overwrite if present.
+# Use this for user-editable config that projects would otherwise have to
+# hand-copy from templates/ after a new template lands.
+COPY_IF_MISSING_TEMPLATES = [
+    "perf-rig.toml",
+]
+
 
 def _file_hash(path: Path) -> str:
     """Return sha256 hex digest of a file's contents."""
@@ -643,6 +650,13 @@ def sync_template_files(target_dir: Path) -> None:
 
     if updated:
         _save_template_hashes(target_dir, updated, hashes)
+
+    for filename in COPY_IF_MISSING_TEMPLATES:
+        src = templates_dir / filename
+        dst = target_dir / filename
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+            verbose_print(f"Copied (first time): {filename}")
 
 
 def copy_template_files(target_dir: Path) -> None:

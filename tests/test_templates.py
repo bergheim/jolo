@@ -794,10 +794,18 @@ class TestPerfRigTemplate(unittest.TestCase):
 
     def test_not_syncable(self):
         # The hash-based sync path would otherwise clobber user edits on
-        # every `jolo a --recreate`. The rig is copy-on-create only.
+        # every `jolo a --recreate`. The rig is copy-on-create plus
+        # copy-if-missing on sync (see COPY_IF_MISSING_TEMPLATES below).
         from _jolo.setup import SYNCABLE_TEMPLATE_FILES
 
         self.assertNotIn("perf-rig.toml", SYNCABLE_TEMPLATE_FILES)
+
+    def test_in_copy_if_missing(self):
+        # Existing projects pick up the rig on the next `jolo a --recreate`
+        # without needing a manual copy.
+        from _jolo.setup import COPY_IF_MISSING_TEMPLATES
+
+        self.assertIn("perf-rig.toml", COPY_IF_MISSING_TEMPLATES)
 
     def test_exists(self):
         self.assertTrue(self.template_path.exists())
