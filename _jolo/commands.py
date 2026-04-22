@@ -322,12 +322,15 @@ def run_peers_mode(args: argparse.Namespace) -> None:
 
     From the host, verifies each registered peer is still running (via the
     container runtime) and prunes stale entries. From inside a container
-    (no runtime available), prints the registry as-is — stale entries
-    decay when the host next runs `jolo peers`, `jolo down`, or `jolo prune`.
+    the runtime binary is installed but non-functional (no podman socket),
+    so trust the registry as-is — pruning here would wrongly remove every
+    peer. Stale entries decay the next time the host runs ``jolo peers``,
+    ``jolo down``, or ``jolo prune``.
     """
     from _jolo import registry
 
-    runtime = get_container_runtime()
+    inside_container = os.environ.get("EMACS_CONTAINER") == "1"
+    runtime = None if inside_container else get_container_runtime()
     if runtime:
         running = {
             n for n, _, s, _ in list_all_devcontainers() if s == "running"

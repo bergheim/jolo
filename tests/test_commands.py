@@ -211,7 +211,12 @@ class TestPeersMode(unittest.TestCase):
 
     def test_peers_prunes_stale_when_runtime_available(self):
         args = jolo.parse_args(["peers"])
+        # Simulate host (EMACS_CONTAINER not set) by clearing the env var
+        env_without_marker = {
+            k: v for k, v in os.environ.items() if k != "EMACS_CONTAINER"
+        }
         with (
+            mock.patch.dict(os.environ, env_without_marker, clear=True),
             mock.patch(
                 "_jolo.commands.get_container_runtime", return_value="docker"
             ),
@@ -237,6 +242,28 @@ class TestPeersMode(unittest.TestCase):
             ),
             mock.patch("_jolo.registry.prune_stale") as mock_prune,
             mock.patch("_jolo.registry.read_all", return_value=[]),
+        ):
+            jolo.run_peers_mode(args)
+            mock_prune.assert_not_called()
+
+    def test_peers_skips_prune_inside_container(self):
+        """EMACS_CONTAINER=1 must skip prune even if podman binary exists.
+
+        Inside a container, podman is installed but has no functional
+        socket, so list_all_devcontainers returns []. Pruning in that
+        state would wrongly remove every registered peer.
+        """
+        args = jolo.parse_args(["peers"])
+        with (
+            mock.patch.dict(os.environ, {"EMACS_CONTAINER": "1"}, clear=False),
+            mock.patch(
+                "_jolo.commands.get_container_runtime", return_value="podman"
+            ),
+            mock.patch("_jolo.registry.prune_stale") as mock_prune,
+            mock.patch(
+                "_jolo.registry.read_all",
+                return_value=[{"container": "peer1", "port": 4000}],
+            ),
         ):
             jolo.run_peers_mode(args)
             mock_prune.assert_not_called()
