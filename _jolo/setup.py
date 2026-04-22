@@ -671,6 +671,7 @@ def copy_template_files(target_dir: Path) -> None:
         "GEMINI.md",
         ".gitignore",
         ".editorconfig",
+        "perf-rig.toml",
     ]
 
     for filename in template_files:

@@ -1,0 +1,40 @@
+# perf-rig.toml v1 — declarative load spec for the host-side perf hub.
+#
+# `just perf` posts this file inline to
+# http://berghome.ts.glvortex.net:8888/api/run (override with PERF_HUB).
+#
+# The hub's k6 worker runs on the host and reaches this project over the
+# Tailscale network. The URL below must be your tailnet hostname plus the
+# devcontainer's forwarded $PORT — NOT localhost. Replace the marker.
+
+schema_version = 1
+
+[project]
+name = "REPLACE-ME"
+
+[target]
+mode = "external_url"
+url = "http://REPLACE-ME-WITH-TAILNET-HOST:0"
+
+# One scenario per route. Do not multiplex routes inside one scenario —
+# it breaks per-route arrival-rate tracking.
+[[routes]]
+route_id = "landing"
+path = "/"
+method = "GET"
+rate_per_sec = 2
+duration = "20s"
+warmup = "3s"
+preallocated_vus = 5
+max_vus = 15
+
+[validity]
+# Gates that decide whether the run is trustworthy at all.
+# Regression detection only sees runs that pass these.
+max_dropped_iterations = 5
+max_failure_rate = 0.05
+
+[regression.landing]
+# Per-route latency budget. Crossed = k6 exits 99; validity can still
+# pass. Bencher will eventually own cross-commit baselines.
+p99_ms = 500

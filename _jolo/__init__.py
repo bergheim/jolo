@@ -103,6 +103,7 @@ from _jolo.templates import (  # noqa: F401
     get_scaffold_files,
     get_test_framework_config,
     get_type_checker_config,
+    sanitize_for_testbed,
 )
 from _jolo.worktree import (  # noqa: F401
     branch_exists,

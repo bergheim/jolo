@@ -281,8 +281,17 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 | `just test` | Run tests |
 | `just test-watch` | Run tests on file change |
 | `just add X` | Add a dependency |
+| `just perf` | Submit `perf-rig.toml` to the host-side perf hub |
 
 **Dev server log:** `just dev` runs automatically in a tmux window and logs all output (stdout + stderr) to `dev.log` at the project root. Read this file to check server output, errors, and request logs without needing access to the dev server's tmux pane.
+
+## Performance
+
+`just perf` posts the project's `perf-rig.toml` to the host-side perf hub (default `http://berghome.ts.glvortex.net:8888`, override with `PERF_HUB`). The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.
+
+The k6 worker lives on the host, so the target URL inside `perf-rig.toml` must be the tailnet hostname plus the devcontainer's forwarded `$PORT` — `localhost:$PORT` resolves to the trigger container and won't reach this project. Edit the placeholder URL before the first run.
+
+`testbed` defaults to `dev-container-<sanitized-project-name>` — the project name lowercased, with non-alphanumerics replaced by `-`, and internal underscores preserved (e.g. `My_App` → `my_app`). Override with `PERF_TESTBED` if a worktree or CI runner needs a distinct baseline.
 
 ## Frontend Verification
 
