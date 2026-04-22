@@ -291,7 +291,7 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 The k6 worker lives on the host, so the target URL inside `perf-rig.toml` must be the tailnet hostname plus the devcontainer's forwarded `$PORT` — `localhost:$PORT` resolves to the trigger container and won't reach this project. Edit the placeholder URL before the first run.
 
-`testbed` defaults to `dev-container-<sanitized-project-name>` (the project name lowercased and with non-alphanumerics replaced by `-`). Override with `PERF_TESTBED` if a worktree or CI runner needs a distinct baseline.
+`testbed` defaults to `dev-container-<sanitized-project-name>` — the project name lowercased, with non-alphanumerics replaced by `-`, and internal underscores preserved (e.g. `My_App` → `my_app`). Override with `PERF_TESTBED` if a worktree or CI runner needs a distinct baseline.
 
 ## Frontend Verification
 
