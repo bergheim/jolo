@@ -1091,6 +1091,22 @@ class TestSyncOneJolonew(unittest.TestCase):
             "newest template\n",
         )
 
+    def test_untracked_when_file_exists_without_hash_record(self):
+        # The meta-repo's own justfile, or any project that predates
+        # hash tracking: file exists, but jolo never wrote it. Don't
+        # touch it, don't drop a .jolonew alongside.
+        (self.target / "file.txt").write_text("hand-curated content\n")
+        hashes: dict = {}
+        result = setup._sync_one_file(
+            self.target, "file.txt", b"template output\n", hashes
+        )
+        self.assertEqual(result, "untracked")
+        self.assertEqual(
+            (self.target / "file.txt").read_text(), "hand-curated content\n"
+        )
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
+        self.assertNotIn("file.txt", hashes)
+
 
 class TestSyncJustfileRegen(unittest.TestCase):
     """Regenerated justfile participates in sync with .jolonew semantics."""
@@ -1119,17 +1135,47 @@ class TestSyncJustfileRegen(unittest.TestCase):
         self.assertIn("perf:", (self.target / "justfile").read_text())
 
     def test_edited_justfile_gets_jolonew(self):
-        # Simulate an existing project whose justfile predates the
-        # perf recipe and has since been edited by the user.
+        # Existing scaffolded project whose justfile was tracked by
+        # jolo at create time and has since been user-edited.
+        import hashlib as _hl
+        import json as _json
+
+        initial_bytes = b"# original scaffold\n\nhello:\n    echo hi\n"
+        (self.target / "justfile").write_bytes(initial_bytes)
+
+        hashes_path = self.target / setup.TEMPLATE_HASHES_FILE
+        hashes_path.parent.mkdir(parents=True)
+        hashes_path.write_text(
+            _json.dumps({"justfile": _hl.sha256(initial_bytes).hexdigest()})
+            + "\n"
+        )
+
+        # User edits.
         (self.target / "justfile").write_text(
             "# my custom recipes\n\nhello:\n    echo hi\n"
         )
+
         setup.sync_template_files(self.target)
-        # User's justfile untouched.
-        self.assertIn("hello:", (self.target / "justfile").read_text())
-        # Latest template parked for review.
+
+        self.assertIn(
+            "my custom recipes", (self.target / "justfile").read_text()
+        )
         self.assertTrue((self.target / "justfile.jolonew").exists())
         self.assertIn("perf:", (self.target / "justfile.jolonew").read_text())
+
+    def test_untracked_justfile_not_touched(self):
+        # Meta-repo / non-jolo-scaffolded project: no hash record
+        # exists. Sync must NOT drop a .jolonew because that file
+        # isn't ours to manage.
+        (self.target / "justfile").write_text(
+            "# meta-repo bespoke recipes\n\ntest:\n    pytest\n"
+        )
+        setup.sync_template_files(self.target)
+        self.assertEqual(
+            (self.target / "justfile").read_text(),
+            "# meta-repo bespoke recipes\n\ntest:\n    pytest\n",
+        )
+        self.assertFalse((self.target / "justfile.jolonew").exists())
 
 
 if __name__ == "__main__":

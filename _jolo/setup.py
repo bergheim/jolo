@@ -623,6 +623,9 @@ def _sync_one_file(
       The .jolonew file is always overwritten so the latest template
       output is always visible without touching user edits.
     - "unchanged": dst already matches new content.
+    - "untracked": dst exists but jolo never wrote it (no hash record).
+      Don't touch it — could be a hand-curated file, the meta-repo's
+      own justfile, or a project that predates hash tracking.
     """
     dst = target_dir / filename
     new_hash = hashlib.sha256(new_bytes).hexdigest()
@@ -634,12 +637,19 @@ def _sync_one_file(
         return "written"
 
     current_hash = _file_hash(dst)
+    stored_hash = hashes.get(filename)
 
     if current_hash == new_hash:
-        hashes[filename] = new_hash
+        # Content matches template output. Only heal the hash if we
+        # already managed this file; don't claim ownership of a file
+        # that happens to match by coincidence.
+        if stored_hash is not None:
+            hashes[filename] = new_hash
         return "unchanged"
 
-    stored_hash = hashes.get(filename)
+    if stored_hash is None:
+        return "untracked"
+
     if stored_hash == current_hash:
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
