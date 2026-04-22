@@ -1107,6 +1107,29 @@ class TestSyncOneJolonew(unittest.TestCase):
         self.assertFalse((self.target / "file.txt.jolonew").exists())
         self.assertNotIn("file.txt", hashes)
 
+    def test_force_retrofits_untracked_file(self):
+        # --force opt-in: untracked file gets a .jolonew so existing
+        # projects can pull in new recipes like `just perf`.
+        (self.target / "file.txt").write_text("hand-curated content\n")
+        hashes: dict = {}
+        result = setup._sync_one_file(
+            self.target,
+            "file.txt",
+            b"template output\n",
+            hashes,
+            force=True,
+        )
+        self.assertEqual(result, "jolonew")
+        # Existing file still untouched.
+        self.assertEqual(
+            (self.target / "file.txt").read_text(), "hand-curated content\n"
+        )
+        # New template parked for review.
+        self.assertEqual(
+            (self.target / "file.txt.jolonew").read_text(),
+            "template output\n",
+        )
+
 
 class TestSyncJustfileRegen(unittest.TestCase):
     """Regenerated justfile participates in sync with .jolonew semantics."""

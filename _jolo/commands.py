@@ -161,11 +161,13 @@ def _fzf_pick(header: str, labels: list[str]) -> str | None:
         return None
 
 
-def _sync_config(name: str, path: Path, config: dict, **kwargs: int) -> None:
+def _sync_config(
+    name: str, path: Path, config: dict, force: bool = False, **kwargs: int
+) -> None:
     """Sync devcontainer config, skill templates, and template files."""
     sync_devcontainer(name, target_dir=path, config=config, **kwargs)
     sync_skill_templates(path)
-    sync_template_files(path)
+    sync_template_files(path, force=force)
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
@@ -634,7 +636,7 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         return
 
     if args.recreate:
-        _update_container(folder)
+        _update_container(folder, force=getattr(args, "force", False))
     elif not is_container_running(folder):
         if not devcontainer_up(folder):
             sys.exit("Error: Failed to start container")
@@ -642,12 +644,12 @@ def run_attach_mode(args: argparse.Namespace) -> None:
     devcontainer_exec_tmux(folder)
 
 
-def _update_container(git_root: Path) -> None:
+def _update_container(git_root: Path, force: bool = False) -> None:
     """Sync config, rebuild, and restart a container."""
     project_name = git_root.name
     config = load_config(project_dir=git_root)
 
-    _sync_config(project_name, git_root, config)
+    _sync_config(project_name, git_root, config, force=force)
     _setup_container_env(git_root, config)
 
     if not devcontainer_up(git_root, remove_existing=True):
@@ -939,7 +941,12 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     # Sync or scaffold .devcontainer
     if args.recreate:
-        _sync_config(project_name, git_root, config)
+        _sync_config(
+            project_name,
+            git_root,
+            config,
+            force=getattr(args, "force", False),
+        )
     else:
         scaffold_devcontainer(project_name, config=config)
 
@@ -1019,7 +1026,12 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     )
 
     if args.recreate:
-        _sync_config(worktree_name, worktree_path, config)
+        _sync_config(
+            worktree_name,
+            worktree_path,
+            config,
+            force=getattr(args, "force", False),
+        )
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -1415,7 +1427,12 @@ def run_init_mode(args: argparse.Namespace) -> None:
         sys.exit("Error: Failed to initialize git repository")
 
     if args.recreate:
-        _sync_config(project_name, project_path, config)
+        _sync_config(
+            project_name,
+            project_path,
+            config,
+            force=getattr(args, "force", False),
+        )
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
@@ -1536,7 +1553,13 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
         )
 
         if args.recreate:
-            _sync_config(name, worktree_path, config, port=port)
+            _sync_config(
+                name,
+                worktree_path,
+                config,
+                port=port,
+                force=getattr(args, "force", False),
+            )
 
         devcontainer_json = (
             worktree_path / ".devcontainer" / "devcontainer.json"

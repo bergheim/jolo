@@ -612,7 +612,11 @@ def _save_template_hashes(
 
 
 def _sync_one_file(
-    target_dir: Path, filename: str, new_bytes: bytes, hashes: dict
+    target_dir: Path,
+    filename: str,
+    new_bytes: bytes,
+    hashes: dict,
+    force: bool = False,
 ) -> str:
     """Sync one file with .jolonew fallback.
 
@@ -648,7 +652,14 @@ def _sync_one_file(
         return "unchanged"
 
     if stored_hash is None:
-        return "untracked"
+        if not force:
+            return "untracked"
+        # --force: treat untracked like user-edited so the new template
+        # lands alongside the existing file as a .jolonew for review.
+        jolonew = target_dir / f"{filename}.jolonew"
+        jolonew.write_bytes(new_bytes)
+        print(f"  Template retrofit: {jolonew.name} (not previously tracked)")
+        return "jolonew"
 
     if stored_hash == current_hash:
         dst.write_bytes(new_bytes)
@@ -675,8 +686,13 @@ def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
     return get_justfile_content(flavors[0], target_dir.name).encode()
 
 
-def sync_template_files(target_dir: Path) -> None:
-    """Sync template files. User-edited files get a .jolonew sibling."""
+def sync_template_files(target_dir: Path, force: bool = False) -> None:
+    """Sync template files. User-edited files get a .jolonew sibling.
+
+    When force=True, files that jolo has never tracked (no hash record)
+    also get a .jolonew so existing projects can retrofit new template
+    additions like the `just perf` recipe.
+    """
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     if not templates_dir.exists():
         return
@@ -688,7 +704,9 @@ def sync_template_files(target_dir: Path) -> None:
         src = templates_dir / filename
         if not src.exists():
             continue
-        result = _sync_one_file(target_dir, filename, src.read_bytes(), hashes)
+        result = _sync_one_file(
+            target_dir, filename, src.read_bytes(), hashes, force=force
+        )
         # "unchanged" also refreshes hashes[filename] so a stale or missing
         # record gets healed. Include it so the refresh actually persists.
         if result in {"written", "updated", "unchanged"}:
@@ -696,7 +714,9 @@ def sync_template_files(target_dir: Path) -> None:
 
     regenerated = _regenerated_justfile_bytes(target_dir)
     if regenerated is not None:
-        result = _sync_one_file(target_dir, "justfile", regenerated, hashes)
+        result = _sync_one_file(
+            target_dir, "justfile", regenerated, hashes, force=force
+        )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile")
 

@@ -351,6 +351,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Sync config from template and recreate the container",
     )
+    p_recreate.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Retrofit template files that jolo never tracked (no hash "
+            "record). Drops {file}.jolonew alongside existing files so "
+            "you can diff and merge. Use when pulling in new recipes "
+            "like `just perf` for a project created before the current "
+            "template."
+        ),
+    )
 
     p_all = argparse.ArgumentParser(add_help=False)
     p_all.add_argument(
@@ -387,6 +398,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prefix=None,
         all=False,
         recreate=False,
+        force=False,
         detach=False,
         shell=False,
         run=None,
