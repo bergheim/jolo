@@ -749,6 +749,15 @@ class TestSanitizeForTestbed(unittest.TestCase):
     def test_strips_trailing_dash(self):
         self.assertEqual(jolo.sanitize_for_testbed("foo--"), "foo")
 
+    def test_strips_leading_underscore(self):
+        # Leading `_` violates the hub regex's first-character rule.
+        self.assertEqual(jolo.sanitize_for_testbed("_foo"), "foo")
+        self.assertEqual(jolo.sanitize_for_testbed("_foo_bar"), "foo_bar")
+
+    def test_underscores_only_raises(self):
+        with self.assertRaises(ValueError):
+            jolo.sanitize_for_testbed("__")
+
     def test_empty_raises(self):
         with self.assertRaises(ValueError):
             jolo.sanitize_for_testbed("")
@@ -756,6 +765,23 @@ class TestSanitizeForTestbed(unittest.TestCase):
     def test_only_punctuation_raises(self):
         with self.assertRaises(ValueError):
             jolo.sanitize_for_testbed("!!!")
+
+    def test_output_always_matches_hub_regex(self):
+        import re as _re
+
+        hub_re = _re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+        for raw in [
+            "a",
+            "abc",
+            "My Cool App!",
+            "---foo---",
+            "_leading_underscore",
+            "snake_case",
+            "kebab-case",
+            "UPPERCASE",
+            "a_b-c d",
+        ]:
+            self.assertRegex(jolo.sanitize_for_testbed(raw), hub_re)
 
 
 class TestPerfRigTemplate(unittest.TestCase):
@@ -765,6 +791,13 @@ class TestPerfRigTemplate(unittest.TestCase):
         self.template_path = (
             Path(__file__).parent.parent / "templates" / "perf-rig.toml"
         )
+
+    def test_not_syncable(self):
+        # The hash-based sync path would otherwise clobber user edits on
+        # every `jolo a --recreate`. The rig is copy-on-create only.
+        from _jolo.setup import SYNCABLE_TEMPLATE_FILES
+
+        self.assertNotIn("perf-rig.toml", SYNCABLE_TEMPLATE_FILES)
 
     def test_exists(self):
         self.assertTrue(self.template_path.exists())

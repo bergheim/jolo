@@ -9,11 +9,13 @@ from _jolo import constants
 def sanitize_for_testbed(name: str) -> str:
     """Normalize a project name into the perf-host testbed slug.
 
-    The hub validates testbed with ^[a-z0-9][a-z0-9_-]*$. Templated
-    scaffolds must never produce a value the hub will 422.
+    The hub validates testbed with ^[a-z0-9][a-z0-9_-]*$. Internal
+    underscores are preserved, but leading/trailing separators (both
+    `-` and `_`) are stripped because only alphanumerics are allowed
+    in the first position.
     """
     slug = re.sub(r"[^a-z0-9_]+", "-", name.lower())
-    slug = slug.strip("-")
+    slug = slug.strip("-_")
     if not slug:
         raise ValueError(f"project name {name!r} has no alphanumerics")
     return slug
