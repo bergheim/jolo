@@ -1,0 +1,278 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "uid": "perf-host-overview",
+  "title": "perf-host: cross-project overview",
+  "tags": ["perf-host", "k6"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {"text": "VictoriaMetrics", "value": "VictoriaMetrics"}
+      },
+      {
+        "name": "project",
+        "label": "Project",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+        "query": {"query": "label_values(k6_http_reqs_total, project)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "current": {"text": "All", "value": "$__all"},
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "branch",
+        "label": "Branch",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+        "query": {"query": "label_values(k6_http_reqs_total{project=~\"$project\"}, branch)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "current": {"text": "All", "value": "$__all"},
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "testbed",
+        "label": "Testbed",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+        "query": {"query": "label_values(k6_http_reqs_total{project=~\"$project\"}, testbed)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "current": {"text": "All", "value": "$__all"},
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Distinct test runs (window)",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(group by(testid)(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}))",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Distinct projects",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(group by(project)(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}))",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total HTTP reqs (window)",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"})",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failed reqs (window)",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\",expected_response=\"false\"}) or vector(0)",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "p99 HTTP duration (ms) by project / route",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(project, route_id, sha)(last_over_time(k6_http_req_duration_p99{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}[5m]) * 1000)",
+          "legendFormat": "{{project}}/{{route_id}}@{{sha}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "showPoints": "auto"
+          }
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Request rate (RPS) by project / route",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 14},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(project, route_id)(rate(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}[$__rate_interval]))",
+          "legendFormat": "{{project}} / {{route_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      }
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "p99 per commit (last value per sha+route, ms)",
+      "description": "One bar per (sha, route_id). Sorted left-to-right by run time so newer commits appear right.",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 24},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(sha, project, route_id)(last_over_time(k6_http_req_duration_p99{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}[24h]) * 1000)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{project}}/{{route_id}}@{{sha}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "axisLabel": "p99 (ms)"
+          }
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "xField": "sha",
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.97,
+        "tooltip": {"mode": "multi", "sort": "desc"},
+        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Recent test runs (sha → testid → validity)",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(project, branch, sha, testbed, testid)(last_over_time(k6_http_reqs_total{project=~\"$project\",branch=~\"$branch\",testbed=~\"$testbed\"}[24h]))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "Value": true, "__name__": true}
+          }
+        }
+      ]
+    }
+  ]
+}

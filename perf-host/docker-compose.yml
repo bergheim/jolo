@@ -1,0 +1,63 @@
+name: perf-host
+
+services:
+  caddy:
+    image: docker.io/caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "8888:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      - ./speedscope:/srv/viewer:ro,Z
+      - ./data/profiles:/srv/profiles:ro,Z
+    depends_on:
+      - grafana
+      - victoriametrics
+      - trigger
+
+  victoriametrics:
+    image: docker.io/victoriametrics/victoria-metrics:v1.106.1
+    restart: unless-stopped
+    command:
+      - "--storageDataPath=/storage"
+      - "--retentionPeriod=12"
+      - "--httpListenAddr=:8428"
+    volumes:
+      - ./data/vm:/storage:Z
+
+  grafana:
+    image: docker.io/grafana/grafana:11.3.0
+    restart: unless-stopped
+    user: "0"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_ROOT_URL: http://berghome.ts.glvortex.net:8888/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./data/grafana:/var/lib/grafana:Z
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro,Z
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro,Z
+
+  trigger:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: perf-host-trigger:latest
+    restart: unless-stopped
+    environment:
+      VM_URL: http://victoriametrics:8428
+      PROFILE_DIR: /srv/profiles
+      LEDGER_PATH: /srv/profiles/ledger.sqlite
+      GRAFANA_BASE: http://berghome.ts.glvortex.net:8888/grafana
+    volumes:
+      - ./data/profiles:/srv/profiles:Z
+    depends_on:
+      - victoriametrics
+      - demo
+
+  demo:
+    image: docker.io/mccutchen/go-httpbin:v2.15.0
+    restart: unless-stopped

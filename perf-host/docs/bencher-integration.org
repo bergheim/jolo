@@ -1,0 +1,213 @@
+#+title:      Bencher integration plan
+#+date:       [2026-04-21 Tue 19:28]
+#+filetags:   :perf-host:bencher:design:
+
+* Goal
+
+Add commit-aware regression detection on top of the existing trigger
++ VictoriaMetrics + Grafana stack. Today the trigger owns *validity*
+gates (dropped iterations, failure rate, route coverage). Bencher
+will own the *regression* question: "is this run slower than
+baseline for this branch+testbed?"
+
+This separation is the key call from the codex review (see
+=20260421T143229--perf-hub-design-decisions...= note): validity is
+"did the rig produce trustworthy numbers", regression is "is the
+trustworthy number worse than before".
+
+* Two ways to deploy Bencher
+
+** Option A — Bencher self-hosted in our compose
+
+Pros:
+- All data on the host, no external account.
+- Works for projects we never want public.
+- One stack, one URL, one auth boundary (Tailscale).
+
+Cons:
+- Two more containers (=bencher-api=, =bencher-console=) and a
+  Postgres requirement (or its embedded sqlite for single-user).
+- Manual versioning of two more images.
+
+** Option B — Bencher Cloud (free tier for OSS)
+
+Pros:
+- Zero ops on our side. Their console is hosted.
+- Same regression detection logic, same API.
+
+Cons:
+- Project data leaves the host. Not acceptable for some projects.
+- Free tier has limits on metrics/projects.
+
+** Recommendation
+
+Start with *self-hosted* in our compose. It matches the
+"single host, Tailscale-only, all data local" model that's
+already established for the perf hub. We can always add Cloud
+forwarding later for the projects we want public.
+
+* Compose addition (self-hosted)
+
+Add to =docker-compose.yml=:
+
+#+begin_src yaml
+  bencher-api:
+    image: ghcr.io/bencherdev/bencher:latest
+    restart: unless-stopped
+    environment:
+      BENCHER_SECRET_KEY: ${BENCHER_SECRET_KEY}     # generate once: openssl rand -hex 32
+      BENCHER_DATABASE_URL: sqlite:///data/bencher.db
+      BENCHER_HOST: http://berghome.ts.glvortex.net:8888/bencher/api
+      BENCHER_CONSOLE: http://berghome.ts.glvortex.net:8888/bencher
+    volumes:
+      - ./data/bencher:/data:Z
+
+  bencher-console:
+    image: ghcr.io/bencherdev/bencher-console:latest
+    restart: unless-stopped
+    environment:
+      BENCHER_API_URL: http://berghome.ts.glvortex.net:8888/bencher/api
+#+end_src
+
+Caddyfile additions:
+
+#+begin_src caddy
+@bencher_api path /bencher/api/*
+handle @bencher_api {
+    reverse_proxy bencher-api:61016
+}
+
+@bencher_console path /bencher /bencher/*
+handle @bencher_console {
+    reverse_proxy bencher-console:3000
+}
+#+end_src
+
+Secrets:
+- =BENCHER_SECRET_KEY= via =.env= file (gitignored), one-time
+  generation. Used to sign API tokens.
+
+* Trigger integration
+
+After every *passing* run (validity_status="pass"), the trigger
+posts a normalized summary to Bencher's =/v0/projects/{p}/reports=
+endpoint:
+
+#+begin_src python
+def _emit_to_bencher(rig: PerfRig, run_summary: dict, req: RunRequest, run_id: str):
+    """POST a normalized report to Bencher after a passing run.
+
+    Bencher expects BMF (Bencher Metric Format) JSON shaped roughly:
+      {"<benchmark_name>": {"latency": {"value": 102.5, "lower_value": 100, "upper_value": 105}}}
+
+    Each route → one benchmark. Each tracked stat (p99, p95) → a measure.
+    """
+    bmf = {}
+    for r in rig.routes:
+        per_route = run_summary.get("metrics", {}).get(
+            f"http_req_duration{{scenario:{r.route_id}}}", {}
+        )
+        if not per_route:
+            continue
+        bmf[r.route_id] = {
+            "latency": {
+                "value": per_route.get("p(99)") or per_route.get("p99"),
+                "lower_value": per_route.get("med") or per_route.get("avg"),
+                "upper_value": per_route.get("max"),
+            }
+        }
+    payload = {
+        "branch": req.branch,
+        "hash": req.sha,
+        "testbed": req.testbed,
+        "start_time": run_summary["started_at"],
+        "end_time": run_summary["ended_at"],
+        "results": [json.dumps(bmf)],
+        "settings": {"adapter": "json"},
+    }
+    resp = httpx.post(
+        f"{BENCHER_API_BASE}/v0/projects/{rig.project.name}/reports",
+        json=payload,
+        headers={"Authorization": f"Bearer {BENCHER_API_TOKEN}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json().get("uuid")  # Bencher report UUID for ledger
+#+end_src
+
+Wire-in (in =run()= after =_validate=):
+
+#+begin_src python
+if validity == "pass" and BENCHER_API_TOKEN:
+    try:
+        bencher_uuid = _emit_to_bencher(rig, summary, req, run_id)
+        ledger.update_finished(
+            run_id,
+            bencher_report_url=f"{BENCHER_CONSOLE_BASE}/console/projects/{rig.project.name}/reports/{bencher_uuid}",
+        )
+    except Exception as e:
+        # Bencher emit failure shouldn't fail the run — it's a downstream concern.
+        log.warning("bencher emit failed: %s", e)
+#+end_src
+
+* Project / branch / testbed bootstrap
+
+Bencher needs the project to exist before the first report. Two options:
+
+1. *Auto-create* on first emit: trigger does =POST /v0/organizations/{org}/projects=
+   if the 404 fires on the report POST. Works but introduces ordering
+   weirdness (the org has to exist first).
+2. *Provisioned*: a small startup script in the trigger that reads
+   all projects from the ledger and PUTs them to Bencher. Idempotent.
+
+Recommendation: *Provisioned*. Less magic, easier to reason about.
+
+* Threshold setup
+
+Bencher thresholds live in Bencher itself, not in =perf-rig.toml=.
+The schema's =[regression]= block remains as the *project's intent*
+(the budget the project owner wants enforced). The trigger's first
+provisioning pass reads each rig and creates a Bencher threshold per
+route+stat from the schema. Subsequent edits to =perf-rig.toml=
+update the Bencher thresholds.
+
+This keeps =perf-rig.toml= as the single source of truth for
+"what does this project consider a regression?" while letting
+Bencher own the actual cross-commit comparison.
+
+* Validity vs regression — final separation
+
+| Concern    | Owner   | Where it fires             | What it's checking              |
+|------------+---------+----------------------------+---------------------------------|
+| Validity   | trigger | trigger after k6 finishes  | Run is trustworthy enough to  |
+|            |         | (parses summary JSON)      | base regression decisions on   |
+| Regression | Bencher | Bencher when report posts  | Trustworthy run is slower than |
+|            |         |                            | baseline for branch+testbed     |
+
+The trigger never asks Bencher about regression status; the user
+either looks at Bencher console or wires Bencher's webhooks (Slack,
+GitHub) for alerts.
+
+* Open questions for next session
+
+- Use Bencher's built-in SQLite or wire it to a Postgres? SQLite is
+  fine for single-user but Postgres unlocks Bencher's full feature set.
+- Bencher supports *adapters* (json, c_bench, golang, rust_bench, etc).
+  We'd use =json= with our own BMF shape. Worth exploring whether the
+  =shell_hyperfine= adapter would give us anything for the
+  potential future hyperfine integration.
+- Threshold semantics: Bencher supports static thresholds (p99 < X)
+  and statistical (z-score, IQR, percentage). Our schema only has
+  static today. Is that the right shape, or should we let users
+  declare statistical thresholds too?
+
+* Status
+
+This file is the design — *not implemented*. The compose stack runs
+without Bencher; the trigger has no =_emit_to_bencher= function.
+Implementation belongs in a focused session with the user since:
+
+1. Self-hosted Bencher needs an initial admin account + secret key.
+2. The trigger needs an API token to post reports.
+3. Project bootstrap (auto-create vs provisioned) is a real call
+   that affects the schema lifecycle.
