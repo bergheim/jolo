@@ -1016,5 +1016,121 @@ class TestSyncCopyIfMissing(unittest.TestCase):
         )
 
 
+class TestSyncOneJolonew(unittest.TestCase):
+    """_sync_one_file semantics: written / updated / jolonew / unchanged."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_written_when_absent(self):
+        hashes: dict = {}
+        result = setup._sync_one_file(
+            self.target, "file.txt", b"hello\n", hashes
+        )
+        self.assertEqual(result, "written")
+        self.assertEqual((self.target / "file.txt").read_text(), "hello\n")
+        self.assertIn("file.txt", hashes)
+        # No .jolonew created for fresh install.
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
+
+    def test_unchanged_when_content_matches(self):
+        (self.target / "file.txt").write_text("hello\n")
+        hashes = {"file.txt": setup._file_hash(self.target / "file.txt")}
+        result = setup._sync_one_file(
+            self.target, "file.txt", b"hello\n", hashes
+        )
+        self.assertEqual(result, "unchanged")
+
+    def test_updated_when_clean_and_template_moved(self):
+        # User hasn't edited: current == stored hash.
+        (self.target / "file.txt").write_text("old\n")
+        hashes = {"file.txt": setup._file_hash(self.target / "file.txt")}
+        result = setup._sync_one_file(
+            self.target, "file.txt", b"new\n", hashes
+        )
+        self.assertEqual(result, "updated")
+        self.assertEqual((self.target / "file.txt").read_text(), "new\n")
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
+
+    def test_jolonew_when_user_edited(self):
+        (self.target / "file.txt").write_text("my edits\n")
+        # Stored hash is of the ORIGINAL template; current file is user-edited.
+        hashes = {
+            "file.txt": setup.hashlib.sha256(b"original\n").hexdigest(),
+        }
+        result = setup._sync_one_file(
+            self.target, "file.txt", b"new template\n", hashes
+        )
+        self.assertEqual(result, "jolonew")
+        # User edits preserved.
+        self.assertEqual((self.target / "file.txt").read_text(), "my edits\n")
+        # New version parked alongside.
+        self.assertTrue((self.target / "file.txt.jolonew").exists())
+        self.assertEqual(
+            (self.target / "file.txt.jolonew").read_text(), "new template\n"
+        )
+
+    def test_jolonew_always_overwritten(self):
+        # Second template bump should rewrite .jolonew with latest content.
+        (self.target / "file.txt").write_text("my edits\n")
+        (self.target / "file.txt.jolonew").write_text("stale template\n")
+        hashes = {
+            "file.txt": setup.hashlib.sha256(b"original\n").hexdigest(),
+        }
+        setup._sync_one_file(
+            self.target, "file.txt", b"newest template\n", hashes
+        )
+        self.assertEqual(
+            (self.target / "file.txt.jolonew").read_text(),
+            "newest template\n",
+        )
+
+
+class TestSyncJustfileRegen(unittest.TestCase):
+    """Regenerated justfile participates in sync with .jolonew semantics."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        # Project dir name drives PROJECT_NAME substitution in the
+        # regenerated justfile. Match a shell-safe slug.
+        self.target = Path(self.tmpdir) / "myproj"
+        self.target.mkdir()
+        # Python flavor indicator so detect_flavors() picks 'python'.
+        (self.target / "pyproject.toml").write_text(
+            "[project]\nname = 'myproj'\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_fresh_project_gets_justfile(self):
+        self.assertFalse((self.target / "justfile").exists())
+        setup.sync_template_files(self.target)
+        self.assertTrue((self.target / "justfile").exists())
+        # Should contain the new perf recipe.
+        self.assertIn("perf:", (self.target / "justfile").read_text())
+
+    def test_edited_justfile_gets_jolonew(self):
+        # Simulate an existing project whose justfile predates the
+        # perf recipe and has since been edited by the user.
+        (self.target / "justfile").write_text(
+            "# my custom recipes\n\nhello:\n    echo hi\n"
+        )
+        setup.sync_template_files(self.target)
+        # User's justfile untouched.
+        self.assertIn("hello:", (self.target / "justfile").read_text())
+        # Latest template parked for review.
+        self.assertTrue((self.target / "justfile.jolonew").exists())
+        self.assertIn("perf:", (self.target / "justfile.jolonew").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

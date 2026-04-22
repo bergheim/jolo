@@ -120,7 +120,9 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertTrue(gitignore.exists())
 
     def test_create_copies_perf_rig_template(self):
-        """create should drop a placeholder perf-rig.toml at repo root."""
+        """create should drop a perf-rig.toml with project identity filled
+        and target.url left as ${JOLO_TAILNET_HOST}:${PORT} so no hostname
+        ever lands in a committed file."""
         args = jolo.parse_args(
             ["create", "testproj", "--flavor", "python", "-d"]
         )
@@ -133,8 +135,13 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertTrue(perf_rig.exists())
         content = perf_rig.read_text()
         self.assertIn("schema_version = 1", content)
-        # First `just perf` should fail loudly pointing at the placeholder.
-        self.assertIn("REPLACE", content.upper())
+        self.assertIn('name = "testproj"', content)
+        self.assertIn('language = "python"', content)
+        self.assertIn("${JOLO_TAILNET_HOST}", content)
+        self.assertIn("${PORT}", content)
+        # Placeholders should be gone — scaffold filled them.
+        self.assertNotIn("{{PROJECT_NAME}}", content)
+        self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
 
     def test_create_copies_editorconfig_from_templates(self):
         """create should copy .editorconfig from templates/."""

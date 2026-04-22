@@ -30,6 +30,7 @@ RUN apk update && apk add --no-cache \
     fontconfig \
     fzf \
     fzf-zsh-plugin \
+    gettext-envsubst \
     git \
     github-cli \
     gnupg \

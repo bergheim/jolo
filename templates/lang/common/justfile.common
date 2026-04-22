@@ -22,20 +22,24 @@ db *args="start":
 perf:
     #!/bin/sh
     set -eu
-    : "${PERF_HUB:=http://berghome.ts.glvortex.net:8888}"
+    : "${PERF_HUB:=${JOLO_PERF_HUB:-http://berghome.ts.glvortex.net:8888}}"
     : "${PERF_TESTBED:=dev-container-{{TESTBED}}}"
     [ -f perf-rig.toml ] || { echo "perf-rig.toml not found at repo root" >&2; exit 1; }
+    [ -n "${JOLO_TAILNET_HOST:-}" ] || { echo "JOLO_TAILNET_HOST not set (perf-rig target.url needs it; see envsubst placeholders)" >&2; exit 1; }
     git rev-parse --verify HEAD >/dev/null 2>&1 || { echo "just perf needs at least one git commit" >&2; exit 1; }
     SHA=$(git rev-parse HEAD)
     BRANCH=$(git branch --show-current)
     DIRTY=$(git diff-index --quiet HEAD -- && echo false || echo true)
-    PAYLOAD=$(jq -n \
-      --rawfile rig perf-rig.toml \
+    RIG=$(envsubst '$JOLO_TAILNET_HOST $PORT' < perf-rig.toml)
+    case "$RIG" in
+      *localhost*|*127.0.0.1*) echo "perf-rig target.url resolves to localhost; k6 runs on the host and cannot reach it. Set the tailnet-visible URL." >&2; exit 1 ;;
+    esac
+    PAYLOAD=$(printf '%s' "$RIG" | jq -R -s \
       --arg sha "$SHA" \
       --arg branch "$BRANCH" \
       --argjson dirty "$DIRTY" \
       --arg testbed "$PERF_TESTBED" \
-      '{rig:$rig, sha:$sha, branch:$branch, dirty:$dirty, testbed:$testbed}')
+      '{rig:., sha:$sha, branch:$branch, dirty:$dirty, testbed:$testbed}')
     curl --fail-with-body -sS -X POST "$PERF_HUB/api/run" \
       -H 'content-type: application/json' \
       -d "$PAYLOAD"
