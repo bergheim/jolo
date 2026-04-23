@@ -617,12 +617,20 @@ def _sync_one_file(
     new_bytes: bytes,
     hashes: dict,
     force: bool = False,
+    strictly_owned: bool = False,
 ) -> str:
     """Sync one file with .jolonew fallback.
 
+    ``strictly_owned`` is True for files that are definitively tool-owned
+    and carry no user edits by contract (e.g. ``justfile.common`` after
+    the justfile split). For those, ``force=True`` genuinely force-writes,
+    destroying any local modifications — that's the whole point of the
+    split. For non-owned files (AGENTS.md, CLAUDE.md, ...), ``force`` only
+    upgrades "skip" → "drop .jolonew" so hand edits aren't silently lost.
+
     Returns one of:
     - "written": dst didn't exist, new content installed.
-    - "updated": user hadn't edited; dst overwritten with new content.
+    - "updated": user hadn't edited (or strict-owned with force); dst overwritten.
     - "jolonew": user edited; {filename}.jolonew written alongside dst.
       The .jolonew file is always overwritten so the latest template
       output is always visible without touching user edits.
@@ -651,6 +659,13 @@ def _sync_one_file(
             hashes[filename] = new_hash
         return "unchanged"
 
+    if strictly_owned and force:
+        # File is tool-owned by contract. --force means what it says.
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        print(f"  Force-overwrote tool-owned {filename}")
+        return "updated"
+
     if stored_hash is None:
         if not force:
             return "untracked"
@@ -673,17 +688,18 @@ def _sync_one_file(
     return "jolonew"
 
 
-def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
-    """Produce current justfile content for target_dir's flavor/name.
+def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
+    """Produce current justfile.common content for target_dir's name.
 
-    Returns None if flavor detection fails (leave the existing justfile alone).
+    Only the common file is regenerated on sync — ``justfile`` is user-owned
+    post-split and never touched. Returns None if flavor detection fails.
     """
-    from _jolo.templates import get_justfile_content
+    from _jolo.templates import get_justfile_common_content
 
     flavors = detect_flavors(target_dir)
     if not flavors:
         return None
-    return get_justfile_content(flavors[0], target_dir.name).encode()
+    return get_justfile_common_content(target_dir.name).encode()
 
 
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
@@ -712,13 +728,20 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
-    regenerated = _regenerated_justfile_bytes(target_dir)
-    if regenerated is not None:
+    # justfile.common is tool-owned and force-overwritable; the user's
+    # own justfile is never synced here post-split.
+    regenerated_common = _regenerated_justfile_common_bytes(target_dir)
+    if regenerated_common is not None:
         result = _sync_one_file(
-            target_dir, "justfile", regenerated, hashes, force=force
+            target_dir,
+            "justfile.common",
+            regenerated_common,
+            hashes,
+            force=force,
+            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
-            touched.append("justfile")
+            touched.append("justfile.common")
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)

@@ -65,6 +65,7 @@ from _jolo.setup import (
 )
 from _jolo.templates import (
     generate_precommit_config,
+    get_justfile_common_content,
     get_justfile_content,
     get_motd_content,
     get_precommit_install_command,
@@ -1120,10 +1121,14 @@ def run_create_mode(args: argparse.Namespace) -> None:
     (project_path / "MOTD").write_text(motd_content)
     verbose_print("Generated MOTD")
 
-    # Generate justfile for the project
+    # Generate justfile + justfile.common for the project. The user
+    # edits `justfile`; tool-owned recipes live in `justfile.common`
+    # and are retrofitted on `jolo up --recreate --force`.
     justfile_content = get_justfile_content(primary_flavor, project_name)
     (project_path / "justfile").write_text(justfile_content)
-    verbose_print("Generated justfile")
+    common_content = get_justfile_common_content(project_name)
+    (project_path / "justfile.common").write_text(common_content)
+    verbose_print("Generated justfile + justfile.common")
 
     # Fill perf-rig.toml placeholders with the project's identity so the
     # user isn't staring at REPLACE-ME on first open. target.url stays as
