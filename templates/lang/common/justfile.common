@@ -1,3 +1,5 @@
+export APP_PROFILE := env_var_or_default("APP_PROFILE", "1")
+
 # Open in browser
 browse:
     #!/bin/sh
@@ -50,6 +52,29 @@ perf:
       --argjson dirty "$DIRTY" \
       --arg testbed "$PERF_TESTBED" \
       '{rig:., sha:$sha, branch:$branch, dirty:$dirty, testbed:$testbed}')
-    curl --fail-with-body -sS -X POST "$PERF_HOST/api/run" \
-      -H 'content-type: application/json' \
-      -d "$PAYLOAD"
+    # POST /api/run blocks until the k6 run completes; the response is
+    # terminal so no polling is needed. Capture body separately to
+    # preserve error output when curl fails under `set -e`.
+    if ! RESP=$(curl --fail-with-body -sS -X POST "$PERF_HOST/api/run" \
+          -H 'content-type: application/json' -d "$PAYLOAD"); then
+        printf '%s\n' "$RESP" >&2
+        exit 1
+    fi
+    # PERF_RAW=1: script/hook mode, dump JSON as-is and let the caller parse.
+    if [ "${PERF_RAW:-0}" = "1" ]; then
+        printf '%s\n' "$RESP"
+        exit 0
+    fi
+    VALIDITY=$(printf '%s' "$RESP" | jq -r '.validity_status // "unknown"')
+    RUN_ID=$(printf '%s' "$RESP" | jq -r '.run_id // "unknown"')
+    GRAFANA=$(printf '%s' "$RESP" | jq -r '.grafana_url // empty')
+    K6_EXIT=$(printf '%s' "$RESP" | jq -r '.k6_exit // "?"')
+    FAIL=$(printf '%s' "$RESP" | jq -r '.failure_reason // empty')
+    echo "run_id:         $RUN_ID"
+    echo "validity:       $VALIDITY"
+    [ -n "$FAIL" ] && echo "failure_reason: $FAIL"
+    echo "k6_exit:        $K6_EXIT"
+    [ -n "$GRAFANA" ] && echo "grafana_url:    $GRAFANA"
+    # Exit 2 when the run completed but didn't pass validity — distinct
+    # from exit 1 (hub/network/parse failure) so CI can tell them apart.
+    [ "$VALIDITY" = "pass" ] || exit 2

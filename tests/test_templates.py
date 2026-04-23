@@ -896,6 +896,43 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         for needle in ("localhost", "127.*", "0.0.0.0", "::1"):
             self.assertIn(needle, content)
 
+    def test_parses_validity_status_from_response(self):
+        """Recipe pulls validity_status out of the hub response."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("validity_status", content)
+
+    def test_summary_prints_grafana_url(self):
+        """Human-readable summary exposes the Grafana link."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("grafana_url", content)
+
+    def test_perf_raw_opts_out_of_pretty_summary(self):
+        """PERF_RAW=1 dumps the raw hub JSON for scripts / hooks."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("PERF_RAW", content)
+
+    def test_exit_codes_distinguish_infra_from_validity(self):
+        """Exit 1 for infra (curl/jq), exit 2 for run-completed-but-invalid."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("exit 2", content)
+
+
+class TestAppProfileDefault(unittest.TestCase):
+    """justfile.common exports APP_PROFILE=1 by default."""
+
+    def test_app_profile_exported(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("APP_PROFILE", content)
+
+    def test_app_profile_has_default_value_1(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn('"APP_PROFILE", "1"', content)
+
+    def test_app_profile_is_exported(self):
+        """`export` directive so the var reaches child processes."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("export APP_PROFILE", content)
+
 
 if __name__ == "__main__":
     unittest.main()
