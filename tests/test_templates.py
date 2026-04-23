@@ -859,9 +859,9 @@ class TestJustfilePerfRecipe(unittest.TestCase):
 
     def test_hub_env_required(self):
         # No hostname baked into the generated justfile — operators set
-        # JOLO_PERF_HUB (or PERF_HUB) in their shell/env file.
+        # PERF_HOST in their host .zshrc (mounted into the container).
         content = jolo.get_justfile_common_content("demokrato")
-        self.assertIn("JOLO_PERF_HUB", content)
+        self.assertIn("PERF_HOST", content)
         self.assertNotIn("berghome.ts.glvortex.net", content)
 
     def test_port_preflight(self):

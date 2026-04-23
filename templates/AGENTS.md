@@ -287,7 +287,7 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 ## Performance
 
-`just perf` posts the project's `perf-rig.toml` to the host-side perf hub (default `http://berghome.ts.glvortex.net:8888`, override with `PERF_HUB`). The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.
+`just perf` posts the project's `perf-rig.toml` to the host-side perf hub. Set `PERF_HOST` on the host (e.g. in `~/.zshrc`) — the value flows into devcontainers through the mounted `.zshrc`, same as `LLAMA_HOST`. The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.
 
 The k6 worker lives on the host, so the target URL inside `perf-rig.toml` must be the tailnet hostname plus the devcontainer's forwarded `$PORT` — `localhost:$PORT` resolves to the trigger container and won't reach this project. Edit the placeholder URL before the first run.
 
