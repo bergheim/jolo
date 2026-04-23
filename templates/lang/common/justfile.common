@@ -27,17 +27,21 @@ perf:
     [ -n "${PERF_HOST:-}" ] || { echo "PERF_HOST not set (export it in your host shell, e.g. http://<your-host>:8888)" >&2; exit 1; }
     [ -n "${PORT:-}" ] || { echo "PORT not set (jolo devcontainers export it; running outside one?)" >&2; exit 1; }
     git rev-parse --verify HEAD >/dev/null 2>&1 || { echo "just perf needs at least one git commit" >&2; exit 1; }
-    # Target host defaults to the hub's hostname (hub and devcontainer usually
-    # live on the same machine). DEV_HOST is also set by jolo at container
-    # start; fall back to it, then to the hub-URL hostname.
-    : "${DEV_HOST:=$(printf '%s' "$PERF_HOST" | sed -E 's|^https?://([^:/]+).*|\1|')}"
+    # DEV_HOST is set by jolo at container start (tailnet-detect → localhost
+    # fallback). If it's unset OR resolves to a loopback, the hub can't
+    # reach us; derive from PERF_HOST's hostname (hub and devcontainer
+    # usually live on the same machine).
+    case "${DEV_HOST:-}" in
+      ""|localhost|127.*|0.0.0.0|"::1"|"[::1]")
+        DEV_HOST=$(printf '%s' "$PERF_HOST" | sed -E 's|^https?://([^:/]+).*|\1|') ;;
+    esac
     SHA=$(git rev-parse HEAD)
     BRANCH=$(git branch --show-current)
     DIRTY=$(git diff-index --quiet HEAD -- && echo false || echo true)
     RIG=$(DEV_HOST="$DEV_HOST" envsubst '$DEV_HOST $PORT' < perf-rig.toml)
     case "$RIG" in
       *localhost*|*127.0.0.1*|*0.0.0.0*|*"[::1]"*|*"::1]"*)
-        echo "perf-rig target.url resolves to a loopback address; k6 runs on the host and cannot reach it. Set DEV_HOST to an externally-reachable hostname." >&2
+        echo "perf-rig target.url resolves to a loopback address; k6 runs on the host and cannot reach it. Set PERF_HOST (host .zshrc) or DEV_HOST to an externally-reachable hostname." >&2
         exit 1 ;;
     esac
     PAYLOAD=$(printf '%s' "$RIG" | jq -R -s \
