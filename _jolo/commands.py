@@ -52,6 +52,7 @@ from _jolo.setup import (
     copy_template_files,
     copy_user_files,
     ensure_test_gate_script,
+    fill_perf_rig_placeholders,
     get_secrets,
     scaffold_devcontainer,
     setup_credential_cache,
@@ -65,6 +66,7 @@ from _jolo.setup import (
 )
 from _jolo.templates import (
     generate_precommit_config,
+    get_justfile_common_content,
     get_justfile_content,
     get_motd_content,
     get_precommit_install_command,
@@ -1120,33 +1122,14 @@ def run_create_mode(args: argparse.Namespace) -> None:
     (project_path / "MOTD").write_text(motd_content)
     verbose_print("Generated MOTD")
 
-    # Generate justfile for the project
     justfile_content = get_justfile_content(primary_flavor, project_name)
     (project_path / "justfile").write_text(justfile_content)
-    verbose_print("Generated justfile")
+    common_content = get_justfile_common_content(project_name)
+    (project_path / "justfile.common").write_text(common_content)
+    verbose_print("Generated justfile + justfile.common")
 
-    # Fill perf-rig.toml placeholders with the project's identity so the
-    # user isn't staring at REPLACE-ME on first open. target.url stays as
-    # ${JOLO_TAILNET_HOST}:${PORT} — resolved by envsubst at `just perf`
-    # time, never written to disk.
-    #
-    # json.dumps()[1:-1] escapes quotes/backslashes/control chars for TOML
-    # basic strings (TOML's escape rules are a subset of JSON's). Keeps
-    # weird project names from producing invalid TOML.
-    perf_rig_path = project_path / "perf-rig.toml"
-    if perf_rig_path.exists():
-        language = constants.FLAVOR_LANGUAGE.get(
-            primary_flavor, primary_flavor
-        )
-        content = perf_rig_path.read_text()
-        content = content.replace(
-            "{{PROJECT_NAME}}", json.dumps(project_name)[1:-1]
-        )
-        content = content.replace(
-            "{{PROJECT_LANGUAGE}}", json.dumps(language)[1:-1]
-        )
-        perf_rig_path.write_text(content)
-        verbose_print("Filled perf-rig.toml")
+    fill_perf_rig_placeholders(project_path, flavor=primary_flavor)
+    verbose_print("Filled perf-rig.toml")
 
     # Generate and write .pre-commit-config.yaml based on selected flavors
     precommit_content = generate_precommit_config(flavors)

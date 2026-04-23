@@ -1,12 +1,17 @@
 # perf-rig.toml v1 — declarative load spec for the host-side perf hub.
 #
-# `just perf` substitutes ${JOLO_TAILNET_HOST} and ${PORT} via envsubst
-# before POSTing, so the resolved URL never lands in a committed file.
-# Set JOLO_TAILNET_HOST in your shell (or an env file); $PORT is exported
-# by the devcontainer. Override the hub with PERF_HUB if needed.
+# `just perf` substitutes ${DEV_HOST} and ${PORT} via envsubst before
+# POSTing, so the resolved URL never lands in a committed file.
+# Set PERF_HOST on the host (.zshrc), e.g.
+#     export PERF_HOST=http://<your-host>:8888
+# It flows into devcontainers via the mounted .zshrc. The recipe uses
+# DEV_HOST (set by jolo at container start, or derived from PERF_HOST)
+# as the hostname the hub uses to reach back to this project.
+# $PORT is exported by the devcontainer.
 #
-# The hub's k6 worker runs on the host and reaches this project over the
-# tailnet, NOT via localhost. Keep the env-var form below as-is.
+# The hub's k6 worker runs on the host and cannot reach this project
+# via localhost; it needs an externally-reachable URL. Keep the
+# env-var form below as-is.
 
 schema_version = 1
 
@@ -16,7 +21,7 @@ language = "{{PROJECT_LANGUAGE}}"
 
 [target]
 mode = "external_url"
-url = "http://${JOLO_TAILNET_HOST}:${PORT}"
+url = "http://${DEV_HOST}:${PORT}"
 
 # One scenario per route. Do not multiplex routes inside one scenario —
 # it breaks per-route arrival-rate tracking.

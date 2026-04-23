@@ -287,9 +287,9 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 ## Performance
 
-`just perf` posts the project's `perf-rig.toml` to the host-side perf hub (default `http://berghome.ts.glvortex.net:8888`, override with `PERF_HUB`). The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.
+`just perf` posts the project's `perf-rig.toml` to the host-side perf hub. Set `PERF_HOST` on the host (e.g. in `~/.zshrc`) — the value flows into devcontainers through the mounted `.zshrc`, same as `LLAMA_HOST`. The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.
 
-The k6 worker lives on the host, so the target URL inside `perf-rig.toml` must be the tailnet hostname plus the devcontainer's forwarded `$PORT` — `localhost:$PORT` resolves to the trigger container and won't reach this project. Edit the placeholder URL before the first run.
+The k6 worker lives on the host, so the target URL inside `perf-rig.toml` must be externally reachable — `localhost:$PORT` resolves to the trigger container and won't reach this project. `perf-rig.toml` keeps the target URL symbolic (`http://${DEV_HOST}:${PORT}`); the `perf` recipe resolves `DEV_HOST` from the container env, falling back to `PERF_HOST`'s hostname when needed. Nothing to edit by hand.
 
 `testbed` defaults to `dev-container-<sanitized-project-name>` — the project name lowercased, with non-alphanumerics replaced by `-`, and internal underscores preserved (e.g. `My_App` → `my_app`). Override with `PERF_TESTBED` if a worktree or CI runner needs a distinct baseline.
 

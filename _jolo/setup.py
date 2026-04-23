@@ -617,19 +617,15 @@ def _sync_one_file(
     new_bytes: bytes,
     hashes: dict,
     force: bool = False,
+    strictly_owned: bool = False,
 ) -> str:
     """Sync one file with .jolonew fallback.
 
-    Returns one of:
-    - "written": dst didn't exist, new content installed.
-    - "updated": user hadn't edited; dst overwritten with new content.
-    - "jolonew": user edited; {filename}.jolonew written alongside dst.
-      The .jolonew file is always overwritten so the latest template
-      output is always visible without touching user edits.
-    - "unchanged": dst already matches new content.
-    - "untracked": dst exists but jolo never wrote it (no hash record).
-      Don't touch it — could be a hand-curated file, the meta-repo's
-      own justfile, or a project that predates hash tracking.
+    When ``strictly_owned``, ``force=True`` overwrites the file outright
+    instead of dropping a ``.jolonew`` — use for tool-owned files that
+    carry no user edits by contract (e.g. ``justfile.common``).
+
+    Returns "written", "updated", "jolonew", "unchanged", or "untracked".
     """
     dst = target_dir / filename
     new_hash = hashlib.sha256(new_bytes).hexdigest()
@@ -640,13 +636,18 @@ def _sync_one_file(
         verbose_print(f"Copied: {filename}")
         return "written"
 
+    if strictly_owned and force:
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        print(f"  Force-overwrote tool-owned {filename}")
+        return "updated"
+
     current_hash = _file_hash(dst)
     stored_hash = hashes.get(filename)
 
     if current_hash == new_hash:
-        # Content matches template output. Only heal the hash if we
-        # already managed this file; don't claim ownership of a file
-        # that happens to match by coincidence.
+        # Heal the hash only for files we already managed; don't claim
+        # ownership of files that match by coincidence.
         if stored_hash is not None:
             hashes[filename] = new_hash
         return "unchanged"
@@ -654,8 +655,6 @@ def _sync_one_file(
     if stored_hash is None:
         if not force:
             return "untracked"
-        # --force: treat untracked like user-edited so the new template
-        # lands alongside the existing file as a .jolonew for review.
         jolonew = target_dir / f"{filename}.jolonew"
         jolonew.write_bytes(new_bytes)
         print(f"  Template retrofit: {jolonew.name} (not previously tracked)")
@@ -673,17 +672,56 @@ def _sync_one_file(
     return "jolonew"
 
 
-def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
-    """Produce current justfile content for target_dir's flavor/name.
+def _toml_basic_string_escape(value: str) -> str:
+    """Escape a Python string for insertion into a TOML basic string literal.
 
-    Returns None if flavor detection fails (leave the existing justfile alone).
+    Relies on TOML's escape rules being a subset of JSON's.
     """
-    from _jolo.templates import get_justfile_content
+    return json.dumps(value)[1:-1]
+
+
+def fill_perf_rig_placeholders(
+    target_dir: Path, flavor: str | None = None
+) -> None:
+    """Substitute project placeholders in ``perf-rig.toml`` if present.
+
+    No-op if the file is missing or already filled. Used both at scaffold
+    time (caller passes ``flavor``) and at sync time (flavor detected).
+    """
+    perf_rig = target_dir / "perf-rig.toml"
+    try:
+        content = perf_rig.read_text()
+    except FileNotFoundError:
+        return
+    if (
+        "{{PROJECT_NAME}}" not in content
+        and "{{PROJECT_LANGUAGE}}" not in content
+    ):
+        return
+
+    if flavor is None:
+        flavors = detect_flavors(target_dir)
+        flavor = flavors[0] if flavors else "other"
+    language = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+
+    content = content.replace(
+        "{{PROJECT_NAME}}", _toml_basic_string_escape(target_dir.name)
+    )
+    content = content.replace(
+        "{{PROJECT_LANGUAGE}}", _toml_basic_string_escape(language)
+    )
+    perf_rig.write_text(content)
+
+
+def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
+    """Return current ``justfile.common`` bytes for this project, or ``None``
+    if flavor is undetectable."""
+    from _jolo.templates import get_justfile_common_content
 
     flavors = detect_flavors(target_dir)
     if not flavors:
         return None
-    return get_justfile_content(flavors[0], target_dir.name).encode()
+    return get_justfile_common_content(target_dir.name).encode()
 
 
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
@@ -707,18 +745,22 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         result = _sync_one_file(
             target_dir, filename, src.read_bytes(), hashes, force=force
         )
-        # "unchanged" also refreshes hashes[filename] so a stale or missing
-        # record gets healed. Include it so the refresh actually persists.
+        # "unchanged" also refreshes hashes[filename] so a stale record heals.
         if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
-    regenerated = _regenerated_justfile_bytes(target_dir)
-    if regenerated is not None:
+    regenerated_common = _regenerated_justfile_common_bytes(target_dir)
+    if regenerated_common is not None:
         result = _sync_one_file(
-            target_dir, "justfile", regenerated, hashes, force=force
+            target_dir,
+            "justfile.common",
+            regenerated_common,
+            hashes,
+            force=force,
+            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
-            touched.append("justfile")
+            touched.append("justfile.common")
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
@@ -729,6 +771,8 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if src.exists() and not dst.exists():
             shutil.copy2(src, dst)
             verbose_print(f"Copied (first time): {filename}")
+
+    fill_perf_rig_placeholders(target_dir)
 
 
 def copy_template_files(target_dir: Path) -> None:

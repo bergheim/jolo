@@ -1131,16 +1131,75 @@ class TestSyncOneJolonew(unittest.TestCase):
         )
 
 
-class TestSyncJustfileRegen(unittest.TestCase):
-    """Regenerated justfile participates in sync with .jolonew semantics."""
+class TestFillPerfRigPlaceholders(unittest.TestCase):
+    """perf-rig.toml gets PROJECT_NAME / PROJECT_LANGUAGE filled at sync time.
+
+    Regression: demokrate-style projects had a perf-rig.toml dropped via
+    COPY_IF_MISSING_TEMPLATES without substitution, leaving literal
+    ``{{PROJECT_NAME}}`` for the hub to reject with a pattern-mismatch
+    error. `sync_template_files` must retrofit existing files in place.
+    """
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        # Project dir name drives PROJECT_NAME substitution in the
-        # regenerated justfile. Match a shell-safe slug.
+        self.project = Path(self.tmpdir) / "demokrate"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demokrate'\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_sync_substitutes_placeholders_in_existing_file(self):
+        (self.project / "perf-rig.toml").write_text(
+            "schema_version = 1\n"
+            '[project]\nname = "{{PROJECT_NAME}}"\n'
+            'language = "{{PROJECT_LANGUAGE}}"\n'
+        )
+        setup.sync_template_files(self.project)
+        content = (self.project / "perf-rig.toml").read_text()
+        self.assertNotIn("{{PROJECT_NAME}}", content)
+        self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
+        self.assertIn('name = "demokrate"', content)
+        self.assertIn('language = "python"', content)
+
+    def test_sync_leaves_already_substituted_file_alone(self):
+        (self.project / "perf-rig.toml").write_text(
+            "schema_version = 1\n"
+            '[project]\nname = "myproj"\nlanguage = "rust"\n'
+        )
+        setup.sync_template_files(self.project)
+        content = (self.project / "perf-rig.toml").read_text()
+        self.assertIn('name = "myproj"', content)  # untouched
+        self.assertIn('language = "rust"', content)
+
+    def test_fill_is_idempotent(self):
+        (self.project / "perf-rig.toml").write_text(
+            '[project]\nname = "{{PROJECT_NAME}}"\n'
+        )
+        setup.fill_perf_rig_placeholders(self.project)
+        first = (self.project / "perf-rig.toml").read_text()
+        setup.fill_perf_rig_placeholders(self.project)
+        second = (self.project / "perf-rig.toml").read_text()
+        self.assertEqual(first, second)
+
+
+class TestSyncJustfileCommon(unittest.TestCase):
+    """Post-split sync: justfile.common is tool-owned; justfile is user-owned.
+
+    The user's ``justfile`` is never touched by sync. Only
+    ``justfile.common`` is regenerated, and --force on it genuinely
+    overwrites (no .jolonew dance) because nothing tool-owned carries
+    user edits by contract.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
         self.target = Path(self.tmpdir) / "myproj"
         self.target.mkdir()
-        # Python flavor indicator so detect_flavors() picks 'python'.
         (self.target / "pyproject.toml").write_text(
             "[project]\nname = 'myproj'\n"
         )
@@ -1150,55 +1209,43 @@ class TestSyncJustfileRegen(unittest.TestCase):
 
         shutil.rmtree(self.tmpdir)
 
-    def test_fresh_project_gets_justfile(self):
-        self.assertFalse((self.target / "justfile").exists())
+    def test_fresh_project_gets_common(self):
+        self.assertFalse((self.target / "justfile.common").exists())
         setup.sync_template_files(self.target)
-        self.assertTrue((self.target / "justfile").exists())
-        # Should contain the new perf recipe.
-        self.assertIn("perf:", (self.target / "justfile").read_text())
+        self.assertTrue((self.target / "justfile.common").exists())
+        self.assertIn("perf:", (self.target / "justfile.common").read_text())
 
-    def test_edited_justfile_gets_jolonew(self):
-        # Existing scaffolded project whose justfile was tracked by
-        # jolo at create time and has since been user-edited.
-        import hashlib as _hl
-        import json as _json
-
-        initial_bytes = b"# original scaffold\n\nhello:\n    echo hi\n"
-        (self.target / "justfile").write_bytes(initial_bytes)
-
-        hashes_path = self.target / setup.TEMPLATE_HASHES_FILE
-        hashes_path.parent.mkdir(parents=True)
-        hashes_path.write_text(
-            _json.dumps({"justfile": _hl.sha256(initial_bytes).hexdigest()})
-            + "\n"
-        )
-
-        # User edits.
+    def test_user_justfile_untouched(self):
+        # User owns `justfile`. Sync must not read or write it after split.
         (self.target / "justfile").write_text(
-            "# my custom recipes\n\nhello:\n    echo hi\n"
-        )
-
-        setup.sync_template_files(self.target)
-
-        self.assertIn(
-            "my custom recipes", (self.target / "justfile").read_text()
-        )
-        self.assertTrue((self.target / "justfile.jolonew").exists())
-        self.assertIn("perf:", (self.target / "justfile.jolonew").read_text())
-
-    def test_untracked_justfile_not_touched(self):
-        # Meta-repo / non-jolo-scaffolded project: no hash record
-        # exists. Sync must NOT drop a .jolonew because that file
-        # isn't ours to manage.
-        (self.target / "justfile").write_text(
-            "# meta-repo bespoke recipes\n\ntest:\n    pytest\n"
+            "# user's custom pipeline\n\nhello:\n    echo hi\n"
         )
         setup.sync_template_files(self.target)
         self.assertEqual(
             (self.target / "justfile").read_text(),
-            "# meta-repo bespoke recipes\n\ntest:\n    pytest\n",
+            "# user's custom pipeline\n\nhello:\n    echo hi\n",
         )
+        # No .jolonew should appear for the user's justfile.
         self.assertFalse((self.target / "justfile.jolonew").exists())
+
+    def test_force_overwrites_common_even_when_edited(self):
+        # User committed a hand-edit to justfile.common (shouldn't have,
+        # but might). --force is the "nuke template file" escape hatch.
+        (self.target / "justfile.common").write_text("# bogus user edit\n")
+        setup.sync_template_files(self.target, force=True)
+        content = (self.target / "justfile.common").read_text()
+        self.assertIn("perf:", content)
+        self.assertNotIn("bogus user edit", content)
+
+    def test_no_force_leaves_edited_common_intact(self):
+        """Without --force, a hand-edited justfile.common is preserved
+        (the "untracked" path — no hash history yet)."""
+        (self.target / "justfile.common").write_text("# bogus user edit\n")
+        setup.sync_template_files(self.target, force=False)
+        self.assertEqual(
+            (self.target / "justfile.common").read_text(),
+            "# bogus user edit\n",
+        )
 
 
 if __name__ == "__main__":

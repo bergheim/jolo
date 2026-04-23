@@ -821,10 +821,10 @@ class TestPerfRigTemplate(unittest.TestCase):
 
     def test_url_is_envsubst_form(self):
         # target.url stays symbolic in the committed template. `just perf`
-        # resolves ${JOLO_TAILNET_HOST} and ${PORT} at POST time — no
-        # hostname ever lands on disk.
+        # resolves ${DEV_HOST} and ${PORT} at POST time — no hostname
+        # ever lands on disk.
         content = self.template_path.read_text()
-        self.assertIn("${JOLO_TAILNET_HOST}", content)
+        self.assertIn("${DEV_HOST}", content)
         self.assertIn("${PORT}", content)
 
     def test_project_placeholders_survive_for_create_substitution(self):
@@ -846,51 +846,54 @@ class TestJustfilePerfRecipe(unittest.TestCase):
     """The `perf` recipe appears with the project-specific testbed."""
 
     def test_perf_recipe_emitted(self):
-        content = jolo.get_justfile_content("python", "demokrato")
+        content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("\nperf:", content)
 
     def test_testbed_substituted(self):
-        content = jolo.get_justfile_content("python", "demokrato")
+        content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("PERF_TESTBED:=dev-container-demokrato", content)
 
     def test_testbed_sanitized_for_weird_name(self):
-        content = jolo.get_justfile_content("python", "My Cool App!")
+        content = jolo.get_justfile_common_content("My Cool App!")
         self.assertIn("PERF_TESTBED:=dev-container-my-cool-app", content)
 
     def test_hub_env_required(self):
         # No hostname baked into the generated justfile — operators set
-        # JOLO_PERF_HUB (or PERF_HUB) in their shell/env file.
-        content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("JOLO_PERF_HUB", content)
+        # PERF_HOST in their host .zshrc (mounted into the container).
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("PERF_HOST", content)
         self.assertNotIn("berghome.ts.glvortex.net", content)
 
     def test_port_preflight(self):
-        content = jolo.get_justfile_content("python", "demokrato")
+        content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("PORT not set", content)
 
     def test_envsubst_then_jq_for_rig(self):
         # jq -R -s reads the substituted rig from stdin safely, no quoting
         # landmines and no intermediate temp file.
-        content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("envsubst '$JOLO_TAILNET_HOST $PORT'", content)
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("envsubst '$DEV_HOST $PORT'", content)
         self.assertIn("jq -R -s", content)
 
     def test_guards_against_no_initial_commit(self):
-        content = jolo.get_justfile_content("python", "demokrato")
+        content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("git rev-parse --verify HEAD", content)
 
-    def test_requires_jolo_tailnet_host_env(self):
-        content = jolo.get_justfile_content("python", "demokrato")
-        self.assertIn("JOLO_TAILNET_HOST", content)
+    def test_derives_dev_host_from_perf_host(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("DEV_HOST", content)
+        # Derivation pulls hostname out of the hub URL as a fallback.
+        self.assertIn("PERF_HOST", content)
 
     def test_uses_envsubst_for_rig_substitution(self):
-        content = jolo.get_justfile_content("python", "demokrato")
+        content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("envsubst", content)
 
     def test_refuses_loopback_targets(self):
-        # k6 runs on the host; any loopback in the rig is a trap.
-        content = jolo.get_justfile_content("python", "demokrato")
-        for needle in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+        # Loopback check is on DEV_HOST itself (the variable), not the
+        # substituted rig content. All loopback forms must be listed.
+        content = jolo.get_justfile_common_content("demokrato")
+        for needle in ("localhost", "127.*", "0.0.0.0", "::1"):
             self.assertIn(needle, content)
 
 

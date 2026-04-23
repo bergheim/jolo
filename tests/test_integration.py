@@ -121,8 +121,8 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
 
     def test_create_copies_perf_rig_template(self):
         """create should drop a perf-rig.toml with project identity filled
-        and target.url left as ${JOLO_TAILNET_HOST}:${PORT} so no hostname
-        ever lands in a committed file."""
+        and target.url left as ${DEV_HOST}:${PORT} so no hostname ever
+        lands in a committed file."""
         args = jolo.parse_args(
             ["create", "testproj", "--flavor", "python", "-d"]
         )
@@ -137,7 +137,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertIn("schema_version = 1", content)
         self.assertIn('name = "testproj"', content)
         self.assertIn('language = "python"', content)
-        self.assertIn("${JOLO_TAILNET_HOST}", content)
+        self.assertIn("${DEV_HOST}", content)
         self.assertIn("${PORT}", content)
         self.assertNotIn("{{PROJECT_NAME}}", content)
         self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
