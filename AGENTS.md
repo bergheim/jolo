@@ -634,14 +634,6 @@ jolo autonomous --agents claude,codex # round-robin across a specific agent list
 # Requires host Emacs daemon to have loaded container/agent-helpers.el
 # so the CLI's emacsclient calls can reach the selector/mark helpers.
 # Host is responsible for scheduling (systemd timer, cron, ...).
-
-# Peer introspection (from host or inside a container)
-jolo peers                            # list other running jolo containers
-jolo peers --json                     # same, machine-readable for agents
-# Inside a container, use the standalone reader:
-jolo-peers                            # same output, no jolo package needed
-jolo-peers --json
-# Registry lives at /workspaces/stash/.jolo/peers.json (shared via bind mount).
 ```
 
 **Security model:**

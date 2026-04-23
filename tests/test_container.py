@@ -212,54 +212,6 @@ class TestRemoveContainer(unittest.TestCase):
                 self.assertTrue(result)
 
 
-class TestPeerRegistryWiring(unittest.TestCase):
-    """stop/remove calls unregister from the peer registry."""
-
-    def test_stop_unregisters_on_success(self):
-        with (
-            mock.patch(
-                "_jolo.container.get_container_runtime", return_value="docker"
-            ),
-            mock.patch(
-                "_jolo.container.get_container_for_workspace",
-                return_value="my-container",
-            ),
-            mock.patch("subprocess.run") as mock_run,
-            mock.patch("_jolo.registry.remove_entry") as mock_remove,
-        ):
-            mock_run.return_value = mock.Mock(returncode=0)
-            self.assertTrue(jolo.stop_container(Path("/some/path")))
-            mock_remove.assert_called_once_with("my-container")
-
-    def test_stop_does_not_unregister_on_failure(self):
-        with (
-            mock.patch(
-                "_jolo.container.get_container_runtime", return_value="docker"
-            ),
-            mock.patch(
-                "_jolo.container.get_container_for_workspace",
-                return_value="my-container",
-            ),
-            mock.patch("subprocess.run") as mock_run,
-            mock.patch("_jolo.registry.remove_entry") as mock_remove,
-        ):
-            mock_run.return_value = mock.Mock(returncode=1, stderr="boom")
-            self.assertFalse(jolo.stop_container(Path("/some/path")))
-            mock_remove.assert_not_called()
-
-    def test_remove_unregisters_on_success(self):
-        with (
-            mock.patch(
-                "_jolo.container.get_container_runtime", return_value="docker"
-            ),
-            mock.patch("subprocess.run") as mock_run,
-            mock.patch("_jolo.registry.remove_entry") as mock_remove,
-        ):
-            mock_run.return_value = mock.Mock(returncode=0)
-            self.assertTrue(jolo.remove_container("my-container"))
-            mock_remove.assert_called_once_with("my-container")
-
-
 class TestRemoveImage(unittest.TestCase):
     """Test image removal."""
 

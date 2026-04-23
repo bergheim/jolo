@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _jolo import constants, registry
+from _jolo import constants
 from _jolo.cli import (
     detect_hostname,
     is_port_available,
@@ -211,38 +211,7 @@ def devcontainer_up(
 
     verbose_cmd(cmd)
     result = subprocess.run(cmd, cwd=workspace_dir)
-    if result.returncode == 0:
-        _record_peer(workspace_dir)
     return result.returncode == 0
-
-
-def _record_peer(workspace_dir: Path) -> None:
-    """Best-effort write of a peer registry entry after start.
-
-    Registry failures must not break container start.
-    """
-    container_name = get_container_for_workspace(workspace_dir)
-    if not container_name:
-        return
-    try:
-        port = read_port_from_devcontainer(workspace_dir)
-        host = detect_hostname()
-        entry = registry.build_entry(
-            container=container_name,
-            workspace=workspace_dir,
-            port=port,
-            host=host,
-        )
-        registry.write_entry(entry)
-    except Exception:
-        pass
-
-
-def _unrecord_peer(container_name: str) -> None:
-    try:
-        registry.remove_entry(container_name)
-    except Exception:
-        pass
 
 
 def _runtime_exec(
@@ -454,7 +423,6 @@ def stop_container(workspace_dir: Path) -> bool:
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode == 0:
-        _unrecord_peer(container_name)
         print(f"Stopped: {container_name}")
         return True
     else:
@@ -525,8 +493,6 @@ def remove_container(container_name: str) -> bool:
     cmd = [runtime, "rm", container_name]
     verbose_cmd(cmd)
     result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        _unrecord_peer(container_name)
     return result.returncode == 0
 
 

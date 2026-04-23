@@ -39,7 +39,6 @@ from _jolo.commands import (  # noqa: F401
     run_init_mode,
     run_list_global_mode,
     run_list_mode,
-    run_peers_mode,
     run_port_mode,
     run_prune_global_mode,
     run_prune_mode,

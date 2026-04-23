@@ -518,19 +518,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Project dashboard: containers, worktrees, ports, disk",
     )
 
-    # peers: running jolo containers across all projects
-    sub_peers = subparsers.add_parser(
-        "peers",
-        parents=[p_verbose],
-        help="Show other running jolo containers (host + inside containers)",
-    )
-    sub_peers.add_argument(
-        "--json",
-        dest="as_json",
-        action="store_true",
-        help="Output peers as JSON (for scripting / agents)",
-    )
-
     # doctor: verbose
     subparsers.add_parser(
         "doctor",
