@@ -525,6 +525,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Pre-flight check: runtime, image, ports, tools, API keys",
     )
 
+    # migrate-justfile: verbose
+    subparsers.add_parser(
+        "migrate-justfile",
+        parents=[p_verbose],
+        help="Split monolithic justfile into user + tool-owned halves",
+    )
+
     # attach: recreate, verbose
     subparsers.add_parser(
         "attach",

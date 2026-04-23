@@ -318,6 +318,84 @@ def run_list_global_mode() -> None:
             print(f"  {name:<24} {folder}  ({state})")
 
 
+def run_migrate_justfile_mode(args: argparse.Namespace) -> None:
+    """Split a monolithic project ``justfile`` into user + template halves.
+
+    Idempotent:
+    - If ``justfile.common`` exists and ``justfile`` already imports it,
+      this is a no-op and reports as such.
+    - If the project predates template recipes entirely, just writes
+      ``justfile.common`` and prepends the import line.
+    - Otherwise extracts the tool-owned recipes from ``justfile``, saves
+      them to ``justfile.migration-backup`` for the user's reference, and
+      writes a fresh ``justfile.common``.
+    """
+    from _jolo import justfile_parser
+    from _jolo.templates import TEMPLATE_OWNED_RECIPES
+
+    git_root = pick_project()
+    os.chdir(git_root)
+    justfile = git_root / "justfile"
+    common = git_root / "justfile.common"
+    backup = git_root / "justfile.migration-backup"
+
+    if not justfile.exists():
+        sys.exit(f"No justfile found in {git_root}; nothing to migrate.")
+
+    current = justfile.read_text()
+    already_split = common.exists() and justfile_parser.has_import(current)
+
+    if already_split:
+        print("Already split: justfile.common exists and is imported. No-op.")
+        return
+
+    flavors = detect_flavors(git_root)
+    if not flavors:
+        sys.exit(
+            "Could not detect project flavor (no pyproject.toml, Cargo.toml, "
+            "package.json, go.mod, etc.). Cannot regenerate justfile.common."
+        )
+
+    extracted = justfile_parser.extract_recipes(
+        current, TEMPLATE_OWNED_RECIPES
+    )
+
+    remaining = justfile_parser.remove_recipes(current, TEMPLATE_OWNED_RECIPES)
+    if not justfile_parser.has_import(remaining):
+        remaining = "import 'justfile.common'\n\n" + remaining
+
+    new_common = get_justfile_common_content(git_root.name)
+
+    if extracted:
+        backup_body = (
+            "# Automatically extracted by `jolo migrate-justfile`.\n"
+            "# These were the tool-owned recipes found in your old justfile.\n"
+            "# Compare against justfile.common to see what's now current.\n"
+            "# Re-apply any local customizations to justfile (override wins).\n"
+            "\n"
+        )
+        for name in sorted(extracted):
+            backup_body += extracted[name].rstrip() + "\n\n"
+        backup.write_text(backup_body)
+
+    common.write_text(new_common)
+    justfile.write_text(remaining)
+
+    print(f"Wrote {common.name}")
+    print(f"Updated {justfile.name} (added import + removed template recipes)")
+    if extracted:
+        print(
+            f"Backed up {len(extracted)} extracted recipe(s) to {backup.name}"
+        )
+        print(
+            "  Review the diff against justfile.common if you had customizations."
+        )
+    else:
+        print(
+            "No existing template recipes to extract — project was pre-perf."
+        )
+
+
 def run_stop_mode(args: argparse.Namespace) -> None:
     """Run --stop mode: stop the devcontainer for current project."""
     git_root = pick_project()
@@ -2181,6 +2259,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "status":
         run_status_mode(args)
+        return
+
+    if cmd == "migrate-justfile":
+        run_migrate_justfile_mode(args)
         return
 
     if cmd == "doctor":
