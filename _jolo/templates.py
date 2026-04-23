@@ -148,13 +148,16 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "pass_filenames": False,
             "stages": ["pre-push"],
         },
-        # setsid + stdio redirect so the async `just perf` survives the
-        # git post-commit hook and doesn't tie up the terminal.
+        # pre-commit's `language: system` shlex-splits and exec's
+        # directly (no shell), so `&` must live inside a `sh -c` to be
+        # interpreted as background. `(...&)` + `</dev/null` orphans
+        # the grandchild without needing setsid (linux-only).
         {
             "id": "perf-run",
             "name": "perf run (async)",
             "entry": (
-                "setsid sh -c 'PERF_RAW=1 just perf >>.jolo-perf.log 2>&1' &"
+                "sh -c '(PERF_RAW=1 just perf "
+                ">>.jolo-perf.log 2>&1 </dev/null &)'"
             ),
             "language": "system",
             "pass_filenames": False,

@@ -581,11 +581,15 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("perf-run", result)
         self.assertIn("post-commit", result)
         self.assertIn("PERF_RAW=1", result)
-        self.assertIn("setsid", result)
+        # Must go through `sh -c` — pre-commit's `language: system` does
+        # shlex-split + exec, so bare `&` would not background.
+        self.assertIn("sh -c", result)
         self.assertIn("always_run", result)
 
     def test_post_commit_hook_is_async(self):
-        """Recipe must background (` &`) so git commit doesn't block."""
+        """Recipe backgrounds via a shell subshell so git commit returns
+        immediately. The `&` must be inside `sh -c '…'` or pre-commit's
+        shlex-split-then-exec path treats it as a literal argument."""
         result = jolo.generate_precommit_config([])
         perf_entry = None
         for line in result.splitlines():
@@ -594,9 +598,15 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
                 perf_entry = stripped[len("entry: ") :]
                 break
         self.assertIsNotNone(perf_entry, "perf-run hook not found")
+        self.assertIn(
+            "&",
+            perf_entry,
+            f"perf entry must background; got: {perf_entry!r}",
+        )
         self.assertTrue(
-            perf_entry.rstrip().endswith("&"),
-            f"perf entry must end with '&' for async; got: {perf_entry!r}",
+            perf_entry.startswith("sh -c "),
+            f"perf entry must run through sh -c so '&' is interpreted; "
+            f"got: {perf_entry!r}",
         )
 
     def test_always_includes_base_hooks(self):
