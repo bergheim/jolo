@@ -68,7 +68,7 @@ perf:
     # Validate response is JSON before parsing; jq's own exit codes
     # (4/5 on malformed input) would otherwise escape via `set -e`
     # without hitting the infra-failure exit(1) we promise below.
-    if ! printf '%s' "$RESP" | jq -e . >/dev/null 2>&1; then
+    if ! printf '%s' "$RESP" | jq -e 'type == "object"' >/dev/null 2>&1; then
         echo "hub returned non-JSON response:" >&2
         printf '%s\n' "$RESP" >&2
         exit 1
