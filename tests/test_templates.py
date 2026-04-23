@@ -575,6 +575,30 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         except ImportError:
             pass
 
+    def test_includes_post_commit_perf_hook(self):
+        """Post-commit hook fires `just perf` async after every commit."""
+        result = jolo.generate_precommit_config([])
+        self.assertIn("perf-run", result)
+        self.assertIn("post-commit", result)
+        self.assertIn("PERF_RAW=1", result)
+        self.assertIn("setsid", result)
+        self.assertIn("always_run", result)
+
+    def test_post_commit_hook_is_async(self):
+        """Recipe must background (` &`) so git commit doesn't block."""
+        result = jolo.generate_precommit_config([])
+        perf_entry = None
+        for line in result.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("entry: ") and "PERF_RAW" in stripped:
+                perf_entry = stripped[len("entry: ") :]
+                break
+        self.assertIsNotNone(perf_entry, "perf-run hook not found")
+        self.assertTrue(
+            perf_entry.rstrip().endswith("&"),
+            f"perf entry must end with '&' for async; got: {perf_entry!r}",
+        )
+
     def test_always_includes_base_hooks(self):
         """Should always include trailing-whitespace, end-of-file-fixer, check-added-large-files."""
         result = jolo.generate_precommit_config([])
@@ -706,7 +730,11 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
     """Test get_precommit_install_command() function."""
 
     def test_returns_precommit_install_command(self):
-        """Should return pre-commit install command with hook types."""
+        """Should return pre-commit install command with all three hook types.
+
+        post-commit is required so the async `just perf` hook fires after
+        every commit.
+        """
         result = jolo.get_precommit_install_command()
         self.assertEqual(
             result,
@@ -717,6 +745,8 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
                 "pre-commit",
                 "--hook-type",
                 "pre-push",
+                "--hook-type",
+                "post-commit",
             ],
         )
 

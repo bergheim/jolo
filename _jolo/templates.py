@@ -72,6 +72,9 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
     if "types" in hook:
         types_str = ", ".join(hook["types"])
         lines.append(f"{indent}  types: [{types_str}]")
+    if "always_run" in hook:
+        value = "true" if hook["always_run"] else "false"
+        lines.append(f"{indent}  always_run: {value}")
     return "\n".join(lines)
 
 
@@ -145,6 +148,19 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "pass_filenames": False,
             "stages": ["pre-push"],
         },
+        # setsid + stdio redirect so the async `just perf` survives the
+        # git post-commit hook and doesn't tie up the terminal.
+        {
+            "id": "perf-run",
+            "name": "perf run (async)",
+            "entry": (
+                "setsid sh -c 'PERF_RAW=1 just perf >>.jolo-perf.log 2>&1' &"
+            ),
+            "language": "system",
+            "pass_filenames": False,
+            "stages": ["post-commit"],
+            "always_run": True,
+        },
     ]
 
     # Add language-specific hooks
@@ -187,6 +203,8 @@ def get_precommit_install_command() -> list[str]:
         "pre-commit",
         "--hook-type",
         "pre-push",
+        "--hook-type",
+        "post-commit",
     ]
 
 
