@@ -688,6 +688,47 @@ def _sync_one_file(
     return "jolonew"
 
 
+def fill_perf_rig_placeholders(
+    target_dir: Path, flavor: str | None = None
+) -> None:
+    """Substitute {{PROJECT_NAME}} / {{PROJECT_LANGUAGE}} in perf-rig.toml.
+
+    Idempotent: the replacements look for literal ``{{...}}`` tokens, so a
+    file that's already been filled is a no-op. Safe to call both at
+    ``jolo create`` time (first write, with ``flavor`` passed in by the
+    caller) and during ``jolo up --recreate`` sync (flavor detected from
+    the project files, retrofit for projects whose perf-rig.toml was
+    copy-if-missing'd before this substitution existed).
+    """
+    from _jolo import constants
+
+    perf_rig = target_dir / "perf-rig.toml"
+    if not perf_rig.exists():
+        return
+
+    content = perf_rig.read_text()
+    if (
+        "{{PROJECT_NAME}}" not in content
+        and "{{PROJECT_LANGUAGE}}" not in content
+    ):
+        return
+
+    if flavor is None:
+        flavors = detect_flavors(target_dir)
+        flavor = flavors[0] if flavors else "other"
+    language = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+
+    # json.dumps()[1:-1] escapes quotes/backslashes/control chars for TOML
+    # basic strings; keeps weird project names from producing invalid TOML.
+    content = content.replace(
+        "{{PROJECT_NAME}}", json.dumps(target_dir.name)[1:-1]
+    )
+    content = content.replace(
+        "{{PROJECT_LANGUAGE}}", json.dumps(language)[1:-1]
+    )
+    perf_rig.write_text(content)
+
+
 def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
     """Produce current justfile.common content for target_dir's name.
 
@@ -752,6 +793,11 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if src.exists() and not dst.exists():
             shutil.copy2(src, dst)
             verbose_print(f"Copied (first time): {filename}")
+
+    # Retrofit: projects whose perf-rig.toml was copy-if-missing'd before
+    # placeholder substitution existed still have literal {{PROJECT_NAME}}.
+    # Substituting here is idempotent on already-filled files.
+    fill_perf_rig_placeholders(target_dir)
 
 
 def copy_template_files(target_dir: Path) -> None:

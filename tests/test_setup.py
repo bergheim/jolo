@@ -1131,6 +1131,62 @@ class TestSyncOneJolonew(unittest.TestCase):
         )
 
 
+class TestFillPerfRigPlaceholders(unittest.TestCase):
+    """perf-rig.toml gets PROJECT_NAME / PROJECT_LANGUAGE filled at sync time.
+
+    Regression: demokrate-style projects had a perf-rig.toml dropped via
+    COPY_IF_MISSING_TEMPLATES without substitution, leaving literal
+    ``{{PROJECT_NAME}}`` for the hub to reject with a pattern-mismatch
+    error. `sync_template_files` must retrofit existing files in place.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demokrate"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demokrate'\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_sync_substitutes_placeholders_in_existing_file(self):
+        (self.project / "perf-rig.toml").write_text(
+            "schema_version = 1\n"
+            '[project]\nname = "{{PROJECT_NAME}}"\n'
+            'language = "{{PROJECT_LANGUAGE}}"\n'
+        )
+        setup.sync_template_files(self.project)
+        content = (self.project / "perf-rig.toml").read_text()
+        self.assertNotIn("{{PROJECT_NAME}}", content)
+        self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
+        self.assertIn('name = "demokrate"', content)
+        self.assertIn('language = "python"', content)
+
+    def test_sync_leaves_already_substituted_file_alone(self):
+        (self.project / "perf-rig.toml").write_text(
+            "schema_version = 1\n"
+            '[project]\nname = "myproj"\nlanguage = "rust"\n'
+        )
+        setup.sync_template_files(self.project)
+        content = (self.project / "perf-rig.toml").read_text()
+        self.assertIn('name = "myproj"', content)  # untouched
+        self.assertIn('language = "rust"', content)
+
+    def test_fill_is_idempotent(self):
+        (self.project / "perf-rig.toml").write_text(
+            '[project]\nname = "{{PROJECT_NAME}}"\n'
+        )
+        setup.fill_perf_rig_placeholders(self.project)
+        first = (self.project / "perf-rig.toml").read_text()
+        setup.fill_perf_rig_placeholders(self.project)
+        second = (self.project / "perf-rig.toml").read_text()
+        self.assertEqual(first, second)
+
+
 class TestSyncJustfileCommon(unittest.TestCase):
     """Post-split sync: justfile.common is tool-owned; justfile is user-owned.
 
