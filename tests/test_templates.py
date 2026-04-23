@@ -890,9 +890,10 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         self.assertIn("envsubst", content)
 
     def test_refuses_loopback_targets(self):
-        # k6 runs on the host; any loopback in the rig is a trap.
+        # Loopback check is on DEV_HOST itself (the variable), not the
+        # substituted rig content. All loopback forms must be listed.
         content = jolo.get_justfile_common_content("demokrato")
-        for needle in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+        for needle in ("localhost", "127.*", "0.0.0.0", "::1"):
             self.assertIn(needle, content)
 
 
