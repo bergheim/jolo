@@ -1237,18 +1237,15 @@ class TestSyncJustfileCommon(unittest.TestCase):
         self.assertIn("perf:", content)
         self.assertNotIn("bogus user edit", content)
 
-    def test_no_force_leaves_edited_common_as_jolonew(self):
+    def test_no_force_leaves_edited_common_intact(self):
+        """Without --force, a hand-edited justfile.common is preserved
+        (the "untracked" path — no hash history yet)."""
         (self.target / "justfile.common").write_text("# bogus user edit\n")
         setup.sync_template_files(self.target, force=False)
-        # Without --force, edited tool-owned file gets the diff-me dance.
         self.assertEqual(
             (self.target / "justfile.common").read_text(),
             "# bogus user edit\n",
         )
-        # No hash history for this file → "untracked" path → no jolonew
-        # (safety default). With hash tracking already in place, the
-        # edited-tracked path writes .jolonew instead.
-        # Either outcome is acceptable; assert the live file is intact.
 
 
 if __name__ == "__main__":

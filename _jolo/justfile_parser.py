@@ -1,16 +1,4 @@
-"""Minimal structural parsing of justfiles.
-
-Currently only exposes two helpers used by scaffolding:
-
-- :func:`has_import` — true if the source already imports ``justfile.common``.
-- :func:`insert_import` — place the import directive after any leading
-  shebang, header comments, and top-level directives (``set shell``,
-  ``export FOO``, ``alias x := y``). This keeps ``set shell`` ordering
-  correct so it applies to imported recipes too.
-
-Not a full just parser; anything beyond these two helpers lives outside
-this module.
-"""
+"""Structural helpers for justfile import placement."""
 
 from __future__ import annotations
 
@@ -51,24 +39,15 @@ def _is_recipe_header(line: str) -> str | None:
 
 def has_import(src: str) -> bool:
     """True if ``src`` already contains ``import 'justfile.common'``."""
-    for line in src.splitlines():
-        if _IMPORT_RE.match(line):
-            return True
-    return False
+    return any(_IMPORT_RE.match(line) for line in src.splitlines())
 
 
 def insert_import(src: str) -> str:
-    """Insert ``import 'justfile.common'`` in the right place.
+    """Return ``src`` with ``import 'justfile.common'`` placed after any
+    leading shebang, header comments, and top-level directives. Idempotent.
 
-    "Right place" means after any leading shebang (``#!``), legal header
-    comments, blank lines, and top-level directives like ``set shell``
-    / ``export FOO`` / ``alias x := y``. This preserves the existing
-    shebang execution and keeps ``set shell`` ordering (settings must
-    come before the recipes they apply to, and our imported recipes
-    depend on the user's shell setting).
-
-    Idempotent: returns ``src`` unchanged if the import is already
-    present anywhere at the top level.
+    Placement preserves ``set shell := ...`` ordering so imported recipes
+    still run under the user's shell.
     """
     if has_import(src):
         return src
@@ -78,13 +57,9 @@ def insert_import(src: str) -> str:
     lines = src.splitlines(keepends=True)
     insert_at = 0
 
-    # Allow a shebang on the very first line.
     if insert_at < len(lines) and lines[insert_at].startswith("#!"):
         insert_at += 1
 
-    # Then consume any run of blank lines, top-level comments, or
-    # directives (set/export/alias/mod/unexport). Stop at the first
-    # recipe header.
     while insert_at < len(lines):
         line = lines[insert_at]
         if line.strip() == "":
@@ -102,10 +77,11 @@ def insert_import(src: str) -> str:
 
     prefix = "".join(lines[:insert_at])
     suffix = "".join(lines[insert_at:])
-    sep_before = (
-        ""
-        if prefix == "" or prefix.endswith("\n\n")
-        else ("\n" if prefix.endswith("\n") else "\n\n")
-    )
+    if prefix == "" or prefix.endswith("\n\n"):
+        sep_before = ""
+    elif prefix.endswith("\n"):
+        sep_before = "\n"
+    else:
+        sep_before = "\n\n"
     sep_after = "\n" if suffix and not suffix.startswith("\n") else ""
     return f"{prefix}{sep_before}import 'justfile.common'\n{sep_after}{suffix}"

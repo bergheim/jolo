@@ -621,23 +621,11 @@ def _sync_one_file(
 ) -> str:
     """Sync one file with .jolonew fallback.
 
-    ``strictly_owned`` is True for files that are definitively tool-owned
-    and carry no user edits by contract (e.g. ``justfile.common`` after
-    the justfile split). For those, ``force=True`` genuinely force-writes,
-    destroying any local modifications — that's the whole point of the
-    split. For non-owned files (AGENTS.md, CLAUDE.md, ...), ``force`` only
-    upgrades "skip" → "drop .jolonew" so hand edits aren't silently lost.
+    When ``strictly_owned``, ``force=True`` overwrites the file outright
+    instead of dropping a ``.jolonew`` — use for tool-owned files that
+    carry no user edits by contract (e.g. ``justfile.common``).
 
-    Returns one of:
-    - "written": dst didn't exist, new content installed.
-    - "updated": user hadn't edited (or strict-owned with force); dst overwritten.
-    - "jolonew": user edited; {filename}.jolonew written alongside dst.
-      The .jolonew file is always overwritten so the latest template
-      output is always visible without touching user edits.
-    - "unchanged": dst already matches new content.
-    - "untracked": dst exists but jolo never wrote it (no hash record).
-      Don't touch it — could be a hand-curated file, the meta-repo's
-      own justfile, or a project that predates hash tracking.
+    Returns "written", "updated", "jolonew", "unchanged", or "untracked".
     """
     dst = target_dir / filename
     new_hash = hashlib.sha256(new_bytes).hexdigest()
@@ -648,29 +636,25 @@ def _sync_one_file(
         verbose_print(f"Copied: {filename}")
         return "written"
 
-    current_hash = _file_hash(dst)
-    stored_hash = hashes.get(filename)
-
-    if current_hash == new_hash:
-        # Content matches template output. Only heal the hash if we
-        # already managed this file; don't claim ownership of a file
-        # that happens to match by coincidence.
-        if stored_hash is not None:
-            hashes[filename] = new_hash
-        return "unchanged"
-
     if strictly_owned and force:
-        # File is tool-owned by contract. --force means what it says.
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
         print(f"  Force-overwrote tool-owned {filename}")
         return "updated"
 
+    current_hash = _file_hash(dst)
+    stored_hash = hashes.get(filename)
+
+    if current_hash == new_hash:
+        # Heal the hash only for files we already managed; don't claim
+        # ownership of files that match by coincidence.
+        if stored_hash is not None:
+            hashes[filename] = new_hash
+        return "unchanged"
+
     if stored_hash is None:
         if not force:
             return "untracked"
-        # --force: treat untracked like user-edited so the new template
-        # lands alongside the existing file as a .jolonew for review.
         jolonew = target_dir / f"{filename}.jolonew"
         jolonew.write_bytes(new_bytes)
         print(f"  Template retrofit: {jolonew.name} (not previously tracked)")
@@ -688,25 +672,27 @@ def _sync_one_file(
     return "jolonew"
 
 
+def _toml_basic_string_escape(value: str) -> str:
+    """Escape a Python string for insertion into a TOML basic string literal.
+
+    Relies on TOML's escape rules being a subset of JSON's.
+    """
+    return json.dumps(value)[1:-1]
+
+
 def fill_perf_rig_placeholders(
     target_dir: Path, flavor: str | None = None
 ) -> None:
-    """Substitute {{PROJECT_NAME}} / {{PROJECT_LANGUAGE}} in perf-rig.toml.
+    """Substitute project placeholders in ``perf-rig.toml`` if present.
 
-    Idempotent: the replacements look for literal ``{{...}}`` tokens, so a
-    file that's already been filled is a no-op. Safe to call both at
-    ``jolo create`` time (first write, with ``flavor`` passed in by the
-    caller) and during ``jolo up --recreate`` sync (flavor detected from
-    the project files, retrofit for projects whose perf-rig.toml was
-    copy-if-missing'd before this substitution existed).
+    No-op if the file is missing or already filled. Used both at scaffold
+    time (caller passes ``flavor``) and at sync time (flavor detected).
     """
-    from _jolo import constants
-
     perf_rig = target_dir / "perf-rig.toml"
-    if not perf_rig.exists():
+    try:
+        content = perf_rig.read_text()
+    except FileNotFoundError:
         return
-
-    content = perf_rig.read_text()
     if (
         "{{PROJECT_NAME}}" not in content
         and "{{PROJECT_LANGUAGE}}" not in content
@@ -718,23 +704,18 @@ def fill_perf_rig_placeholders(
         flavor = flavors[0] if flavors else "other"
     language = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
 
-    # json.dumps()[1:-1] escapes quotes/backslashes/control chars for TOML
-    # basic strings; keeps weird project names from producing invalid TOML.
     content = content.replace(
-        "{{PROJECT_NAME}}", json.dumps(target_dir.name)[1:-1]
+        "{{PROJECT_NAME}}", _toml_basic_string_escape(target_dir.name)
     )
     content = content.replace(
-        "{{PROJECT_LANGUAGE}}", json.dumps(language)[1:-1]
+        "{{PROJECT_LANGUAGE}}", _toml_basic_string_escape(language)
     )
     perf_rig.write_text(content)
 
 
 def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
-    """Produce current justfile.common content for target_dir's name.
-
-    Only the common file is regenerated on sync — ``justfile`` is user-owned
-    post-split and never touched. Returns None if flavor detection fails.
-    """
+    """Return current ``justfile.common`` bytes for this project, or ``None``
+    if flavor is undetectable."""
     from _jolo.templates import get_justfile_common_content
 
     flavors = detect_flavors(target_dir)
@@ -764,13 +745,10 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         result = _sync_one_file(
             target_dir, filename, src.read_bytes(), hashes, force=force
         )
-        # "unchanged" also refreshes hashes[filename] so a stale or missing
-        # record gets healed. Include it so the refresh actually persists.
+        # "unchanged" also refreshes hashes[filename] so a stale record heals.
         if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
-    # justfile.common is tool-owned and force-overwritable; the user's
-    # own justfile is never synced here post-split.
     regenerated_common = _regenerated_justfile_common_bytes(target_dir)
     if regenerated_common is not None:
         result = _sync_one_file(
@@ -794,9 +772,6 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied (first time): {filename}")
 
-    # Retrofit: projects whose perf-rig.toml was copy-if-missing'd before
-    # placeholder substitution existed still have literal {{PROJECT_NAME}}.
-    # Substituting here is idempotent on already-filled files.
     fill_perf_rig_placeholders(target_dir)
 
 
