@@ -1131,8 +1131,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
     verbose_print("Generated justfile + justfile.common")
 
     # Fill perf-rig.toml placeholders with the project's identity so the
-    # user isn't staring at REPLACE-ME on first open. target.url stays as
-    # ${JOLO_TAILNET_HOST}:${PORT} — resolved by envsubst at `just perf`
+    # user isn't staring at REPLACE-ME on first open. target.url stays
+    # as ${DEV_HOST}:${PORT} — resolved by envsubst at `just perf`
     # time, never written to disk.
     #
     # json.dumps()[1:-1] escapes quotes/backslashes/control chars for TOML

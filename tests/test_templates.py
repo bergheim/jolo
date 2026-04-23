@@ -821,10 +821,10 @@ class TestPerfRigTemplate(unittest.TestCase):
 
     def test_url_is_envsubst_form(self):
         # target.url stays symbolic in the committed template. `just perf`
-        # resolves ${JOLO_TAILNET_HOST} and ${PORT} at POST time — no
-        # hostname ever lands on disk.
+        # resolves ${DEV_HOST} and ${PORT} at POST time — no hostname
+        # ever lands on disk.
         content = self.template_path.read_text()
-        self.assertIn("${JOLO_TAILNET_HOST}", content)
+        self.assertIn("${DEV_HOST}", content)
         self.assertIn("${PORT}", content)
 
     def test_project_placeholders_survive_for_create_substitution(self):
@@ -872,16 +872,18 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         # jq -R -s reads the substituted rig from stdin safely, no quoting
         # landmines and no intermediate temp file.
         content = jolo.get_justfile_common_content("demokrato")
-        self.assertIn("envsubst '$JOLO_TAILNET_HOST $PORT'", content)
+        self.assertIn("envsubst '$DEV_HOST $PORT'", content)
         self.assertIn("jq -R -s", content)
 
     def test_guards_against_no_initial_commit(self):
         content = jolo.get_justfile_common_content("demokrato")
         self.assertIn("git rev-parse --verify HEAD", content)
 
-    def test_requires_jolo_tailnet_host_env(self):
+    def test_derives_dev_host_from_perf_host(self):
         content = jolo.get_justfile_common_content("demokrato")
-        self.assertIn("JOLO_TAILNET_HOST", content)
+        self.assertIn("DEV_HOST", content)
+        # Derivation pulls hostname out of the hub URL as a fallback.
+        self.assertIn("PERF_HOST", content)
 
     def test_uses_envsubst_for_rig_substitution(self):
         content = jolo.get_justfile_common_content("demokrato")
