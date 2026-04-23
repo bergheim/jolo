@@ -64,8 +64,17 @@ class TestMigrateJustfile(unittest.TestCase):
         # User recipe and settings preserved.
         self.assertIn("dev:", justfile)
         self.assertIn("set shell", justfile)
-        # Import prepended.
-        self.assertTrue(justfile.startswith("import 'justfile.common'"))
+        # Import present and placed after `set shell` so the setting
+        # still applies to imported recipes.
+        self.assertIn("import 'justfile.common'", justfile)
+        self.assertLess(
+            justfile.index("set shell"),
+            justfile.index("import 'justfile.common'"),
+        )
+        self.assertLess(
+            justfile.index("import 'justfile.common'"),
+            justfile.index("dev:"),
+        )
         # Fresh common file has current template content.
         self.assertIn("perf:", common)
         self.assertIn("browse:", common)
@@ -90,18 +99,28 @@ class TestMigrateJustfile(unittest.TestCase):
         justfile = (project / "justfile").read_text()
         common = (project / "justfile.common").read_text()
 
-        self.assertTrue(justfile.startswith("import 'justfile.common'"))
+        # Import placed after leading `set shell` directive.
+        self.assertIn("import 'justfile.common'", justfile)
+        self.assertLess(
+            justfile.index("set shell"),
+            justfile.index("import 'justfile.common'"),
+        )
         self.assertIn("dev:", justfile)
         self.assertIn("test:", justfile)
         self.assertIn("perf:", common)
         # No backup file because nothing was extracted.
         self.assertFalse((project / "justfile.migration-backup").exists())
 
-    def test_idempotent_on_already_split_project(self):
-        """Running migrate twice is a no-op."""
+    def test_idempotent_when_up_to_date(self):
+        """Running migrate on a project already split with current template
+        is a no-op."""
+        from _jolo.templates import get_justfile_common_content
+
         src = "import 'justfile.common'\n\ndev:\n    echo dev\n"
         project = _make_python_project(self.tmpdir, src)
-        (project / "justfile.common").write_text("perf:\n    echo p\n")
+        (project / "justfile.common").write_text(
+            get_justfile_common_content("demo")
+        )
 
         before_justfile = (project / "justfile").read_text()
         before_common = (project / "justfile.common").read_text()
@@ -112,6 +131,20 @@ class TestMigrateJustfile(unittest.TestCase):
         self.assertEqual(
             (project / "justfile.common").read_text(), before_common
         )
+
+    def test_refreshes_stale_common_as_repair_path(self):
+        """Migrate doubles as a repair: stale justfile.common gets regenerated."""
+        src = "import 'justfile.common'\n\ndev:\n    echo dev\n"
+        project = _make_python_project(self.tmpdir, src)
+        # Deliberately stale common file.
+        (project / "justfile.common").write_text("perf:\n    echo stale\n")
+
+        self._run(project)
+
+        common = (project / "justfile.common").read_text()
+        self.assertNotIn("echo stale", common)
+        # Fresh template content landed.
+        self.assertIn("PERF_TESTBED:=dev-container-demo", common)
 
     def test_absent_justfile_errors(self):
         project = self.tmpdir / "no-justfile"
@@ -134,7 +167,11 @@ class TestCreateFlowProducesSplit(unittest.TestCase):
         user = get_justfile_content("python", "demo")
         common = get_justfile_common_content("demo")
 
-        self.assertTrue(user.startswith("import 'justfile.common'"))
+        # Import present and placed after `set shell` for template's flavor files.
+        self.assertIn("import 'justfile.common'", user)
+        self.assertLess(
+            user.index("set shell"), user.index("import 'justfile.common'")
+        )
         self.assertIn("dev:", user)
         self.assertNotIn("\nperf:", "\n" + user)  # moved to common
         self.assertIn("perf:", common)

@@ -321,14 +321,18 @@ def run_list_global_mode() -> None:
 def run_migrate_justfile_mode(args: argparse.Namespace) -> None:
     """Split a monolithic project ``justfile`` into user + template halves.
 
-    Idempotent:
-    - If ``justfile.common`` exists and ``justfile`` already imports it,
-      this is a no-op and reports as such.
-    - If the project predates template recipes entirely, just writes
-      ``justfile.common`` and prepends the import line.
-    - Otherwise extracts the tool-owned recipes from ``justfile``, saves
-      them to ``justfile.migration-backup`` for the user's reference, and
-      writes a fresh ``justfile.common``.
+    Safe to re-run: always regenerates ``justfile.common`` so this can be
+    used as a repair path when the common file is stale or missing.
+    Extraction happens only if tool-owned recipes are still present in
+    ``justfile``. If nothing would change, reports a no-op.
+
+    Atomicity: writes are staged to sibling ``.new`` temp files and then
+    ``os.replace``'d. A crash between writes leaves the project in a
+    consistent state (repeat the command to finish).
+
+    Import placement preserves any leading shebang, legal header
+    comments, and ``set`` / ``export`` / ``alias`` directives so
+    ``set shell := ...`` keeps applying to the imported recipes.
     """
     from _jolo import justfile_parser
     from _jolo.templates import TEMPLATE_OWNED_RECIPES
@@ -343,11 +347,6 @@ def run_migrate_justfile_mode(args: argparse.Namespace) -> None:
         sys.exit(f"No justfile found in {git_root}; nothing to migrate.")
 
     current = justfile.read_text()
-    already_split = common.exists() and justfile_parser.has_import(current)
-
-    if already_split:
-        print("Already split: justfile.common exists and is imported. No-op.")
-        return
 
     flavors = detect_flavors(git_root)
     if not flavors:
@@ -359,41 +358,57 @@ def run_migrate_justfile_mode(args: argparse.Namespace) -> None:
     extracted = justfile_parser.extract_recipes(
         current, TEMPLATE_OWNED_RECIPES
     )
-
     remaining = justfile_parser.remove_recipes(current, TEMPLATE_OWNED_RECIPES)
-    if not justfile_parser.has_import(remaining):
-        remaining = "import 'justfile.common'\n\n" + remaining
-
+    new_user_justfile = justfile_parser.insert_import(remaining)
     new_common = get_justfile_common_content(git_root.name)
 
+    common_unchanged = common.exists() and common.read_text() == new_common
+    justfile_unchanged = new_user_justfile == current
+    if not extracted and common_unchanged and justfile_unchanged:
+        print("Nothing to do — project is already split and up to date.")
+        return
+
+    # Order: backup first (cheap, standalone), common second, justfile
+    # last. Each write is atomic via .new + os.replace.
     if extracted:
         backup_body = (
             "# Automatically extracted by `jolo migrate-justfile`.\n"
             "# These were the tool-owned recipes found in your old justfile.\n"
             "# Compare against justfile.common to see what's now current.\n"
-            "# Re-apply any local customizations to justfile (override wins).\n"
+            "# Re-apply any local customizations to justfile.\n"
             "\n"
         )
         for name in sorted(extracted):
             backup_body += extracted[name].rstrip() + "\n\n"
-        backup.write_text(backup_body)
+        _atomic_write_text(backup, backup_body)
 
-    common.write_text(new_common)
-    justfile.write_text(remaining)
+    if not common_unchanged:
+        _atomic_write_text(common, new_common)
+    if not justfile_unchanged:
+        _atomic_write_text(justfile, new_user_justfile)
 
-    print(f"Wrote {common.name}")
-    print(f"Updated {justfile.name} (added import + removed template recipes)")
+    if not common_unchanged:
+        print(f"Wrote {common.name}")
+    if not justfile_unchanged:
+        print(
+            f"Updated {justfile.name} "
+            "(added import + removed template recipes)"
+        )
     if extracted:
         print(
             f"Backed up {len(extracted)} extracted recipe(s) to {backup.name}"
         )
         print(
-            "  Review the diff against justfile.common if you had customizations."
+            "  Review the diff against justfile.common "
+            "if you had customizations."
         )
-    else:
-        print(
-            "No existing template recipes to extract — project was pre-perf."
-        )
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` via a tmp file + os.replace."""
+    tmp = path.with_name(path.name + ".new")
+    tmp.write_text(content)
+    os.replace(tmp, path)
 
 
 def run_stop_mode(args: argparse.Namespace) -> None:
