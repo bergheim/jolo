@@ -49,7 +49,17 @@ Do not add defensive checks that duplicate what called functions already handle.
 
 ## Backward Compatibility
 
-This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly. No aliases, shims, deprecation warnings, or re-exports for old names.
+This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly.
+
+**Forbidden, unless the user explicitly asks for one:**
+- Migration commands (e.g. `jolo migrate-justfile`).
+- Sync-time warnings that detect old layouts ("your justfile lacks `import X`, add it…").
+- Fallback code paths that handle both old and new shapes.
+- Aliases, shims, re-exports for renamed symbols.
+- Deprecation messages.
+- Logic that infers intent from stale file contents.
+
+When a shape changes (env var, file layout, flag, template structure), ship only the new shape. If existing projects break, the user edits them by hand — that's the intended cost. **Do not propose automating it.** A cross-project note at `/workspaces/stash/notes/20260423T130003--backward-compatibility-is-forbidden-in-active-projects__convention_agents_workflow.org` has more context.
 
 ## Comments
 
