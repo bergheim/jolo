@@ -72,6 +72,9 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
     if "types" in hook:
         types_str = ", ".join(hook["types"])
         lines.append(f"{indent}  types: [{types_str}]")
+    if "always_run" in hook:
+        value = "true" if hook["always_run"] else "false"
+        lines.append(f"{indent}  always_run: {value}")
     return "\n".join(lines)
 
 
@@ -145,6 +148,22 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "pass_filenames": False,
             "stages": ["pre-push"],
         },
+        # pre-commit's `language: system` shlex-splits and exec's
+        # directly (no shell), so `&` must live inside a `sh -c` to be
+        # interpreted as background. `(...&)` + `</dev/null` orphans
+        # the grandchild without needing setsid (linux-only).
+        {
+            "id": "perf-run",
+            "name": "perf run (async)",
+            "entry": (
+                "sh -c '(PERF_RAW=1 just perf "
+                ">>.jolo-perf.log 2>&1 </dev/null &)'"
+            ),
+            "language": "system",
+            "pass_filenames": False,
+            "stages": ["post-commit"],
+            "always_run": True,
+        },
     ]
 
     # Add language-specific hooks
@@ -187,6 +206,8 @@ def get_precommit_install_command() -> list[str]:
         "pre-commit",
         "--hook-type",
         "pre-push",
+        "--hook-type",
+        "post-commit",
     ]
 
 

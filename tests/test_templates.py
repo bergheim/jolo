@@ -575,6 +575,40 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         except ImportError:
             pass
 
+    def test_includes_post_commit_perf_hook(self):
+        """Post-commit hook fires `just perf` async after every commit."""
+        result = jolo.generate_precommit_config([])
+        self.assertIn("perf-run", result)
+        self.assertIn("post-commit", result)
+        self.assertIn("PERF_RAW=1", result)
+        # Must go through `sh -c` — pre-commit's `language: system` does
+        # shlex-split + exec, so bare `&` would not background.
+        self.assertIn("sh -c", result)
+        self.assertIn("always_run", result)
+
+    def test_post_commit_hook_is_async(self):
+        """Recipe backgrounds via a shell subshell so git commit returns
+        immediately. The `&` must be inside `sh -c '…'` or pre-commit's
+        shlex-split-then-exec path treats it as a literal argument."""
+        result = jolo.generate_precommit_config([])
+        perf_entry = None
+        for line in result.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("entry: ") and "PERF_RAW" in stripped:
+                perf_entry = stripped[len("entry: ") :]
+                break
+        self.assertIsNotNone(perf_entry, "perf-run hook not found")
+        self.assertIn(
+            "&",
+            perf_entry,
+            f"perf entry must background; got: {perf_entry!r}",
+        )
+        self.assertTrue(
+            perf_entry.startswith("sh -c "),
+            f"perf entry must run through sh -c so '&' is interpreted; "
+            f"got: {perf_entry!r}",
+        )
+
     def test_always_includes_base_hooks(self):
         """Should always include trailing-whitespace, end-of-file-fixer, check-added-large-files."""
         result = jolo.generate_precommit_config([])
@@ -706,7 +740,11 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
     """Test get_precommit_install_command() function."""
 
     def test_returns_precommit_install_command(self):
-        """Should return pre-commit install command with hook types."""
+        """Should return pre-commit install command with all three hook types.
+
+        post-commit is required so the async `just perf` hook fires after
+        every commit.
+        """
         result = jolo.get_precommit_install_command()
         self.assertEqual(
             result,
@@ -717,6 +755,8 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
                 "pre-commit",
                 "--hook-type",
                 "pre-push",
+                "--hook-type",
+                "post-commit",
             ],
         )
 
@@ -895,6 +935,43 @@ class TestJustfilePerfRecipe(unittest.TestCase):
         content = jolo.get_justfile_common_content("demokrato")
         for needle in ("localhost", "127.*", "0.0.0.0", "::1"):
             self.assertIn(needle, content)
+
+    def test_parses_validity_status_from_response(self):
+        """Recipe pulls validity_status out of the hub response."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("validity_status", content)
+
+    def test_summary_prints_grafana_url(self):
+        """Human-readable summary exposes the Grafana link."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("grafana_url", content)
+
+    def test_perf_raw_opts_out_of_pretty_summary(self):
+        """PERF_RAW=1 dumps the raw hub JSON for scripts / hooks."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("PERF_RAW", content)
+
+    def test_exit_codes_distinguish_infra_from_validity(self):
+        """Exit 1 for infra (curl/jq), exit 2 for run-completed-but-invalid."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("exit 2", content)
+
+
+class TestAppProfileDefault(unittest.TestCase):
+    """justfile.common exports APP_PROFILE=1 by default."""
+
+    def test_app_profile_exported(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("APP_PROFILE", content)
+
+    def test_app_profile_has_default_value_1(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn('"APP_PROFILE", "1"', content)
+
+    def test_app_profile_is_exported(self):
+        """`export` directive so the var reaches child processes."""
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn("export APP_PROFILE", content)
 
 
 if __name__ == "__main__":

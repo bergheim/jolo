@@ -521,3 +521,6 @@ mlruns/
 
 # Scratch space (experiments, generated assets, throwaway work)
 scratch/
+
+# Per-commit async `just perf` log (post-commit pre-commit hook)
+.jolo-perf.log
