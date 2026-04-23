@@ -52,7 +52,6 @@ from _jolo.setup import (
     copy_template_files,
     copy_user_files,
     ensure_test_gate_script,
-    fill_perf_rig_placeholders,
     get_secrets,
     scaffold_devcontainer,
     setup_credential_cache,
@@ -69,6 +68,7 @@ from _jolo.templates import (
     get_justfile_common_content,
     get_justfile_content,
     get_motd_content,
+    get_perf_rig_content,
     get_precommit_install_command,
     get_project_init_commands,
     get_scaffold_files,
@@ -1128,8 +1128,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
     (project_path / "justfile.common").write_text(common_content)
     verbose_print("Generated justfile + justfile.common")
 
-    fill_perf_rig_placeholders(project_path, flavor=primary_flavor)
-    verbose_print("Filled perf-rig.toml")
+    perf_rig_content = get_perf_rig_content(primary_flavor, project_name)
+    (project_path / "perf-rig.toml").write_text(perf_rig_content)
+    verbose_print("Generated perf-rig.toml")
 
     # Generate and write .pre-commit-config.yaml based on selected flavors
     precommit_content = generate_precommit_config(flavors)

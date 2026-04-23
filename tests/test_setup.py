@@ -985,37 +985,6 @@ class TestEnsureTopLevelTomlKey(unittest.TestCase):
         self.assertIn('effort = "high"\n\n[servers]', result)
 
 
-class TestSyncCopyIfMissing(unittest.TestCase):
-    """sync_template_files drops COPY_IF_MISSING_TEMPLATES when absent,
-    but never overwrites existing files."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.target = Path(self.tmpdir)
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-
-    def test_first_sync_copies_perf_rig(self):
-        self.assertFalse((self.target / "perf-rig.toml").exists())
-        setup.sync_template_files(self.target)
-        self.assertTrue((self.target / "perf-rig.toml").exists())
-
-    def test_second_sync_preserves_user_edits(self):
-        # User creates the file and edits it.
-        user_content = "# user-edited rig, do not clobber\n"
-        (self.target / "perf-rig.toml").write_text(user_content)
-
-        setup.sync_template_files(self.target)
-
-        self.assertEqual(
-            (self.target / "perf-rig.toml").read_text(),
-            user_content,
-        )
-
-
 class TestSyncOneJolonew(unittest.TestCase):
     """_sync_one_file semantics: written / updated / jolonew / unchanged."""
 
@@ -1131,14 +1100,9 @@ class TestSyncOneJolonew(unittest.TestCase):
         )
 
 
-class TestFillPerfRigPlaceholders(unittest.TestCase):
-    """perf-rig.toml gets PROJECT_NAME / PROJECT_LANGUAGE filled at sync time.
-
-    Regression: demokrate-style projects had a perf-rig.toml dropped via
-    COPY_IF_MISSING_TEMPLATES without substitution, leaving literal
-    ``{{PROJECT_NAME}}`` for the hub to reject with a pattern-mismatch
-    error. `sync_template_files` must retrofit existing files in place.
-    """
+class TestPerfRigSync(unittest.TestCase):
+    """perf-rig.toml participates in the tool-owned sync path; --force
+    overwrites it, default leaves user edits alone (git catches drift)."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -1153,38 +1117,37 @@ class TestFillPerfRigPlaceholders(unittest.TestCase):
 
         shutil.rmtree(self.tmpdir)
 
-    def test_sync_substitutes_placeholders_in_existing_file(self):
+    def test_sync_regenerates_stale_rig_without_force(self):
+        """Edited rigs get a .jolonew; original stays put."""
         (self.project / "perf-rig.toml").write_text(
             "schema_version = 1\n"
             '[project]\nname = "{{PROJECT_NAME}}"\n'
             'language = "{{PROJECT_LANGUAGE}}"\n'
         )
         setup.sync_template_files(self.project)
+        # Untracked file with no hash history hits the "untracked" path,
+        # so the stale rig is NOT overwritten without --force. Sibling
+        # jolonew should NOT appear either (safety default for untracked).
         content = (self.project / "perf-rig.toml").read_text()
-        self.assertNotIn("{{PROJECT_NAME}}", content)
-        self.assertNotIn("{{PROJECT_LANGUAGE}}", content)
+        self.assertIn("{{PROJECT_NAME}}", content)
+
+    def test_sync_force_overwrites_rig(self):
+        """--force writes a fresh, filled rig even over a user-edited one."""
+        (self.project / "perf-rig.toml").write_text("# totally custom\n")
+        setup.sync_template_files(self.project, force=True)
+        content = (self.project / "perf-rig.toml").read_text()
+        self.assertNotIn("totally custom", content)
         self.assertIn('name = "demokrate"', content)
         self.assertIn('language = "python"', content)
 
-    def test_sync_leaves_already_substituted_file_alone(self):
-        (self.project / "perf-rig.toml").write_text(
-            "schema_version = 1\n"
-            '[project]\nname = "myproj"\nlanguage = "rust"\n'
-        )
+    def test_sync_creates_rig_when_missing(self):
+        """Fresh project with no perf-rig.toml gets one written filled."""
+        self.assertFalse((self.project / "perf-rig.toml").exists())
         setup.sync_template_files(self.project)
         content = (self.project / "perf-rig.toml").read_text()
-        self.assertIn('name = "myproj"', content)  # untouched
-        self.assertIn('language = "rust"', content)
-
-    def test_fill_is_idempotent(self):
-        (self.project / "perf-rig.toml").write_text(
-            '[project]\nname = "{{PROJECT_NAME}}"\n'
-        )
-        setup.fill_perf_rig_placeholders(self.project)
-        first = (self.project / "perf-rig.toml").read_text()
-        setup.fill_perf_rig_placeholders(self.project)
-        second = (self.project / "perf-rig.toml").read_text()
-        self.assertEqual(first, second)
+        self.assertIn('name = "demokrate"', content)
+        self.assertIn('language = "python"', content)
+        self.assertNotIn("{{PROJECT_NAME}}", content)
 
 
 class TestSyncJustfileCommon(unittest.TestCase):

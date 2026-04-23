@@ -580,11 +580,11 @@ SYNCABLE_TEMPLATE_FILES = [
 ]
 
 # Files that sync should drop in if missing but never overwrite if present.
-# Use this for user-editable config that projects would otherwise have to
-# hand-copy from templates/ after a new template lands.
-COPY_IF_MISSING_TEMPLATES = [
-    "perf-rig.toml",
-]
+# Currently empty — perf-rig.toml graduated to strictly-owned sync so
+# `--force` can actually retrofit placeholder renames and the like.
+# User tuning (scenarios, thresholds) is recovered via `.jolonew` on a
+# no-force sync of an edited file, or from git when they --force.
+COPY_IF_MISSING_TEMPLATES: list[str] = []
 
 
 def _file_hash(path: Path) -> str:
@@ -672,47 +672,6 @@ def _sync_one_file(
     return "jolonew"
 
 
-def _toml_basic_string_escape(value: str) -> str:
-    """Escape a Python string for insertion into a TOML basic string literal.
-
-    Relies on TOML's escape rules being a subset of JSON's.
-    """
-    return json.dumps(value)[1:-1]
-
-
-def fill_perf_rig_placeholders(
-    target_dir: Path, flavor: str | None = None
-) -> None:
-    """Substitute project placeholders in ``perf-rig.toml`` if present.
-
-    No-op if the file is missing or already filled. Used both at scaffold
-    time (caller passes ``flavor``) and at sync time (flavor detected).
-    """
-    perf_rig = target_dir / "perf-rig.toml"
-    try:
-        content = perf_rig.read_text()
-    except FileNotFoundError:
-        return
-    if (
-        "{{PROJECT_NAME}}" not in content
-        and "{{PROJECT_LANGUAGE}}" not in content
-    ):
-        return
-
-    if flavor is None:
-        flavors = detect_flavors(target_dir)
-        flavor = flavors[0] if flavors else "other"
-    language = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
-
-    content = content.replace(
-        "{{PROJECT_NAME}}", _toml_basic_string_escape(target_dir.name)
-    )
-    content = content.replace(
-        "{{PROJECT_LANGUAGE}}", _toml_basic_string_escape(language)
-    )
-    perf_rig.write_text(content)
-
-
 def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
     """Return current ``justfile.common`` bytes for this project, or ``None``
     if flavor is undetectable."""
@@ -722,6 +681,17 @@ def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
     if not flavors:
         return None
     return get_justfile_common_content(target_dir.name).encode()
+
+
+def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
+    """Return current ``perf-rig.toml`` bytes for this project, or ``None``
+    if flavor is undetectable."""
+    from _jolo.templates import get_perf_rig_content
+
+    flavors = detect_flavors(target_dir)
+    if not flavors:
+        return None
+    return get_perf_rig_content(flavors[0], target_dir.name).encode()
 
 
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
@@ -762,6 +732,19 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile.common")
 
+    regenerated_rig = _regenerated_perf_rig_bytes(target_dir)
+    if regenerated_rig is not None:
+        result = _sync_one_file(
+            target_dir,
+            "perf-rig.toml",
+            regenerated_rig,
+            hashes,
+            force=force,
+            strictly_owned=True,
+        )
+        if result in {"written", "updated", "unchanged"}:
+            touched.append("perf-rig.toml")
+
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
 
@@ -771,8 +754,6 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if src.exists() and not dst.exists():
             shutil.copy2(src, dst)
             verbose_print(f"Copied (first time): {filename}")
-
-    fill_perf_rig_placeholders(target_dir)
 
 
 def copy_template_files(target_dir: Path) -> None:
@@ -801,7 +782,6 @@ def copy_template_files(target_dir: Path) -> None:
         "GEMINI.md",
         ".gitignore",
         ".editorconfig",
-        "perf-rig.toml",
     ]
 
     for filename in template_files:

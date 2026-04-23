@@ -343,6 +343,24 @@ def get_justfile_content(flavor: str, project_name: str) -> str:
     return insert_import(body)
 
 
+def get_perf_rig_content(flavor: str, project_name: str) -> str:
+    """Generate the perf-rig.toml content for a project.
+
+    Substitutes {{PROJECT_NAME}} / {{PROJECT_LANGUAGE}} with TOML-safe
+    values. The hub validates ``name`` against ``^[a-z0-9][a-z0-9_-]*$``;
+    weird project names are escaped via JSON-style quoting.
+    """
+    import json as _json
+
+    lang = constants.FLAVOR_LANGUAGE.get(flavor, flavor)
+    template = _read_template("perf-rig.toml")
+    content = template.replace(
+        "{{PROJECT_NAME}}", _json.dumps(project_name)[1:-1]
+    )
+    content = content.replace("{{PROJECT_LANGUAGE}}", _json.dumps(lang)[1:-1])
+    return content
+
+
 def get_justfile_common_content(project_name: str) -> str:
     """Generate the tool-owned justfile.common content for a project."""
     common = _read_template("lang/common/justfile.common")
