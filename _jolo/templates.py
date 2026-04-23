@@ -295,14 +295,6 @@ def _flavor_template_path(flavor: str, filename: str) -> str:
     return path
 
 
-# Recipes that are tool-owned and live in justfile.common. Authoritative
-# list used by scaffolding, migration, and sync. Keep in sync with the
-# actual contents of templates/lang/common/justfile.common.
-TEMPLATE_OWNED_RECIPES = frozenset({"browse", "a11y", "db", "perf"})
-
-JUSTFILE_IMPORT_LINE = "import 'justfile.common'"
-
-
 def get_justfile_content(flavor: str, project_name: str) -> str:
     """Generate the user-owned justfile content for a project.
 

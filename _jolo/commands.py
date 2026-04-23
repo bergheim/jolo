@@ -318,99 +318,6 @@ def run_list_global_mode() -> None:
             print(f"  {name:<24} {folder}  ({state})")
 
 
-def run_migrate_justfile_mode(args: argparse.Namespace) -> None:
-    """Split a monolithic project ``justfile`` into user + template halves.
-
-    Safe to re-run: always regenerates ``justfile.common`` so this can be
-    used as a repair path when the common file is stale or missing.
-    Extraction happens only if tool-owned recipes are still present in
-    ``justfile``. If nothing would change, reports a no-op.
-
-    Atomicity: writes are staged to sibling ``.new`` temp files and then
-    ``os.replace``'d. A crash between writes leaves the project in a
-    consistent state (repeat the command to finish).
-
-    Import placement preserves any leading shebang, legal header
-    comments, and ``set`` / ``export`` / ``alias`` directives so
-    ``set shell := ...`` keeps applying to the imported recipes.
-    """
-    from _jolo import justfile_parser
-    from _jolo.templates import TEMPLATE_OWNED_RECIPES
-
-    git_root = pick_project()
-    os.chdir(git_root)
-    justfile = git_root / "justfile"
-    common = git_root / "justfile.common"
-    backup = git_root / "justfile.migration-backup"
-
-    if not justfile.exists():
-        sys.exit(f"No justfile found in {git_root}; nothing to migrate.")
-
-    current = justfile.read_text()
-
-    flavors = detect_flavors(git_root)
-    if not flavors:
-        sys.exit(
-            "Could not detect project flavor (no pyproject.toml, Cargo.toml, "
-            "package.json, go.mod, etc.). Cannot regenerate justfile.common."
-        )
-
-    extracted = justfile_parser.extract_recipes(
-        current, TEMPLATE_OWNED_RECIPES
-    )
-    remaining = justfile_parser.remove_recipes(current, TEMPLATE_OWNED_RECIPES)
-    new_user_justfile = justfile_parser.insert_import(remaining)
-    new_common = get_justfile_common_content(git_root.name)
-
-    common_unchanged = common.exists() and common.read_text() == new_common
-    justfile_unchanged = new_user_justfile == current
-    if not extracted and common_unchanged and justfile_unchanged:
-        print("Nothing to do — project is already split and up to date.")
-        return
-
-    # Order: backup first (cheap, standalone), common second, justfile
-    # last. Each write is atomic via .new + os.replace.
-    if extracted:
-        backup_body = (
-            "# Automatically extracted by `jolo migrate-justfile`.\n"
-            "# These were the tool-owned recipes found in your old justfile.\n"
-            "# Compare against justfile.common to see what's now current.\n"
-            "# Re-apply any local customizations to justfile.\n"
-            "\n"
-        )
-        for name in sorted(extracted):
-            backup_body += extracted[name].rstrip() + "\n\n"
-        _atomic_write_text(backup, backup_body)
-
-    if not common_unchanged:
-        _atomic_write_text(common, new_common)
-    if not justfile_unchanged:
-        _atomic_write_text(justfile, new_user_justfile)
-
-    if not common_unchanged:
-        print(f"Wrote {common.name}")
-    if not justfile_unchanged:
-        print(
-            f"Updated {justfile.name} "
-            "(added import + removed template recipes)"
-        )
-    if extracted:
-        print(
-            f"Backed up {len(extracted)} extracted recipe(s) to {backup.name}"
-        )
-        print(
-            "  Review the diff against justfile.common "
-            "if you had customizations."
-        )
-
-
-def _atomic_write_text(path: Path, content: str) -> None:
-    """Write ``content`` to ``path`` via a tmp file + os.replace."""
-    tmp = path.with_name(path.name + ".new")
-    tmp.write_text(content)
-    os.replace(tmp, path)
-
-
 def run_stop_mode(args: argparse.Namespace) -> None:
     """Run --stop mode: stop the devcontainer for current project."""
     git_root = pick_project()
@@ -2274,10 +2181,6 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "status":
         run_status_mode(args)
-        return
-
-    if cmd == "migrate-justfile":
-        run_migrate_justfile_mode(args)
         return
 
     if cmd == "doctor":
