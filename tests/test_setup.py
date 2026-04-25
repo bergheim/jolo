@@ -1076,9 +1076,12 @@ class TestSyncOneJolonew(unittest.TestCase):
         self.assertFalse((self.target / "file.txt.jolonew").exists())
         self.assertNotIn("file.txt", hashes)
 
-    def test_force_retrofits_untracked_file(self):
-        # --force opt-in: untracked file gets a .jolonew so existing
-        # projects can pull in new recipes like `just perf`.
+    def test_force_overwrites_untracked_file(self):
+        # --force is the "give me the latest template, period" escape
+        # hatch: silently skipping fresh template bumps for an untracked
+        # file is the failure mode users cannot detect (whereas losing
+        # local edits is recoverable from git). So --force overwrites,
+        # no .jolonew dance.
         (self.target / "file.txt").write_text("hand-curated content\n")
         hashes: dict = {}
         result = setup._sync_one_file(
@@ -1088,24 +1091,41 @@ class TestSyncOneJolonew(unittest.TestCase):
             hashes,
             force=True,
         )
-        self.assertEqual(result, "jolonew")
-        # Existing file still untouched.
+        self.assertEqual(result, "updated")
         self.assertEqual(
-            (self.target / "file.txt").read_text(), "hand-curated content\n"
+            (self.target / "file.txt").read_text(), "template output\n"
         )
-        # New template parked for review.
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
         self.assertEqual(
-            (self.target / "file.txt.jolonew").read_text(),
-            "template output\n",
+            hashes["file.txt"], setup._file_hash(self.target / "file.txt")
         )
+
+    def test_force_overwrites_user_edited_file(self):
+        # User-edited file under --force: overwrite. Git is the safety
+        # net for the user's edits.
+        (self.target / "file.txt").write_text("my edits\n")
+        hashes = {
+            "file.txt": setup.hashlib.sha256(b"original\n").hexdigest(),
+        }
+        result = setup._sync_one_file(
+            self.target,
+            "file.txt",
+            b"newest template\n",
+            hashes,
+            force=True,
+        )
+        self.assertEqual(result, "updated")
+        self.assertEqual(
+            (self.target / "file.txt").read_text(), "newest template\n"
+        )
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
 
 
 class TestPrecommitConfigSync(unittest.TestCase):
-    """``.pre-commit-config.yaml`` is user-owned: jolo writes it once at
-    project create time and from then on treats it like AGENTS.md — edited
-    files get a ``.jolonew`` sibling on ``--force`` so the user can pull
-    new bits in by hand, but their custom hooks (codespell allowlists,
-    audit hooks, project-specific gitleaks rules, etc.) are never stomped.
+    """``.pre-commit-config.yaml`` is jolo-owned. Without ``--force``, an
+    edited config is left alone (with a ``.jolonew`` sibling for review
+    when the recorded hash is known). Under ``--force``, the file is
+    overwritten — git tracks the user's customizations.
 
     The post-commit ``perf-run`` hook used to live in this file. It was
     moved out to ``.git/hooks/post-commit`` (managed-injection block) so
@@ -1134,18 +1154,20 @@ class TestPrecommitConfigSync(unittest.TestCase):
         self.assertIn("trailing-whitespace", content)
         self.assertNotIn("perf-run", content)
 
-    def test_sync_force_does_not_overwrite_user_edited_precommit(self):
+    def test_sync_force_overwrites_user_edited_precommit(self):
+        # --force is the "latest template, period" escape hatch: the
+        # silent-skip mode is a worse failure (user runs stale hooks
+        # without knowing) than the recoverable one (custom hooks
+        # need to be re-added from git history).
         custom = "# user-curated hooks\nrepos: []\n"
         (self.project / ".pre-commit-config.yaml").write_text(custom)
         setup.sync_template_files(self.project, force=True)
-        # Original is preserved, untouched.
-        self.assertEqual(
-            (self.project / ".pre-commit-config.yaml").read_text(), custom
+        content = (self.project / ".pre-commit-config.yaml").read_text()
+        self.assertIn("trailing-whitespace", content)
+        self.assertNotIn("user-curated hooks", content)
+        self.assertFalse(
+            (self.project / ".pre-commit-config.yaml.jolonew").exists()
         )
-        # New template parked alongside for manual review/merge.
-        jolonew = self.project / ".pre-commit-config.yaml.jolonew"
-        self.assertTrue(jolonew.exists())
-        self.assertIn("trailing-whitespace", jolonew.read_text())
 
     def test_sync_default_leaves_user_precommit_alone(self):
         # Without --force, an untracked user-curated config is left

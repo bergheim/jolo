@@ -617,13 +617,13 @@ def _sync_one_file(
     new_bytes: bytes,
     hashes: dict,
     force: bool = False,
-    strictly_owned: bool = False,
 ) -> str:
-    """Sync one file with .jolonew fallback.
-
-    When ``strictly_owned``, ``force=True`` overwrites the file outright
-    instead of dropping a ``.jolonew`` — use for tool-owned files that
-    carry no user edits by contract (e.g. ``justfile.common``).
+    """Sync one file. Under ``--force``, always overwrites — git is the
+    safety net for user edits, and silently skipping fresh template
+    bumps is the failure mode users cannot detect. Without ``--force``,
+    an untracked or hand-edited file is left alone; a tracked file
+    whose user diverged from the recorded hash gets a ``.jolonew``
+    sibling so the user can diff and merge.
 
     Returns "written", "updated", "jolonew", "unchanged", or "untracked".
     """
@@ -636,10 +636,10 @@ def _sync_one_file(
         verbose_print(f"Copied: {filename}")
         return "written"
 
-    if strictly_owned and force:
+    if force:
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
-        print(f"  Force-overwrote tool-owned {filename}")
+        verbose_print(f"Force-overwrote {filename}")
         return "updated"
 
     current_hash = _file_hash(dst)
@@ -653,12 +653,7 @@ def _sync_one_file(
         return "unchanged"
 
     if stored_hash is None:
-        if not force:
-            return "untracked"
-        jolonew = target_dir / f"{filename}.jolonew"
-        jolonew.write_bytes(new_bytes)
-        print(f"  Template retrofit: {jolonew.name} (not previously tracked)")
-        return "jolonew"
+        return "untracked"
 
     if stored_hash == current_hash:
         dst.write_bytes(new_bytes)
@@ -909,15 +904,10 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_common,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile.common")
 
-    # justfile is normally user-owned, but --force reclaims it so the
-    # project can be returned to a known-good shape (e.g. recover from
-    # duplicate-recipe conflicts after a partial git restore). Custom
-    # recipes are recoverable from git history.
     regenerated_justfile = _regenerated_justfile_bytes(target_dir, force=force)
     if regenerated_justfile is not None:
         result = _sync_one_file(
@@ -926,7 +916,6 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_justfile,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile")
@@ -939,13 +928,10 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_rig,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
 
-    # .pre-commit-config.yaml is user-owned: --force drops a .jolonew,
-    # never overwrites. See module docstring of templates.py.
     regenerated_precommit = _regenerated_precommit_config_bytes(target_dir)
     if regenerated_precommit is not None:
         result = _sync_one_file(
