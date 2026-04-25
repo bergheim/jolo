@@ -53,6 +53,7 @@ from _jolo.setup import (
     copy_user_files,
     ensure_test_gate_script,
     get_secrets,
+    install_jolo_post_commit_hook,
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
@@ -1096,6 +1097,11 @@ def _setup_test_hooks(project_path: Path) -> None:
     devcontainer_exec_command(
         project_path, "git config --local hooks.test-on-push false"
     )
+    # Inject jolo's managed post-commit block (perf-run async). Runs
+    # AFTER `pre-commit install --hook-type post-commit` so that if
+    # pre-commit owns the hook, jolo's block lands at the end of the
+    # file alongside it. Markers make the injection idempotent.
+    install_jolo_post_commit_hook(project_path)
 
 
 def run_create_mode(args: argparse.Namespace) -> None:

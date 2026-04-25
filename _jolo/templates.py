@@ -148,22 +148,13 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "pass_filenames": False,
             "stages": ["pre-push"],
         },
-        # pre-commit's `language: system` shlex-splits and exec's
-        # directly (no shell), so `&` must live inside a `sh -c` to be
-        # interpreted as background. `(...&)` + `</dev/null` orphans
-        # the grandchild without needing setsid (linux-only).
-        {
-            "id": "perf-run",
-            "name": "perf run (async)",
-            "entry": (
-                "sh -c '(PERF_RAW=1 just perf "
-                ">>.jolo-perf.log 2>&1 </dev/null &)'"
-            ),
-            "language": "system",
-            "pass_filenames": False,
-            "stages": ["post-commit"],
-            "always_run": True,
-        },
+        # NOTE: The post-commit `perf-run` wiring is intentionally NOT
+        # in this file. `.pre-commit-config.yaml` is user-owned, and
+        # baking jolo-specific hooks into it would force jolo to either
+        # stomp user customizations on `--recreate --force`, or skip
+        # the refresh and leave projects out of date. Instead, jolo
+        # writes a managed-injection block directly into
+        # `.git/hooks/post-commit` (see setup.install_jolo_post_commit_hook).
     ]
 
     # Add language-specific hooks
