@@ -472,6 +472,7 @@ class TestInitModeIntegration(unittest.TestCase):
                 setup_credential_cache=mock.DEFAULT,
                 setup_notification_hooks=mock.DEFAULT,
                 setup_emacs_config=mock.DEFAULT,
+                install_jolo_post_commit_hook=mock.DEFAULT,
                 get_secrets=mock.DEFAULT,
             ) as mocks:
                 mocks["get_secrets"].return_value = {}

@@ -1,5 +1,6 @@
 """Filesystem and credential setup functions for jolo."""
 
+import fcntl
 import hashlib
 import json
 import os
@@ -702,6 +703,91 @@ def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
     return generate_precommit_config(flavors).encode()
 
 
+# Managed-injection block for `.git/hooks/post-commit`. Bracketed by
+# sentinel markers so jolo refreshes its block without touching the
+# rest of the file, and other tools (pre-commit framework, husky,
+# user scripts) can co-exist in the same hook.
+_JOLO_POST_COMMIT_BEGIN = "# >>> jolo-perf-start <<<"
+_JOLO_POST_COMMIT_END = "# >>> jolo-perf-end <<<"
+_JOLO_POST_COMMIT_BLOCK = (
+    f"{_JOLO_POST_COMMIT_BEGIN}\n"
+    "# Managed by jolo. Edits inside this block will be overwritten\n"
+    "# on the next `jolo up --recreate`. Edit outside the markers.\n"
+    "(PERF_RAW=1 just perf >>.jolo-perf.log 2>&1 </dev/null &)\n"
+    f"{_JOLO_POST_COMMIT_END}\n"
+)
+# Anchored to line starts (so a stray marker substring inside user
+# content can't ever match), tolerant of trailing whitespace on the
+# marker line and of CRLF line endings.
+_JOLO_BLOCK_RE = re.compile(
+    r"(?ms)^"
+    + re.escape(_JOLO_POST_COMMIT_BEGIN)
+    + r"[ \t]*\r?\n"
+    + r".*?"
+    + r"^"
+    + re.escape(_JOLO_POST_COMMIT_END)
+    + r"[ \t]*\r?\n?"
+)
+
+
+def _replace_or_append_jolo_block(existing: str, block: str) -> str:
+    """Return `existing` with the jolo-managed block re-written at the end.
+
+    Strips every existing managed block (so a previous duplication bug
+    converges to a single block), then appends ``block``. A shebang is
+    prepended only when the resulting file would otherwise lack one —
+    catches the empty-input case AND the recover-from-block-only case
+    (where strip leaves an empty buffer that needs to become a valid
+    hook script).
+    """
+    stripped = _JOLO_BLOCK_RE.sub("", existing)
+    if not stripped.startswith("#!"):
+        stripped = "#!/bin/sh\n" + stripped
+    elif not stripped.endswith("\n"):
+        stripped += "\n"
+    return stripped + block
+
+
+def _git_hooks_dir(project_root: Path) -> Path:
+    """Resolve the hooks directory for this project, worktree-aware."""
+    result = subprocess.run(
+        ["git", "-C", str(project_root), "rev-parse", "--git-path", "hooks"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return (project_root / result.stdout.strip()).resolve()
+
+
+def install_jolo_post_commit_hook(project_root: Path) -> None:
+    """Install or refresh the jolo-managed post-commit hook block.
+
+    Idempotent and non-destructive: user content outside the sentinel
+    markers is preserved. Skips the write when the file is already up
+    to date so `jolo up --recreate` doesn't bump mtime.
+
+    Hooks live in the shared common dir for git worktrees, so concurrent
+    `jolo spawn` runs would race here. Hold an advisory lock on the hook
+    file across the read-modify-write so two writers can't tear.
+    """
+    hooks_dir = _git_hooks_dir(project_root)
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook_path = hooks_dir / "post-commit"
+    with open(hook_path, "a+") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        f.seek(0)
+        existing = f.read()
+        new_text = _replace_or_append_jolo_block(
+            existing, _JOLO_POST_COMMIT_BLOCK
+        )
+        if new_text != existing:
+            f.seek(0)
+            f.truncate()
+            f.write(new_text)
+    if not (hook_path.stat().st_mode & 0o100):
+        hook_path.chmod(0o755)
+
+
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
     """Sync template files. User-edited files get a .jolonew sibling.
 
@@ -753,6 +839,8 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
 
+    # .pre-commit-config.yaml is user-owned: --force drops a .jolonew,
+    # never overwrites. See module docstring of templates.py.
     regenerated_precommit = _regenerated_precommit_config_bytes(target_dir)
     if regenerated_precommit is not None:
         result = _sync_one_file(
@@ -761,7 +849,6 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_precommit,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append(".pre-commit-config.yaml")

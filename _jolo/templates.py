@@ -148,22 +148,13 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "pass_filenames": False,
             "stages": ["pre-push"],
         },
-        # pre-commit's `language: system` shlex-splits and exec's
-        # directly (no shell), so `&` must live inside a `sh -c` to be
-        # interpreted as background. `(...&)` + `</dev/null` orphans
-        # the grandchild without needing setsid (linux-only).
-        {
-            "id": "perf-run",
-            "name": "perf run (async)",
-            "entry": (
-                "sh -c '(PERF_RAW=1 just perf "
-                ">>.jolo-perf.log 2>&1 </dev/null &)'"
-            ),
-            "language": "system",
-            "pass_filenames": False,
-            "stages": ["post-commit"],
-            "always_run": True,
-        },
+        # NOTE: The post-commit `perf-run` wiring is intentionally NOT
+        # in this file. `.pre-commit-config.yaml` is user-owned, and
+        # baking jolo-specific hooks into it would force jolo to either
+        # stomp user customizations on `--recreate --force`, or skip
+        # the refresh and leave projects out of date. Instead, jolo
+        # writes a managed-injection block directly into
+        # `.git/hooks/post-commit` (see setup.install_jolo_post_commit_hook).
     ]
 
     # Add language-specific hooks
@@ -196,8 +187,14 @@ def generate_precommit_config(flavors: list[str]) -> str:
 def get_precommit_install_command() -> list[str]:
     """Get the command to install pre-commit hooks.
 
-    Returns:
-        List of command parts: ['pre-commit', 'install']
+    Pre-commit's shim ends with ``exec ... pre-commit ...`` which
+    replaces the shell process — anything appended to the same hook
+    file after pre-commit installs is unreachable. Since the generated
+    ``.pre-commit-config.yaml`` no longer carries any post-commit-stage
+    hooks (the perf-run wiring is now a direct git hook installed by
+    ``install_jolo_post_commit_hook``), there is nothing for pre-commit
+    to do at post-commit. Skip ``--hook-type post-commit`` so our
+    managed-injection block lands in a clean file and actually runs.
     """
     return [
         "pre-commit",
@@ -206,8 +203,6 @@ def get_precommit_install_command() -> list[str]:
         "pre-commit",
         "--hook-type",
         "pre-push",
-        "--hook-type",
-        "post-commit",
     ]
 
 
