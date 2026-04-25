@@ -672,13 +672,18 @@ def _sync_one_file(
     return "jolonew"
 
 
+_NO_SHARED_RECIPES_FLAVORS = {"meta"}
+
+
 def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
     """Return current ``justfile.common`` bytes for this project, or ``None``
-    if flavor is undetectable."""
+    if flavor is undetectable or the flavor opts out of shared recipes."""
     from _jolo.templates import get_justfile_common_content
 
     flavors = detect_flavors(target_dir)
     if not flavors:
+        return None
+    if flavors[0] in _NO_SHARED_RECIPES_FLAVORS:
         return None
     return get_justfile_common_content(target_dir.name).encode()
 
@@ -704,11 +709,13 @@ def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
 
 def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
     """Return current ``perf-rig.toml`` bytes for this project, or ``None``
-    if flavor is undetectable."""
+    if flavor is undetectable or the flavor opts out of shared recipes."""
     from _jolo.templates import get_perf_rig_content
 
     flavors = detect_flavors(target_dir)
     if not flavors:
+        return None
+    if flavors[0] in _NO_SHARED_RECIPES_FLAVORS:
         return None
     return get_perf_rig_content(flavors[0], target_dir.name).encode()
 

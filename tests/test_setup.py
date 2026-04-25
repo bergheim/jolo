@@ -1467,5 +1467,49 @@ class TestSyncJustfileCommon(unittest.TestCase):
         )
 
 
+class TestSyncMetaFlavor(unittest.TestCase):
+    """The jolo meta-repo (`jolo.py` + `_jolo/__init__.py`) is detected as
+    the `meta` flavor. `--recreate --force` must regenerate its `justfile`
+    to a working shape, and must NOT write `justfile.common` or
+    `perf-rig.toml` (those carry user-project recipes the meta-repo has
+    no use for)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir) / "emacs-container"
+        self.target.mkdir()
+        (self.target / "pyproject.toml").write_text(
+            "[project]\nname = 'jolo'\n"
+        )
+        (self.target / "jolo.py").write_text("# stub\n")
+        (self.target / "_jolo").mkdir()
+        (self.target / "_jolo" / "__init__.py").write_text("")
+        # `templates/` would trip the python-web heuristic; meta detection
+        # must short-circuit before then.
+        (self.target / "templates").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_regenerates_justfile_without_shared_import(self):
+        # Pre-existing user justfile drifts; --force should reclaim it
+        # to the meta template — which has no `import 'justfile.common'`.
+        (self.target / "justfile").write_text("# stale\nbogus:\n    false\n")
+        setup.sync_template_files(self.target, force=True)
+        content = (self.target / "justfile").read_text()
+        self.assertIn("ruff check _jolo/ jolo.py", content)
+        self.assertNotIn("import 'justfile.common'", content)
+
+    def test_force_does_not_write_justfile_common(self):
+        setup.sync_template_files(self.target, force=True)
+        self.assertFalse((self.target / "justfile.common").exists())
+
+    def test_force_does_not_write_perf_rig(self):
+        setup.sync_template_files(self.target, force=True)
+        self.assertFalse((self.target / "perf-rig.toml").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
