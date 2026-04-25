@@ -1201,6 +1201,48 @@ class TestPrecommitConfigSync(unittest.TestCase):
         )
 
 
+class TestScaffoldFileSync(unittest.TestCase):
+    """Flavor scaffold files should refresh on recreate when jolo owns them."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demo"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\ndependencies = ['fastapi']\n"
+        )
+        (self.project / "templates").mkdir()
+        old_base = "<!DOCTYPE html>\n<html><body>old</body></html>\n"
+        (self.project / "templates" / "base.html").write_text(old_base)
+        hashes_path = self.project / ".devcontainer" / ".template-hashes.json"
+        hashes_path.parent.mkdir(parents=True, exist_ok=True)
+        hashes_path.write_text(
+            json.dumps(
+                {
+                    "templates/base.html": setup.hashlib.sha256(
+                        old_base.encode()
+                    ).hexdigest()
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_sync_updates_tracked_python_web_base_template(self):
+        setup.sync_template_files(self.project)
+        content = (self.project / "templates" / "base.html").read_text()
+        self.assertIn('href="#main"', content)
+        self.assertIn('<main id="main">', content)
+        self.assertFalse(
+            (self.project / "templates" / "base.html.jolonew").exists()
+        )
+
+
 class TestJoloPostCommitInjection(unittest.TestCase):
     """Managed-injection block for ``.git/hooks/post-commit``.
 

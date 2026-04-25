@@ -611,6 +611,13 @@ def _save_template_hashes(
     path.write_text(json.dumps(hashes, indent=2) + "\n")
 
 
+def record_template_hashes(target_dir: Path, filenames: list[str]) -> None:
+    """Record hashes for managed files that were written outside sync."""
+    if not filenames:
+        return
+    _save_template_hashes(target_dir, filenames)
+
+
 def _sync_one_file(
     target_dir: Path,
     filename: str,
@@ -631,6 +638,7 @@ def _sync_one_file(
     new_hash = hashlib.sha256(new_bytes).hexdigest()
 
     if not dst.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
         verbose_print(f"Copied: {filename}")
@@ -762,6 +770,40 @@ def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
 
     flavors = detect_flavors(target_dir)
     return generate_precommit_config(flavors).encode()
+
+
+def _regenerated_scaffold_files(
+    target_dir: Path, force: bool = False
+) -> list[tuple[str, bytes]]:
+    """Return rendered scaffold files for the resolved flavor."""
+    from _jolo.templates import (
+        get_scaffold_files,
+        to_pascal_case,
+        to_snake_case,
+    )
+
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
+        return []
+
+    project_name = target_dir.name
+    module_name = to_snake_case(project_name)
+    pascal_name = to_pascal_case(project_name)
+
+    def replace_placeholders(text: str) -> str:
+        return (
+            text.replace("{{PROJECT_NAME}}", project_name)
+            .replace("{{PROJECT_NAME_UNDERSCORE}}", module_name)
+            .replace("{{MODULE_NAME}}", pascal_name)
+        )
+
+    return [
+        (
+            replace_placeholders(rel_path),
+            replace_placeholders(content).encode(),
+        )
+        for rel_path, content in get_scaffold_files(flavor)
+    ]
 
 
 # Managed-injection block for `.git/hooks/post-commit`. Bracketed by
@@ -967,6 +1009,19 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append(".pre-commit-config.yaml")
+
+    for filename, new_bytes in _regenerated_scaffold_files(
+        target_dir, force=force
+    ):
+        result = _sync_one_file(
+            target_dir,
+            filename,
+            new_bytes,
+            hashes,
+            force=force,
+        )
+        if result in {"written", "updated", "unchanged"}:
+            touched.append(filename)
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
