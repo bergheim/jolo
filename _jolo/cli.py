@@ -156,9 +156,8 @@ def detect_flavors(project_dir: Path) -> list[str]:
 
     flavors = []
 
-    has_py = (project_dir / "pyproject.toml").exists() or any(
-        project_dir.glob("*.py")
-    )
+    pyproject = project_dir / "pyproject.toml"
+    has_py = pyproject.exists() or any(project_dir.glob("*.py"))
     has_ts = (project_dir / "package.json").exists() or (
         project_dir / "tsconfig.json"
     ).exists()
@@ -166,7 +165,9 @@ def detect_flavors(project_dir: Path) -> list[str]:
     has_rust = (project_dir / "Cargo.toml").exists()
     has_shell = any(project_dir.glob("*.sh"))
 
-    # Detect web vs bare by looking for common web indicators
+    # Detect web vs bare by looking for common web indicators.
+    # Frontend-shaped projects: a templates/static/components dir.
+    # Python backends: a web framework dependency in pyproject.toml.
     web_indicators = [
         "templates",
         "static",
@@ -175,6 +176,28 @@ def detect_flavors(project_dir: Path) -> list[str]:
         "src/components",
     ]
     has_web = any((project_dir / d).exists() for d in web_indicators)
+    if has_py and not has_web and pyproject.exists():
+        try:
+            pyproject_text = pyproject.read_text(errors="replace").lower()
+        except OSError:
+            pyproject_text = ""
+        # Match the package name as a quoted token to avoid false hits
+        # in unrelated keys/values.
+        py_web_frameworks = (
+            "fastapi",
+            "flask",
+            "django",
+            "starlette",
+            "sanic",
+            "aiohttp",
+            "litestar",
+            "quart",
+            "bottle",
+        )
+        for fw in py_web_frameworks:
+            if f'"{fw}' in pyproject_text or f"'{fw}" in pyproject_text:
+                has_web = True
+                break
 
     if has_py:
         flavors.append("python-web" if has_web else "python")

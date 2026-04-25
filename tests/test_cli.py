@@ -605,6 +605,34 @@ class TestDetectFlavors(unittest.TestCase):
         result = jolo.detect_flavors(Path(self.tmpdir))
         self.assertEqual(result, ["go"])
 
+    def test_detects_python_web_via_fastapi_dependency(self):
+        # FastAPI/Flask/Django projects often have no `templates/` or
+        # `static/` dir (API-only backends). Detection must still pick
+        # python-web, otherwise --force regenerates a justfile with
+        # `uv run python src/.../main.py` instead of a uvicorn dev recipe.
+        Path(self.tmpdir, "pyproject.toml").write_text(
+            '[project]\nname = "demo"\ndependencies = ["fastapi", "uvicorn"]\n'
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python-web"])
+
+    def test_detects_python_web_via_flask_dependency(self):
+        Path(self.tmpdir, "pyproject.toml").write_text(
+            '[project]\nname = "demo"\ndependencies = ["flask>=3"]\n'
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python-web"])
+
+    def test_python_web_dep_check_does_not_falsefire_on_substrings(self):
+        # `fastapi-something` in a comment shouldn't match — we look for
+        # a quoted package token. Plain `python` is correct here.
+        Path(self.tmpdir, "pyproject.toml").write_text(
+            '[project]\nname = "demo"\n# notes about fastapi-redirect\n'
+            'dependencies = ["click"]\n'
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["python"])
+
     def test_detects_jolo_meta_project(self):
         # The jolo meta-project is identified by `jolo.py` + `_jolo/__init__.py`
         # at the root. It must short-circuit other detection so a `templates/`
