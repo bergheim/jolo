@@ -48,12 +48,12 @@ from _jolo.container import (
     stop_container,
 )
 from _jolo.setup import (
+    JOLO_POST_COMMIT_INSTALL_SCRIPT,
     add_user_mounts,
     copy_template_files,
     copy_user_files,
     ensure_test_gate_script,
     get_secrets,
-    install_jolo_post_commit_hook,
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
@@ -1097,11 +1097,14 @@ def _setup_test_hooks(project_path: Path) -> None:
     devcontainer_exec_command(
         project_path, "git config --local hooks.test-on-push false"
     )
-    # Inject jolo's managed post-commit block (perf-run async). Runs
-    # AFTER `pre-commit install --hook-type post-commit` so that if
-    # pre-commit owns the hook, jolo's block lands at the end of the
-    # file alongside it. Markers make the injection idempotent.
-    install_jolo_post_commit_hook(project_path)
+    # Run the post-commit installer inside the container — the host
+    # may not see the same hooks dir (worktrees, container-set
+    # core.hooksPath, /workspaces bind paths) and may not be allowed
+    # to write there.
+    devcontainer_exec_command(
+        project_path,
+        f"python3 -c {shlex.quote(JOLO_POST_COMMIT_INSTALL_SCRIPT)}",
+    )
 
 
 def run_create_mode(args: argparse.Namespace) -> None:

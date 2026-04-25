@@ -1,6 +1,5 @@
 """Filesystem and credential setup functions for jolo."""
 
-import fcntl
 import hashlib
 import json
 import os
@@ -748,44 +747,85 @@ def _replace_or_append_jolo_block(existing: str, block: str) -> str:
     return stripped + block
 
 
-def _git_hooks_dir(project_root: Path) -> Path:
-    """Resolve the hooks directory for this project, worktree-aware."""
-    result = subprocess.run(
-        ["git", "-C", str(project_root), "rev-parse", "--git-path", "hooks"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return (project_root / result.stdout.strip()).resolve()
+# Self-contained installer that runs as a subprocess (or `python3 -c
+# "..."` inside the devcontainer). Designed to work from either side
+# of the bind mount: in the container `git rev-parse --git-path hooks`
+# returns the canonical /workspaces/<proj>/.git/hooks and the user can
+# write there; on the host the same path may not exist (or `core.hooksPath`
+# may have been set to a container path), so we ALWAYS run this inside
+# the container from `_setup_test_hooks`. Host-side use is reserved for
+# unit tests.
+JOLO_POST_COMMIT_INSTALL_SCRIPT = r"""
+import fcntl
+import re
+import subprocess
+from pathlib import Path
+
+_BEGIN = "# >>> jolo-perf-start <<<"
+_END = "# >>> jolo-perf-end <<<"
+_BLOCK = (
+    _BEGIN + "\n"
+    "# Managed by jolo. Edits inside this block will be overwritten\n"
+    "# on the next `jolo up --recreate`. Edit outside the markers.\n"
+    "(PERF_RAW=1 just perf >>.jolo-perf.log 2>&1 </dev/null &)\n"
+    + _END + "\n"
+)
+_RE = re.compile(
+    r"(?ms)^"
+    + re.escape(_BEGIN)
+    + r"[ \t]*\r?\n.*?^"
+    + re.escape(_END)
+    + r"[ \t]*\r?\n?"
+)
+
+
+def _replace(existing: str, block: str) -> str:
+    stripped = _RE.sub("", existing)
+    if not stripped.startswith("#!"):
+        stripped = "#!/bin/sh\n" + stripped
+    elif not stripped.endswith("\n"):
+        stripped += "\n"
+    return stripped + block
+
+
+result = subprocess.run(
+    ["git", "rev-parse", "--git-path", "hooks"],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+hd = Path(result.stdout.strip())
+if not hd.is_absolute():
+    hd = Path.cwd() / hd
+hd.mkdir(parents=True, exist_ok=True)
+hp = hd / "post-commit"
+with open(hp, "a+") as f:
+    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+    f.seek(0)
+    existing = f.read()
+    new_text = _replace(existing, _BLOCK)
+    if new_text != existing:
+        f.seek(0)
+        f.truncate()
+        f.write(new_text)
+if not (hp.stat().st_mode & 0o100):
+    hp.chmod(0o755)
+"""
 
 
 def install_jolo_post_commit_hook(project_root: Path) -> None:
-    """Install or refresh the jolo-managed post-commit hook block.
+    """Run the post-commit installer in ``project_root``.
 
-    Idempotent and non-destructive: user content outside the sentinel
-    markers is preserved. Skips the write when the file is already up
-    to date so `jolo up --recreate` doesn't bump mtime.
-
-    Hooks live in the shared common dir for git worktrees, so concurrent
-    `jolo spawn` runs would race here. Hold an advisory lock on the hook
-    file across the read-modify-write so two writers can't tear.
+    For unit tests and standalone host-side use only — the production
+    flow runs ``JOLO_POST_COMMIT_INSTALL_SCRIPT`` inside the
+    devcontainer (see commands._setup_test_hooks) so paths and
+    permissions match the container's view of the bind mount.
     """
-    hooks_dir = _git_hooks_dir(project_root)
-    hooks_dir.mkdir(parents=True, exist_ok=True)
-    hook_path = hooks_dir / "post-commit"
-    with open(hook_path, "a+") as f:
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        f.seek(0)
-        existing = f.read()
-        new_text = _replace_or_append_jolo_block(
-            existing, _JOLO_POST_COMMIT_BLOCK
-        )
-        if new_text != existing:
-            f.seek(0)
-            f.truncate()
-            f.write(new_text)
-    if not (hook_path.stat().st_mode & 0o100):
-        hook_path.chmod(0o755)
+    subprocess.run(
+        [sys.executable, "-c", JOLO_POST_COMMIT_INSTALL_SCRIPT],
+        cwd=project_root,
+        check=True,
+    )
 
 
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
