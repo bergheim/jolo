@@ -636,12 +636,6 @@ def _sync_one_file(
         verbose_print(f"Copied: {filename}")
         return "written"
 
-    if force:
-        dst.write_bytes(new_bytes)
-        hashes[filename] = new_hash
-        verbose_print(f"Force-overwrote {filename}")
-        return "updated"
-
     current_hash = _file_hash(dst)
     stored_hash = hashes.get(filename)
 
@@ -651,6 +645,12 @@ def _sync_one_file(
         if stored_hash is not None:
             hashes[filename] = new_hash
         return "unchanged"
+
+    if force:
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        verbose_print(f"Force-overwrote {filename}")
+        return "updated"
 
     if stored_hash is None:
         return "untracked"
@@ -668,6 +668,27 @@ def _sync_one_file(
 
 
 _NO_SHARED_RECIPES_FLAVORS = {"meta"}
+
+
+def _stage_touched_files(target_dir: Path, filenames: list[str]) -> None:
+    """Stage files that ``--force`` rewrote so the user's next commit is
+    not blocked by pre-commit's "config-must-be-staged" check, and so
+    the overwrite is visible in ``git status`` rather than mixed with
+    later edits. Silently skips when the target is not a git checkout."""
+    if not (target_dir / ".git").exists():
+        return
+    existing = [f for f in filenames if (target_dir / f).exists()]
+    if not existing:
+        return
+    try:
+        subprocess.run(
+            ["git", "add", "--", *existing],
+            cwd=str(target_dir),
+            check=False,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        pass
 
 
 def _resolve_flavor(target_dir: Path, force: bool) -> str | None:
@@ -946,6 +967,8 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
+        if force:
+            _stage_touched_files(target_dir, touched)
 
     for filename in COPY_IF_MISSING_TEMPLATES:
         src = templates_dir / filename

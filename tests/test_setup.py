@@ -1100,6 +1100,24 @@ class TestSyncOneJolonew(unittest.TestCase):
             hashes["file.txt"], setup._file_hash(self.target / "file.txt")
         )
 
+    def test_force_skips_write_when_content_matches(self):
+        # --force must not touch a file whose content already matches
+        # the template — otherwise mtime churn shows up as a spurious
+        # git diff and pre-commit blocks commits with "config unstaged".
+        path = self.target / "file.txt"
+        path.write_text("identical\n")
+        original_mtime = path.stat().st_mtime_ns
+        hashes: dict = {}
+        result = setup._sync_one_file(
+            self.target,
+            "file.txt",
+            b"identical\n",
+            hashes,
+            force=True,
+        )
+        self.assertEqual(result, "unchanged")
+        self.assertEqual(path.stat().st_mtime_ns, original_mtime)
+
     def test_force_overwrites_user_edited_file(self):
         # User-edited file under --force: overwrite. Git is the safety
         # net for the user's edits.
@@ -1532,6 +1550,91 @@ class TestSyncForceAlwaysOverwrites(unittest.TestCase):
             (self.target / "justfile").read_text(), "# user content\n"
         )
         self.assertFalse((self.target / "justfile.common").exists())
+
+
+class TestSyncForceAutoStage(unittest.TestCase):
+    """`--force` rewrites template files. Pre-commit will refuse the
+    user's next commit ("Your pre-commit configuration is unstaged")
+    if `.pre-commit-config.yaml` was rewritten and left unstaged. Stage
+    the touched files automatically so the overwrite is visible in
+    `git status` and doesn't block commits."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demo"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\n"
+        )
+        import subprocess as sp
+
+        sp.run(
+            ["git", "init", "-q"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "config", "user.email", "t@example.com"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "config", "user.name", "t"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_stages_overwritten_precommit(self):
+        # Simulate pre-existing project: write a stale .pre-commit-config.yaml
+        # and commit it. Then user --force overwrites it; jolo must stage
+        # the rewrite.
+        import subprocess as sp
+
+        precommit = self.project / ".pre-commit-config.yaml"
+        precommit.write_text("# stale user config\nrepos: []\n")
+        sp.run(
+            ["git", "add", "."],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "commit", "-q", "-m", "initial"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@example.com",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@example.com",
+            },
+        )
+        setup.sync_template_files(self.project, force=True)
+        # File was overwritten with the fresh template.
+        content = precommit.read_text()
+        self.assertIn("trailing-whitespace", content)
+        # And the change is staged — porcelain shows "M " (staged) not " M".
+        status = sp.run(
+            ["git", "status", "--porcelain", ".pre-commit-config.yaml"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertTrue(
+            status.startswith("M  ") or status.startswith("A  "),
+            f"expected staged, got: {status!r}",
+        )
 
 
 class TestSyncMetaFlavor(unittest.TestCase):
