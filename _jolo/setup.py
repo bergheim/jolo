@@ -617,13 +617,13 @@ def _sync_one_file(
     new_bytes: bytes,
     hashes: dict,
     force: bool = False,
-    strictly_owned: bool = False,
 ) -> str:
-    """Sync one file with .jolonew fallback.
-
-    When ``strictly_owned``, ``force=True`` overwrites the file outright
-    instead of dropping a ``.jolonew`` — use for tool-owned files that
-    carry no user edits by contract (e.g. ``justfile.common``).
+    """Sync one file. Under ``--force``, always overwrites — git is the
+    safety net for user edits, and silently skipping fresh template
+    bumps is the failure mode users cannot detect. Without ``--force``,
+    an untracked or hand-edited file is left alone; a tracked file
+    whose user diverged from the recorded hash gets a ``.jolonew``
+    sibling so the user can diff and merge.
 
     Returns "written", "updated", "jolonew", "unchanged", or "untracked".
     """
@@ -636,12 +636,6 @@ def _sync_one_file(
         verbose_print(f"Copied: {filename}")
         return "written"
 
-    if strictly_owned and force:
-        dst.write_bytes(new_bytes)
-        hashes[filename] = new_hash
-        print(f"  Force-overwrote tool-owned {filename}")
-        return "updated"
-
     current_hash = _file_hash(dst)
     stored_hash = hashes.get(filename)
 
@@ -652,13 +646,14 @@ def _sync_one_file(
             hashes[filename] = new_hash
         return "unchanged"
 
+    if force:
+        dst.write_bytes(new_bytes)
+        hashes[filename] = new_hash
+        verbose_print(f"Force-overwrote {filename}")
+        return "updated"
+
     if stored_hash is None:
-        if not force:
-            return "untracked"
-        jolonew = target_dir / f"{filename}.jolonew"
-        jolonew.write_bytes(new_bytes)
-        print(f"  Template retrofit: {jolonew.name} (not previously tracked)")
-        return "jolonew"
+        return "untracked"
 
     if stored_hash == current_hash:
         dst.write_bytes(new_bytes)
@@ -672,20 +667,64 @@ def _sync_one_file(
     return "jolonew"
 
 
-def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
+_NO_SHARED_RECIPES_FLAVORS = {"meta"}
+
+
+def _stage_touched_files(target_dir: Path, filenames: list[str]) -> None:
+    """Stage files that ``--force`` rewrote so the user's next commit is
+    not blocked by pre-commit's "config-must-be-staged" check, and so
+    the overwrite is visible in ``git status`` rather than mixed with
+    later edits. Silently skips when the target is not a git checkout."""
+    if not (target_dir / ".git").exists():
+        return
+    existing = [f for f in filenames if (target_dir / f).exists()]
+    if not existing:
+        return
+    try:
+        subprocess.run(
+            ["git", "add", "--", *existing],
+            cwd=str(target_dir),
+            check=False,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        pass
+
+
+def _resolve_flavor(target_dir: Path, force: bool) -> str | None:
+    """Pick the flavor to regen against. Returns ``None`` only when there
+    is no flavor AND ``--force`` was not requested. Under ``--force`` the
+    contract is "overwrite the file with the template, period" — so we
+    fall back to ``other`` when detection finds nothing rather than
+    silently skipping."""
+    flavors = detect_flavors(target_dir)
+    if flavors:
+        return flavors[0]
+    if force:
+        return "other"
+    return None
+
+
+def _regenerated_justfile_common_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``justfile.common`` bytes for this project, or ``None``
-    if flavor is undetectable."""
+    if flavor cannot be resolved or the flavor opts out of shared recipes."""
     from _jolo.templates import get_justfile_common_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
+        return None
+    if flavor in _NO_SHARED_RECIPES_FLAVORS:
         return None
     return get_justfile_common_content(target_dir.name).encode()
 
 
-def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
+def _regenerated_justfile_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``justfile`` bytes for this project, or ``None``
-    if flavor is undetectable.
+    when no flavor is resolvable without ``--force``.
 
     The ``justfile`` is normally user-owned (jolo only writes it once
     at create time), but ``jolo up --recreate --force`` reclaims it so
@@ -696,21 +735,25 @@ def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
     """
     from _jolo.templates import get_justfile_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
         return None
-    return get_justfile_content(flavors[0], target_dir.name).encode()
+    return get_justfile_content(flavor, target_dir.name).encode()
 
 
-def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
+def _regenerated_perf_rig_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``perf-rig.toml`` bytes for this project, or ``None``
-    if flavor is undetectable."""
+    if flavor cannot be resolved or the flavor opts out of shared recipes."""
     from _jolo.templates import get_perf_rig_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
         return None
-    return get_perf_rig_content(flavors[0], target_dir.name).encode()
+    if flavor in _NO_SHARED_RECIPES_FLAVORS:
+        return None
+    return get_perf_rig_content(flavor, target_dir.name).encode()
 
 
 def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
@@ -872,7 +915,9 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
-    regenerated_common = _regenerated_justfile_common_bytes(target_dir)
+    regenerated_common = _regenerated_justfile_common_bytes(
+        target_dir, force=force
+    )
     if regenerated_common is not None:
         result = _sync_one_file(
             target_dir,
@@ -880,16 +925,11 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_common,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile.common")
 
-    # justfile is normally user-owned, but --force reclaims it so the
-    # project can be returned to a known-good shape (e.g. recover from
-    # duplicate-recipe conflicts after a partial git restore). Custom
-    # recipes are recoverable from git history.
-    regenerated_justfile = _regenerated_justfile_bytes(target_dir)
+    regenerated_justfile = _regenerated_justfile_bytes(target_dir, force=force)
     if regenerated_justfile is not None:
         result = _sync_one_file(
             target_dir,
@@ -897,12 +937,11 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_justfile,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile")
 
-    regenerated_rig = _regenerated_perf_rig_bytes(target_dir)
+    regenerated_rig = _regenerated_perf_rig_bytes(target_dir, force=force)
     if regenerated_rig is not None:
         result = _sync_one_file(
             target_dir,
@@ -910,13 +949,10 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
             regenerated_rig,
             hashes,
             force=force,
-            strictly_owned=True,
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
 
-    # .pre-commit-config.yaml is user-owned: --force drops a .jolonew,
-    # never overwrites. See module docstring of templates.py.
     regenerated_precommit = _regenerated_precommit_config_bytes(target_dir)
     if regenerated_precommit is not None:
         result = _sync_one_file(
@@ -931,6 +967,8 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
+        if force:
+            _stage_touched_files(target_dir, touched)
 
     for filename in COPY_IF_MISSING_TEMPLATES:
         src = templates_dir / filename

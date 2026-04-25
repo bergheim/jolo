@@ -335,6 +335,10 @@ def get_justfile_content(flavor: str, project_name: str) -> str:
         MODULE_NAME=module_name,
         TESTBED=sanitize_for_testbed(project_name),
     )
+    # The meta-project has no use for the user-project shared recipes
+    # (browse/db/perf/a11y) and never gets a justfile.common written.
+    if flavor == "meta":
+        return body
     return insert_import(body)
 
 

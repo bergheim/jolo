@@ -145,6 +145,15 @@ def detect_flavors(project_dir: Path) -> list[str]:
 
     Returns list of detected flavor codes, e.g. ['python-web', 'typescript'].
     """
+    # The jolo meta-project itself is a unique flavor: a CLI whose
+    # `templates/` dir holds project scaffolding (not Jinja templates),
+    # so the python-web heuristic below would otherwise mis-fire and
+    # stomp this repo's bespoke justfile on `--recreate --force`.
+    if (project_dir / "jolo.py").is_file() and (
+        project_dir / "_jolo" / "__init__.py"
+    ).is_file():
+        return ["meta"]
+
     flavors = []
 
     has_py = (project_dir / "pyproject.toml").exists() or any(

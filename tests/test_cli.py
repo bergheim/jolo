@@ -605,6 +605,19 @@ class TestDetectFlavors(unittest.TestCase):
         result = jolo.detect_flavors(Path(self.tmpdir))
         self.assertEqual(result, ["go"])
 
+    def test_detects_jolo_meta_project(self):
+        # The jolo meta-project is identified by `jolo.py` + `_jolo/__init__.py`
+        # at the root. It must short-circuit other detection so a `templates/`
+        # dir (project scaffolding, not Jinja templates) doesn't trip
+        # python-web and stomp the bespoke justfile on `--recreate --force`.
+        Path(self.tmpdir, "jolo.py").touch()
+        Path(self.tmpdir, "_jolo").mkdir()
+        Path(self.tmpdir, "_jolo", "__init__.py").touch()
+        Path(self.tmpdir, "pyproject.toml").touch()
+        Path(self.tmpdir, "templates").mkdir()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["meta"])
+
 
 if __name__ == "__main__":
     unittest.main()

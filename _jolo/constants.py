@@ -71,6 +71,9 @@ VALID_FLAVORS = [
     "prose",
     "other",
 ]
+# Note: "meta" is intentionally absent from VALID_FLAVORS — it is detected
+# from the project shape (jolo meta-repo only) and never user-selectable.
+# It still appears in FLAVOR_LANGUAGE below so runtime lookups resolve.
 
 # Map flavor to base language for pre-commit hooks, coverage, etc.
 FLAVOR_LANGUAGE = {
@@ -85,6 +88,7 @@ FLAVOR_LANGUAGE = {
     "rust": "rust",
     "shell": "shell",
     "prose": "prose",
+    "meta": "meta",
     "other": "other",
 }
 

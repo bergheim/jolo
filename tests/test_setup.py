@@ -1076,9 +1076,12 @@ class TestSyncOneJolonew(unittest.TestCase):
         self.assertFalse((self.target / "file.txt.jolonew").exists())
         self.assertNotIn("file.txt", hashes)
 
-    def test_force_retrofits_untracked_file(self):
-        # --force opt-in: untracked file gets a .jolonew so existing
-        # projects can pull in new recipes like `just perf`.
+    def test_force_overwrites_untracked_file(self):
+        # --force is the "give me the latest template, period" escape
+        # hatch: silently skipping fresh template bumps for an untracked
+        # file is the failure mode users cannot detect (whereas losing
+        # local edits is recoverable from git). So --force overwrites,
+        # no .jolonew dance.
         (self.target / "file.txt").write_text("hand-curated content\n")
         hashes: dict = {}
         result = setup._sync_one_file(
@@ -1088,24 +1091,59 @@ class TestSyncOneJolonew(unittest.TestCase):
             hashes,
             force=True,
         )
-        self.assertEqual(result, "jolonew")
-        # Existing file still untouched.
+        self.assertEqual(result, "updated")
         self.assertEqual(
-            (self.target / "file.txt").read_text(), "hand-curated content\n"
+            (self.target / "file.txt").read_text(), "template output\n"
         )
-        # New template parked for review.
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
         self.assertEqual(
-            (self.target / "file.txt.jolonew").read_text(),
-            "template output\n",
+            hashes["file.txt"], setup._file_hash(self.target / "file.txt")
         )
+
+    def test_force_skips_write_when_content_matches(self):
+        # --force must not touch a file whose content already matches
+        # the template — otherwise mtime churn shows up as a spurious
+        # git diff and pre-commit blocks commits with "config unstaged".
+        path = self.target / "file.txt"
+        path.write_text("identical\n")
+        original_mtime = path.stat().st_mtime_ns
+        hashes: dict = {}
+        result = setup._sync_one_file(
+            self.target,
+            "file.txt",
+            b"identical\n",
+            hashes,
+            force=True,
+        )
+        self.assertEqual(result, "unchanged")
+        self.assertEqual(path.stat().st_mtime_ns, original_mtime)
+
+    def test_force_overwrites_user_edited_file(self):
+        # User-edited file under --force: overwrite. Git is the safety
+        # net for the user's edits.
+        (self.target / "file.txt").write_text("my edits\n")
+        hashes = {
+            "file.txt": setup.hashlib.sha256(b"original\n").hexdigest(),
+        }
+        result = setup._sync_one_file(
+            self.target,
+            "file.txt",
+            b"newest template\n",
+            hashes,
+            force=True,
+        )
+        self.assertEqual(result, "updated")
+        self.assertEqual(
+            (self.target / "file.txt").read_text(), "newest template\n"
+        )
+        self.assertFalse((self.target / "file.txt.jolonew").exists())
 
 
 class TestPrecommitConfigSync(unittest.TestCase):
-    """``.pre-commit-config.yaml`` is user-owned: jolo writes it once at
-    project create time and from then on treats it like AGENTS.md — edited
-    files get a ``.jolonew`` sibling on ``--force`` so the user can pull
-    new bits in by hand, but their custom hooks (codespell allowlists,
-    audit hooks, project-specific gitleaks rules, etc.) are never stomped.
+    """``.pre-commit-config.yaml`` is jolo-owned. Without ``--force``, an
+    edited config is left alone (with a ``.jolonew`` sibling for review
+    when the recorded hash is known). Under ``--force``, the file is
+    overwritten — git tracks the user's customizations.
 
     The post-commit ``perf-run`` hook used to live in this file. It was
     moved out to ``.git/hooks/post-commit`` (managed-injection block) so
@@ -1134,18 +1172,20 @@ class TestPrecommitConfigSync(unittest.TestCase):
         self.assertIn("trailing-whitespace", content)
         self.assertNotIn("perf-run", content)
 
-    def test_sync_force_does_not_overwrite_user_edited_precommit(self):
+    def test_sync_force_overwrites_user_edited_precommit(self):
+        # --force is the "latest template, period" escape hatch: the
+        # silent-skip mode is a worse failure (user runs stale hooks
+        # without knowing) than the recoverable one (custom hooks
+        # need to be re-added from git history).
         custom = "# user-curated hooks\nrepos: []\n"
         (self.project / ".pre-commit-config.yaml").write_text(custom)
         setup.sync_template_files(self.project, force=True)
-        # Original is preserved, untouched.
-        self.assertEqual(
-            (self.project / ".pre-commit-config.yaml").read_text(), custom
+        content = (self.project / ".pre-commit-config.yaml").read_text()
+        self.assertIn("trailing-whitespace", content)
+        self.assertNotIn("user-curated hooks", content)
+        self.assertFalse(
+            (self.project / ".pre-commit-config.yaml.jolonew").exists()
         )
-        # New template parked alongside for manual review/merge.
-        jolonew = self.project / ".pre-commit-config.yaml.jolonew"
-        self.assertTrue(jolonew.exists())
-        self.assertIn("trailing-whitespace", jolonew.read_text())
 
     def test_sync_default_leaves_user_precommit_alone(self):
         # Without --force, an untracked user-curated config is left
@@ -1465,6 +1505,180 @@ class TestSyncJustfileCommon(unittest.TestCase):
             (self.target / "justfile.common").read_text(),
             "# bogus user edit\n",
         )
+
+
+class TestSyncForceAlwaysOverwrites(unittest.TestCase):
+    """`--force` is the "reset to template baseline" escape hatch. It must
+    overwrite the user's `justfile` even when flavor detection finds no
+    indicator files (no pyproject.toml / package.json / go.mod / etc.).
+    Otherwise users with a justfile that drifted into a duplicate-recipe
+    state silently get nothing — and the only fix advice ("run --force")
+    is a no-op."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir) / "myproj"
+        self.target.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_overwrites_when_flavor_undetectable(self):
+        # No flavor signal — but the user's justfile is broken (duplicate
+        # `a11y` recipes). --force must still reset it to the generic
+        # baseline so the duplicate goes away.
+        (self.target / "justfile").write_text(
+            "import 'justfile.common'\n\n"
+            "a11y *routes:\n    pa11y {{routes}}\n\n"
+            "a11y *args:\n    pa11y {{args}}\n"
+        )
+        setup.sync_template_files(self.target, force=True)
+        content = (self.target / "justfile").read_text()
+        # The "other" fallback template has run/test stubs.
+        self.assertIn("run:", content)
+        self.assertNotIn("a11y *routes:", content)
+        # Common file gets written too — its single a11y is the only one left.
+        self.assertTrue((self.target / "justfile.common").exists())
+
+    def test_no_force_skips_when_flavor_undetectable(self):
+        # Without --force, an unflavored project is left alone.
+        (self.target / "justfile").write_text("# user content\n")
+        setup.sync_template_files(self.target, force=False)
+        self.assertEqual(
+            (self.target / "justfile").read_text(), "# user content\n"
+        )
+        self.assertFalse((self.target / "justfile.common").exists())
+
+
+class TestSyncForceAutoStage(unittest.TestCase):
+    """`--force` rewrites template files. Pre-commit will refuse the
+    user's next commit ("Your pre-commit configuration is unstaged")
+    if `.pre-commit-config.yaml` was rewritten and left unstaged. Stage
+    the touched files automatically so the overwrite is visible in
+    `git status` and doesn't block commits."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demo"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\n"
+        )
+        import subprocess as sp
+
+        sp.run(
+            ["git", "init", "-q"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "config", "user.email", "t@example.com"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "config", "user.name", "t"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_stages_overwritten_precommit(self):
+        # Simulate pre-existing project: write a stale .pre-commit-config.yaml
+        # and commit it. Then user --force overwrites it; jolo must stage
+        # the rewrite.
+        import subprocess as sp
+
+        precommit = self.project / ".pre-commit-config.yaml"
+        precommit.write_text("# stale user config\nrepos: []\n")
+        sp.run(
+            ["git", "add", "."],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+        )
+        sp.run(
+            ["git", "commit", "-q", "-m", "initial"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@example.com",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@example.com",
+            },
+        )
+        setup.sync_template_files(self.project, force=True)
+        # File was overwritten with the fresh template.
+        content = precommit.read_text()
+        self.assertIn("trailing-whitespace", content)
+        # And the change is staged — porcelain shows "M " (staged) not " M".
+        status = sp.run(
+            ["git", "status", "--porcelain", ".pre-commit-config.yaml"],
+            cwd=str(self.project),
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertTrue(
+            status.startswith("M  ") or status.startswith("A  "),
+            f"expected staged, got: {status!r}",
+        )
+
+
+class TestSyncMetaFlavor(unittest.TestCase):
+    """The jolo meta-repo (`jolo.py` + `_jolo/__init__.py`) is detected as
+    the `meta` flavor. `--recreate --force` must regenerate its `justfile`
+    to a working shape, and must NOT write `justfile.common` or
+    `perf-rig.toml` (those carry user-project recipes the meta-repo has
+    no use for)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir) / "emacs-container"
+        self.target.mkdir()
+        (self.target / "pyproject.toml").write_text(
+            "[project]\nname = 'jolo'\n"
+        )
+        (self.target / "jolo.py").write_text("# stub\n")
+        (self.target / "_jolo").mkdir()
+        (self.target / "_jolo" / "__init__.py").write_text("")
+        # `templates/` would trip the python-web heuristic; meta detection
+        # must short-circuit before then.
+        (self.target / "templates").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_regenerates_justfile_without_shared_import(self):
+        # Pre-existing user justfile drifts; --force should reclaim it
+        # to the meta template — which has no `import 'justfile.common'`.
+        (self.target / "justfile").write_text("# stale\nbogus:\n    false\n")
+        setup.sync_template_files(self.target, force=True)
+        content = (self.target / "justfile").read_text()
+        self.assertIn("ruff check _jolo/ jolo.py", content)
+        self.assertNotIn("import 'justfile.common'", content)
+
+    def test_force_does_not_write_justfile_common(self):
+        setup.sync_template_files(self.target, force=True)
+        self.assertFalse((self.target / "justfile.common").exists())
+
+    def test_force_does_not_write_perf_rig(self):
+        setup.sync_template_files(self.target, force=True)
+        self.assertFalse((self.target / "perf-rig.toml").exists())
 
 
 if __name__ == "__main__":
