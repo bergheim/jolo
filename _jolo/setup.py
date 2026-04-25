@@ -649,7 +649,7 @@ def _sync_one_file(
     if force:
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
-        verbose_print(f"Force-overwrote {filename}")
+        print(f"  Force-overwrote {filename}")
         return "updated"
 
     if stored_hash is None:
@@ -893,13 +893,16 @@ def install_jolo_post_commit_hook(project_root: Path) -> None:
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
     """Sync template files. User-edited files get a .jolonew sibling.
 
-    When force=True, files that jolo has never tracked (no hash record)
-    also get a .jolonew so existing projects can retrofit new template
-    additions like the `just perf` recipe.
+    When force=True, every file in the sync set is overwritten with the
+    latest template content (no .jolonew dance) and the touched files
+    are git-staged so pre-commit doesn't block the next commit.
     """
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     if not templates_dir.exists():
         return
+
+    if force:
+        print(f"jolo --force: syncing templates into {target_dir}")
 
     hashes = _load_template_hashes(target_dir)
     touched: list[str] = []
@@ -969,6 +972,9 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         _save_template_hashes(target_dir, touched, hashes)
         if force:
             _stage_touched_files(target_dir, touched)
+            print(f"  Touched: {', '.join(touched)}")
+    elif force:
+        print("  (no template files needed updating)")
 
     for filename in COPY_IF_MISSING_TEMPLATES:
         src = templates_dir / filename
