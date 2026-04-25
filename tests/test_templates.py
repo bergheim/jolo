@@ -623,6 +623,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
 
         self.assertIn("id: biome-check", result)
         self.assertIn("repo: local", result)
+        self.assertIn(r"exclude: ^templates/.*\.html$", result)
 
     def test_rust_adds_rustfmt_and_cargo_check(self):
         """Rust flavor should add rustfmt and cargo-check system hooks."""
@@ -655,6 +656,7 @@ class TestGeneratePrecommitConfig(unittest.TestCase):
         self.assertIn("gitleaks", result)
         self.assertIn("id: ruff", result)
         self.assertIn("id: biome-check", result)
+        self.assertIn(r"exclude: ^templates/.*\.html$", result)
 
     def test_all_flavors_combined(self):
         """Should handle all supported flavors together."""
