@@ -718,10 +718,14 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
     """Test get_precommit_install_command() function."""
 
     def test_returns_precommit_install_command(self):
-        """Should return pre-commit install command with all three hook types.
+        """Returns pre-commit install for pre-commit + pre-push only.
 
-        post-commit is required so the async `just perf` hook fires after
-        every commit.
+        post-commit is intentionally NOT installed via pre-commit:
+        pre-commit's shim ends with `exec ... pre-commit ...` which
+        replaces the shell process, making any subsequent content
+        (i.e. our managed-injection block) unreachable. The post-commit
+        perf-run is wired up by `install_jolo_post_commit_hook` writing
+        directly to .git/hooks/post-commit instead.
         """
         result = jolo.get_precommit_install_command()
         self.assertEqual(
@@ -733,10 +737,9 @@ class TestGetPrecommitInstallCommand(unittest.TestCase):
                 "pre-commit",
                 "--hook-type",
                 "pre-push",
-                "--hook-type",
-                "post-commit",
             ],
         )
+        self.assertNotIn("post-commit", result)
 
 
 class TestSanitizeForTestbed(unittest.TestCase):

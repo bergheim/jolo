@@ -1247,6 +1247,27 @@ class TestJoloPostCommitInjection(unittest.TestCase):
         # And the real managed block was appended at the end.
         self.assertTrue(new.rstrip().endswith("# >>> jolo-perf-end <<<"))
 
+    def test_block_only_input_recovers_shebang(self):
+        # Pathological recovery: file contains ONLY a managed block (no
+        # shebang, no user content). After strip, buffer is empty. The
+        # helper must still produce a valid hook script with a shebang
+        # so git executes it.
+        existing = (
+            "# >>> jolo-perf-start <<<\nstale\n# >>> jolo-perf-end <<<\n"
+        )
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertTrue(new.startswith("#!/bin/sh\n"))
+        self.assertIn("just perf", new)
+        self.assertNotIn("stale", new)
+
+    def test_existing_user_hook_without_shebang_gets_one(self):
+        # Defensive: if a user file lacks a shebang, prepend one rather
+        # than leave a hook git can't execute reliably.
+        existing = "echo bare-user-line\n"
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertTrue(new.startswith("#!/bin/sh\n"))
+        self.assertIn("echo bare-user-line", new)
+
     def test_handles_crlf_line_endings(self):
         existing = (
             "#!/bin/sh\r\n"

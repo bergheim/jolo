@@ -735,12 +735,15 @@ def _replace_or_append_jolo_block(existing: str, block: str) -> str:
 
     Strips every existing managed block (so a previous duplication bug
     converges to a single block), then appends ``block``. A shebang is
-    added only when ``existing`` is empty — never injected mid-file.
+    prepended only when the resulting file would otherwise lack one —
+    catches the empty-input case AND the recover-from-block-only case
+    (where strip leaves an empty buffer that needs to become a valid
+    hook script).
     """
-    if not existing:
-        return "#!/bin/sh\n" + block
     stripped = _JOLO_BLOCK_RE.sub("", existing)
-    if stripped and not stripped.endswith("\n"):
+    if not stripped.startswith("#!"):
+        stripped = "#!/bin/sh\n" + stripped
+    elif not stripped.endswith("\n"):
         stripped += "\n"
     return stripped + block
 

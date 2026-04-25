@@ -187,8 +187,14 @@ def generate_precommit_config(flavors: list[str]) -> str:
 def get_precommit_install_command() -> list[str]:
     """Get the command to install pre-commit hooks.
 
-    Returns:
-        List of command parts: ['pre-commit', 'install']
+    Pre-commit's shim ends with ``exec ... pre-commit ...`` which
+    replaces the shell process — anything appended to the same hook
+    file after pre-commit installs is unreachable. Since the generated
+    ``.pre-commit-config.yaml`` no longer carries any post-commit-stage
+    hooks (the perf-run wiring is now a direct git hook installed by
+    ``install_jolo_post_commit_hook``), there is nothing for pre-commit
+    to do at post-commit. Skip ``--hook-type post-commit`` so our
+    managed-injection block lands in a clean file and actually runs.
     """
     return [
         "pre-commit",
@@ -197,8 +203,6 @@ def get_precommit_install_command() -> list[str]:
         "pre-commit",
         "--hook-type",
         "pre-push",
-        "--hook-type",
-        "post-commit",
     ]
 
 
