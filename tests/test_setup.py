@@ -1181,23 +1181,26 @@ class TestJoloPostCommitInjection(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def _block(self) -> str:
-        return setup.JOLO_POST_COMMIT_BLOCK
+        # Tests treat the block as opaque content the helper installs;
+        # we only assert observable behavior (markers + the perf line).
+        return setup._JOLO_POST_COMMIT_BLOCK
 
     def test_creates_block_when_text_empty(self):
         new = setup._replace_or_append_jolo_block("", self._block())
         self.assertIn("# >>> jolo-perf-start <<<", new)
         self.assertIn("# >>> jolo-perf-end <<<", new)
         self.assertIn("just perf", new)
+        # Empty input gets a shebang so the file is a valid hook script.
+        self.assertTrue(new.startswith("#!/bin/sh\n"))
 
     def test_appends_block_when_no_markers(self):
         existing = "#!/bin/sh\nset -e\necho hi\n"
         new = setup._replace_or_append_jolo_block(existing, self._block())
         self.assertTrue(new.startswith("#!/bin/sh\nset -e\necho hi\n"))
         self.assertIn("# >>> jolo-perf-start <<<", new)
-        # The original lines are still there, unmodified.
         self.assertIn("echo hi", new)
 
-    def test_replaces_existing_block_in_place(self):
+    def test_replaces_existing_block_keeps_user_content(self):
         existing = (
             "#!/bin/sh\n"
             "set -e\n"
@@ -1209,9 +1212,52 @@ class TestJoloPostCommitInjection(unittest.TestCase):
         new = setup._replace_or_append_jolo_block(existing, self._block())
         self.assertNotIn("stale-content-from-old-jolo", new)
         self.assertIn("just perf", new)
-        # User content outside the markers is preserved verbatim.
+        # User content outside the managed block is preserved.
         self.assertIn("set -e", new)
         self.assertIn("echo trailing user line", new)
+        # Exactly one managed block in the result.
+        self.assertEqual(new.count("# >>> jolo-perf-start <<<"), 1)
+
+    def test_collapses_duplicate_blocks_from_old_bug(self):
+        # If a previous bug ever appended twice, the helper must
+        # converge to a single block on the next refresh.
+        existing = (
+            "#!/bin/sh\n"
+            "# >>> jolo-perf-start <<<\nfirst-stale\n# >>> jolo-perf-end <<<\n"
+            "# >>> jolo-perf-start <<<\nsecond-stale\n# >>> jolo-perf-end <<<\n"
+        )
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertEqual(new.count("# >>> jolo-perf-start <<<"), 1)
+        self.assertNotIn("first-stale", new)
+        self.assertNotIn("second-stale", new)
+
+    def test_does_not_match_marker_substring_in_user_content(self):
+        # A stray sentinel-looking string in user content (e.g. an echo
+        # or a heredoc) must NOT be matched. Only line-anchored markers
+        # are recognized.
+        existing = (
+            "#!/bin/sh\n"
+            'echo "fake # >>> jolo-perf-start <<< inline"\n'
+            'echo "fake # >>> jolo-perf-end <<< inline"\n'
+        )
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        # User echo lines are still there in full.
+        self.assertIn('echo "fake # >>> jolo-perf-start <<< inline"', new)
+        self.assertIn('echo "fake # >>> jolo-perf-end <<< inline"', new)
+        # And the real managed block was appended at the end.
+        self.assertTrue(new.rstrip().endswith("# >>> jolo-perf-end <<<"))
+
+    def test_handles_crlf_line_endings(self):
+        existing = (
+            "#!/bin/sh\r\n"
+            "# >>> jolo-perf-start <<<\r\nstale\r\n"
+            "# >>> jolo-perf-end <<<\r\n"
+            "echo after\r\n"
+        )
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertNotIn("stale", new)
+        self.assertIn("echo after", new)
+        self.assertEqual(new.count("# >>> jolo-perf-start <<<"), 1)
 
     def test_idempotent_across_two_calls(self):
         existing = "#!/bin/sh\necho user-pre\n"
