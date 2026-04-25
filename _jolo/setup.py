@@ -1,5 +1,6 @@
 """Filesystem and credential setup functions for jolo."""
 
+import fcntl
 import hashlib
 import json
 import os
@@ -759,18 +760,28 @@ def install_jolo_post_commit_hook(project_root: Path) -> None:
     """Install or refresh the jolo-managed post-commit hook block.
 
     Idempotent and non-destructive: user content outside the sentinel
-    markers is preserved. Skips the write entirely when the file is
-    already up to date so `jolo up --recreate` doesn't bump mtime.
+    markers is preserved. Skips the write when the file is already up
+    to date so `jolo up --recreate` doesn't bump mtime.
+
+    Hooks live in the shared common dir for git worktrees, so concurrent
+    `jolo spawn` runs would race here. Hold an advisory lock on the hook
+    file across the read-modify-write so two writers can't tear.
     """
     hooks_dir = _git_hooks_dir(project_root)
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook_path = hooks_dir / "post-commit"
-    existing = hook_path.read_text() if hook_path.exists() else ""
-    new_text = _replace_or_append_jolo_block(existing, _JOLO_POST_COMMIT_BLOCK)
-    changed = new_text != existing
-    if changed:
-        hook_path.write_text(new_text)
-    if changed or not (hook_path.stat().st_mode & 0o100):
+    with open(hook_path, "a+") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        f.seek(0)
+        existing = f.read()
+        new_text = _replace_or_append_jolo_block(
+            existing, _JOLO_POST_COMMIT_BLOCK
+        )
+        if new_text != existing:
+            f.seek(0)
+            f.truncate()
+            f.write(new_text)
+    if not (hook_path.stat().st_mode & 0o100):
         hook_path.chmod(0o755)
 
 

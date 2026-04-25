@@ -1290,6 +1290,50 @@ class TestJoloPostCommitInjection(unittest.TestCase):
         self.assertIn("echo user did this", text)
         self.assertIn("# >>> jolo-perf-start <<<", text)
 
+    def test_install_skips_write_when_unchanged(self):
+        # Repeated --recreate must not bump mtime — make-style watchers
+        # care, and the hook is shared across worktrees so a no-op
+        # recreate in worktree A shouldn't disturb worktree B's view.
+        import subprocess
+
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        setup.install_jolo_post_commit_hook(self.project)
+        hook = self.project / ".git" / "hooks" / "post-commit"
+        first_mtime = hook.stat().st_mtime_ns
+        setup.install_jolo_post_commit_hook(self.project)
+        self.assertEqual(hook.stat().st_mtime_ns, first_mtime)
+
+    def test_install_concurrent_writers_converge_to_one_block(self):
+        # `jolo spawn N` creates N worktrees that share `.git/hooks/`.
+        # Concurrent installs must not tear the file or leave duplicate
+        # blocks behind.
+        import subprocess
+        import threading
+
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        hook = self.project / ".git" / "hooks" / "post-commit"
+        hook.write_text("#!/bin/sh\necho user-baseline\n")
+
+        errors: list[BaseException] = []
+
+        def worker():
+            try:
+                setup.install_jolo_post_commit_hook(self.project)
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(errors, [])
+        text = hook.read_text()
+        self.assertIn("echo user-baseline", text)
+        self.assertEqual(text.count("# >>> jolo-perf-start <<<"), 1)
+        self.assertEqual(text.count("# >>> jolo-perf-end <<<"), 1)
+
 
 class TestPerfRigSync(unittest.TestCase):
     """perf-rig.toml participates in the tool-owned sync path; --force
