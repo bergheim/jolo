@@ -683,6 +683,25 @@ def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
     return get_justfile_common_content(target_dir.name).encode()
 
 
+def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
+    """Return current ``justfile`` bytes for this project, or ``None``
+    if flavor is undetectable.
+
+    The ``justfile`` is normally user-owned (jolo only writes it once
+    at create time), but ``jolo up --recreate --force`` reclaims it so
+    a project can be returned to a known-good shape after the user's
+    edits diverge from the template (e.g. duplicate recipes after
+    ``git restore`` from a pre-split commit). Custom recipes the user
+    wants to keep should be re-added afterwards from git history.
+    """
+    from _jolo.templates import get_justfile_content
+
+    flavors = detect_flavors(target_dir)
+    if not flavors:
+        return None
+    return get_justfile_content(flavors[0], target_dir.name).encode()
+
+
 def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
     """Return current ``perf-rig.toml`` bytes for this project, or ``None``
     if flavor is undetectable."""
@@ -865,6 +884,23 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile.common")
+
+    # justfile is normally user-owned, but --force reclaims it so the
+    # project can be returned to a known-good shape (e.g. recover from
+    # duplicate-recipe conflicts after a partial git restore). Custom
+    # recipes are recoverable from git history.
+    regenerated_justfile = _regenerated_justfile_bytes(target_dir)
+    if regenerated_justfile is not None:
+        result = _sync_one_file(
+            target_dir,
+            "justfile",
+            regenerated_justfile,
+            hashes,
+            force=force,
+            strictly_owned=True,
+        )
+        if result in {"written", "updated", "unchanged"}:
+            touched.append("justfile")
 
     regenerated_rig = _regenerated_perf_rig_bytes(target_dir)
     if regenerated_rig is not None:
