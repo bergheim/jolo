@@ -675,22 +675,40 @@ def _sync_one_file(
 _NO_SHARED_RECIPES_FLAVORS = {"meta"}
 
 
-def _regenerated_justfile_common_bytes(target_dir: Path) -> bytes | None:
+def _resolve_flavor(target_dir: Path, force: bool) -> str | None:
+    """Pick the flavor to regen against. Returns ``None`` only when there
+    is no flavor AND ``--force`` was not requested. Under ``--force`` the
+    contract is "overwrite the file with the template, period" — so we
+    fall back to ``other`` when detection finds nothing rather than
+    silently skipping."""
+    flavors = detect_flavors(target_dir)
+    if flavors:
+        return flavors[0]
+    if force:
+        return "other"
+    return None
+
+
+def _regenerated_justfile_common_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``justfile.common`` bytes for this project, or ``None``
-    if flavor is undetectable or the flavor opts out of shared recipes."""
+    if flavor cannot be resolved or the flavor opts out of shared recipes."""
     from _jolo.templates import get_justfile_common_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
         return None
-    if flavors[0] in _NO_SHARED_RECIPES_FLAVORS:
+    if flavor in _NO_SHARED_RECIPES_FLAVORS:
         return None
     return get_justfile_common_content(target_dir.name).encode()
 
 
-def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
+def _regenerated_justfile_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``justfile`` bytes for this project, or ``None``
-    if flavor is undetectable.
+    when no flavor is resolvable without ``--force``.
 
     The ``justfile`` is normally user-owned (jolo only writes it once
     at create time), but ``jolo up --recreate --force`` reclaims it so
@@ -701,23 +719,25 @@ def _regenerated_justfile_bytes(target_dir: Path) -> bytes | None:
     """
     from _jolo.templates import get_justfile_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
         return None
-    return get_justfile_content(flavors[0], target_dir.name).encode()
+    return get_justfile_content(flavor, target_dir.name).encode()
 
 
-def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
+def _regenerated_perf_rig_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
     """Return current ``perf-rig.toml`` bytes for this project, or ``None``
-    if flavor is undetectable or the flavor opts out of shared recipes."""
+    if flavor cannot be resolved or the flavor opts out of shared recipes."""
     from _jolo.templates import get_perf_rig_content
 
-    flavors = detect_flavors(target_dir)
-    if not flavors:
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
         return None
-    if flavors[0] in _NO_SHARED_RECIPES_FLAVORS:
+    if flavor in _NO_SHARED_RECIPES_FLAVORS:
         return None
-    return get_perf_rig_content(flavors[0], target_dir.name).encode()
+    return get_perf_rig_content(flavor, target_dir.name).encode()
 
 
 def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
@@ -879,7 +899,9 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append(filename)
 
-    regenerated_common = _regenerated_justfile_common_bytes(target_dir)
+    regenerated_common = _regenerated_justfile_common_bytes(
+        target_dir, force=force
+    )
     if regenerated_common is not None:
         result = _sync_one_file(
             target_dir,
@@ -896,7 +918,7 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
     # project can be returned to a known-good shape (e.g. recover from
     # duplicate-recipe conflicts after a partial git restore). Custom
     # recipes are recoverable from git history.
-    regenerated_justfile = _regenerated_justfile_bytes(target_dir)
+    regenerated_justfile = _regenerated_justfile_bytes(target_dir, force=force)
     if regenerated_justfile is not None:
         result = _sync_one_file(
             target_dir,
@@ -909,7 +931,7 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append("justfile")
 
-    regenerated_rig = _regenerated_perf_rig_bytes(target_dir)
+    regenerated_rig = _regenerated_perf_rig_bytes(target_dir, force=force)
     if regenerated_rig is not None:
         result = _sync_one_file(
             target_dir,

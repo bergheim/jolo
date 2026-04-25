@@ -1467,6 +1467,51 @@ class TestSyncJustfileCommon(unittest.TestCase):
         )
 
 
+class TestSyncForceAlwaysOverwrites(unittest.TestCase):
+    """`--force` is the "reset to template baseline" escape hatch. It must
+    overwrite the user's `justfile` even when flavor detection finds no
+    indicator files (no pyproject.toml / package.json / go.mod / etc.).
+    Otherwise users with a justfile that drifted into a duplicate-recipe
+    state silently get nothing — and the only fix advice ("run --force")
+    is a no-op."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir) / "myproj"
+        self.target.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_overwrites_when_flavor_undetectable(self):
+        # No flavor signal — but the user's justfile is broken (duplicate
+        # `a11y` recipes). --force must still reset it to the generic
+        # baseline so the duplicate goes away.
+        (self.target / "justfile").write_text(
+            "import 'justfile.common'\n\n"
+            "a11y *routes:\n    pa11y {{routes}}\n\n"
+            "a11y *args:\n    pa11y {{args}}\n"
+        )
+        setup.sync_template_files(self.target, force=True)
+        content = (self.target / "justfile").read_text()
+        # The "other" fallback template has run/test stubs.
+        self.assertIn("run:", content)
+        self.assertNotIn("a11y *routes:", content)
+        # Common file gets written too — its single a11y is the only one left.
+        self.assertTrue((self.target / "justfile.common").exists())
+
+    def test_no_force_skips_when_flavor_undetectable(self):
+        # Without --force, an unflavored project is left alone.
+        (self.target / "justfile").write_text("# user content\n")
+        setup.sync_template_files(self.target, force=False)
+        self.assertEqual(
+            (self.target / "justfile").read_text(), "# user content\n"
+        )
+        self.assertFalse((self.target / "justfile.common").exists())
+
+
 class TestSyncMetaFlavor(unittest.TestCase):
     """The jolo meta-repo (`jolo.py` + `_jolo/__init__.py`) is detected as
     the `meta` flavor. `--recreate --force` must regenerate its `justfile`
