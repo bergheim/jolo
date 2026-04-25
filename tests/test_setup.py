@@ -1100,6 +1100,44 @@ class TestSyncOneJolonew(unittest.TestCase):
         )
 
 
+class TestPrecommitConfigSync(unittest.TestCase):
+    """sync regenerates .pre-commit-config.yaml as a strictly-owned file
+    so --force retrofits new template hook stages (e.g. post-commit).
+
+    Was a real gap: existing projects only got the pre-commit-config
+    written at jolo create time; --recreate left it stale, and the
+    post-commit hook entry we added never actually wired up to git."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demo"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demo'\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_sync_creates_precommit_config_when_missing(self):
+        self.assertFalse((self.project / ".pre-commit-config.yaml").exists())
+        setup.sync_template_files(self.project)
+        content = (self.project / ".pre-commit-config.yaml").read_text()
+        self.assertIn("perf-run", content)
+        self.assertIn("post-commit", content)
+
+    def test_sync_force_overwrites_user_edited_precommit(self):
+        (self.project / ".pre-commit-config.yaml").write_text(
+            "# my custom hooks\n"
+        )
+        setup.sync_template_files(self.project, force=True)
+        content = (self.project / ".pre-commit-config.yaml").read_text()
+        self.assertNotIn("my custom hooks", content)
+        self.assertIn("perf-run", content)
+
+
 class TestPerfRigSync(unittest.TestCase):
     """perf-rig.toml participates in the tool-owned sync path; --force
     overwrites it, default leaves user edits alone (git catches drift)."""

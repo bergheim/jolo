@@ -657,6 +657,8 @@ def _update_container(git_root: Path, force: bool = False) -> None:
     if not devcontainer_up(git_root, remove_existing=True):
         sys.exit("Error: Failed to rebuild devcontainer")
 
+    _setup_test_hooks(git_root)
+
 
 def run_list_mode(args: argparse.Namespace) -> None:
     """Run --list mode: show containers and worktrees for current project."""
@@ -973,6 +975,10 @@ def run_up_mode(args: argparse.Namespace) -> None:
     if args.recreate or not already_running:
         if not devcontainer_up(git_root, remove_existing=args.recreate):
             sys.exit("Error: Failed to start devcontainer")
+        if args.recreate:
+            # Re-run pre-commit install so any newly-added hook stages
+            # (e.g. post-commit perf-run) actually wire up to git.
+            _setup_test_hooks(git_root)
     elif already_running:
         print(
             "Container already running, reattaching. Use --recreate to rebuild."
@@ -1057,6 +1063,8 @@ def run_tree_mode(args: argparse.Namespace) -> None:
     if args.recreate or not is_container_running(worktree_path):
         if not devcontainer_up(worktree_path, remove_existing=args.recreate):
             sys.exit("Error: Failed to start devcontainer")
+        if args.recreate:
+            _setup_test_hooks(worktree_path)
 
     if args.prompt:
         print(f"Started {args.agent} in: {worktree_path.name}")

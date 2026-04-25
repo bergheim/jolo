@@ -694,6 +694,14 @@ def _regenerated_perf_rig_bytes(target_dir: Path) -> bytes | None:
     return get_perf_rig_content(flavors[0], target_dir.name).encode()
 
 
+def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
+    """Return current ``.pre-commit-config.yaml`` bytes for this project."""
+    from _jolo.templates import generate_precommit_config
+
+    flavors = detect_flavors(target_dir)
+    return generate_precommit_config(flavors).encode()
+
+
 def sync_template_files(target_dir: Path, force: bool = False) -> None:
     """Sync template files. User-edited files get a .jolonew sibling.
 
@@ -744,6 +752,19 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
+
+    regenerated_precommit = _regenerated_precommit_config_bytes(target_dir)
+    if regenerated_precommit is not None:
+        result = _sync_one_file(
+            target_dir,
+            ".pre-commit-config.yaml",
+            regenerated_precommit,
+            hashes,
+            force=force,
+            strictly_owned=True,
+        )
+        if result in {"written", "updated", "unchanged"}:
+            touched.append(".pre-commit-config.yaml")
 
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
