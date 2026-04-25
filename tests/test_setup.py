@@ -1101,12 +1101,16 @@ class TestSyncOneJolonew(unittest.TestCase):
 
 
 class TestPrecommitConfigSync(unittest.TestCase):
-    """sync regenerates .pre-commit-config.yaml as a strictly-owned file
-    so --force retrofits new template hook stages (e.g. post-commit).
+    """``.pre-commit-config.yaml`` is user-owned: jolo writes it once at
+    project create time and from then on treats it like AGENTS.md — edited
+    files get a ``.jolonew`` sibling on ``--force`` so the user can pull
+    new bits in by hand, but their custom hooks (codespell allowlists,
+    audit hooks, project-specific gitleaks rules, etc.) are never stomped.
 
-    Was a real gap: existing projects only got the pre-commit-config
-    written at jolo create time; --recreate left it stale, and the
-    post-commit hook entry we added never actually wired up to git."""
+    The post-commit ``perf-run`` hook used to live in this file. It was
+    moved out to ``.git/hooks/post-commit`` (managed-injection block) so
+    the perf-testing wiring no longer requires jolo to own this file.
+    """
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -1125,17 +1129,120 @@ class TestPrecommitConfigSync(unittest.TestCase):
         self.assertFalse((self.project / ".pre-commit-config.yaml").exists())
         setup.sync_template_files(self.project)
         content = (self.project / ".pre-commit-config.yaml").read_text()
-        self.assertIn("perf-run", content)
-        self.assertIn("post-commit", content)
+        # Standard hooks present, but the post-commit perf hook is no
+        # longer baked into the pre-commit config — it's a direct git hook.
+        self.assertIn("trailing-whitespace", content)
+        self.assertNotIn("perf-run", content)
 
-    def test_sync_force_overwrites_user_edited_precommit(self):
-        (self.project / ".pre-commit-config.yaml").write_text(
-            "# my custom hooks\n"
-        )
+    def test_sync_force_does_not_overwrite_user_edited_precommit(self):
+        custom = "# user-curated hooks\nrepos: []\n"
+        (self.project / ".pre-commit-config.yaml").write_text(custom)
         setup.sync_template_files(self.project, force=True)
-        content = (self.project / ".pre-commit-config.yaml").read_text()
-        self.assertNotIn("my custom hooks", content)
-        self.assertIn("perf-run", content)
+        # Original is preserved, untouched.
+        self.assertEqual(
+            (self.project / ".pre-commit-config.yaml").read_text(), custom
+        )
+        # New template parked alongside for manual review/merge.
+        jolonew = self.project / ".pre-commit-config.yaml.jolonew"
+        self.assertTrue(jolonew.exists())
+        self.assertIn("trailing-whitespace", jolonew.read_text())
+
+    def test_sync_default_leaves_user_precommit_alone(self):
+        # Without --force, an untracked user-curated config is left
+        # entirely alone — no .jolonew, no overwrite.
+        custom = "# my hooks\nrepos: []\n"
+        (self.project / ".pre-commit-config.yaml").write_text(custom)
+        setup.sync_template_files(self.project)
+        self.assertEqual(
+            (self.project / ".pre-commit-config.yaml").read_text(), custom
+        )
+        self.assertFalse(
+            (self.project / ".pre-commit-config.yaml.jolonew").exists()
+        )
+
+
+class TestJoloPostCommitInjection(unittest.TestCase):
+    """Managed-injection block for ``.git/hooks/post-commit``.
+
+    jolo owns the perf-run wiring, but does NOT own the user's git hook
+    file. Idempotent injection between sentinel markers means jolo can
+    co-exist with any other tool (pre-commit framework, husky, custom
+    user scripts) that wants to write into the same hook.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "proj"
+        self.project.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _block(self) -> str:
+        return setup.JOLO_POST_COMMIT_BLOCK
+
+    def test_creates_block_when_text_empty(self):
+        new = setup._replace_or_append_jolo_block("", self._block())
+        self.assertIn("# >>> jolo-perf-start <<<", new)
+        self.assertIn("# >>> jolo-perf-end <<<", new)
+        self.assertIn("just perf", new)
+
+    def test_appends_block_when_no_markers(self):
+        existing = "#!/bin/sh\nset -e\necho hi\n"
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertTrue(new.startswith("#!/bin/sh\nset -e\necho hi\n"))
+        self.assertIn("# >>> jolo-perf-start <<<", new)
+        # The original lines are still there, unmodified.
+        self.assertIn("echo hi", new)
+
+    def test_replaces_existing_block_in_place(self):
+        existing = (
+            "#!/bin/sh\n"
+            "set -e\n"
+            "# >>> jolo-perf-start <<<\n"
+            "stale-content-from-old-jolo\n"
+            "# >>> jolo-perf-end <<<\n"
+            "echo trailing user line\n"
+        )
+        new = setup._replace_or_append_jolo_block(existing, self._block())
+        self.assertNotIn("stale-content-from-old-jolo", new)
+        self.assertIn("just perf", new)
+        # User content outside the markers is preserved verbatim.
+        self.assertIn("set -e", new)
+        self.assertIn("echo trailing user line", new)
+
+    def test_idempotent_across_two_calls(self):
+        existing = "#!/bin/sh\necho user-pre\n"
+        first = setup._replace_or_append_jolo_block(existing, self._block())
+        second = setup._replace_or_append_jolo_block(first, self._block())
+        self.assertEqual(first, second)
+
+    def test_install_writes_executable_hook_in_real_repo(self):
+        import subprocess
+
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        setup.install_jolo_post_commit_hook(self.project)
+        hook = self.project / ".git" / "hooks" / "post-commit"
+        self.assertTrue(hook.exists())
+        text = hook.read_text()
+        self.assertIn("# >>> jolo-perf-start <<<", text)
+        self.assertIn("just perf", text)
+        # Executable bit set so git actually runs it.
+        self.assertTrue(os.access(hook, os.X_OK))
+
+    def test_install_preserves_existing_user_hook_content(self):
+        import subprocess
+
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        hook = self.project / ".git" / "hooks" / "post-commit"
+        hook.write_text("#!/bin/sh\necho user did this\n")
+        hook.chmod(0o755)
+        setup.install_jolo_post_commit_hook(self.project)
+        text = hook.read_text()
+        self.assertIn("echo user did this", text)
+        self.assertIn("# >>> jolo-perf-start <<<", text)
 
 
 class TestPerfRigSync(unittest.TestCase):
