@@ -351,8 +351,12 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertIn('"testproj/components"', content)
 
         # templ components
-        self.assertTrue((project_path / "components" / "page.templ").exists())
-        self.assertTrue((project_path / "components" / "home.templ").exists())
+        page_templ = project_path / "components" / "page.templ"
+        home_templ = project_path / "components" / "home.templ"
+        self.assertTrue(page_templ.exists())
+        self.assertTrue(home_templ.exists())
+        self.assertIn('href="#main"', page_templ.read_text())
+        self.assertIn('<main id="main">', home_templ.read_text())
 
         # justfile with air-only dev command (no background templ watcher)
         justfile = project_path / "justfile"
@@ -403,6 +407,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertTrue((project_path / "templates" / "home.html").exists())
         base_html = (project_path / "templates" / "base.html").read_text()
         self.assertIn("htmx", base_html)
+        self.assertIn('href="#main"', base_html)
 
         # pyproject.toml with FastAPI deps
         pyproject = project_path / "pyproject.toml"

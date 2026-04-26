@@ -72,6 +72,8 @@ def _format_hook_yaml(hook: dict, indent: str = "        ") -> str:
     if "types" in hook:
         types_str = ", ".join(hook["types"])
         lines.append(f"{indent}  types: [{types_str}]")
+    if "exclude" in hook:
+        lines.append(f"{indent}  exclude: {hook['exclude']}")
     if "always_run" in hook:
         value = "true" if hook["always_run"] else "false"
         lines.append(f"{indent}  always_run: {value}")

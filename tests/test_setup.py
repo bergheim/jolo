@@ -147,69 +147,6 @@ class TestTemplateSystem(unittest.TestCase):
             "host-only copy\n",
         )
 
-    def test_sync_skill_templates_copies_codex_plugin_skills(self):
-        """Codex plugin skills should be exposed through the single skill path."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-        home = Path(self.tmpdir) / "home"
-        plugin_skills = (
-            home
-            / ".codex"
-            / ".tmp"
-            / "plugins"
-            / "plugins"
-            / "superpowers"
-            / "skills"
-            / "using-superpowers"
-        )
-        plugin_skills.mkdir(parents=True)
-        (plugin_skills / "SKILL.md").write_text("plugin skill\n")
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            setup.sync_skill_templates(project_dir)
-
-        self.assertTrue(
-            (
-                project_dir
-                / ".jolo"
-                / "skills"
-                / "using-superpowers"
-                / "SKILL.md"
-            ).exists()
-        )
-
-    def test_sync_skill_templates_copies_claude_plugin_skills(self):
-        """Claude plugin skills should be exposed through the single skill path."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-        home = Path(self.tmpdir) / "home"
-        plugin_skills = (
-            home
-            / ".claude"
-            / "plugins"
-            / "cache"
-            / "claude-plugins-official"
-            / "superpowers"
-            / "5.0.7"
-            / "skills"
-            / "using-superpowers"
-        )
-        plugin_skills.mkdir(parents=True)
-        (plugin_skills / "SKILL.md").write_text("plugin skill\n")
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            setup.sync_skill_templates(project_dir)
-
-        self.assertTrue(
-            (
-                project_dir
-                / ".jolo"
-                / "skills"
-                / "using-superpowers"
-                / "SKILL.md"
-            ).exists()
-        )
-
     def test_copy_template_files_includes_stash_note_guidance_and_skill(self):
         """Generated projects should get stash-note guidance and skill."""
         project_dir = Path(self.tmpdir) / "project"

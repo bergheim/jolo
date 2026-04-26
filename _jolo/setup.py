@@ -577,6 +577,7 @@ SYNCABLE_TEMPLATE_FILES = [
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
+    ".gitignore",
 ]
 
 # Files that sync should drop in if missing but never overwrite if present.
@@ -631,6 +632,7 @@ def _sync_one_file(
     new_hash = hashlib.sha256(new_bytes).hexdigest()
 
     if not dst.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(new_bytes)
         hashes[filename] = new_hash
         verbose_print(f"Copied: {filename}")
@@ -1159,24 +1161,6 @@ def _copy_skill_dir(src: Path, dst_root: Path, overwrite: bool) -> None:
         verbose_print(f"Synced skill: {entry.name}")
 
 
-def _host_skill_sources(home: Path) -> list[Path]:
-    sources = [home / ".agents" / "skills"]
-
-    codex_plugin_root = home / ".codex" / ".tmp" / "plugins" / "plugins"
-    if codex_plugin_root.exists():
-        sources.extend(
-            plugin / "skills"
-            for plugin in codex_plugin_root.iterdir()
-            if (plugin / "skills").is_dir()
-        )
-
-    claude_plugin_cache = home / ".claude" / "plugins" / "cache"
-    if claude_plugin_cache.exists():
-        sources.extend(claude_plugin_cache.glob("*/*/*/skills"))
-
-    return sources
-
-
 def sync_skill_templates(target_dir: Path) -> None:
     """Sync host skills, then overlay repo template skills into .jolo/skills."""
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -1187,12 +1171,9 @@ def sync_skill_templates(target_dir: Path) -> None:
     if skills_src.exists() and skills_dst.resolve() == skills_src.resolve():
         return
 
-    for host_skills in _host_skill_sources(Path.home()):
-        if (
-            host_skills.exists()
-            and host_skills.resolve() != skills_dst.resolve()
-        ):
-            _copy_skill_dir(host_skills, skills_dst, overwrite=False)
+    host_skills = Path.home() / ".agents" / "skills"
+    if host_skills.exists() and host_skills.resolve() != skills_dst.resolve():
+        _copy_skill_dir(host_skills, skills_dst, overwrite=False)
 
     if skills_src.exists():
         _copy_skill_dir(skills_src, skills_dst, overwrite=True)

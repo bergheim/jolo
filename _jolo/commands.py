@@ -1225,7 +1225,9 @@ def run_create_mode(args: argparse.Namespace) -> None:
             f"Wrote example test: {test_config['example_test_file']}"
         )
 
-    # Write additional scaffold source files
+    # Write additional scaffold source files. Scaffolds are create-only:
+    # once delivered, they belong to the project, not the template. The
+    # user owns them; we don't refresh them on `--recreate`.
     for rel_path, content in get_scaffold_files(primary_flavor):
         file_path = project_path / replace_placeholders(rel_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)

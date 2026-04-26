@@ -135,6 +135,7 @@ PRECOMMIT_HOOKS = {
                 "entry": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
                 "language": "system",
                 "types": ["text"],
+                "exclude": "^templates/.*\\.html$",
                 "pass_filenames": True,
             },
         ],
