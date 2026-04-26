@@ -577,6 +577,7 @@ SYNCABLE_TEMPLATE_FILES = [
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
+    ".gitignore",
 ]
 
 # Files that sync should drop in if missing but never overwrite if present.
@@ -609,13 +610,6 @@ def _save_template_hashes(
     path = target_dir / TEMPLATE_HASHES_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(hashes, indent=2) + "\n")
-
-
-def record_template_hashes(target_dir: Path, filenames: list[str]) -> None:
-    """Record hashes for managed files that were written outside sync."""
-    if not filenames:
-        return
-    _save_template_hashes(target_dir, filenames)
 
 
 def _sync_one_file(
@@ -770,40 +764,6 @@ def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
 
     flavors = detect_flavors(target_dir)
     return generate_precommit_config(flavors).encode()
-
-
-def _regenerated_scaffold_files(
-    target_dir: Path, force: bool = False
-) -> list[tuple[str, bytes]]:
-    """Return rendered scaffold files for the resolved flavor."""
-    from _jolo.templates import (
-        get_scaffold_files,
-        to_pascal_case,
-        to_snake_case,
-    )
-
-    flavor = _resolve_flavor(target_dir, force)
-    if flavor is None:
-        return []
-
-    project_name = target_dir.name
-    module_name = to_snake_case(project_name)
-    pascal_name = to_pascal_case(project_name)
-
-    def replace_placeholders(text: str) -> str:
-        return (
-            text.replace("{{PROJECT_NAME}}", project_name)
-            .replace("{{PROJECT_NAME_UNDERSCORE}}", module_name)
-            .replace("{{MODULE_NAME}}", pascal_name)
-        )
-
-    return [
-        (
-            replace_placeholders(rel_path),
-            replace_placeholders(content).encode(),
-        )
-        for rel_path, content in get_scaffold_files(flavor)
-    ]
 
 
 # Managed-injection block for `.git/hooks/post-commit`. Bracketed by
@@ -1010,19 +970,6 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append(".pre-commit-config.yaml")
 
-    for filename, new_bytes in _regenerated_scaffold_files(
-        target_dir, force=force
-    ):
-        result = _sync_one_file(
-            target_dir,
-            filename,
-            new_bytes,
-            hashes,
-            force=force,
-        )
-        if result in {"written", "updated", "unchanged"}:
-            touched.append(filename)
-
     if touched:
         _save_template_hashes(target_dir, touched, hashes)
         if force:
@@ -1214,24 +1161,6 @@ def _copy_skill_dir(src: Path, dst_root: Path, overwrite: bool) -> None:
         verbose_print(f"Synced skill: {entry.name}")
 
 
-def _host_skill_sources(home: Path) -> list[Path]:
-    sources = [home / ".agents" / "skills"]
-
-    codex_plugin_root = home / ".codex" / ".tmp" / "plugins" / "plugins"
-    if codex_plugin_root.exists():
-        sources.extend(
-            plugin / "skills"
-            for plugin in codex_plugin_root.iterdir()
-            if (plugin / "skills").is_dir()
-        )
-
-    claude_plugin_cache = home / ".claude" / "plugins" / "cache"
-    if claude_plugin_cache.exists():
-        sources.extend(claude_plugin_cache.glob("*/*/*/skills"))
-
-    return sources
-
-
 def sync_skill_templates(target_dir: Path) -> None:
     """Sync host skills, then overlay repo template skills into .jolo/skills."""
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -1242,12 +1171,9 @@ def sync_skill_templates(target_dir: Path) -> None:
     if skills_src.exists() and skills_dst.resolve() == skills_src.resolve():
         return
 
-    for host_skills in _host_skill_sources(Path.home()):
-        if (
-            host_skills.exists()
-            and host_skills.resolve() != skills_dst.resolve()
-        ):
-            _copy_skill_dir(host_skills, skills_dst, overwrite=False)
+    host_skills = Path.home() / ".agents" / "skills"
+    if host_skills.exists() and host_skills.resolve() != skills_dst.resolve():
+        _copy_skill_dir(host_skills, skills_dst, overwrite=False)
 
     if skills_src.exists():
         _copy_skill_dir(skills_src, skills_dst, overwrite=True)

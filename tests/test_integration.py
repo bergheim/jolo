@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Integration tests spanning multiple modules."""
 
-import json
 import os
 import tempfile
 import unittest
@@ -409,15 +408,6 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         base_html = (project_path / "templates" / "base.html").read_text()
         self.assertIn("htmx", base_html)
         self.assertIn('href="#main"', base_html)
-
-        template_hashes = json.loads(
-            (
-                project_path / ".devcontainer" / ".template-hashes.json"
-            ).read_text()
-        )
-        self.assertIn("src/testproj/app.py", template_hashes)
-        self.assertIn("templates/base.html", template_hashes)
-        self.assertIn("templates/home.html", template_hashes)
 
         # pyproject.toml with FastAPI deps
         pyproject = project_path / "pyproject.toml"

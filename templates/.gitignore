@@ -515,9 +515,17 @@ mlruns/
 .devcontainer/.histfile
 .devcontainer/.zsh-state/
 .devcontainer/.pgdata/
+.devcontainer/.agents-cache/
 .devcontainer/.agent-prompt
 .devcontainer/.agent-name
 .devcontainer/.last-attach
+
+# Machine-local sync state; committing creates recreate-time churn.
+.devcontainer/.template-hashes.json
+.jolo/skills/
+
+.superpowers/
+.pnpm-store/
 
 # Scratch space (experiments, generated assets, throwaway work)
 scratch/

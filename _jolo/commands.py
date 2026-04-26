@@ -54,7 +54,6 @@ from _jolo.setup import (
     copy_user_files,
     ensure_test_gate_script,
     get_secrets,
-    record_template_hashes,
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
@@ -1226,15 +1225,14 @@ def run_create_mode(args: argparse.Namespace) -> None:
             f"Wrote example test: {test_config['example_test_file']}"
         )
 
-    # Write additional scaffold source files
-    scaffold_paths: list[str] = []
+    # Write additional scaffold source files. Scaffolds are create-only:
+    # once delivered, they belong to the project, not the template. The
+    # user owns them; we don't refresh them on `--recreate`.
     for rel_path, content in get_scaffold_files(primary_flavor):
         file_path = project_path / replace_placeholders(rel_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(replace_placeholders(content))
-        scaffold_paths.append(replace_placeholders(rel_path))
         verbose_print(f"Wrote scaffold file: {rel_path}")
-    record_template_hashes(project_path, scaffold_paths)
 
     # Write type checker config for primary flavor
     type_config = get_type_checker_config(primary_flavor)

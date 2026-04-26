@@ -147,69 +147,6 @@ class TestTemplateSystem(unittest.TestCase):
             "host-only copy\n",
         )
 
-    def test_sync_skill_templates_copies_codex_plugin_skills(self):
-        """Codex plugin skills should be exposed through the single skill path."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-        home = Path(self.tmpdir) / "home"
-        plugin_skills = (
-            home
-            / ".codex"
-            / ".tmp"
-            / "plugins"
-            / "plugins"
-            / "superpowers"
-            / "skills"
-            / "using-superpowers"
-        )
-        plugin_skills.mkdir(parents=True)
-        (plugin_skills / "SKILL.md").write_text("plugin skill\n")
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            setup.sync_skill_templates(project_dir)
-
-        self.assertTrue(
-            (
-                project_dir
-                / ".jolo"
-                / "skills"
-                / "using-superpowers"
-                / "SKILL.md"
-            ).exists()
-        )
-
-    def test_sync_skill_templates_copies_claude_plugin_skills(self):
-        """Claude plugin skills should be exposed through the single skill path."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-        home = Path(self.tmpdir) / "home"
-        plugin_skills = (
-            home
-            / ".claude"
-            / "plugins"
-            / "cache"
-            / "claude-plugins-official"
-            / "superpowers"
-            / "5.0.7"
-            / "skills"
-            / "using-superpowers"
-        )
-        plugin_skills.mkdir(parents=True)
-        (plugin_skills / "SKILL.md").write_text("plugin skill\n")
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            setup.sync_skill_templates(project_dir)
-
-        self.assertTrue(
-            (
-                project_dir
-                / ".jolo"
-                / "skills"
-                / "using-superpowers"
-                / "SKILL.md"
-            ).exists()
-        )
-
     def test_copy_template_files_includes_stash_note_guidance_and_skill(self):
         """Generated projects should get stash-note guidance and skill."""
         project_dir = Path(self.tmpdir) / "project"
@@ -1198,48 +1135,6 @@ class TestPrecommitConfigSync(unittest.TestCase):
         )
         self.assertFalse(
             (self.project / ".pre-commit-config.yaml.jolonew").exists()
-        )
-
-
-class TestScaffoldFileSync(unittest.TestCase):
-    """Flavor scaffold files should refresh on recreate when jolo owns them."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.project = Path(self.tmpdir) / "demo"
-        self.project.mkdir()
-        (self.project / "pyproject.toml").write_text(
-            "[project]\nname = 'demo'\ndependencies = ['fastapi']\n"
-        )
-        (self.project / "templates").mkdir()
-        old_base = "<!DOCTYPE html>\n<html><body>old</body></html>\n"
-        (self.project / "templates" / "base.html").write_text(old_base)
-        hashes_path = self.project / ".devcontainer" / ".template-hashes.json"
-        hashes_path.parent.mkdir(parents=True, exist_ok=True)
-        hashes_path.write_text(
-            json.dumps(
-                {
-                    "templates/base.html": setup.hashlib.sha256(
-                        old_base.encode()
-                    ).hexdigest()
-                },
-                indent=2,
-            )
-            + "\n"
-        )
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-
-    def test_sync_updates_tracked_python_web_base_template(self):
-        setup.sync_template_files(self.project)
-        content = (self.project / "templates" / "base.html").read_text()
-        self.assertIn('href="#main"', content)
-        self.assertIn('<main id="main">', content)
-        self.assertFalse(
-            (self.project / "templates" / "base.html.jolonew").exists()
         )
 
 
