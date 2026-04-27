@@ -124,7 +124,10 @@ modified the buffer. Errors on concurrent external modification before save."
                                            &optional note)
   "Append one worklog entry for the action on FILE/HEADING.
 STATE-FROM and STATE-TO bracket a transition; both nil means a
-plain note add. No-op when `bergheim/agent-worklog-dir' is unset."
+plain note add. No-op when `bergheim/agent-worklog-dir' is unset.
+Returns the absolute worklog path on append, nil on no-op — callers
+add this to their `:wrote' list so agents re-Read it before any
+subsequent Edit."
   (when bergheim/agent-worklog-dir
     (let* ((project (bergheim/agent-worklog--project-name file))
            (now     (format-time-string "[%Y-%m-%d %a %H:%M]"))
@@ -147,7 +150,8 @@ plain note add. No-op when `bergheim/agent-worklog-dir' is unset."
                        (concat note "\n"))))
            (path (expand-file-name "worklog.org"
                                    bergheim/agent-worklog-dir)))
-      (write-region entry nil path 'append 'silent))))
+      (write-region entry nil path 'append 'silent)
+      path)))
 
 ;;; Heading selectors
 
@@ -291,7 +295,7 @@ Returns a plist:
 Agents should re-Read every path in `:wrote' before any subsequent
 Edit so the harness's mtime check does not fire."
   (let ((inhibit-message t)
-        old-state heading dirty)
+        old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
@@ -301,8 +305,10 @@ Edit so the harness's mtime check does not fire."
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (%s)" new-state heading-re))
-    (bergheim/agent-worklog-append file heading old-state new-state note)
-    (list :wrote (when dirty (list (expand-file-name file)))
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading old-state new-state note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
           :state new-state
           :state-from old-state
           :heading heading)))
@@ -315,7 +321,7 @@ Edit so the harness's mtime check does not fire."
 Returns the same plist shape as `bergheim/agent-org-set-state', plus
 `:id' echoing the input ID for caller convenience."
   (let ((inhibit-message t)
-        old-state heading dirty)
+        old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-by-id id)
       (setq heading (org-get-heading t t t t))
@@ -325,8 +331,10 @@ Returns the same plist shape as `bergheim/agent-org-set-state', plus
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (id %s)" new-state id))
-    (bergheim/agent-worklog-append file heading old-state new-state note)
-    (list :wrote (when dirty (list (expand-file-name file)))
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading old-state new-state note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
           :state new-state
           :state-from old-state
           :heading heading
@@ -361,7 +369,7 @@ in FILE, without changing the TODO state.
 
 Returns a plist with `:wrote' (list of modified paths) and `:heading'."
   (let ((inhibit-message t)
-        heading dirty)
+        heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
@@ -378,8 +386,10 @@ Returns a plist with `:wrote' (list of modified paths) and `:heading'."
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "note: %s" heading-re))
-    (bergheim/agent-worklog-append file heading nil nil note)
-    (list :wrote (when dirty (list (expand-file-name file)))
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading nil nil note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
           :heading heading)))
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)

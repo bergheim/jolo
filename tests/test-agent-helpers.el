@@ -60,15 +60,17 @@ kill the buffer afterward."
 
 (ert-deftest agent-helpers/set-state-returns-wrote-plist ()
   "`set-state' returns a plist announcing which file it wrote, plus state.
-Agents grep `:wrote' to know which paths to re-Read before any next Edit."
-  (test-agent-helpers--with-file "* TODO Foo\n"
-    (let ((result (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")))
-      (should (listp result))
-      (should (equal (plist-get result :wrote)
-                     (list (expand-file-name test-file))))
-      (should (equal (plist-get result :state) "DONE"))
-      (should (equal (plist-get result :state-from) "TODO"))
-      (should (equal (plist-get result :heading) "Foo")))))
+Agents grep `:wrote' to know which paths to re-Read before any next Edit.
+Worklog interaction is covered separately; isolate by disabling it here."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (let ((result (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")))
+        (should (listp result))
+        (should (equal (plist-get result :wrote)
+                       (list (expand-file-name test-file))))
+        (should (equal (plist-get result :state) "DONE"))
+        (should (equal (plist-get result :state-from) "TODO"))
+        (should (equal (plist-get result :heading) "Foo"))))))
 
 ;; ----------------------------------------------------------------------------
 ;; New: ambiguity detection
@@ -128,16 +130,17 @@ and reports `:wrote' only when the buffer was actually modified."
 
 (ert-deftest agent-helpers/set-state-by-id-returns-wrote-plist ()
   "`set-state-by-id' echoes the same `:wrote' contract as `set-state'."
-  (test-agent-helpers--with-file
-      "* TODO Entry\n:PROPERTIES:\n:ID: zzz-321\n:END:\n"
-    (let ((result (bergheim/agent-org-set-state-by-id
-                   test-file "zzz-321" "DONE")))
-      (should (equal (plist-get result :wrote)
-                     (list (expand-file-name test-file))))
-      (should (equal (plist-get result :state) "DONE"))
-      (should (equal (plist-get result :state-from) "TODO"))
-      (should (equal (plist-get result :id) "zzz-321"))
-      (should (equal (plist-get result :heading) "Entry")))))
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file
+        "* TODO Entry\n:PROPERTIES:\n:ID: zzz-321\n:END:\n"
+      (let ((result (bergheim/agent-org-set-state-by-id
+                     test-file "zzz-321" "DONE")))
+        (should (equal (plist-get result :wrote)
+                       (list (expand-file-name test-file))))
+        (should (equal (plist-get result :state) "DONE"))
+        (should (equal (plist-get result :state-from) "TODO"))
+        (should (equal (plist-get result :id) "zzz-321"))
+        (should (equal (plist-get result :heading) "Entry"))))))
 
 ;; ----------------------------------------------------------------------------
 ;; New: add-note
@@ -154,11 +157,12 @@ and reports `:wrote' only when the buffer was actually modified."
 
 (ert-deftest agent-helpers/add-note-returns-wrote-plist ()
   "`add-note' announces the file it modified plus the matched heading."
-  (test-agent-helpers--with-file "* TODO Foo\n"
-    (let ((result (bergheim/agent-org-add-note test-file "TODO Foo" "log entry")))
-      (should (equal (plist-get result :wrote)
-                     (list (expand-file-name test-file))))
-      (should (equal (plist-get result :heading) "Foo")))))
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (let ((result (bergheim/agent-org-add-note test-file "TODO Foo" "log entry")))
+        (should (equal (plist-get result :wrote)
+                       (list (expand-file-name test-file))))
+        (should (equal (plist-get result :heading) "Foo"))))))
 
 (ert-deftest agent-helpers/add-tag-returns-wrote-and-empty-on-idempotent ()
   "`add-tag' reports `:wrote' on a real change and an empty list on no-op."
@@ -478,6 +482,25 @@ worklog file path to WORKLOG-PATH-VAR. Cleans up on exit."
     (test-agent-helpers--with-file "* TODO Foo\n"
       ;; Should not error, should not create any file.
       (bergheim/agent-org-set-state test-file "TODO Foo" "DONE"))))
+
+(ert-deftest agent-helpers/wrote-includes-worklog-when-appended ()
+  "When worklog-append fires, the helper's `:wrote' includes the worklog
+path so agents re-Read it before any subsequent Edit."
+  (test-agent-helpers--with-worklog log-path
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (let* ((result (bergheim/agent-org-set-state test-file "TODO Foo" "DONE"))
+             (wrote (plist-get result :wrote)))
+        (should (member (expand-file-name test-file) wrote))
+        (should (member log-path wrote))))))
+
+(ert-deftest agent-helpers/wrote-omits-worklog-when-dir-unset ()
+  "When `bergheim/agent-worklog-dir' is nil, no worklog write happens
+and `:wrote' contains only the org file (or is empty on no-op)."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (let* ((result (bergheim/agent-org-set-state test-file "TODO Foo" "DONE"))
+             (wrote (plist-get result :wrote)))
+        (should (equal wrote (list (expand-file-name test-file))))))))
 
 (ert-deftest agent-helpers/worklog-multiple-transitions-accumulate ()
   "Subsequent helper calls append to the same worklog file."
