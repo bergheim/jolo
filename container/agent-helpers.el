@@ -334,19 +334,34 @@ Returns the same plist shape as `bergheim/agent-org-set-state', plus
 
 (defun bergheim/agent-org-ensure-id (file heading-re)
   "Ensure the unique heading matching HEADING-RE in FILE carries an :ID:.
-Uses `org-id-get-create'. Idempotent: returns the existing or new ID."
-  (let (id)
+Uses `org-id-get-create'. Idempotent — when the heading already has an
+ID, the buffer is not modified.
+
+Returns a plist:
+  :wrote   list of absolute paths the helper modified — empty when the
+           ID was already present
+  :id      the existing or newly-created ID string
+  :heading the matched heading text"
+  (let ((inhibit-message t)
+        id heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq id (org-id-get-create)))
+      (setq heading (org-get-heading t t t t))
+      (setq id (org-id-get-create))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "id: ensure %s" heading-re))
-    id))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :id id
+          :heading heading)))
 
 (defun bergheim/agent-org-add-note (file heading-re note)
   "Append NOTE to the :LOGBOOK: of the unique heading matching HEADING-RE
-in FILE, without changing the TODO state."
-  (let (heading)
+in FILE, without changing the TODO state.
+
+Returns a plist with `:wrote' (list of modified paths) and `:heading'."
+  (let ((inhibit-message t)
+        heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
@@ -359,46 +374,71 @@ in FILE, without changing the TODO state."
           (with-current-buffer "*Org Note*"
             (goto-char (point-max))
             (insert note)
-            (org-store-log-note)))))
+            (org-store-log-note))))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "note: %s" heading-re))
-    (bergheim/agent-worklog-append file heading nil nil note))
-  t)
+    (bergheim/agent-worklog-append file heading nil nil note)
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :heading heading)))
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)
   "Add TAG (string or list of strings) to the unique heading matching
-HEADING-RE in FILE. Idempotent: saves only when tags actually change."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (let* ((new-tags (if (listp tag) tag (list tag)))
-           (current (org-get-tags nil t))
-           (merged (cl-remove-duplicates
-                    (append current new-tags)
-                    :test #'string=)))
-      (unless (equal (sort (copy-sequence current) #'string<)
-                     (sort (copy-sequence merged) #'string<))
-        (org-set-tags merged))))
-  (bergheim/agent-notes--maybe-commit
-   file (format "tag: +%s (%s)"
-                (if (listp tag) (mapconcat #'identity tag ",") tag)
-                heading-re))
-  t)
+HEADING-RE in FILE. Idempotent: when the tag is already present, the
+buffer is not modified.
+
+Returns a plist:
+  :wrote   list of modified paths — empty on idempotent call
+  :tags    final tag list on the heading
+  :heading the matched heading text"
+  (let ((inhibit-message t)
+        heading tags dirty)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (let* ((new-tags (if (listp tag) tag (list tag)))
+             (current (org-get-tags nil t))
+             (merged (cl-remove-duplicates
+                      (append current new-tags)
+                      :test #'string=)))
+        (unless (equal (sort (copy-sequence current) #'string<)
+                       (sort (copy-sequence merged) #'string<))
+          (org-set-tags merged))
+        (setq tags (org-get-tags nil t)))
+      (setq dirty (buffer-modified-p)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "tag: +%s (%s)"
+                  (if (listp tag) (mapconcat #'identity tag ",") tag)
+                  heading-re))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :tags tags
+          :heading heading)))
 
 (defun bergheim/agent-org-remove-tag (file heading-re tag)
   "Remove TAG (string or list of strings) from the unique heading matching
-HEADING-RE in FILE. Idempotent: saves only when tags actually change."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (let* ((drop-tags (if (listp tag) tag (list tag)))
-           (current (org-get-tags nil t))
-           (kept (cl-set-difference current drop-tags :test #'string=)))
-      (unless (equal (length current) (length kept))
-        (org-set-tags kept))))
-  (bergheim/agent-notes--maybe-commit
-   file (format "tag: -%s (%s)"
-                (if (listp tag) (mapconcat #'identity tag ",") tag)
-                heading-re))
-  t)
+HEADING-RE in FILE. Idempotent: when the tag is absent, the buffer is
+not modified.
+
+Returns the same plist shape as `bergheim/agent-org-add-tag'."
+  (let ((inhibit-message t)
+        heading tags dirty)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (let* ((drop-tags (if (listp tag) tag (list tag)))
+             (current (org-get-tags nil t))
+             (kept (cl-set-difference current drop-tags :test #'string=)))
+        (unless (equal (length current) (length kept))
+          (org-set-tags kept))
+        (setq tags (org-get-tags nil t)))
+      (setq dirty (buffer-modified-p)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "tag: -%s (%s)"
+                  (if (listp tag) (mapconcat #'identity tag ",") tag)
+                  heading-re))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :tags tags
+          :heading heading)))
 
 ;;; Denote-compatible agent helpers
 ;; Create/find/list/read follow denote's filename convention without requiring
