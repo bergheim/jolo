@@ -375,5 +375,56 @@ host git config."
           (should-not (file-directory-p (expand-file-name ".git" docs-dir))))
       (delete-directory project t))))
 
+;; ----------------------------------------------------------------------------
+;; Worklog: cross-project tape
+;; ----------------------------------------------------------------------------
+
+(defmacro test-agent-helpers--with-worklog (worklog-path-var &rest body)
+  "Bind a temp dir to `bergheim/agent-worklog-dir' and the resolved
+worklog file path to WORKLOG-PATH-VAR. Cleans up on exit."
+  (declare (indent 1))
+  `(let* ((stash (make-temp-file "agent-worklog-" t))
+          (bergheim/agent-worklog-dir stash)
+          (,worklog-path-var (expand-file-name "worklog.org" stash)))
+     (unwind-protect (progn ,@body)
+       (delete-directory stash t))))
+
+(ert-deftest agent-helpers/worklog-appends-on-state-change ()
+  "`set-state' appends an entry with TRANSITION and SOURCE link."
+  (test-agent-helpers--with-worklog log-path
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
+      (let ((contents (test-agent-helpers--contents log-path)))
+        (should (string-match-p "DONE  Foo" contents))
+        (should (string-match-p ":TRANSITION: TODO → DONE" contents))
+        (should (string-match-p ":SOURCE:.*::\\*Foo" contents))))))
+
+(ert-deftest agent-helpers/worklog-appends-on-add-note ()
+  "`add-note' appends with TRANSITION = NOTE and the note body."
+  (test-agent-helpers--with-worklog log-path
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (bergheim/agent-org-add-note test-file "TODO Foo" "made progress")
+      (let ((contents (test-agent-helpers--contents log-path)))
+        (should (string-match-p "NOTE  Foo" contents))
+        (should (string-match-p ":TRANSITION: NOTE" contents))
+        (should (string-match-p "made progress" contents))))))
+
+(ert-deftest agent-helpers/worklog-noop-when-dir-unset ()
+  "`worklog-append' must not error or create a file when dir is nil."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      ;; Should not error, should not create any file.
+      (bergheim/agent-org-set-state test-file "TODO Foo" "DONE"))))
+
+(ert-deftest agent-helpers/worklog-multiple-transitions-accumulate ()
+  "Subsequent helper calls append to the same worklog file."
+  (test-agent-helpers--with-worklog log-path
+    (test-agent-helpers--with-file "* TODO Foo\n* TODO Bar\n"
+      (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+      (bergheim/agent-org-set-state test-file "TODO Bar" "DONE")
+      (let ((contents (test-agent-helpers--contents log-path)))
+        (should (string-match-p "INPROGRESS  Foo" contents))
+        (should (string-match-p "DONE  Bar" contents))))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here

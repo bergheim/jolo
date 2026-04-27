@@ -99,6 +99,56 @@ modified the buffer. Errors on concurrent external modification before save."
                  (error "File modified externally while editing: %s" ,path))
                (save-buffer))))))))
 
+;;; Cross-project worklog
+;;
+;; Every successful state transition or note-add appends a single org
+;; entry to a stash-side worklog. Per-project `docs/TODO.org' remains
+;; the source of truth (full body text, LOGBOOK, etc.); the worklog is
+;; a denormalized chronological tape for cross-project scanning from
+;; either the host shell (`rg DONE ~/stash/worklog.org') or `org-agenda'.
+
+(defvar bergheim/agent-worklog-dir
+  (cl-find-if #'file-directory-p
+              '("/workspaces/stash/" "~/stash/"))
+  "Stash dir resolved for host or devcontainer. nil disables logging.")
+
+(defun bergheim/agent-worklog--project-name (file)
+  "Best-guess project name: nearest git root's basename."
+  (let ((abs (expand-file-name file)))
+    (file-name-nondirectory
+     (directory-file-name
+      (or (locate-dominating-file abs ".git")
+          (file-name-directory abs))))))
+
+(defun bergheim/agent-worklog-append (file heading state-from state-to
+                                           &optional note)
+  "Append one worklog entry for the action on FILE/HEADING.
+STATE-FROM and STATE-TO bracket a transition; both nil means a
+plain note add. No-op when `bergheim/agent-worklog-dir' is unset."
+  (when bergheim/agent-worklog-dir
+    (let* ((project (bergheim/agent-worklog--project-name file))
+           (now     (format-time-string "[%Y-%m-%d %a %H:%M]"))
+           (state   (or state-to "NOTE"))
+           (transition (if state-from
+                           (format "%s → %s" state-from state-to)
+                         state))
+           (link    (format "[[file:%s::*%s][%s]]"
+                            (expand-file-name file) heading
+                            (file-name-nondirectory file)))
+           (entry   (concat
+                     (format "* %s [%s] %s  %s\n"
+                             now project state heading)
+                     ":PROPERTIES:\n"
+                     (format ":PROJECT:    %s\n" project)
+                     (format ":TRANSITION: %s\n" transition)
+                     (format ":SOURCE:     %s\n" link)
+                     ":END:\n"
+                     (when (and note (not (string-empty-p note)))
+                       (concat note "\n"))))
+           (path (expand-file-name "worklog.org"
+                                   bergheim/agent-worklog-dir)))
+      (write-region entry nil path 'append 'silent))))
+
 ;;; Heading selectors
 
 (defun bergheim/agent-org--find-unique-heading (heading-re)
@@ -182,7 +232,8 @@ Leaves clocks running on other headings alone."
 (defun bergheim/agent-org--apply-state (new-state note ensure-session-id clock)
   "At point-on-heading, apply NEW-STATE. Optionally attach NOTE, assign
 SESSION_ID (on INPROGRESS), and clock in/out on the state transition.
-Notes always land in the :LOGBOOK: drawer regardless of user config."
+Notes always land in the :LOGBOOK: drawer regardless of user config.
+Returns the prior state (string or nil), so callers can log transitions."
   (let ((old-state (org-get-todo-state))
         (org-log-into-drawer "LOGBOOK"))
     (org-todo new-state)
@@ -211,7 +262,8 @@ Notes always land in the :LOGBOOK: drawer regardless of user config."
         (with-current-buffer "*Org Note*"
           (goto-char (point-max))
           (when note (insert note))
-          (org-store-log-note))))))
+          (org-store-log-note))))
+    old-state))
 
 ;;; Public API
 
@@ -228,22 +280,32 @@ Optional args:
   on DONE/BLOCKED/CANCELLED
 
 Safe from `emacsclient --eval' — never prompts interactively."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
-  (bergheim/agent-notes--maybe-commit
-   file (format "state: → %s (%s)" new-state heading-re))
+  (let (old-state heading)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (setq old-state
+            (bergheim/agent-org--apply-state
+             new-state note ensure-session-id clock)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "state: → %s (%s)" new-state heading-re))
+    (bergheim/agent-worklog-append file heading old-state new-state note))
   t)
 
 (defun bergheim/agent-org-set-state-by-id (file id new-state
                                                 &optional note ensure-session-id clock)
   "Like `bergheim/agent-org-set-state' but selects the heading by its
 :ID: property. IDs are globally unique so ambiguity is not possible."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-by-id id)
-    (bergheim/agent-org--apply-state new-state note ensure-session-id clock))
-  (bergheim/agent-notes--maybe-commit
-   file (format "state: → %s (id %s)" new-state id))
+  (let (old-state heading)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-by-id id)
+      (setq heading (org-get-heading t t t t))
+      (setq old-state
+            (bergheim/agent-org--apply-state
+             new-state note ensure-session-id clock)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "state: → %s (id %s)" new-state id))
+    (bergheim/agent-worklog-append file heading old-state new-state note))
   t)
 
 (defun bergheim/agent-org-ensure-id (file heading-re)
@@ -260,20 +322,23 @@ Uses `org-id-get-create'. Idempotent: returns the existing or new ID."
 (defun bergheim/agent-org-add-note (file heading-re note)
   "Append NOTE to the :LOGBOOK: of the unique heading matching HEADING-RE
 in FILE, without changing the TODO state."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (let ((org-log-into-drawer "LOGBOOK"))
-      (org-add-log-setup 'note nil nil 'findpos)
-      (when (memq 'org-add-log-note (default-value 'post-command-hook))
-        (remove-hook 'post-command-hook 'org-add-log-note)
-        (org-add-log-note))
-      (when (get-buffer "*Org Note*")
-        (with-current-buffer "*Org Note*"
-          (goto-char (point-max))
-          (insert note)
-          (org-store-log-note)))))
-  (bergheim/agent-notes--maybe-commit
-   file (format "note: %s" heading-re))
+  (let (heading)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (let ((org-log-into-drawer "LOGBOOK"))
+        (org-add-log-setup 'note nil nil 'findpos)
+        (when (memq 'org-add-log-note (default-value 'post-command-hook))
+          (remove-hook 'post-command-hook 'org-add-log-note)
+          (org-add-log-note))
+        (when (get-buffer "*Org Note*")
+          (with-current-buffer "*Org Note*"
+            (goto-char (point-max))
+            (insert note)
+            (org-store-log-note)))))
+    (bergheim/agent-notes--maybe-commit
+     file (format "note: %s" heading-re))
+    (bergheim/agent-worklog-append file heading nil nil note))
   t)
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)
