@@ -124,7 +124,10 @@ modified the buffer. Errors on concurrent external modification before save."
                                            &optional note)
   "Append one worklog entry for the action on FILE/HEADING.
 STATE-FROM and STATE-TO bracket a transition; both nil means a
-plain note add. No-op when `bergheim/agent-worklog-dir' is unset."
+plain note add. No-op when `bergheim/agent-worklog-dir' is unset.
+Returns the absolute worklog path on append, nil on no-op — callers
+add this to their `:wrote' list so agents re-Read it before any
+subsequent Edit."
   (when bergheim/agent-worklog-dir
     (let* ((project (bergheim/agent-worklog--project-name file))
            (now     (format-time-string "[%Y-%m-%d %a %H:%M]"))
@@ -147,7 +150,8 @@ plain note add. No-op when `bergheim/agent-worklog-dir' is unset."
                        (concat note "\n"))))
            (path (expand-file-name "worklog.org"
                                    bergheim/agent-worklog-dir)))
-      (write-region entry nil path 'append 'silent))))
+      (write-region entry nil path 'append 'silent)
+      path)))
 
 ;;; Heading selectors
 
@@ -279,50 +283,93 @@ Optional args:
 - CLOCK: when non-nil, `org-clock-in' on INPROGRESS and `org-clock-out'
   on DONE/BLOCKED/CANCELLED
 
-Safe from `emacsclient --eval' — never prompts interactively."
-  (let (old-state heading)
+Safe from `emacsclient --eval' — never prompts interactively.
+
+Returns a plist:
+  :wrote      list of absolute paths the helper modified (may be empty
+              if the change was a no-op)
+  :state      the new state string
+  :state-from the prior state string (may be nil)
+  :heading    the matched heading text (TODO/tags/priority stripped)
+
+Agents should re-Read every path in `:wrote' before any subsequent
+Edit so the harness's mtime check does not fire."
+  (let ((inhibit-message t)
+        old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
       (setq old-state
             (bergheim/agent-org--apply-state
-             new-state note ensure-session-id clock)))
+             new-state note ensure-session-id clock))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (%s)" new-state heading-re))
-    (bergheim/agent-worklog-append file heading old-state new-state note))
-  t)
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading old-state new-state note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
+          :state new-state
+          :state-from old-state
+          :heading heading)))
 
 (defun bergheim/agent-org-set-state-by-id (file id new-state
                                                 &optional note ensure-session-id clock)
   "Like `bergheim/agent-org-set-state' but selects the heading by its
-:ID: property. IDs are globally unique so ambiguity is not possible."
-  (let (old-state heading)
+:ID: property. IDs are globally unique so ambiguity is not possible.
+
+Returns the same plist shape as `bergheim/agent-org-set-state', plus
+`:id' echoing the input ID for caller convenience."
+  (let ((inhibit-message t)
+        old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-by-id id)
       (setq heading (org-get-heading t t t t))
       (setq old-state
             (bergheim/agent-org--apply-state
-             new-state note ensure-session-id clock)))
+             new-state note ensure-session-id clock))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (id %s)" new-state id))
-    (bergheim/agent-worklog-append file heading old-state new-state note))
-  t)
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading old-state new-state note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
+          :state new-state
+          :state-from old-state
+          :heading heading
+          :id id)))
 
 (defun bergheim/agent-org-ensure-id (file heading-re)
   "Ensure the unique heading matching HEADING-RE in FILE carries an :ID:.
-Uses `org-id-get-create'. Idempotent: returns the existing or new ID."
-  (let (id)
+Uses `org-id-get-create'. Idempotent — when the heading already has an
+ID, the buffer is not modified.
+
+Returns a plist:
+  :wrote   list of absolute paths the helper modified — empty when the
+           ID was already present
+  :id      the existing or newly-created ID string
+  :heading the matched heading text"
+  (let ((inhibit-message t)
+        id heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq id (org-id-get-create)))
+      (setq heading (org-get-heading t t t t))
+      (setq id (org-id-get-create))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "id: ensure %s" heading-re))
-    id))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :id id
+          :heading heading)))
 
 (defun bergheim/agent-org-add-note (file heading-re note)
   "Append NOTE to the :LOGBOOK: of the unique heading matching HEADING-RE
-in FILE, without changing the TODO state."
-  (let (heading)
+in FILE, without changing the TODO state.
+
+Returns a plist with `:wrote' (list of modified paths) and `:heading'."
+  (let ((inhibit-message t)
+        heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
@@ -335,46 +382,73 @@ in FILE, without changing the TODO state."
           (with-current-buffer "*Org Note*"
             (goto-char (point-max))
             (insert note)
-            (org-store-log-note)))))
+            (org-store-log-note))))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "note: %s" heading-re))
-    (bergheim/agent-worklog-append file heading nil nil note))
-  t)
+    (setq worklog-path
+          (bergheim/agent-worklog-append file heading nil nil note))
+    (list :wrote (delq nil (list (when dirty (expand-file-name file))
+                                 worklog-path))
+          :heading heading)))
 
 (defun bergheim/agent-org-add-tag (file heading-re tag)
   "Add TAG (string or list of strings) to the unique heading matching
-HEADING-RE in FILE. Idempotent: saves only when tags actually change."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (let* ((new-tags (if (listp tag) tag (list tag)))
-           (current (org-get-tags nil t))
-           (merged (cl-remove-duplicates
-                    (append current new-tags)
-                    :test #'string=)))
-      (unless (equal (sort (copy-sequence current) #'string<)
-                     (sort (copy-sequence merged) #'string<))
-        (org-set-tags merged))))
-  (bergheim/agent-notes--maybe-commit
-   file (format "tag: +%s (%s)"
-                (if (listp tag) (mapconcat #'identity tag ",") tag)
-                heading-re))
-  t)
+HEADING-RE in FILE. Idempotent: when the tag is already present, the
+buffer is not modified.
+
+Returns a plist:
+  :wrote   list of modified paths — empty on idempotent call
+  :tags    final tag list on the heading
+  :heading the matched heading text"
+  (let ((inhibit-message t)
+        heading tags dirty)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (let* ((new-tags (if (listp tag) tag (list tag)))
+             (current (org-get-tags nil t))
+             (merged (cl-remove-duplicates
+                      (append current new-tags)
+                      :test #'string=)))
+        (unless (equal (sort (copy-sequence current) #'string<)
+                       (sort (copy-sequence merged) #'string<))
+          (org-set-tags merged))
+        (setq tags (org-get-tags nil t)))
+      (setq dirty (buffer-modified-p)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "tag: +%s (%s)"
+                  (if (listp tag) (mapconcat #'identity tag ",") tag)
+                  heading-re))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :tags tags
+          :heading heading)))
 
 (defun bergheim/agent-org-remove-tag (file heading-re tag)
   "Remove TAG (string or list of strings) from the unique heading matching
-HEADING-RE in FILE. Idempotent: saves only when tags actually change."
-  (bergheim/agent-org--with-file file
-    (bergheim/agent-org--find-unique-heading heading-re)
-    (let* ((drop-tags (if (listp tag) tag (list tag)))
-           (current (org-get-tags nil t))
-           (kept (cl-set-difference current drop-tags :test #'string=)))
-      (unless (equal (length current) (length kept))
-        (org-set-tags kept))))
-  (bergheim/agent-notes--maybe-commit
-   file (format "tag: -%s (%s)"
-                (if (listp tag) (mapconcat #'identity tag ",") tag)
-                heading-re))
-  t)
+HEADING-RE in FILE. Idempotent: when the tag is absent, the buffer is
+not modified.
+
+Returns the same plist shape as `bergheim/agent-org-add-tag'."
+  (let ((inhibit-message t)
+        heading tags dirty)
+    (bergheim/agent-org--with-file file
+      (bergheim/agent-org--find-unique-heading heading-re)
+      (setq heading (org-get-heading t t t t))
+      (let* ((drop-tags (if (listp tag) tag (list tag)))
+             (current (org-get-tags nil t))
+             (kept (cl-set-difference current drop-tags :test #'string=)))
+        (unless (equal (length current) (length kept))
+          (org-set-tags kept))
+        (setq tags (org-get-tags nil t)))
+      (setq dirty (buffer-modified-p)))
+    (bergheim/agent-notes--maybe-commit
+     file (format "tag: -%s (%s)"
+                  (if (listp tag) (mapconcat #'identity tag ",") tag)
+                  heading-re))
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :tags tags
+          :heading heading)))
 
 ;;; Denote-compatible agent helpers
 ;; Create/find/list/read follow denote's filename convention without requiring
@@ -414,8 +488,16 @@ Returns nil if the filename doesn't match denote format."
   "Create a denote-format note in DIR with TITLE, KEYWORDS list, and BODY.
 KEYWORDS are sanitized (underscores/spaces become hyphens).
 On same-second collision, appends a counter suffix to the ID.
-Returns the absolute file path. Safe for emacsclient --eval."
-  (let* ((id (format-time-string "%Y%m%dT%H%M%S"))
+
+Returns a plist:
+  :wrote list with the absolute file path
+  :path  the absolute file path (same value, for caller convenience)
+  :id    the denote identifier
+  :title the input title
+
+Safe for emacsclient --eval."
+  (let* ((inhibit-message t)
+         (id (format-time-string "%Y%m%dT%H%M%S"))
          (slug (bergheim/agent-denote--slugify title))
          (clean-kw (seq-filter (lambda (s) (not (string-empty-p s)))
                                (mapcar #'bergheim/agent-denote--sanitize-keyword keywords)))
@@ -456,7 +538,10 @@ Returns the absolute file path. Safe for emacsclient --eval."
                           (format "#+identifier: %s" final-id)
                           content)))))
       (bergheim/agent-notes--maybe-commit filepath (format "note: %s" title))
-      filepath)))
+      (list :wrote (list filepath)
+            :path filepath
+            :id final-id
+            :title title))))
 
 (defun bergheim/agent-denote-find (dir &optional keywords title-re)
   "Find denote notes in DIR, optionally filtered by KEYWORDS and TITLE-RE.
@@ -499,9 +584,16 @@ Each entry is a plist with :id :title :keywords :path."
 Appends a \"Related notes\" section if absent, then adds any links not
 already present. Uses denote.el APIs for proper [[denote:ID]] links.
 TARGET-PATHS is a list of absolute paths to denote notes.
+
+Returns a plist:
+  :wrote list of paths modified (just SOURCE-PATH if any link was
+         added; empty list when every target was already linked)
+  :added integer count of links added on this call
+
 Safe for emacsclient --eval."
   (require 'denote)
-  (let ((denote-directory (file-name-directory source-path))
+  (let ((inhibit-message t)
+        (denote-directory (file-name-directory source-path))
         (source-buf (find-file-noselect source-path t)))
     (with-current-buffer source-buf
       (let ((auto-revert-mode nil)
@@ -537,7 +629,8 @@ Safe for emacsclient --eval."
             (bergheim/agent-notes--maybe-commit
              source-path
              (format "note: link %d related" (length links-to-add))))
-          (length links-to-add))))))
+          (list :wrote (when links-to-add (list source-path))
+                :added (length links-to-add)))))))
 
 ;;; Autonomous dispatch selector/marker
 ;; Companion to `jolo autonomous'. Safe for `emacsclient --eval' — never

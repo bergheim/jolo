@@ -147,10 +147,13 @@ disambiguate.
 emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
 ```
 
-**Ensure a stable `:ID:` property (returns the id):**
+**Ensure a stable `:ID:` property:**
 
 ```bash
+# Full plist response (default):
 emacsclient -e '(bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading")'
+# When you only need the id string:
+emacsclient -e '(plist-get (bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading") :id)'
 ```
 
 **Transition by `:ID:` (immune to heading renames and duplicate headings):**
@@ -179,6 +182,25 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 # Remove a tag (idempotent)
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
+
+### Helper return contract
+
+Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper returns
+a plist. The canonical key is `:wrote` — a list of absolute file paths
+the helper modified on disk, possibly empty when the operation was
+idempotent (state already matched, tag already present, ID already
+assigned, link already there).
+
+**Always re-Read every path in `:wrote` before any subsequent Edit.**
+The harness mtime-checks every Read→Edit pair; a helper's invisible
+write between them makes the next Edit fail with "File has been
+modified since read." Treat `:wrote` as ground truth — don't rely on
+mtime, which has 1-second resolution on older filesystems and can race
+within the same second.
+
+Other plist keys are helper-specific (`:state`, `:state-from`,
+`:heading`, `:id`, `:title`, `:path`, `:tags`, `:added`). Use
+`(plist-get RESULT :key)` to extract.
 
 ## Project Memory
 

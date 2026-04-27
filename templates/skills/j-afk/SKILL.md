@@ -26,30 +26,21 @@ Work autonomously while the user is away. Create multiple feature branches seque
    - Small useful features
    - Test coverage gaps
 
-3. **For each improvement, sequentially:**
+3. **For each improvement, run the full /j-feature-workflow sequence.** The user is away, so the quality bar is higher: branch isolation, TDD where applicable, frequent commits, and *two* external agent reviews before declaring done. The workflow is:
 
-   a. Check out the base branch:
-      ```bash
-      git checkout <from>
-      ```
+   a. Check out the base branch (`git checkout <from>`).
+   b. Create a feature branch (`git checkout -b <prefix>/<descriptive-name>`).
+   c. If feasible, write a failing test first.
+   d. Implement in small increments; commit after each coherent slice.
+   e. Run `just test` (or `python -m pytest tests/`) and `just lint` (if available); fix anything you broke.
+   f. **First external review** — pipe the diff to codex (or gemini, claude, etc.); use the lean invocation pattern from AGENTS.md "Cross-Agent Reviews"; ask for the highest reasoning model.
+   g. Apply review fixes; commit.
+   h. **Second external review** — pipe again; different reviewer is fine.
+   i. Apply fixes; commit. Optionally open a draft PR if a remote is configured.
+   j. If this completes a TODO.org item, mark it `DONE`.
+   k. Return to the base branch before starting the next improvement (`git checkout <from>`).
 
-   b. Create a new branch:
-      ```bash
-      git checkout -b <prefix>/<descriptive-name>
-      ```
-
-   c. Implement the change. Write tests if applicable. Run `just test` (or `python -m pytest tests/`) to verify nothing is broken.
-
-   d. Run `just lint` if available. Fix any issues in code you touched.
-
-   e. Commit with a clear message describing what and why.
-
-   f. If this completes a TODO.org item, mark it `DONE`.
-
-   g. Go back to the base branch before starting the next one:
-      ```bash
-      git checkout <from>
-      ```
+   Two reviews matter here precisely *because* the user is not in the loop. Skipping a review to save time defeats the point of /j-afk.
 
 4. **After all branches are created**, print a summary:
    - Branch name + one-line description for each
