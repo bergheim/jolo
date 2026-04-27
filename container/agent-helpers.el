@@ -478,8 +478,16 @@ Returns nil if the filename doesn't match denote format."
   "Create a denote-format note in DIR with TITLE, KEYWORDS list, and BODY.
 KEYWORDS are sanitized (underscores/spaces become hyphens).
 On same-second collision, appends a counter suffix to the ID.
-Returns the absolute file path. Safe for emacsclient --eval."
-  (let* ((id (format-time-string "%Y%m%dT%H%M%S"))
+
+Returns a plist:
+  :wrote list with the absolute file path
+  :path  the absolute file path (same value, for caller convenience)
+  :id    the denote identifier
+  :title the input title
+
+Safe for emacsclient --eval."
+  (let* ((inhibit-message t)
+         (id (format-time-string "%Y%m%dT%H%M%S"))
          (slug (bergheim/agent-denote--slugify title))
          (clean-kw (seq-filter (lambda (s) (not (string-empty-p s)))
                                (mapcar #'bergheim/agent-denote--sanitize-keyword keywords)))
@@ -520,7 +528,10 @@ Returns the absolute file path. Safe for emacsclient --eval."
                           (format "#+identifier: %s" final-id)
                           content)))))
       (bergheim/agent-notes--maybe-commit filepath (format "note: %s" title))
-      filepath)))
+      (list :wrote (list filepath)
+            :path filepath
+            :id final-id
+            :title title))))
 
 (defun bergheim/agent-denote-find (dir &optional keywords title-re)
   "Find denote notes in DIR, optionally filtered by KEYWORDS and TITLE-RE.
@@ -563,9 +574,16 @@ Each entry is a plist with :id :title :keywords :path."
 Appends a \"Related notes\" section if absent, then adds any links not
 already present. Uses denote.el APIs for proper [[denote:ID]] links.
 TARGET-PATHS is a list of absolute paths to denote notes.
+
+Returns a plist:
+  :wrote list of paths modified (just SOURCE-PATH if any link was
+         added; empty list when every target was already linked)
+  :added integer count of links added on this call
+
 Safe for emacsclient --eval."
   (require 'denote)
-  (let ((denote-directory (file-name-directory source-path))
+  (let ((inhibit-message t)
+        (denote-directory (file-name-directory source-path))
         (source-buf (find-file-noselect source-path t)))
     (with-current-buffer source-buf
       (let ((auto-revert-mode nil)
@@ -601,7 +619,8 @@ Safe for emacsclient --eval."
             (bergheim/agent-notes--maybe-commit
              source-path
              (format "note: link %d related" (length links-to-add))))
-          (length links-to-add))))))
+          (list :wrote (when links-to-add (list source-path))
+                :added (length links-to-add)))))))
 
 ;;; Autonomous dispatch selector/marker
 ;; Companion to `jolo autonomous'. Safe for `emacsclient --eval' — never

@@ -489,5 +489,23 @@ worklog file path to WORKLOG-PATH-VAR. Cleans up on exit."
         (should (string-match-p "INPROGRESS  Foo" contents))
         (should (string-match-p "DONE  Bar" contents))))))
 
+;; ----------------------------------------------------------------------------
+;; Denote helpers: structured returns
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/denote-create-returns-wrote-plist ()
+  "`denote-create' returns a plist with :wrote, :path, :id, :title."
+  (let ((dir (make-temp-file "agent-denote-" t)))
+    (unwind-protect
+        (let ((result (bergheim/agent-denote-create
+                       dir "Hello world" '("kind" "topic"))))
+          (should (equal (plist-get result :wrote)
+                         (list (plist-get result :path))))
+          (should (file-exists-p (plist-get result :path)))
+          (should (string-match-p "[0-9]\\{8\\}T[0-9]\\{6\\}"
+                                  (plist-get result :id)))
+          (should (equal (plist-get result :title) "Hello world")))
+      (delete-directory dir t))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here
