@@ -120,7 +120,7 @@ def generate_precommit_config(flavors: list[str]) -> str:
             "hooks": [
                 {"id": "trailing-whitespace"},
                 {"id": "end-of-file-fixer"},
-                {"id": "check-added-large-files"},
+                {"id": "check-added-large-files", "args": ["--maxkb=5120"]},
             ],
         },
     ]
