@@ -493,6 +493,28 @@ path so agents re-Read it before any subsequent Edit."
         (should (member (expand-file-name test-file) wrote))
         (should (member log-path wrote))))))
 
+(ert-deftest agent-helpers/plist-strings-have-no-text-properties ()
+  "Plist string values must be plain strings (no font-lock properties).
+Org's `org-get-heading' / `org-get-todo-state' return propertized
+strings; we strip them so stdout from `emacsclient -e' is clean and
+non-elisp parsers don't choke on the `#(\"...\" 0 N (...))' syntax."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Probe  :alpha:\n"
+      (let ((r-state (bergheim/agent-org-set-state
+                      test-file "TODO Probe" "DONE")))
+        (should-not (text-properties-at 0 (plist-get r-state :state)))
+        (should-not (text-properties-at 0 (plist-get r-state :state-from)))
+        (should-not (text-properties-at 0 (plist-get r-state :heading))))))
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Probe\n"
+      (let ((r-id (bergheim/agent-org-ensure-id test-file "TODO Probe")))
+        (should-not (text-properties-at 0 (plist-get r-id :id)))
+        (should-not (text-properties-at 0 (plist-get r-id :heading)))))
+    (test-agent-helpers--with-file "* TODO Probe\n"
+      (let ((r-tag (bergheim/agent-org-add-tag test-file "TODO Probe" "x")))
+        (dolist (tag (plist-get r-tag :tags))
+          (should-not (text-properties-at 0 tag)))))))
+
 (ert-deftest agent-helpers/wrote-omits-worklog-when-dir-unset ()
   "When `bergheim/agent-worklog-dir' is nil, no worklog write happens
 and `:wrote' contains only the org file (or is empty on no-op)."

@@ -155,6 +155,14 @@ subsequent Edit."
 
 ;;; Heading selectors
 
+(defun bergheim/agent-org--strip (s)
+  "Strip text properties from S. Returns nil if S is nil."
+  (and s (substring-no-properties s)))
+
+(defun bergheim/agent-org--strip-list (lst)
+  "Strip text properties from each string in LST."
+  (mapcar #'bergheim/agent-org--strip lst))
+
 (defun bergheim/agent-org--find-unique-heading (heading-re)
   "Move point to the unique heading whose heading line matches HEADING-RE.
 Matches against heading lines only, not body text. Error if no match; on
@@ -238,7 +246,7 @@ Leaves clocks running on other headings alone."
 SESSION_ID (on INPROGRESS), and clock in/out on the state transition.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
-  (let ((old-state (org-get-todo-state))
+  (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
         (org-log-into-drawer "LOGBOOK"))
     (org-todo new-state)
     (let ((actual-state (org-get-todo-state)))
@@ -298,7 +306,7 @@ Edit so the harness's mtime check does not fire."
         old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq heading (org-get-heading t t t t))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
       (setq old-state
             (bergheim/agent-org--apply-state
              new-state note ensure-session-id clock))
@@ -324,7 +332,7 @@ Returns the same plist shape as `bergheim/agent-org-set-state', plus
         old-state heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-by-id id)
-      (setq heading (org-get-heading t t t t))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
       (setq old-state
             (bergheim/agent-org--apply-state
              new-state note ensure-session-id clock))
@@ -354,8 +362,8 @@ Returns a plist:
         id heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq heading (org-get-heading t t t t))
-      (setq id (org-id-get-create))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
+      (setq id (bergheim/agent-org--strip (org-id-get-create)))
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "id: ensure %s" heading-re))
@@ -372,7 +380,7 @@ Returns a plist with `:wrote' (list of modified paths) and `:heading'."
         heading dirty worklog-path)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq heading (org-get-heading t t t t))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
       (let ((org-log-into-drawer "LOGBOOK"))
         (org-add-log-setup 'note nil nil 'findpos)
         (when (memq 'org-add-log-note (default-value 'post-command-hook))
@@ -405,7 +413,7 @@ Returns a plist:
         heading tags dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq heading (org-get-heading t t t t))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
       (let* ((new-tags (if (listp tag) tag (list tag)))
              (current (org-get-tags nil t))
              (merged (cl-remove-duplicates
@@ -414,7 +422,7 @@ Returns a plist:
         (unless (equal (sort (copy-sequence current) #'string<)
                        (sort (copy-sequence merged) #'string<))
           (org-set-tags merged))
-        (setq tags (org-get-tags nil t)))
+        (setq tags (bergheim/agent-org--strip-list (org-get-tags nil t))))
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "tag: +%s (%s)"
@@ -434,13 +442,13 @@ Returns the same plist shape as `bergheim/agent-org-add-tag'."
         heading tags dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
-      (setq heading (org-get-heading t t t t))
+      (setq heading (bergheim/agent-org--strip (org-get-heading t t t t)))
       (let* ((drop-tags (if (listp tag) tag (list tag)))
              (current (org-get-tags nil t))
              (kept (cl-set-difference current drop-tags :test #'string=)))
         (unless (equal (length current) (length kept))
           (org-set-tags kept))
-        (setq tags (org-get-tags nil t)))
+        (setq tags (bergheim/agent-org--strip-list (org-get-tags nil t))))
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "tag: -%s (%s)"
