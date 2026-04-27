@@ -137,12 +137,9 @@ RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
 
 # Root-level setup (no script COPYs here — those go after heavy layers to avoid cache busting)
 COPY container/browser-check.js /usr/local/lib/browser-check.js
-ARG SQUAWK_VERSION=2.49.0
 RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint && \
-    wget -qO /usr/local/bin/squawk "https://github.com/sbdchd/squawk/releases/download/v${SQUAWK_VERSION}/squawk-linux-musl-x64" && \
-    chmod +x /usr/local/bin/squawk && \
     mkdir -p /workspaces /opt/pre-commit-cache && \
     chown $USERNAME:$USERNAME /workspaces /opt/pre-commit-cache
 
@@ -178,7 +175,8 @@ RUN pnpm add -g \
     markdownlint-cli \
     pa11y
 
-RUN cargo install bacon --locked --root $HOME/.local
+RUN cargo install bacon --locked --root $HOME/.local && \
+    cargo install squawk --locked --root $HOME/.local
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
