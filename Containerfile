@@ -175,8 +175,7 @@ RUN pnpm add -g \
     markdownlint-cli \
     pa11y
 
-RUN cargo install bacon --locked --root $HOME/.local && \
-    cargo install squawk --locked --root $HOME/.local
+RUN cargo install --locked --root $HOME/.local bacon squawk
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
