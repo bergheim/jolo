@@ -58,6 +58,18 @@ kill the buffer afterward."
     (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
     (should (string-match-p "^\\* DONE Foo" (test-agent-helpers--contents test-file)))))
 
+(ert-deftest agent-helpers/set-state-returns-wrote-plist ()
+  "`set-state' returns a plist announcing which file it wrote, plus state.
+Agents grep `:wrote' to know which paths to re-Read before any next Edit."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (let ((result (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")))
+      (should (listp result))
+      (should (equal (plist-get result :wrote)
+                     (list (expand-file-name test-file))))
+      (should (equal (plist-get result :state) "DONE"))
+      (should (equal (plist-get result :state-from) "TODO"))
+      (should (equal (plist-get result :heading) "Foo")))))
+
 ;; ----------------------------------------------------------------------------
 ;; New: ambiguity detection
 ;; ----------------------------------------------------------------------------
@@ -105,6 +117,19 @@ kill the buffer afterward."
     (should-error
      (bergheim/agent-org-set-state-by-id test-file "not-a-real-id" "DONE")
      :type 'error)))
+
+(ert-deftest agent-helpers/set-state-by-id-returns-wrote-plist ()
+  "`set-state-by-id' echoes the same `:wrote' contract as `set-state'."
+  (test-agent-helpers--with-file
+      "* TODO Entry\n:PROPERTIES:\n:ID: zzz-321\n:END:\n"
+    (let ((result (bergheim/agent-org-set-state-by-id
+                   test-file "zzz-321" "DONE")))
+      (should (equal (plist-get result :wrote)
+                     (list (expand-file-name test-file))))
+      (should (equal (plist-get result :state) "DONE"))
+      (should (equal (plist-get result :state-from) "TODO"))
+      (should (equal (plist-get result :id) "zzz-321"))
+      (should (equal (plist-get result :heading) "Entry")))))
 
 ;; ----------------------------------------------------------------------------
 ;; New: add-note

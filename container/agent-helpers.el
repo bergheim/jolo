@@ -279,34 +279,58 @@ Optional args:
 - CLOCK: when non-nil, `org-clock-in' on INPROGRESS and `org-clock-out'
   on DONE/BLOCKED/CANCELLED
 
-Safe from `emacsclient --eval' — never prompts interactively."
-  (let (old-state heading)
+Safe from `emacsclient --eval' — never prompts interactively.
+
+Returns a plist:
+  :wrote      list of absolute paths the helper modified (may be empty
+              if the change was a no-op)
+  :state      the new state string
+  :state-from the prior state string (may be nil)
+  :heading    the matched heading text (TODO/tags/priority stripped)
+
+Agents should re-Read every path in `:wrote' before any subsequent
+Edit so the harness's mtime check does not fire."
+  (let ((inhibit-message t)
+        old-state heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-unique-heading heading-re)
       (setq heading (org-get-heading t t t t))
       (setq old-state
             (bergheim/agent-org--apply-state
-             new-state note ensure-session-id clock)))
+             new-state note ensure-session-id clock))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (%s)" new-state heading-re))
-    (bergheim/agent-worklog-append file heading old-state new-state note))
-  t)
+    (bergheim/agent-worklog-append file heading old-state new-state note)
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :state new-state
+          :state-from old-state
+          :heading heading)))
 
 (defun bergheim/agent-org-set-state-by-id (file id new-state
                                                 &optional note ensure-session-id clock)
   "Like `bergheim/agent-org-set-state' but selects the heading by its
-:ID: property. IDs are globally unique so ambiguity is not possible."
-  (let (old-state heading)
+:ID: property. IDs are globally unique so ambiguity is not possible.
+
+Returns the same plist shape as `bergheim/agent-org-set-state', plus
+`:id' echoing the input ID for caller convenience."
+  (let ((inhibit-message t)
+        old-state heading dirty)
     (bergheim/agent-org--with-file file
       (bergheim/agent-org--find-by-id id)
       (setq heading (org-get-heading t t t t))
       (setq old-state
             (bergheim/agent-org--apply-state
-             new-state note ensure-session-id clock)))
+             new-state note ensure-session-id clock))
+      (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
      file (format "state: → %s (id %s)" new-state id))
-    (bergheim/agent-worklog-append file heading old-state new-state note))
-  t)
+    (bergheim/agent-worklog-append file heading old-state new-state note)
+    (list :wrote (when dirty (list (expand-file-name file)))
+          :state new-state
+          :state-from old-state
+          :heading heading
+          :id id)))
 
 (defun bergheim/agent-org-ensure-id (file heading-re)
   "Ensure the unique heading matching HEADING-RE in FILE carries an :ID:.
