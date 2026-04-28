@@ -343,9 +343,9 @@ class TestExecMode(unittest.TestCase):
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     def test_exec_calls_devcontainer_exec(self, mock_exec):
         """Should call devcontainer_exec_command with the joined command."""
-        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        args = jolo.parse_args(["exec", "pnpm", "run", "dev"])
         jolo.run_exec_mode(args)
-        mock_exec.assert_called_once_with(self.git_root, "npm run dev")
+        mock_exec.assert_called_once_with(self.git_root, "pnpm run dev")
 
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     def test_exec_strips_double_dash(self, mock_exec):

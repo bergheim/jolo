@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "npx is intentionally unavailable in this devcontainer." >&2
+echo "Use pnpmx (or: pnpm dlx) instead." >&2
+echo "Example: pnpmx playwright install" >&2
+exit 1

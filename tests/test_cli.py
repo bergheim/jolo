@@ -542,9 +542,9 @@ class TestExecArgParsing(unittest.TestCase):
     """Test exec subcommand argument parsing."""
 
     def test_exec_command_parsed(self):
-        args = jolo.parse_args(["exec", "npm", "run", "dev"])
+        args = jolo.parse_args(["exec", "pnpm", "run", "dev"])
         self.assertEqual(args.command, "exec")
-        self.assertEqual(args.exec_command, ["npm", "run", "dev"])
+        self.assertEqual(args.exec_command, ["pnpm", "run", "dev"])
 
 
 class TestDetectFlavors(unittest.TestCase):

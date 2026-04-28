@@ -312,7 +312,7 @@ The real Emacs config lives on the host (`~/.config/emacs/`). The container copy
 
 ```bash
 # In your dev server config, always use $PORT
-npm run dev -- --port $PORT
+pnpm run dev -- --port $PORT
 python -m http.server $PORT
 flask run --port $PORT
 ```
@@ -432,7 +432,7 @@ Use `test` only for ad-hoc/manual test pings (e.g., `NTFY_TOPIC=test`).
 **Networking:**
 - Each project gets a random port in 4000-5000 assigned at creation time, forwarded from container to host
 - Use `$PORT` for dev servers - it's set in the container environment and accessible via Tailscale
-- Example: run `npm run dev -- --port $PORT` and access from another machine via `http://<tailscale-ip>:$PORT`
+- Example: run `pnpm run dev -- --port $PORT` and access from another machine via `http://<tailscale-ip>:$PORT`
 
 ## Installed Tools
 
@@ -642,7 +642,7 @@ jolo tree feat --from develop     # branch worktree from specific ref
 jolo up -d                        # start detached (no tmux attach)
 jolo up --shell                   # exec zsh directly (no tmux)
 jolo up --run claude              # exec command directly (no tmux)
-jolo up --run "npm test"          # run arbitrary command
+jolo up --run "pnpm test"         # run arbitrary command
 jolo init                         # initialize git + devcontainer in current dir
 jolo up --recreate                # sync config from template and recreate container
 jolo a --recreate                 # pick container, sync + recreate, reattach

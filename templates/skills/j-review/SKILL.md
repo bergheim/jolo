@@ -24,7 +24,7 @@ If no files are given, and we are on a branch different from main, review the co
 
 Suggested order:
 - If `justfile` exists: `just test` or a targeted recipe.
-- Else if `package.json` exists: `npm test` or `pnpm test` (use the repo norm).
+- Else if `package.json` exists: `pnpm test` (or the repo's declared equivalent).
 - Else if `pyproject.toml` exists: `just test` or `uv run pytest` if already configured.
 - Else if `go.mod` exists: `go test ./...`.
 - Else: run nothing and explain.

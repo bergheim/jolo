@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "npm is intentionally unavailable in this devcontainer." >&2
+echo "Use pnpm instead." >&2
+echo "Example: pnpm install, pnpm test, pnpm run dev" >&2
+exit 1
