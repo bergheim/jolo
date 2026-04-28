@@ -1,5 +1,9 @@
 export APP_PROFILE := env_var_or_default("APP_PROFILE", "1")
 
+# Show all recipes (alias for `just --list`)
+help:
+    @just --list
+
 # Open in browser
 browse:
     #!/bin/sh
