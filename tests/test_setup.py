@@ -148,7 +148,7 @@ class TestTemplateSystem(unittest.TestCase):
         )
 
     def test_copy_template_files_includes_stash_note_guidance_and_skill(self):
-        """Generated projects should get stash-note guidance and skill."""
+        """Generated projects should get stash-note guidance and key skills."""
         project_dir = Path(self.tmpdir) / "project"
         project_dir.mkdir()
 
@@ -163,6 +163,12 @@ class TestTemplateSystem(unittest.TestCase):
         )
         self.assertTrue(skill_file.exists())
         self.assertIn("name: j-note-stash", skill_file.read_text())
+
+        web_skill = (
+            project_dir / ".jolo" / "skills" / "j-scaffold-web" / "SKILL.md"
+        )
+        self.assertTrue(web_skill.exists())
+        self.assertIn("name: j-scaffold-web", web_skill.read_text())
 
 
 class TestSecretsManagement(unittest.TestCase):
