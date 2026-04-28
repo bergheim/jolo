@@ -1,15 +1,6 @@
 #!/bin/sh
-# share: copy a file or directory to the host stash, then print (and
-# OSC52-clipboard) a tailnet URL that exposes it via `tailscale serve`
-# running on the host. No SSH, no creds, no daemons inside the container —
-# just a local FS write and a terminal escape.
-#
-# Host one-time setup (outside this container):
-#   sudo tailscale set --operator=$USER
-#   tailscale serve --bg --http 8080 ~/stash/share
-#   export SHARE_BASE_URL=http://<host>.<your-tailnet>:8080
-# The SHARE_BASE_URL env var is read inside containers via the bind-
-# mounted ~/.zshrc — same propagation pattern as PERF_HOST / LLAMA_HOST.
+# Copy a file/dir to the host stash and emit a tailnet URL pointing at
+# it. See AGENTS.md "Sharing files to the local laptop" for host setup.
 
 set -eu
 
@@ -21,20 +12,20 @@ if [ ! -e "$target" ]; then
 fi
 
 abs=$(realpath "$target")
-base=$(basename "$abs")
+base=${abs##*/}
 
-# Stash mount path differs between the devcontainer and the host.
 if [ -d /workspaces/stash ]; then
     stash=/workspaces/stash
 elif [ -d "$HOME/stash" ]; then
     stash=$HOME/stash
 else
-    echo "share: no stash directory found at /workspaces/stash or ~/stash" >&2
+    echo "share: no stash directory at /workspaces/stash or ~/stash" >&2
     exit 1
 fi
 
-# Project name = nearest git toplevel basename, else cwd basename.
-project=$(basename "$(git -C "$(dirname "$abs")" rev-parse --show-toplevel 2>/dev/null || pwd)")
+parent=${abs%/*}
+toplevel=$(git -C "$parent" rev-parse --show-toplevel 2>/dev/null || pwd)
+project=${toplevel##*/}
 
 dst=$stash/share/$project
 mkdir -p "$dst"
@@ -42,11 +33,10 @@ cp -R "$abs" "$dst/"
 
 if [ -z "${SHARE_BASE_URL:-}" ]; then
     echo "→ $dst/$base"
-    echo "share: set SHARE_BASE_URL on host (e.g. http://host.tailnet:8080) for a one-shot URL" >&2
+    echo "share: set SHARE_BASE_URL on the host for a tailnet URL" >&2
     exit 0
 fi
 
 url="$SHARE_BASE_URL/$project/$base"
-b64=$(printf '%s' "$url" | base64 | tr -d '\n')
-printf '\033]52;c;%s\033\\' "$b64"
+printf '\033]52;c;%s\033\\' "$(printf '%s' "$url" | base64 -w0)"
 echo "→ $url (clipboard)"

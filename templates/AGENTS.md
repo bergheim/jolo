@@ -294,26 +294,27 @@ page.
 
 ## Sharing files to the local laptop
 
-`share <file-or-dir>` copies the target into the host stash at
-`~/stash/share/<project>/<basename>` and prints (and OSC52-clipboards)
-a tailnet URL pointing at that file. Paste the URL into your laptop
-browser to view it — images, PDFs, HTML, anything the browser can render.
-
-Mechanism: a host-side `tailscale serve --bg --http 8080 ~/stash/share`
-exposes the stash share dir to the tailnet; the container's `share`
-script does only a local filesystem `cp`. No SSH, no creds in the
-container, no daemons.
+`share <file-or-dir>` copies the target into the host stash and
+prints a tailnet URL (also OSC52-clipboarded). Paste in your laptop
+browser to view — images, PDFs, anything the browser can render.
 
 ```sh
 share foo.png        # → http://<host>.<tailnet>:8080/<project>/foo.png
-share .              # share the current dir (browser shows the index)
+share .              # share the current dir; browser shows the index
 share /path/to/file  # absolute paths work too
 ```
 
-Set `SHARE_BASE_URL` on the host (e.g. in `~/.zshrc`) so the script
-knows the URL prefix — same propagation pattern as `PERF_HOST` and
-`LLAMA_HOST`. Without it, `share` still copies the file to stash and
-prints the local path; the URL line is just suppressed.
+Host one-time setup:
+
+```sh
+sudo tailscale set --operator=$USER
+tailscale serve --bg --http 8080 ~/stash/share
+echo 'export SHARE_BASE_URL=http://<host>.<your-tailnet>:8080' >> ~/.zshrc
+```
+
+`SHARE_BASE_URL` flows from host `~/.zshrc` into containers via the
+existing zshrc bind-mount, same pattern as `PERF_HOST` and `LLAMA_HOST`.
+Without it, `share` still copies to stash and prints the local path.
 
 ## Development Workflow
 
