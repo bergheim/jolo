@@ -20,6 +20,10 @@ a11y *args:
 db *args="start":
     db {{args}}
 
+# Copy a file/dir to stash and print/clipboard the tailnet URL
+share TARGET=".":
+    @share {{TARGET}}
+
 # Submit perf-rig.toml to the host-side perf hub
 perf:
     #!/bin/sh
