@@ -29,6 +29,12 @@ new note and reference the original.
 
 **Filename format:** `YYYYMMDDTHHMMSS--title-slug__kind_topic1_topic2.org`
 
+This rule also applies to newly-created custom `.org` files elsewhere under
+`docs/`. Do not create ad hoc names like
+`docs/SOME_ARCHITECTURE_SUGGESTION.org`; use a denote-style filename instead.
+The exceptions are established structured files with fixed names such as
+`docs/PROJECT.org` and `docs/TODO.org`.
+
 **Note kinds** (fixed vocabulary, always the first keyword):
 `memory`, `research`, `decision`, `gotcha`, `convention`, `incident`
 

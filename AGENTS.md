@@ -79,6 +79,9 @@ You are encouraged to suggest state-of-the-art CLI tools that could improve deve
 ## File Format Preferences
 
 Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and notes. This is an Emacs-centric project.
+For new custom `.org` files under `docs/`, use denote-style filenames rather
+than ad hoc names. Do not create files like
+`docs/SOME_ARCHITECTURE_SUGGESTION.org`; create a denote-named file instead.
 
 ## Task Tracking
 
@@ -220,6 +223,11 @@ single topic in its own file — no monolithic dumps. Notes are write-once: to a
 to a topic, create a new note and reference the original.
 
 **Filename format:** `YYYYMMDDTHHMMSS--title-slug__kind_topic1_topic2.org`
+
+This rule applies to newly-created custom `.org` files anywhere under `docs/`,
+not just `docs/notes/`. The only exceptions are established structured files
+with fixed names such as `docs/PROJECT.org`, `docs/TODO.org`, `docs/MEMORY.org`,
+and `docs/RESEARCH.org`.
 
 **Note kinds** (fixed vocabulary, always the first keyword):
 `memory`, `research`, `decision`, `gotcha`, `convention`, `incident`
