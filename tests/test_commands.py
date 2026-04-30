@@ -153,6 +153,32 @@ class TestPodmanAllowance(unittest.TestCase):
         self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
 
 
+class TestAllowDenySubcommands(unittest.TestCase):
+    """`jolo allow podman <project>` and `jolo deny podman <project>` parse
+    correctly and end up calling allow_podman/deny_podman."""
+
+    def test_allow_command_parses(self):
+        args = jolo.parse_args(["allow", "podman", "myproject"])
+        self.assertEqual(args.command, "allow")
+        self.assertEqual(args.feature, "podman")
+        self.assertEqual(args.project, "myproject")
+
+    def test_deny_command_parses(self):
+        args = jolo.parse_args(["deny", "podman", "myproject"])
+        self.assertEqual(args.command, "deny")
+        self.assertEqual(args.feature, "podman")
+        self.assertEqual(args.project, "myproject")
+
+    def test_allow_requires_project(self):
+        """Project name must be explicit — no auto-infer, prevents accidental misuse."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(["allow", "podman"])
+
+    def test_allow_rejects_unknown_feature(self):
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(["allow", "wat", "myproject"])
+
+
 class TestListMode(unittest.TestCase):
     """Test list functionality."""
 

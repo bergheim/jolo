@@ -15,8 +15,10 @@ import tomllib
 from _jolo import constants
 from _jolo.cli import (
     _format_container_display,
+    allow_podman,
     check_tmux_guard,
     clipboard_copy,
+    deny_podman,
     detect_flavors,
     detect_hostname,
     find_git_root,
@@ -182,6 +184,28 @@ def _sync_config(
     )
     sync_skill_templates(path)
     sync_template_files(path, force=force)
+
+
+def run_allow_mode(args) -> None:
+    """`jolo allow podman <project>` — opt PROJECT in to host podman socket
+    forwarding. Host-only command; the sentinel path is not bind-mounted into
+    any devcontainer, so an agent inside a container cannot reach this CLI."""
+    if args.feature == "podman":
+        path = allow_podman(args.project)
+        print(f"Allowed podman for {args.project}: {path}")
+        print(f"Run `jolo up --recreate` in {args.project} to apply.")
+
+
+def run_deny_mode(args) -> None:
+    """`jolo deny podman <project>` — opt PROJECT out."""
+    if args.feature == "podman":
+        if deny_podman(args.project):
+            print(f"Denied podman for {args.project}.")
+            print(
+                f"Run `jolo up --recreate` in {args.project} to drop the mount."
+            )
+        else:
+            print(f"podman was not allowed for {args.project}; nothing to do.")
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
@@ -2230,6 +2254,14 @@ def main(argv: list[str] | None = None) -> None:
         from _jolo.publish import run_publish_mode
 
         run_publish_mode(args)
+        return
+
+    if cmd == "allow":
+        run_allow_mode(args)
+        return
+
+    if cmd == "deny":
+        run_deny_mode(args)
         return
 
     # No subcommand — show help

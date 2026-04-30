@@ -699,6 +699,30 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Print the plan without making changes",
     )
 
+    # allow: opt a project into a gated capability
+    sub_allow = subparsers.add_parser(
+        "allow",
+        parents=[p_verbose],
+        help="Opt a project into a gated capability (e.g. cross-container podman)",
+    )
+    sub_allow.add_argument(
+        "feature", choices=["podman"], help="Capability to enable"
+    )
+    sub_allow.add_argument(
+        "project", help="Project name (matches the devcontainer name)"
+    )
+
+    # deny: opt a project out of a gated capability
+    sub_deny = subparsers.add_parser(
+        "deny",
+        parents=[p_verbose],
+        help="Opt a project out of a gated capability",
+    )
+    sub_deny.add_argument(
+        "feature", choices=["podman"], help="Capability to disable"
+    )
+    sub_deny.add_argument("project", help="Project name")
+
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
 
