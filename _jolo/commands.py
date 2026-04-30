@@ -217,6 +217,48 @@ def load_config(
     return config
 
 
+# Cross-container podman access gate. Forwarding the host's rootless
+# podman socket into a devcontainer gives every agent inside it full
+# control over sibling containers. Off by default. Activation is
+# host-side only: `jolo allow podman <project>` creates a sentinel file
+# at ~/.config/jolo/podman-allowed/<project>. That path is not bind-
+# mounted into any devcontainer, so an agent inside a container cannot
+# enable the feature for itself.
+
+_PODMAN_ALLOWED_DIRNAME = "podman-allowed"
+
+
+def _podman_allowed_path(project: str, config_dir: Path | None = None) -> Path:
+    base = (
+        config_dir
+        if config_dir is not None
+        else Path.home() / ".config" / "jolo"
+    )
+    return base / _PODMAN_ALLOWED_DIRNAME / project
+
+
+def is_podman_allowed(project: str, config_dir: Path | None = None) -> bool:
+    """Return True if PROJECT is opted in to host podman socket forwarding."""
+    return _podman_allowed_path(project, config_dir).is_file()
+
+
+def allow_podman(project: str, config_dir: Path | None = None) -> Path:
+    """Opt PROJECT in. Idempotent. Returns the sentinel path."""
+    path = _podman_allowed_path(project, config_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    return path
+
+
+def deny_podman(project: str, config_dir: Path | None = None) -> bool:
+    """Opt PROJECT out. Returns True if the flag existed, False otherwise."""
+    path = _podman_allowed_path(project, config_dir)
+    if path.is_file():
+        path.unlink()
+        return True
+    return False
+
+
 def infer_repo_name(url: str) -> str:
     """Infer repo name from a git URL or path."""
     raw = url.strip().rstrip("/")

@@ -109,6 +109,50 @@ class TestConfigLoading(unittest.TestCase):
         self.assertEqual(config["notify_threshold"], 20)
 
 
+class TestPodmanAllowance(unittest.TestCase):
+    """Cross-container podman access is gated by a host-side flag file
+    that the agent inside any devcontainer cannot reach."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config_dir = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_disallowed_by_default(self):
+        """Without a flag file, the feature is off."""
+        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_allow_creates_flag(self):
+        """allow_podman creates the sentinel file at the documented path."""
+        path = jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(path.exists())
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertEqual(path, self.config_dir / "podman-allowed" / "foo")
+
+    def test_allow_is_idempotent(self):
+        """Calling allow_podman twice doesn't error."""
+        jolo.allow_podman("foo", self.config_dir)
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_deny_removes_flag(self):
+        """deny_podman removes the flag and returns True; subsequent denies return False."""
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.deny_podman("foo", self.config_dir))
+        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertFalse(jolo.deny_podman("foo", self.config_dir))
+
+    def test_per_project_isolation(self):
+        """allow_podman('foo') doesn't enable 'bar'."""
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
+
+
 class TestListMode(unittest.TestCase):
     """Test list functionality."""
 
