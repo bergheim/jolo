@@ -15,6 +15,7 @@ import tomllib
 from _jolo import constants
 from _jolo.cli import (
     _format_container_display,
+    _podman_proxy_pidfile,
     allow_podman,
     check_tmux_guard,
     clipboard_copy,
@@ -240,17 +241,14 @@ def run_allowed_mode(args) -> None:
         print("(no projects opted in)")
         return
     for project in projects:
-        running = is_podman_proxy_running(project)
-        if running:
-            try:
-                from _jolo.cli import _podman_proxy_pidfile
-
-                pid = _podman_proxy_pidfile(project).read_text().strip()
-                print(f"{project}: running (pid {pid})")
-            except OSError:
-                print(f"{project}: running")
-        else:
+        if not is_podman_proxy_running(project):
             print(f"{project}: stopped")
+            continue
+        try:
+            pid = _podman_proxy_pidfile(project).read_text().strip()
+            print(f"{project}: running (pid {pid})")
+        except OSError:
+            print(f"{project}: running")
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
