@@ -267,6 +267,81 @@ class TestPodmanProxyLifecycle(unittest.TestCase):
     def test_stop_returns_false_when_not_running(self):
         self.assertFalse(jolo.stop_podman_proxy("foo", self.config_dir))
 
+    def test_pid_with_wrong_listen_path_is_treated_as_dead(self):
+        """If a recycled PID happens to be running socat for a different
+        project, our project's start/stop/is_running must not treat it
+        as ours."""
+        pidfile = self._pidfile("foo", self.config_dir)
+        pidfile.parent.mkdir(parents=True, exist_ok=True)
+        pidfile.write_text("99999\n")
+        # Simulate: PID is socat, but listening on a different path.
+        with (
+            mock.patch("_jolo.cli._process_is_socat", return_value=False),
+            mock.patch("_jolo.cli._spawn_socat") as fake_spawn,
+        ):
+            fake_spawn.return_value = mock.MagicMock(pid=12345)
+            pid = jolo.start_podman_proxy("foo", self.config_dir)
+            # Treated as dead → spawned a fresh one.
+            self.assertEqual(pid, 12345)
+            fake_spawn.assert_called_once()
+
+
+class TestPodmanAllowRollback(unittest.TestCase):
+    """First allow on a project must roll back the gate dir if socat
+    fails to start, so the next attempt gets the first-time UX
+    (including the `jolo up --recreate` hint)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config_dir = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_first_allow_rolls_back_on_socat_failure(self):
+        from _jolo.cli import _podman_runtime_dir
+
+        with mock.patch(
+            "_jolo.cli._spawn_socat",
+            side_effect=RuntimeError("socat missing"),
+        ):
+            with self.assertRaises(RuntimeError):
+                jolo.allow_podman("foo", self.config_dir)
+        self.assertFalse(_podman_runtime_dir("foo", self.config_dir).exists())
+
+    def test_subsequent_allow_does_not_roll_back_on_failure(self):
+        """A failure on a re-allow must NOT remove the existing gate
+        dir — it was already retrofitted in devcontainer.json and the
+        user shouldn't have to recreate just because socat happened
+        to be down at the moment of re-allow."""
+        from _jolo.cli import _podman_runtime_dir
+
+        # First successful allow.
+        with (
+            mock.patch(
+                "_jolo.cli._spawn_socat", return_value=mock.MagicMock(pid=1)
+            ),
+            mock.patch("_jolo.cli._process_is_socat", return_value=True),
+        ):
+            jolo.allow_podman("foo", self.config_dir)
+        gate = _podman_runtime_dir("foo", self.config_dir)
+        self.assertTrue(gate.is_dir())
+
+        # Second allow with socat broken.
+        with (
+            mock.patch(
+                "_jolo.cli._spawn_socat",
+                side_effect=RuntimeError("socat missing"),
+            ),
+            mock.patch("_jolo.cli._process_is_socat", return_value=False),
+        ):
+            with self.assertRaises(RuntimeError):
+                jolo.allow_podman("foo", self.config_dir)
+        # Gate dir survives.
+        self.assertTrue(gate.is_dir())
+
 
 class TestPodmanWiring(unittest.TestCase):
     """`_sync_config` must propagate is_podman_allowed(name) into
