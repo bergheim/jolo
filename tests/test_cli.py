@@ -333,6 +333,57 @@ class TestPortAllocation(unittest.TestCase):
         self.assertNotIn("OLLAMA_HOST", config["containerEnv"])
 
 
+class TestPodmanSocketForwarding(unittest.TestCase):
+    """Cross-container podman access opt-in surfaces in devcontainer.json
+    only when build_devcontainer_json is called with cross_container=True."""
+
+    def test_socket_mount_absent_by_default(self):
+        """Default rendering must not bind the host podman socket dir."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        for m in config["mounts"]:
+            self.assertNotIn("podman.sock", m)
+            self.assertNotIn("/podman", m)
+
+    def test_container_host_env_absent_by_default(self):
+        """Default rendering must not set CONTAINER_HOST."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        self.assertNotIn("CONTAINER_HOST", config["containerEnv"])
+
+    def test_socket_mount_present_when_enabled(self):
+        """With cross_container=True, the host's podman runtime dir is
+        bind-mounted (the directory, not just the socket file, so a
+        socket-recreation on host doesn't strand the container with a
+        stale inode)."""
+        import json
+
+        result = jolo.build_devcontainer_json("test", cross_container=True)
+        config = json.loads(result)
+        socket_mounts = [m for m in config["mounts"] if "podman" in m]
+        self.assertEqual(len(socket_mounts), 1)
+        m = socket_mounts[0]
+        self.assertIn("XDG_RUNTIME_DIR", m)
+        self.assertIn("target=/run/podman", m)
+        self.assertIn("type=bind", m)
+
+    def test_container_host_env_when_enabled(self):
+        """With cross_container=True, CONTAINER_HOST points at the
+        in-container path so podman acts as a remote client."""
+        import json
+
+        result = jolo.build_devcontainer_json("test", cross_container=True)
+        config = json.loads(result)
+        self.assertEqual(
+            config["containerEnv"]["CONTAINER_HOST"],
+            "unix:///run/podman/podman.sock",
+        )
+
+
 class TestMountArgParsing(unittest.TestCase):
     """Test --mount argument parsing."""
 

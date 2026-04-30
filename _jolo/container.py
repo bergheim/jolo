@@ -25,6 +25,7 @@ def build_devcontainer_json(
     base_image: str | None = None,
     remote_user: str | None = None,
     has_web: bool = False,
+    cross_container: bool = False,
 ) -> str:
     """Build devcontainer.json content dynamically.
 
@@ -34,6 +35,10 @@ def build_devcontainer_json(
     Args:
         project_name: Name of the project/container
         port: Port number for dev servers (random in 4000-5000 if not specified)
+        cross_container: When True, forward the host's rootless podman
+            runtime directory and set CONTAINER_HOST so podman inside
+            the container acts as a remote client of the host daemon.
+            Off by default; gated by ~/.config/jolo/podman-allowed/<project>.
     """
     if port is None:
         port = random_port()
@@ -50,6 +55,15 @@ def build_devcontainer_json(
 
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(constants.WAYLAND_MOUNT)
+
+    if cross_container:
+        # Bind the parent dir, not the socket file: a podman.service
+        # restart recreates the socket inode, and a file-bind would go
+        # stale. The directory inode survives.
+        mounts.append(
+            "source=${localEnv:XDG_RUNTIME_DIR}/podman,"
+            "target=/run/podman,type=bind"
+        )
 
     workspace_folder = f"/workspaces/{project_name}"
     config = {
@@ -95,6 +109,11 @@ def build_devcontainer_json(
             "PROJECT": project_name,
             "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
             **({"NOTIFY_APP": "1"} if has_web else {}),
+            **(
+                {"CONTAINER_HOST": "unix:///run/podman/podman.sock"}
+                if cross_container
+                else {}
+            ),
         },
     }
 
