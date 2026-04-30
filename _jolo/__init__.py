@@ -3,6 +3,9 @@
 import subprocess  # noqa: F401 - re-exported for test mocking (jolo.subprocess.run)
 
 from _jolo.cli import (  # noqa: F401
+    _podman_proxy_pidfile,
+    _podman_proxy_socket,
+    _podman_runtime_dir,
     allow_podman,
     check_tmux_guard,
     clipboard_copy,
@@ -13,6 +16,7 @@ from _jolo.cli import (  # noqa: F401
     generate_random_name,
     get_container_name,
     is_podman_allowed,
+    is_podman_proxy_running,
     is_port_available,
     parse_args,
     parse_copy,
@@ -22,6 +26,8 @@ from _jolo.cli import (  # noqa: F401
     read_port_from_devcontainer,
     select_flavors_interactive,
     slugify_prompt,
+    start_podman_proxy,
+    stop_podman_proxy,
     verbose_cmd,
     verbose_print,
 )

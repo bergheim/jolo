@@ -24,6 +24,7 @@ from _jolo.cli import (
     find_git_root,
     generate_random_name,
     is_podman_allowed,
+    is_podman_proxy_running,
     is_port_available,
     parse_args,
     parse_copy,
@@ -188,24 +189,68 @@ def _sync_config(
 
 def run_allow_mode(args) -> None:
     """`jolo allow podman <project>` — opt PROJECT in to host podman socket
-    forwarding. Host-only command; the sentinel path is not bind-mounted into
-    any devcontainer, so an agent inside a container cannot reach this CLI."""
+    forwarding. Host-only command. Starts a socat proxy at the project's
+    gate directory; the agent inside the container cannot reach this CLI
+    or the gate path to flip the proxy itself."""
     if args.feature == "podman":
-        path = allow_podman(args.project)
-        print(f"Allowed podman for {args.project}: {path}")
-        print(f"Run `jolo up --recreate` in {args.project} to apply.")
+        first_time = not is_podman_allowed(args.project)
+        try:
+            gate_dir = allow_podman(args.project)
+        except RuntimeError as exc:
+            sys.exit(f"Error: {exc}")
+        running = is_podman_proxy_running(args.project)
+        verb = "Allowed" if first_time else "Restarted proxy for"
+        print(f"{verb} podman for {args.project}.")
+        print(f"  gate:  {gate_dir}")
+        print(
+            f"  proxy: {'running' if running else 'NOT running (socat installed?)'}"
+        )
+        if first_time:
+            print(
+                f"  next:  cd {args.project} && jolo up --recreate    "
+                "(one-time retrofit; future toggles are instant)"
+            )
 
 
 def run_deny_mode(args) -> None:
-    """`jolo deny podman <project>` — opt PROJECT out."""
+    """`jolo deny podman <project>` — stop the socat proxy. Keeps the
+    gate dir so the bind-mount stays in devcontainer.json across
+    recreates and re-allowing later doesn't need another --recreate."""
     if args.feature == "podman":
         if deny_podman(args.project):
-            print(f"Denied podman for {args.project}.")
-            print(
-                f"Run `jolo up --recreate` in {args.project} to drop the mount."
-            )
+            print(f"Denied podman for {args.project} (socat stopped).")
         else:
-            print(f"podman was not allowed for {args.project}; nothing to do.")
+            print(
+                f"podman proxy was not running for {args.project}; nothing to do."
+            )
+
+
+def run_allowed_mode(args) -> None:
+    """`jolo allowed` — list every project that has been opted in to
+    cross-container podman, with proxy state.
+
+    Prints `<project>: running (pid)` or `<project>: stopped` per line,
+    so the output is easy to read and easy to grep."""
+    base = Path.home() / ".config" / "jolo" / "podman-runtime"
+    if not base.is_dir():
+        print("(no projects opted in)")
+        return
+    projects = sorted(d.name for d in base.iterdir() if d.is_dir())
+    if not projects:
+        print("(no projects opted in)")
+        return
+    for project in projects:
+        running = is_podman_proxy_running(project)
+        if running:
+            try:
+                from _jolo.cli import _podman_proxy_pidfile
+
+                pid = _podman_proxy_pidfile(project).read_text().strip()
+                print(f"{project}: running (pid {pid})")
+            except OSError:
+                print(f"{project}: running")
+        else:
+            print(f"{project}: stopped")
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
@@ -2262,6 +2307,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "deny":
         run_deny_mode(args)
+        return
+
+    if cmd == "allowed":
+        run_allowed_mode(args)
         return
 
     # No subcommand — show help

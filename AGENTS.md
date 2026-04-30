@@ -510,27 +510,39 @@ becomes a remote client of the host's rootless podman daemon — useful
 when an agent needs to inspect or run commands in *sibling* devcontainers
 (e.g. driving a docker-compose stack in a peer project).
 
+The activation runs a host-side socat proxy at the project's gate path;
+toggling the proxy (`allow`/`deny`) flips the capability **instantly
+without container recreation**. The first allow on a project still
+needs one `--recreate` to retrofit the always-mount; after that,
+future toggles take effect on the next `podman …` call inside the
+running container.
+
 ```sh
 # on the host, NOT inside any container:
-jolo allow podman <project>
+jolo allow podman <project>           # creates gate dir + starts socat
+cd <project> && jolo up --recreate    # one-time retrofit
 
-# then in the project's checkout (host-side cd, not inside the container):
-cd <project> && jolo up --recreate
+# later toggling — no recreate needed:
+jolo deny podman <project>            # stops socat (gate dir stays)
+jolo allow podman <project>           # restarts socat
 
-# to revoke later:
-jolo deny podman <project>
-cd <project> && jolo up --recreate
+# what's running:
+jolo allowed                          # list projects with podman state
 ```
 
-The flag file at `~/.config/jolo/podman-allowed/<project>` is not
-bind-mounted into any devcontainer. An agent inside a container has no
-filesystem path to reach it and no way to invoke the host's `jolo` —
-activation has to be a deliberate host-side act.
+The gate directory `~/.config/jolo/podman-runtime/<project>/` is host-
+only (not bind-mounted into any devcontainer in a writable location),
+and `jolo` itself only exists on the host. An agent inside a container
+has no path to reach the gate or the CLI — activation has to be a
+deliberate host-side act.
 
 When allowed: `podman ps`, `podman exec <peer> <cmd>`, `podman logs
 <peer>` etc. all work as remote-client calls against the host daemon.
-When not allowed: `podman` errors with the overlayfs-on-overlayfs
-storage message — that's the "off" state, not a bug.
+When not allowed: `podman` errors with `Cannot connect to Podman …
+no such file or directory` — that's the "off" state, not a bug.
+
+Host requires `socat` (apk, pacman, etc.). `jolo allow` errors
+cleanly with an install hint if missing.
 
 ## Browser Automation Tool Guide
 

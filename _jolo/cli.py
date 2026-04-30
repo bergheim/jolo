@@ -1,6 +1,8 @@
 """Utility functions and CLI argument parsing for jolo."""
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import random
@@ -723,6 +725,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     sub_deny.add_argument("project", help="Project name")
 
+    # allowed: list projects with active capabilities
+    subparsers.add_parser(
+        "allowed",
+        parents=[p_verbose],
+        help="List projects with cross-container podman access enabled",
+    )
+
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
 
@@ -796,43 +805,190 @@ def _format_container_display(workspace_folder: str) -> str:
     return p.name
 
 
-# Cross-container podman access gate. Forwarding the host's rootless
-# podman socket into a devcontainer gives every agent inside it full
-# control over sibling containers. Off by default. Activation is
-# host-side only: `jolo allow podman <project>` creates a sentinel file
-# at ~/.config/jolo/podman-allowed/<project>. That path is not bind-
-# mounted into any devcontainer, so an agent inside a container cannot
-# enable the feature for itself.
+# Cross-container podman access gate. `jolo allow podman <project>`
+# creates a per-project gate directory at
+# ~/.config/jolo/podman-runtime/<project>/ AND starts a socat proxy
+# listening at <gate>/podman.sock that forwards to the host's
+# $XDG_RUNTIME_DIR/podman/podman.sock. The devcontainer bind-mounts
+# the gate directory at /run/podman, so toggling socat (allow/deny)
+# flips the capability instantly without container recreation. The
+# gate dir itself is host-only — not bind-mounted into any container
+# under a writable host path — so an agent inside cannot reach this
+# CLI or its state to flip the gate for itself.
 
-_PODMAN_ALLOWED_DIRNAME = "podman-allowed"
+_PODMAN_RUNTIME_DIRNAME = "podman-runtime"
 
 
-def _podman_allowed_path(project: str, config_dir: Path | None = None) -> Path:
+def _podman_runtime_dir(project: str, config_dir: Path | None = None) -> Path:
     base = (
         config_dir
         if config_dir is not None
         else Path.home() / ".config" / "jolo"
     )
-    return base / _PODMAN_ALLOWED_DIRNAME / project
+    return base / _PODMAN_RUNTIME_DIRNAME / project
+
+
+def _podman_proxy_socket(project: str, config_dir: Path | None = None) -> Path:
+    return _podman_runtime_dir(project, config_dir) / "podman.sock"
+
+
+def _podman_proxy_pidfile(
+    project: str, config_dir: Path | None = None
+) -> Path:
+    return _podman_runtime_dir(project, config_dir) / "socat.pid"
+
+
+def _process_is_socat(pid: int, listen_path: Path | None = None) -> bool:
+    """True iff PID exists, is socat, and (when listen_path is given)
+    has UNIX-LISTEN:<listen_path> on its argv. Without listen_path,
+    a bare socat anywhere in cmdline is a false positive against PID
+    reuse — callers should pass listen_path whenever they have one."""
+    try:
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return False
+    if b"socat" not in cmdline:
+        return False
+    if listen_path is not None:
+        return f"UNIX-LISTEN:{listen_path}".encode() in cmdline
+    return True
+
+
+def _spawn_socat(listen_path: Path, target_path: Path) -> subprocess.Popen:
+    """Spawn a detached socat that forwards listen_path → target_path.
+    Detached so it survives the parent jolo invocation."""
+    listen_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        return subprocess.Popen(
+            [
+                "socat",
+                f"UNIX-LISTEN:{listen_path},fork,reuseaddr,unlink-early",
+                f"UNIX-CONNECT:{target_path}",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "socat is required for cross-container podman access "
+            "(install with `apk add socat` / `pacman -S socat` / etc.)"
+        ) from exc
+
+
+@contextlib.contextmanager
+def _podman_proxy_lock(project: str, config_dir: Path | None = None):
+    """Serialize concurrent jolo allow/deny on the same project so two
+    callers can't double-spawn or race-cleanup. Lockfile lives next to
+    the pidfile; flock is released when the context exits."""
+    gate_dir = _podman_runtime_dir(project, config_dir)
+    gate_dir.mkdir(parents=True, exist_ok=True)
+    lockfile = gate_dir / ".lock"
+    with open(lockfile, "w") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+def is_podman_proxy_running(
+    project: str, config_dir: Path | None = None
+) -> bool:
+    pidfile = _podman_proxy_pidfile(project, config_dir)
+    if not pidfile.is_file():
+        return False
+    try:
+        pid = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        return False
+    return _process_is_socat(pid, _podman_proxy_socket(project, config_dir))
+
+
+def start_podman_proxy(project: str, config_dir: Path | None = None) -> int:
+    """Start (or attach to) the socat proxy for PROJECT. Returns its PID.
+    Idempotent: a live socat for the same listen path is reused; stale
+    pidfiles (dead PID, recycled PID running unrelated process, recycled
+    PID running a *different* socat) are replaced. Concurrent callers
+    are serialized via a per-project flock."""
+    socket_path = _podman_proxy_socket(project, config_dir)
+    pidfile = _podman_proxy_pidfile(project, config_dir)
+    with _podman_proxy_lock(project, config_dir):
+        if pidfile.is_file():
+            try:
+                existing = int(pidfile.read_text().strip())
+                if _process_is_socat(existing, socket_path):
+                    return existing
+            except (OSError, ValueError):
+                pass
+
+        target = (
+            Path(os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000"))
+            / "podman"
+            / "podman.sock"
+        )
+        proc = _spawn_socat(socket_path, target)
+        pidfile.write_text(f"{proc.pid}\n")
+        return proc.pid
+
+
+def stop_podman_proxy(project: str, config_dir: Path | None = None) -> bool:
+    """Stop the socat proxy for PROJECT. Returns True if it was running.
+    Concurrent callers are serialized via the per-project flock; only
+    the process matching this project's listen path is killed (defends
+    against PID reuse)."""
+    pidfile = _podman_proxy_pidfile(project, config_dir)
+    socket_path = _podman_proxy_socket(project, config_dir)
+    with _podman_proxy_lock(project, config_dir):
+        if not pidfile.is_file():
+            return False
+        try:
+            pid = int(pidfile.read_text().strip())
+        except (OSError, ValueError):
+            pidfile.unlink(missing_ok=True)
+            return False
+        was_running = _process_is_socat(pid, socket_path)
+        if was_running:
+            try:
+                os.kill(pid, 15)  # SIGTERM
+            except ProcessLookupError:
+                was_running = False
+        pidfile.unlink(missing_ok=True)
+        socket_path.unlink(missing_ok=True)
+        return was_running
 
 
 def is_podman_allowed(project: str, config_dir: Path | None = None) -> bool:
-    """Return True if PROJECT is opted in to host podman socket forwarding."""
-    return _podman_allowed_path(project, config_dir).is_file()
+    """True if PROJECT has been retrofitted (gate dir exists). Whether
+    the proxy is currently running is a separate question — see
+    `is_podman_proxy_running`."""
+    return _podman_runtime_dir(project, config_dir).is_dir()
 
 
 def allow_podman(project: str, config_dir: Path | None = None) -> Path:
-    """Opt PROJECT in. Idempotent. Returns the sentinel path."""
-    path = _podman_allowed_path(project, config_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
-    return path
+    """Opt PROJECT in: ensure gate dir exists and start the socat proxy.
+    Idempotent. If start fails on the *first* allow (e.g. socat missing)
+    the just-created gate dir is rolled back, so the next attempt sees
+    a clean first-time state and the user gets the `jolo up --recreate`
+    hint they need."""
+    gate_dir = _podman_runtime_dir(project, config_dir)
+    new = not gate_dir.is_dir()
+    gate_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        start_podman_proxy(project, config_dir)
+    except Exception:
+        if new:
+            # Best-effort cleanup; ignore if it's already populated.
+            for child in gate_dir.iterdir():
+                child.unlink(missing_ok=True)
+            gate_dir.rmdir()
+        raise
+    return gate_dir
 
 
 def deny_podman(project: str, config_dir: Path | None = None) -> bool:
-    """Opt PROJECT out. Returns True if the flag existed, False otherwise."""
-    path = _podman_allowed_path(project, config_dir)
-    if path.is_file():
-        path.unlink()
-        return True
-    return False
+    """Stop the socat proxy. Keeps the gate dir so the bind mount stays
+    in devcontainer.json across recreates (re-allowing later doesn't
+    require another --recreate). Returns True if proxy was running."""
+    return stop_podman_proxy(project, config_dir)

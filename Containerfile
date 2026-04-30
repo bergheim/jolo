@@ -73,6 +73,7 @@ RUN apk update && apk add --no-cache \
     rust-analyzer \
     rustfmt \
     shellcheck \
+    socat \
     sqlite \
     sudo \
     tmux \
