@@ -503,6 +503,35 @@ Browser automation: browser-check (uses Playwright with system Chromium), pa11y 
 
 Image tooling: vips/vipsthumbnail, avifenc/avifdec (AVIF), cwebp/dwebp (WebP). Prefer AVIF > WebP > PNG/JPEG. Do not add ImageMagick or Pillow unless the project explicitly requires them.
 
+## Cross-container podman access
+
+Off by default per project. When allowed, `podman` inside a devcontainer
+becomes a remote client of the host's rootless podman daemon — useful
+when an agent needs to inspect or run commands in *sibling* devcontainers
+(e.g. driving a docker-compose stack in a peer project).
+
+```sh
+# on the host, NOT inside any container:
+jolo allow podman <project>
+
+# then in the project's checkout (host-side cd, not inside the container):
+cd <project> && jolo up --recreate
+
+# to revoke later:
+jolo deny podman <project>
+cd <project> && jolo up --recreate
+```
+
+The flag file at `~/.config/jolo/podman-allowed/<project>` is not
+bind-mounted into any devcontainer. An agent inside a container has no
+filesystem path to reach it and no way to invoke the host's `jolo` —
+activation has to be a deliberate host-side act.
+
+When allowed: `podman ps`, `podman exec <peer> <cmd>`, `podman logs
+<peer>` etc. all work as remote-client calls against the host daemon.
+When not allowed: `podman` errors with the overlayfs-on-overlayfs
+storage message — that's the "off" state, not a bug.
+
 ## Browser Automation Tool Guide
 
 Use `playwright-cli` for stateful browser automation with low token usage (artifacts written to `.playwright-cli/`). Use `browser-check` for quick stateless audits.

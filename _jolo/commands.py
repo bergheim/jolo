@@ -15,12 +15,15 @@ import tomllib
 from _jolo import constants
 from _jolo.cli import (
     _format_container_display,
+    allow_podman,
     check_tmux_guard,
     clipboard_copy,
+    deny_podman,
     detect_flavors,
     detect_hostname,
     find_git_root,
     generate_random_name,
+    is_podman_allowed,
     is_port_available,
     parse_args,
     parse_copy,
@@ -165,12 +168,44 @@ def _fzf_pick(header: str, labels: list[str]) -> str | None:
 
 
 def _sync_config(
-    name: str, path: Path, config: dict, force: bool = False, **kwargs: int
+    name: str,
+    path: Path,
+    config: dict,
+    force: bool = False,
+    port: int | None = None,
 ) -> None:
     """Sync devcontainer config, skill templates, and template files."""
-    sync_devcontainer(name, target_dir=path, config=config, **kwargs)
+    sync_devcontainer(
+        name,
+        target_dir=path,
+        config=config,
+        port=port,
+        cross_container=is_podman_allowed(name),
+    )
     sync_skill_templates(path)
     sync_template_files(path, force=force)
+
+
+def run_allow_mode(args) -> None:
+    """`jolo allow podman <project>` — opt PROJECT in to host podman socket
+    forwarding. Host-only command; the sentinel path is not bind-mounted into
+    any devcontainer, so an agent inside a container cannot reach this CLI."""
+    if args.feature == "podman":
+        path = allow_podman(args.project)
+        print(f"Allowed podman for {args.project}: {path}")
+        print(f"Run `jolo up --recreate` in {args.project} to apply.")
+
+
+def run_deny_mode(args) -> None:
+    """`jolo deny podman <project>` — opt PROJECT out."""
+    if args.feature == "podman":
+        if deny_podman(args.project):
+            print(f"Denied podman for {args.project}.")
+            print(
+                f"Run `jolo up --recreate` in {args.project} to drop the mount."
+            )
+        else:
+            print(f"podman was not allowed for {args.project}; nothing to do.")
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
@@ -953,7 +988,11 @@ def run_up_mode(args: argparse.Namespace) -> None:
             force=getattr(args, "force", False),
         )
     else:
-        scaffold_devcontainer(project_name, config=config)
+        scaffold_devcontainer(
+            project_name,
+            config=config,
+            cross_container=is_podman_allowed(project_name),
+        )
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -2215,6 +2254,14 @@ def main(argv: list[str] | None = None) -> None:
         from _jolo.publish import run_publish_mode
 
         run_publish_mode(args)
+        return
+
+    if cmd == "allow":
+        run_allow_mode(args)
+        return
+
+    if cmd == "deny":
+        run_deny_mode(args)
         return
 
     # No subcommand — show help

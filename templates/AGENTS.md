@@ -378,6 +378,44 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 **Dev server log:** `just dev` runs automatically in a tmux window and logs all output (stdout + stderr) to `dev.log` at the project root. Read this file to check server output, errors, and request logs without needing access to the dev server's tmux pane.
 
+## Cross-container podman access
+
+Off by default. When enabled for a project, `podman` inside the
+devcontainer becomes a remote client of the host's rootless podman
+daemon, so you can reach sibling jolo containers:
+
+```sh
+podman ps                                  # all jolo containers on host
+podman exec other-project ls /workspaces   # one-shot in a sibling
+podman logs --tail 50 other-project        # tail another container's logs
+```
+
+This requires forwarding the host's podman socket into the
+devcontainer, which gives every process inside it full control over
+sibling containers. So activation is **host-side only** and per-project:
+
+```sh
+# on the host, NOT inside any container:
+jolo allow podman <project>
+
+# then in the project's checkout (host-side cd, not inside the container):
+cd <project> && jolo up --recreate
+
+# to disable later:
+jolo deny podman <project>
+cd <project> && jolo up --recreate
+```
+
+The flag file lives at `~/.config/jolo/podman-allowed/<project>`.
+That path is **not bind-mounted into any devcontainer**, so an agent
+inside a container literally cannot read or write it — activation
+has to be a deliberate host-side act.
+
+If you run `podman ps` inside a devcontainer that hasn't been
+allowed, you'll get an `overlayfs` error from podman trying to use
+local storage. That error is actually the "off" state — fix it by
+allowing the project on the host, not by debugging overlayfs.
+
 ## Performance
 
 `just perf` posts the project's `perf-rig.toml` to the host-side perf hub. Set `PERF_HOST` on the host (e.g. in `~/.zshrc`) — the value flows into devcontainers through the mounted `.zshrc`, same as `LLAMA_HOST`. The hub runs k6 from the host and writes metrics to Grafana keyed by `project`, `route_id`, `sha`, `run_id`, `testbed`.

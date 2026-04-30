@@ -109,6 +109,118 @@ class TestConfigLoading(unittest.TestCase):
         self.assertEqual(config["notify_threshold"], 20)
 
 
+class TestPodmanAllowance(unittest.TestCase):
+    """Cross-container podman access is gated by a host-side flag file
+    that the agent inside any devcontainer cannot reach."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config_dir = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_disallowed_by_default(self):
+        """Without a flag file, the feature is off."""
+        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_allow_creates_flag(self):
+        """allow_podman creates the sentinel file at the documented path."""
+        path = jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(path.exists())
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertEqual(path, self.config_dir / "podman-allowed" / "foo")
+
+    def test_allow_is_idempotent(self):
+        """Calling allow_podman twice doesn't error."""
+        jolo.allow_podman("foo", self.config_dir)
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_deny_removes_flag(self):
+        """deny_podman removes the flag and returns True; subsequent denies return False."""
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.deny_podman("foo", self.config_dir))
+        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertFalse(jolo.deny_podman("foo", self.config_dir))
+
+    def test_per_project_isolation(self):
+        """allow_podman('foo') doesn't enable 'bar'."""
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
+
+
+class TestPodmanWiring(unittest.TestCase):
+    """`_sync_config` must propagate is_podman_allowed(name) into
+    sync_devcontainer's cross_container kwarg. A regression here
+    would silently disable the feature for --recreate flows."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project_path = Path(self.tmpdir) / "myproj"
+        self.project_path.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run_with_allowed(self, allowed: bool):
+        with (
+            mock.patch(
+                "_jolo.commands.is_podman_allowed", return_value=allowed
+            ),
+            mock.patch("_jolo.commands.sync_devcontainer") as fake_sync,
+            mock.patch("_jolo.commands.sync_skill_templates"),
+            mock.patch("_jolo.commands.sync_template_files"),
+        ):
+            from _jolo import commands
+
+            commands._sync_config(
+                "myproj", self.project_path, {"base_image": "x"}
+            )
+            return fake_sync
+
+    def test_sync_passes_cross_container_true_when_allowed(self):
+        fake = self._run_with_allowed(True)
+        kwargs = fake.call_args.kwargs
+        self.assertTrue(kwargs.get("cross_container"))
+
+    def test_sync_passes_cross_container_false_when_not_allowed(self):
+        fake = self._run_with_allowed(False)
+        kwargs = fake.call_args.kwargs
+        self.assertFalse(kwargs.get("cross_container"))
+
+
+class TestAllowDenySubcommands(unittest.TestCase):
+    """`jolo allow podman <project>` and `jolo deny podman <project>` parse
+    correctly and end up calling allow_podman/deny_podman."""
+
+    def test_allow_command_parses(self):
+        args = jolo.parse_args(["allow", "podman", "myproject"])
+        self.assertEqual(args.command, "allow")
+        self.assertEqual(args.feature, "podman")
+        self.assertEqual(args.project, "myproject")
+
+    def test_deny_command_parses(self):
+        args = jolo.parse_args(["deny", "podman", "myproject"])
+        self.assertEqual(args.command, "deny")
+        self.assertEqual(args.feature, "podman")
+        self.assertEqual(args.project, "myproject")
+
+    def test_allow_requires_project(self):
+        """Project name must be explicit — no auto-infer, prevents accidental misuse."""
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(["allow", "podman"])
+
+    def test_allow_rejects_unknown_feature(self):
+        with self.assertRaises(SystemExit):
+            jolo.parse_args(["allow", "wat", "myproject"])
+
+
 class TestListMode(unittest.TestCase):
     """Test list functionality."""
 
