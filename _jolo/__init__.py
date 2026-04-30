@@ -3,13 +3,16 @@
 import subprocess  # noqa: F401 - re-exported for test mocking (jolo.subprocess.run)
 
 from _jolo.cli import (  # noqa: F401
+    allow_podman,
     check_tmux_guard,
     clipboard_copy,
+    deny_podman,
     detect_flavors,
     detect_hostname,
     find_git_root,
     generate_random_name,
     get_container_name,
+    is_podman_allowed,
     is_port_available,
     parse_args,
     parse_copy,
@@ -23,13 +26,10 @@ from _jolo.cli import (  # noqa: F401
     verbose_print,
 )
 from _jolo.commands import (  # noqa: F401
-    allow_podman,
-    deny_podman,
     ensure_research_repo,
     get_agent_command,
     get_agent_name,
     infer_repo_name,
-    is_podman_allowed,
     load_config,
     main,
     pick_project,

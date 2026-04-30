@@ -21,6 +21,7 @@ from _jolo.cli import (
     detect_hostname,
     find_git_root,
     generate_random_name,
+    is_podman_allowed,
     is_port_available,
     parse_args,
     parse_copy,
@@ -165,10 +166,20 @@ def _fzf_pick(header: str, labels: list[str]) -> str | None:
 
 
 def _sync_config(
-    name: str, path: Path, config: dict, force: bool = False, **kwargs: int
+    name: str,
+    path: Path,
+    config: dict,
+    force: bool = False,
+    port: int | None = None,
 ) -> None:
     """Sync devcontainer config, skill templates, and template files."""
-    sync_devcontainer(name, target_dir=path, config=config, **kwargs)
+    sync_devcontainer(
+        name,
+        target_dir=path,
+        config=config,
+        port=port,
+        cross_container=is_podman_allowed(name),
+    )
     sync_skill_templates(path)
     sync_template_files(path, force=force)
 
@@ -215,48 +226,6 @@ def load_config(
             config.update(project_cfg)
 
     return config
-
-
-# Cross-container podman access gate. Forwarding the host's rootless
-# podman socket into a devcontainer gives every agent inside it full
-# control over sibling containers. Off by default. Activation is
-# host-side only: `jolo allow podman <project>` creates a sentinel file
-# at ~/.config/jolo/podman-allowed/<project>. That path is not bind-
-# mounted into any devcontainer, so an agent inside a container cannot
-# enable the feature for itself.
-
-_PODMAN_ALLOWED_DIRNAME = "podman-allowed"
-
-
-def _podman_allowed_path(project: str, config_dir: Path | None = None) -> Path:
-    base = (
-        config_dir
-        if config_dir is not None
-        else Path.home() / ".config" / "jolo"
-    )
-    return base / _PODMAN_ALLOWED_DIRNAME / project
-
-
-def is_podman_allowed(project: str, config_dir: Path | None = None) -> bool:
-    """Return True if PROJECT is opted in to host podman socket forwarding."""
-    return _podman_allowed_path(project, config_dir).is_file()
-
-
-def allow_podman(project: str, config_dir: Path | None = None) -> Path:
-    """Opt PROJECT in. Idempotent. Returns the sentinel path."""
-    path = _podman_allowed_path(project, config_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
-    return path
-
-
-def deny_podman(project: str, config_dir: Path | None = None) -> bool:
-    """Opt PROJECT out. Returns True if the flag existed, False otherwise."""
-    path = _podman_allowed_path(project, config_dir)
-    if path.is_file():
-        path.unlink()
-        return True
-    return False
 
 
 def infer_repo_name(url: str) -> str:
@@ -995,7 +964,11 @@ def run_up_mode(args: argparse.Namespace) -> None:
             force=getattr(args, "force", False),
         )
     else:
-        scaffold_devcontainer(project_name, config=config)
+        scaffold_devcontainer(
+            project_name,
+            config=config,
+            cross_container=is_podman_allowed(project_name),
+        )
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:

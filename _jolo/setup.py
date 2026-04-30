@@ -1071,6 +1071,7 @@ def scaffold_devcontainer(
     config: dict | None = None,
     port: int | None = None,
     has_web: bool = False,
+    cross_container: bool = False,
 ) -> bool:
     """Create .devcontainer directory with templates.
 
@@ -1097,6 +1098,7 @@ def scaffold_devcontainer(
         base_image=config["base_image"],
         remote_user=os.environ.get("USER", "dev"),
         has_web=has_web,
+        cross_container=cross_container,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
@@ -1108,6 +1110,7 @@ def sync_devcontainer(
     target_dir: Path | None = None,
     config: dict | None = None,
     port: int | None = None,
+    cross_container: bool = False,
 ) -> None:
     """Regenerate .devcontainer from template, overwriting existing files.
 
@@ -1144,6 +1147,7 @@ def sync_devcontainer(
         base_image=config["base_image"],
         remote_user=os.environ.get("USER", "dev"),
         has_web=has_web,
+        cross_container=cross_container,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
