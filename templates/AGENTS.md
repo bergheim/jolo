@@ -132,6 +132,47 @@ Then use the Read tool on that file to view it.
 - **When a task is no longer relevant**: mark it `CANCELLED` with a reason
 - **Never delete body text** when closing a TODO — the original description, context, and notes are valuable history. The reason goes in the LOGBOOK, not as a replacement for the body.
 
+### Autonomous TODO conventions (`:autonomous:` tag)
+
+`jolo autonomous` dispatches TODO items tagged `:autonomous:` to a fresh
+agent without user interaction. Tagging the wrong thing dispatches risky
+work into a context where there's no human to course-correct. So:
+
+**Eligibility — a TODO is `:autonomous:` only if all of these hold:**
+
+- **Bounded** — the agent can verify "done" itself (tests pass, files
+  compile, etc.). No "looks good?" judgment calls.
+- **In-container** — no host-side steps. No Emacs-host, systemd, host
+  package installs, sudo on host, `tailscale set …`. Everything
+  happens inside the dispatched container.
+- **Non-destructive** — no force-push, no `rm -rf` outside `scratch/`,
+  reversible by `git reset` + branch delete. If a step is hard to undo
+  it disqualifies the item.
+- **No external prompts** — no plugin auth dances, GitHub UI clicks,
+  trust dialogs, MFA, browser logins. The agent runs to completion or
+  errors out.
+- **No decisions pending** — body that says "decide X first" or
+  "consider whether Y" disqualifies until the decision is made.
+- **Fits one branch.**
+- **Body is a self-contained prompt** for the dispatched agent. If
+  reading the heading + body doesn't tell a fresh agent what to do,
+  it's not ready.
+
+**Tagging workflow:**
+
+- Tag only via the helper, never via text-edit:
+  ```bash
+  emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading regex" "autonomous")'
+  ```
+- **Per-item agreement required.** No bulk retagging. When a TODO
+  looks eligible, raise it with the user, get explicit OK, then tag.
+- Removing the tag uses `bergheim/agent-org-remove-tag` with the same
+  ergonomics.
+
+If a dispatched run errors, the agent should mark the heading
+`BLOCKED` (waiting on a system) or `WAITING` (waiting on a person)
+with a reason note, never silently abandon.
+
 ### Editing org files with emacsclient
 
 **Always use `bergheim/agent-org-set-state` for org state changes** — never manually
