@@ -356,10 +356,11 @@ class TestPodmanSocketForwarding(unittest.TestCase):
         self.assertNotIn("CONTAINER_HOST", config["containerEnv"])
 
     def test_socket_mount_present_when_enabled(self):
-        """With cross_container=True, the host's podman runtime dir is
-        bind-mounted (the directory, not just the socket file, so a
-        socket-recreation on host doesn't strand the container with a
-        stale inode)."""
+        """With cross_container=True, the per-project gate directory
+        ~/.config/jolo/podman-runtime/<project>/ is bind-mounted at
+        /run/podman read-only. Mount the directory not the socket file
+        so a socket-recreation on host doesn't strand the container
+        with a stale inode."""
         import json
 
         result = jolo.build_devcontainer_json("test", cross_container=True)
@@ -367,9 +368,10 @@ class TestPodmanSocketForwarding(unittest.TestCase):
         socket_mounts = [m for m in config["mounts"] if "podman" in m]
         self.assertEqual(len(socket_mounts), 1)
         m = socket_mounts[0]
-        self.assertIn("XDG_RUNTIME_DIR", m)
+        self.assertIn("podman-runtime/test", m)
         self.assertIn("target=/run/podman", m)
         self.assertIn("type=bind", m)
+        self.assertIn("readonly", m)
 
     def test_container_host_env_when_enabled(self):
         """With cross_container=True, CONTAINER_HOST points at the

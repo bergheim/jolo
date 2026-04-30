@@ -35,10 +35,15 @@ def build_devcontainer_json(
     Args:
         project_name: Name of the project/container
         port: Port number for dev servers (random in 4000-5000 if not specified)
-        cross_container: When True, forward the host's rootless podman
-            runtime directory and set CONTAINER_HOST so podman inside
-            the container acts as a remote client of the host daemon.
-            Off by default; gated by ~/.config/jolo/podman-allowed/<project>.
+        cross_container: When True, bind-mount the host's
+            ~/.config/jolo/podman-runtime/<project>/ gate directory
+            into /run/podman and set CONTAINER_HOST so podman inside
+            the container talks to whatever socat-managed socket
+            currently lives there. Toggling the proxy on the host
+            (jolo allow / jolo deny) flips the capability instantly
+            without container recreation. Once True, the mount stays
+            in devcontainer.json across recreates so re-allowing
+            after a deny doesn't require another --recreate.
     """
     if port is None:
         port = random_port()
@@ -57,12 +62,14 @@ def build_devcontainer_json(
         mounts.append(constants.WAYLAND_MOUNT)
 
     if cross_container:
-        # Bind the parent dir, not the socket file: a podman.service
-        # restart recreates the socket inode, and a file-bind would go
-        # stale. The directory inode survives.
+        # Bind the per-project gate directory, not the socket file: a
+        # podman.service restart on the host recreates the socket
+        # inode and a file-bind would go stale. The directory inode
+        # survives. Read-only inside the container so an agent can't
+        # rm or replace the contents.
         mounts.append(
-            "source=${localEnv:XDG_RUNTIME_DIR}/podman,"
-            "target=/run/podman,type=bind"
+            f"source=${{localEnv:HOME}}/.config/jolo/podman-runtime/{project_name},"
+            "target=/run/podman,type=bind,readonly"
         )
 
     workspace_folder = f"/workspaces/{project_name}"

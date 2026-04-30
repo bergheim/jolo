@@ -110,10 +110,82 @@ class TestConfigLoading(unittest.TestCase):
 
 
 class TestPodmanAllowance(unittest.TestCase):
-    """Cross-container podman access is gated by a host-side flag file
-    that the agent inside any devcontainer cannot reach."""
+    """allow_podman creates the gate dir and starts socat. deny stops
+    socat but keeps the gate dir so the bind-mount in devcontainer.json
+    survives across recreates."""
 
     def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config_dir = Path(self.tmpdir)
+        # Patch socat for the whole suite — these tests aren't about
+        # whether socat works, they're about the gate-dir state machine.
+        self._socat_patches = [
+            mock.patch(
+                "_jolo.cli._spawn_socat",
+                return_value=mock.MagicMock(pid=12345),
+            ),
+            mock.patch("_jolo.cli._process_is_socat", return_value=True),
+        ]
+        for p in self._socat_patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self._socat_patches:
+            p.stop()
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_disallowed_by_default(self):
+        """Without an allow, the gate dir doesn't exist."""
+        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_allow_creates_gate_dir(self):
+        """allow_podman creates ~/.config/jolo/podman-runtime/<project>/."""
+        path = jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(path.is_dir())
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertEqual(path, self.config_dir / "podman-runtime" / "foo")
+
+    def test_allow_is_idempotent(self):
+        """Calling allow_podman twice doesn't error or restart socat."""
+        jolo.allow_podman("foo", self.config_dir)
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+
+    def test_deny_keeps_gate_dir(self):
+        """deny_podman stops socat but leaves the gate dir intact, so the
+        bind-mount in devcontainer.json survives across recreates and
+        re-allowing later doesn't need another --recreate."""
+        jolo.allow_podman("foo", self.config_dir)
+        with mock.patch("os.kill"):
+            self.assertTrue(jolo.deny_podman("foo", self.config_dir))
+        # Gate dir persists.
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        # But proxy is gone.
+        self.assertFalse(jolo.is_podman_proxy_running("foo", self.config_dir))
+
+    def test_per_project_isolation(self):
+        jolo.allow_podman("foo", self.config_dir)
+        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+        self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
+
+
+class TestPodmanProxyLifecycle(unittest.TestCase):
+    """socat-based proxy is what makes the cross-container access toggle
+    instant: starting/stopping socat at the gate path is what flips
+    the feature on/off for an already-running container."""
+
+    def setUp(self):
+        from _jolo.cli import (
+            _podman_proxy_pidfile,
+            _podman_proxy_socket,
+            _podman_runtime_dir,
+        )
+
+        self._dir = _podman_runtime_dir
+        self._sock = _podman_proxy_socket
+        self._pidfile = _podman_proxy_pidfile
         self.tmpdir = tempfile.mkdtemp()
         self.config_dir = Path(self.tmpdir)
 
@@ -122,35 +194,78 @@ class TestPodmanAllowance(unittest.TestCase):
 
         shutil.rmtree(self.tmpdir)
 
-    def test_disallowed_by_default(self):
-        """Without a flag file, the feature is off."""
-        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
+    def test_paths_are_keyed_by_project(self):
+        """Per-project gate dir contains the sentinel + socket + pidfile."""
+        d = self._dir("foo", self.config_dir)
+        self.assertEqual(d, self.config_dir / "podman-runtime" / "foo")
+        self.assertEqual(self._sock("foo", self.config_dir), d / "podman.sock")
+        self.assertEqual(
+            self._pidfile("foo", self.config_dir), d / "socat.pid"
+        )
 
-    def test_allow_creates_flag(self):
-        """allow_podman creates the sentinel file at the documented path."""
-        path = jolo.allow_podman("foo", self.config_dir)
-        self.assertTrue(path.exists())
-        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
-        self.assertEqual(path, self.config_dir / "podman-allowed" / "foo")
+    def test_is_running_false_when_no_pidfile(self):
+        self.assertFalse(jolo.is_podman_proxy_running("foo", self.config_dir))
 
-    def test_allow_is_idempotent(self):
-        """Calling allow_podman twice doesn't error."""
-        jolo.allow_podman("foo", self.config_dir)
-        jolo.allow_podman("foo", self.config_dir)
-        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
+    def test_start_writes_pidfile_and_returns_pid(self):
+        """start_podman_proxy spawns socat, writes its PID, returns it."""
+        with (
+            mock.patch("_jolo.cli._spawn_socat") as fake_spawn,
+            mock.patch("_jolo.cli._process_is_socat", return_value=True),
+        ):
+            fake_proc = mock.MagicMock()
+            fake_proc.pid = 12345
+            fake_spawn.return_value = fake_proc
 
-    def test_deny_removes_flag(self):
-        """deny_podman removes the flag and returns True; subsequent denies return False."""
-        jolo.allow_podman("foo", self.config_dir)
-        self.assertTrue(jolo.deny_podman("foo", self.config_dir))
-        self.assertFalse(jolo.is_podman_allowed("foo", self.config_dir))
-        self.assertFalse(jolo.deny_podman("foo", self.config_dir))
+            pid = jolo.start_podman_proxy("foo", self.config_dir)
 
-    def test_per_project_isolation(self):
-        """allow_podman('foo') doesn't enable 'bar'."""
-        jolo.allow_podman("foo", self.config_dir)
-        self.assertTrue(jolo.is_podman_allowed("foo", self.config_dir))
-        self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
+            self.assertEqual(pid, 12345)
+            pidfile = self._pidfile("foo", self.config_dir)
+            self.assertEqual(pidfile.read_text().strip(), "12345")
+
+    def test_start_is_idempotent_when_already_running(self):
+        """If a live socat already runs for this project, start returns its PID."""
+        pidfile = self._pidfile("foo", self.config_dir)
+        pidfile.parent.mkdir(parents=True, exist_ok=True)
+        pidfile.write_text("99999\n")
+        with (
+            mock.patch("_jolo.cli._process_is_socat", return_value=True),
+            mock.patch("_jolo.cli._spawn_socat") as fake_spawn,
+        ):
+            pid = jolo.start_podman_proxy("foo", self.config_dir)
+            self.assertEqual(pid, 99999)
+            fake_spawn.assert_not_called()
+
+    def test_start_replaces_stale_pidfile(self):
+        """A pidfile pointing at a dead/non-socat process is recreated."""
+        pidfile = self._pidfile("foo", self.config_dir)
+        pidfile.parent.mkdir(parents=True, exist_ok=True)
+        pidfile.write_text("99999\n")
+        with (
+            mock.patch("_jolo.cli._process_is_socat", return_value=False),
+            mock.patch("_jolo.cli._spawn_socat") as fake_spawn,
+        ):
+            fake_proc = mock.MagicMock()
+            fake_proc.pid = 12345
+            fake_spawn.return_value = fake_proc
+
+            pid = jolo.start_podman_proxy("foo", self.config_dir)
+            self.assertEqual(pid, 12345)
+            self.assertEqual(pidfile.read_text().strip(), "12345")
+
+    def test_stop_kills_pid_and_returns_true(self):
+        pidfile = self._pidfile("foo", self.config_dir)
+        pidfile.parent.mkdir(parents=True, exist_ok=True)
+        pidfile.write_text("12345\n")
+        with (
+            mock.patch("_jolo.cli._process_is_socat", return_value=True),
+            mock.patch("os.kill") as fake_kill,
+        ):
+            self.assertTrue(jolo.stop_podman_proxy("foo", self.config_dir))
+            fake_kill.assert_called_once()
+            self.assertFalse(pidfile.exists())
+
+    def test_stop_returns_false_when_not_running(self):
+        self.assertFalse(jolo.stop_podman_proxy("foo", self.config_dir))
 
 
 class TestPodmanWiring(unittest.TestCase):
