@@ -380,9 +380,9 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 ## Cross-container podman access
 
-Off by default. When enabled for a project, `podman` inside the
-devcontainer becomes a remote client of the host's rootless podman
-daemon, so you can reach sibling jolo containers:
+Off by default per project. When allowed, `podman` inside the
+devcontainer is a remote client of the host's rootless podman daemon,
+so you can reach sibling jolo containers:
 
 ```sh
 podman ps                                  # all jolo containers on host
@@ -390,31 +390,37 @@ podman exec other-project ls /workspaces   # one-shot in a sibling
 podman logs --tail 50 other-project        # tail another container's logs
 ```
 
-This requires forwarding the host's podman socket into the
-devcontainer, which gives every process inside it full control over
-sibling containers. So activation is **host-side only** and per-project:
+Activation runs a host-side socat proxy at the project's gate path;
+toggling it (`allow`/`deny`) flips the capability **instantly without
+container recreation**. The first allow on a project still needs one
+`--recreate` to retrofit the always-mount; after that, future toggles
+take effect on the next `podman …` call inside the running container.
 
 ```sh
 # on the host, NOT inside any container:
-jolo allow podman <project>
+jolo allow podman <project>           # creates gate dir + starts socat
+cd <project> && jolo up --recreate    # one-time retrofit
 
-# then in the project's checkout (host-side cd, not inside the container):
-cd <project> && jolo up --recreate
+# later toggling — no recreate needed:
+jolo deny podman <project>            # stops socat (gate dir stays)
+jolo allow podman <project>           # restarts socat
 
-# to disable later:
-jolo deny podman <project>
-cd <project> && jolo up --recreate
+# what's running:
+jolo allowed                          # list projects with podman state
 ```
 
-The flag file lives at `~/.config/jolo/podman-allowed/<project>`.
-That path is **not bind-mounted into any devcontainer**, so an agent
-inside a container literally cannot read or write it — activation
-has to be a deliberate host-side act.
+The gate directory `~/.config/jolo/podman-runtime/<project>/` is
+host-only — not bind-mounted into any devcontainer in a writable
+location — and `jolo` itself only exists on the host. An agent inside
+a container literally cannot read or write the gate path or invoke
+the CLI; activation has to be a deliberate host-side act.
 
-If you run `podman ps` inside a devcontainer that hasn't been
-allowed, you'll get an `overlayfs` error from podman trying to use
-local storage. That error is actually the "off" state — fix it by
-allowing the project on the host, not by debugging overlayfs.
+When not allowed: `podman` errors with `Cannot connect to Podman …
+no such file or directory`. That's the "off" state, not a bug — fix
+by allowing on the host.
+
+Host requires `socat` (apk, pacman, etc.). `jolo allow` errors
+cleanly with an install hint if missing.
 
 ## Performance
 
