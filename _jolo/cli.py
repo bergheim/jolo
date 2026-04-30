@@ -723,6 +723,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     sub_deny.add_argument("project", help="Project name")
 
+    # allowed: list projects with active capabilities
+    subparsers.add_parser(
+        "allowed",
+        parents=[p_verbose],
+        help="List projects with cross-container podman access enabled",
+    )
+
     if constants.HAVE_ARGCOMPLETE:
         argcomplete.autocomplete(parser)
 
@@ -842,17 +849,23 @@ def _spawn_socat(listen_path: Path, target_path: Path) -> subprocess.Popen:
     """Spawn a detached socat that forwards listen_path → target_path.
     Detached so it survives the parent jolo invocation."""
     listen_path.parent.mkdir(parents=True, exist_ok=True)
-    return subprocess.Popen(
-        [
-            "socat",
-            f"UNIX-LISTEN:{listen_path},fork,reuseaddr,unlink-early",
-            f"UNIX-CONNECT:{target_path}",
-        ],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    try:
+        return subprocess.Popen(
+            [
+                "socat",
+                f"UNIX-LISTEN:{listen_path},fork,reuseaddr,unlink-early",
+                f"UNIX-CONNECT:{target_path}",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "socat is required for cross-container podman access "
+            "(install with `apk add socat` / `pacman -S socat` / etc.)"
+        ) from exc
 
 
 def is_podman_proxy_running(
