@@ -153,6 +153,48 @@ class TestPodmanAllowance(unittest.TestCase):
         self.assertFalse(jolo.is_podman_allowed("bar", self.config_dir))
 
 
+class TestPodmanWiring(unittest.TestCase):
+    """`_sync_config` must propagate is_podman_allowed(name) into
+    sync_devcontainer's cross_container kwarg. A regression here
+    would silently disable the feature for --recreate flows."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project_path = Path(self.tmpdir) / "myproj"
+        self.project_path.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run_with_allowed(self, allowed: bool):
+        with (
+            mock.patch(
+                "_jolo.commands.is_podman_allowed", return_value=allowed
+            ),
+            mock.patch("_jolo.commands.sync_devcontainer") as fake_sync,
+            mock.patch("_jolo.commands.sync_skill_templates"),
+            mock.patch("_jolo.commands.sync_template_files"),
+        ):
+            from _jolo import commands
+
+            commands._sync_config(
+                "myproj", self.project_path, {"base_image": "x"}
+            )
+            return fake_sync
+
+    def test_sync_passes_cross_container_true_when_allowed(self):
+        fake = self._run_with_allowed(True)
+        kwargs = fake.call_args.kwargs
+        self.assertTrue(kwargs.get("cross_container"))
+
+    def test_sync_passes_cross_container_false_when_not_allowed(self):
+        fake = self._run_with_allowed(False)
+        kwargs = fake.call_args.kwargs
+        self.assertFalse(kwargs.get("cross_container"))
+
+
 class TestAllowDenySubcommands(unittest.TestCase):
     """`jolo allow podman <project>` and `jolo deny podman <project>` parse
     correctly and end up calling allow_podman/deny_podman."""

@@ -513,9 +513,13 @@ when an agent needs to inspect or run commands in *sibling* devcontainers
 ```sh
 # on the host, NOT inside any container:
 jolo allow podman <project>
-jolo up --recreate <project>
 
-jolo deny podman <project>     # later, to revoke
+# then in the project's checkout (host-side cd, not inside the container):
+cd <project> && jolo up --recreate
+
+# to revoke later:
+jolo deny podman <project>
+cd <project> && jolo up --recreate
 ```
 
 The flag file at `~/.config/jolo/podman-allowed/<project>` is not

@@ -397,11 +397,13 @@ sibling containers. So activation is **host-side only** and per-project:
 ```sh
 # on the host, NOT inside any container:
 jolo allow podman <project>
-jolo up --recreate <project>   # picks up the new mount
+
+# then in the project's checkout (host-side cd, not inside the container):
+cd <project> && jolo up --recreate
 
 # to disable later:
 jolo deny podman <project>
-jolo up --recreate <project>
+cd <project> && jolo up --recreate
 ```
 
 The flag file lives at `~/.config/jolo/podman-allowed/<project>`.
