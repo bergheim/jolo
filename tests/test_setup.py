@@ -1623,6 +1623,55 @@ class TestSyncMetaFlavor(unittest.TestCase):
         setup.sync_template_files(self.target, force=True)
         self.assertFalse((self.target / "perf-rig.toml").exists())
 
+
+class TestElixirFlavorSync(unittest.TestCase):
+    """Elixir web projects must keep their Phoenix templates on recreate."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demo"
+        self.project.mkdir()
+        (self.project / "mix.exs").write_text(
+            "defmodule Demo.MixProject do\nend\n"
+        )
+        (self.project / "config").mkdir()
+        (self.project / "config" / "dev.exs").write_text("import Config\n")
+        (self.project / "lib").mkdir()
+        (self.project / "lib" / "demo_web").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_force_regenerates_elixir_justfile(self):
+        (self.project / "justfile").write_text("# stale\n")
+        setup.sync_template_files(self.project, force=True)
+        content = (self.project / "justfile").read_text()
+        self.assertIn("mix phx.server", content)
+        self.assertNotIn("No run command configured", content)
+
+
+class TestMetaSyncSkipsRootTemplates(unittest.TestCase):
+    """Meta-project sync must leave root template-owned files alone."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir) / "emacs-container"
+        self.target.mkdir()
+        (self.target / "pyproject.toml").write_text(
+            "[project]\nname = 'jolo'\n"
+        )
+        (self.target / "jolo.py").write_text("# stub\n")
+        (self.target / "_jolo").mkdir()
+        (self.target / "_jolo" / "__init__.py").write_text("")
+        (self.target / "templates").mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
     def test_no_force_does_not_overwrite_meta_owned_root_files(self):
         agents = self.target / "AGENTS.md"
         precommit = self.target / ".pre-commit-config.yaml"
