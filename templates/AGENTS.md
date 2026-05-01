@@ -375,6 +375,11 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 | `just test-watch` | Run tests on file change |
 | `just add X` | Add a dependency |
 | `just perf` | Submit `perf-rig.toml` to the host-side perf hub |
+| `just wt` | Manage git worktrees (list/new/land/rm) — wraps the `wt` binary |
+
+**Custom commands belong in the justfile.** `just --list` is the menu — it's how the user (and agents reading a project for the first time) discover what a project can do. When you add or wire up a command — a wrapper, a helper, a project-specific workflow, even a thin shim around a container-provided binary like `wt` or `share` — give it a justfile recipe with a `# comment` description so it appears in `just --list`. A binary that exists in `/usr/local/bin` but has no justfile entry is invisible: nobody knows to run it. Don't tell the user to "drop `just` and run the binary directly" — fix the justfile instead.
+
+**fzf-pick by default for names of generated things.** When a command takes the name of something the tool generated — a worktree, project, container, branch, session, scaffolded artifact, anything from a known finite set the user can't be expected to remember exactly — it should fzf-pick when no name is supplied, `fzf` is on `PATH`, and stdin is a TTY. Fall through to a clean `error: name required` exit otherwise so non-interactive callers (CI, scripts) stay deterministic. Don't make people retype names they could pick from a list — they'll forget anyway, and the lookup roundtrip (`just wt ls` → squint → retype) is exactly the friction fzf eliminates. Apply this everywhere it fits: `wt land`/`wt rm`, project-name args in jolo subcommands, anything that takes a session/container id, etc.
 
 **Dev server log:** `just dev` runs automatically in a tmux window and logs all output (stdout + stderr) to `dev.log` at the project root. Read this file to check server output, errors, and request logs without needing access to the dev server's tmux pane.
 
