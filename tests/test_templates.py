@@ -288,7 +288,7 @@ class TestEnvrcTemplate(unittest.TestCase):
 
     def test_typescript_web_dev_uses_inspector_when_profile_enabled(self):
         content = jolo.get_justfile_content("typescript-web", "myproject")
-        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1))", content)
+        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1000))", content)
         self.assertIn('if [ "${APP_PROFILE:-1}" != "0" ]', content)
 
     def test_rust_web_scaffold_includes_pprof_route(self):

@@ -467,7 +467,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         justfile = project_path / "justfile"
         self.assertTrue(justfile.exists())
         content = justfile.read_text()
-        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1))", content)
+        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1000))", content)
         self.assertTrue((project_path / ".envrc").exists())
         self.assertIn("APP_PROFILE=1", (project_path / ".envrc").read_text())
 

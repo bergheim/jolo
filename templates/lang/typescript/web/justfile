@@ -9,7 +9,7 @@ dev:
     @just css-watch > /dev/null 2>&1 & CSS_PID=$!; \
     trap "kill $CSS_PID" EXIT; \
     INSPECT=""; \
-    if [ "${APP_PROFILE:-1}" != "0" ]; then INSPECT="--inspect=0.0.0.0:$(($PORT + 1))"; fi; \
+    if [ "${APP_PROFILE:-1}" != "0" ]; then INSPECT="--inspect=0.0.0.0:$(($PORT + 1000))"; fi; \
     bun $INSPECT --hot src/index.tsx 2>&1 | tee dev.log
 
 # Run tests
