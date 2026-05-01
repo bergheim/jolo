@@ -47,6 +47,14 @@ Keep the codebase small. Fewer lines, fewer features, fewer moving parts. Do not
 
 Do not add defensive checks that duplicate what called functions already handle. If `find_git_root()` raises on failure, the caller does not need to check for a git repo first. Trust internal code — only validate at system boundaries (user input, external APIs). Let functions fail naturally with their own errors.
 
+## CLI Conventions
+
+These apply to every CLI tool we ship in this repo — `wt`, `jolo`, `share`, `notify`, and any future helpers in `container/` or as a `jolo` subcommand.
+
+**Custom commands belong in the justfile.** `just --list` is the menu — it's how users (and agents reading a project for the first time) discover what's available. If we ship a binary and want users to actually find it, give it a `# comment` description and a recipe in the project's justfile (template or meta). A binary in `/usr/local/bin/` with no justfile entry is invisible. Don't tell the user to "drop `just` and run the binary directly" — fix the justfile instead. Cross-project recipes go in `templates/lang/common/justfile.common`.
+
+**fzf-pick by default for names of generated things.** When a command takes the name of something the tool generated — a worktree, project, container, branch, session, scaffolded artifact — and the user didn't supply one, fzf-pick from the known set when `fzf` is on `PATH` and `/dev/tty` is accessible. Fall through to a clean `error: name required` exit otherwise so non-interactive callers (CI, scripts) stay deterministic. Don't make people retype names they could pick from a list. Gate on `/dev/tty`, not `[ -t 1 ]` — pickers are typically invoked inside `name=$(pick_thing)`, where stdout is always captured.
+
 ## Backward Compatibility
 
 This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly.
