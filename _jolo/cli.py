@@ -211,9 +211,9 @@ def detect_flavors(project_dir: Path) -> list[str]:
     if has_rust:
         flavors.append("rust-web" if has_web else "rust")
     if has_elixir:
-        elixir_web = any(project_dir.glob("lib/*_web")) or any(
-            (project_dir / path).exists()
-            for path in ("config/dev.exs", "priv/static")
+        elixir_web = (
+            any(project_dir.glob("lib/*_web"))
+            or (project_dir / "priv" / "static").exists()
         )
         if not elixir_web:
             try:

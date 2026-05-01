@@ -717,6 +717,15 @@ class TestDetectFlavors(unittest.TestCase):
         result = jolo.detect_flavors(Path(self.tmpdir))
         self.assertEqual(result, [])
 
+    def test_dev_exs_alone_does_not_mark_elixir_as_web(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule Demo.MixProject do\nend\n"
+        )
+        Path(self.tmpdir, "config").mkdir()
+        Path(self.tmpdir, "config", "dev.exs").write_text("import Config\n")
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     unittest.main()
