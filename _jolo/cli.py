@@ -213,6 +213,7 @@ def detect_flavors(project_dir: Path) -> list[str]:
     if has_elixir:
         elixir_web = (
             any(project_dir.glob("lib/*_web"))
+            or any(project_dir.glob("apps/*/lib/*_web"))
             or (project_dir / "priv" / "static").exists()
         )
         if not elixir_web:

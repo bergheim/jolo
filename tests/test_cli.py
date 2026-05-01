@@ -726,6 +726,16 @@ class TestDetectFlavors(unittest.TestCase):
         result = jolo.detect_flavors(Path(self.tmpdir))
         self.assertEqual(result, [])
 
+    def test_detects_elixir_web_in_umbrella_layout(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule DemoUmbrella.MixProject do\nend\n"
+        )
+        Path(self.tmpdir, "apps", "demo", "lib", "demo_web").mkdir(
+            parents=True
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["elixir-web"])
+
 
 if __name__ == "__main__":
     unittest.main()
