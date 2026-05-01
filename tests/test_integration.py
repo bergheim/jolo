@@ -348,6 +348,8 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertIn("handleGreet", content)
         self.assertIn("/api/greet", content)
         self.assertIn('"testproj/components"', content)
+        self.assertIn("net/http/pprof", content)
+        self.assertIn("/debug/pprof/", content)
 
         # templ components
         page_templ = project_path / "components" / "page.templ"
@@ -363,6 +365,8 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         jf_content = justfile.read_text()
         self.assertIn("air", jf_content)
         self.assertNotIn("templ generate --watch", jf_content)
+        self.assertTrue((project_path / ".envrc").exists())
+        self.assertIn("APP_PROFILE=1", (project_path / ".envrc").read_text())
 
         # .air.toml drives templ generation + app rebuild
         air_toml = project_path / ".air.toml"
@@ -393,6 +397,8 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         content = app_py.read_text()
         self.assertIn("FastAPI", content)
         self.assertIn("Jinja2Templates", content)
+        self.assertIn("pyinstrument", content)
+        self.assertIn('request.query_params.get("profile")', content)
 
         # main.py with uvicorn
         main_py = project_path / "src" / "testproj" / "main.py"
@@ -422,9 +428,48 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         jf_content = justfile.read_text()
         self.assertIn("uvicorn", jf_content)
         self.assertIn("--reload", jf_content)
+        self.assertTrue((project_path / ".envrc").exists())
+        self.assertIn("APP_PROFILE=1", (project_path / ".envrc").read_text())
 
         # static dir
         self.assertTrue((project_path / "static" / ".gitkeep").exists())
+
+    def test_create_rust_web_scaffold_files(self):
+        """create with rust-web should write pprof-enabled scaffold files."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "rust-web", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+        main_rs = project_path / "src" / "main.rs"
+        self.assertTrue(main_rs.exists())
+        content = main_rs.read_text()
+        self.assertIn('"/debug/pprof/profile"', content)
+        self.assertIn("ProfilerGuard", content)
+        self.assertTrue((project_path / ".envrc").exists())
+        self.assertIn("APP_PROFILE=1", (project_path / ".envrc").read_text())
+
+    def test_create_typescript_web_profiles_via_inspector(self):
+        """create with typescript-web should enable Bun inspector in dev."""
+        args = jolo.parse_args(
+            ["create", "testproj", "--flavor", "typescript-web", "-d"]
+        )
+
+        with self._mock_devcontainer_calls() as mocks:
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_create_mode(args)
+
+        project_path = Path(self.tmpdir) / "testproj"
+        justfile = project_path / "justfile"
+        self.assertTrue(justfile.exists())
+        content = justfile.read_text()
+        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1))", content)
+        self.assertTrue((project_path / ".envrc").exists())
+        self.assertIn("APP_PROFILE=1", (project_path / ".envrc").read_text())
 
     def test_create_template_files_are_copied(self):
         """create should copy AGENTS.md, CLAUDE.md, GEMINI.md from templates."""

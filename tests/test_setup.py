@@ -1389,6 +1389,37 @@ class TestPerfRigSync(unittest.TestCase):
         self.assertNotIn("{{PROJECT_NAME}}", content)
 
 
+class TestEnvrcSync(unittest.TestCase):
+    """Web projects get a generated .envrc for profiling defaults."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir) / "demokrate"
+        self.project.mkdir()
+        (self.project / "pyproject.toml").write_text(
+            "[project]\nname = 'demokrate'\ndependencies = ['fastapi']\n"
+        )
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_sync_creates_envrc_when_missing(self):
+        self.assertFalse((self.project / ".envrc").exists())
+        setup.sync_template_files(self.project)
+        self.assertEqual(
+            (self.project / ".envrc").read_text(), "export APP_PROFILE=1\n"
+        )
+
+    def test_sync_force_overwrites_envrc(self):
+        (self.project / ".envrc").write_text("export APP_PROFILE=0\n")
+        setup.sync_template_files(self.project, force=True)
+        self.assertEqual(
+            (self.project / ".envrc").read_text(), "export APP_PROFILE=1\n"
+        )
+
+
 class TestSyncJustfileCommon(unittest.TestCase):
     """Post-split sync: justfile.common is tool-owned; justfile is user-owned.
 
