@@ -588,6 +588,10 @@ SYNCABLE_TEMPLATE_FILES = [
 COPY_IF_MISSING_TEMPLATES: list[str] = []
 
 
+def _is_meta_project(target_dir: Path) -> bool:
+    return detect_flavors(target_dir) == ["meta"]
+
+
 def _file_hash(path: Path) -> str:
     """Return sha256 hex digest of a file's contents."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -908,8 +912,11 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
 
     hashes = _load_template_hashes(target_dir)
     touched: list[str] = []
+    syncable_template_files = (
+        [] if _is_meta_project(target_dir) else SYNCABLE_TEMPLATE_FILES
+    )
 
-    for filename in SYNCABLE_TEMPLATE_FILES:
+    for filename in syncable_template_files:
         src = templates_dir / filename
         if not src.exists():
             continue
@@ -958,7 +965,11 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
 
-    regenerated_precommit = _regenerated_precommit_config_bytes(target_dir)
+    regenerated_precommit = (
+        None
+        if _is_meta_project(target_dir)
+        else _regenerated_precommit_config_bytes(target_dir)
+    )
     if regenerated_precommit is not None:
         result = _sync_one_file(
             target_dir,

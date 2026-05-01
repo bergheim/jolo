@@ -1623,6 +1623,40 @@ class TestSyncMetaFlavor(unittest.TestCase):
         setup.sync_template_files(self.target, force=True)
         self.assertFalse((self.target / "perf-rig.toml").exists())
 
+    def test_no_force_does_not_overwrite_meta_owned_root_files(self):
+        agents = self.target / "AGENTS.md"
+        precommit = self.target / ".pre-commit-config.yaml"
+        agents.write_text("meta instructions\n")
+        precommit.write_text("meta hooks\n")
+        setup._save_template_hashes(
+            self.target,
+            ["AGENTS.md", ".pre-commit-config.yaml"],
+            {
+                "AGENTS.md": setup._file_hash(agents),
+                ".pre-commit-config.yaml": setup._file_hash(precommit),
+            },
+        )
+
+        setup.sync_template_files(self.target)
+
+        self.assertEqual(agents.read_text(), "meta instructions\n")
+        self.assertEqual(precommit.read_text(), "meta hooks\n")
+        self.assertFalse((self.target / "AGENTS.md.jolonew").exists())
+        self.assertFalse(
+            (self.target / ".pre-commit-config.yaml.jolonew").exists()
+        )
+
+    def test_force_does_not_overwrite_meta_owned_root_files(self):
+        agents = self.target / "AGENTS.md"
+        precommit = self.target / ".pre-commit-config.yaml"
+        agents.write_text("meta instructions\n")
+        precommit.write_text("meta hooks\n")
+
+        setup.sync_template_files(self.target, force=True)
+
+        self.assertEqual(agents.read_text(), "meta instructions\n")
+        self.assertEqual(precommit.read_text(), "meta hooks\n")
+
 
 if __name__ == "__main__":
     unittest.main()

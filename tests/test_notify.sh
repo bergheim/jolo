@@ -43,6 +43,9 @@ test_format 7200 "2h 0m"
 test_format 7322 "2h 2m"
 test_format 86400 "24h 0m"
 
+attention=$(sh -c ". '$NOTIFY' --source-only; terminal_attention_sequence" | od -An -tx1 | tr -d ' \n')
+assert_eq "1b5b357407" "$attention" "terminal_attention_sequence"
+
 echo ""
 echo "$TESTS tests, $FAILURES failures"
 [ "$FAILURES" -eq 0 ]

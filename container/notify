@@ -29,6 +29,19 @@ format_elapsed() {
     fi
 }
 
+terminal_attention_sequence() {
+    # CSI 5t asks supporting terminals to raise the window; BEL marks urgent.
+    printf '\033[5t\a'
+}
+
+raise_terminal() {
+    if [ -w /dev/tty ]; then
+        terminal_attention_sequence >/dev/tty 2>/dev/null || true
+    else
+        terminal_attention_sequence 2>/dev/null || true
+    fi
+}
+
 # Allow sourcing just the functions for testing
 if [ "${1:-}" = "--source-only" ]; then
     return 0 2>/dev/null || exit 0
@@ -153,8 +166,8 @@ curl -sf --max-time 5 \
     "${SERVER}/${TOPIC}" \
     >/dev/null 2>&1 || true
 
-# Terminal bell — sets URGENT flag on host window
-printf '\a'
+# Terminal attention — raise supporting host terminals and set urgent flag.
+raise_terminal
 
 # --- Research TTS: generate audio and send as ntfy attachment ---
 KOKORO_URL="${KOKORO_URL:-}"
