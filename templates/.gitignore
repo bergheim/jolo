@@ -348,6 +348,8 @@ project/plugins/project/
 
 # Kernel Module Compile Results
 *.mod*
+!go.mod
+!go.sum
 *.cmd
 .tmp_versions/
 modules.order

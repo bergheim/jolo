@@ -505,8 +505,19 @@ def get_scaffold_files(flavor: str) -> list[tuple[str, str]]:
             ),
             ("public/.gitkeep", ""),
         ]
+    elif flavor == "go":
+        return [
+            (
+                "go.mod",
+                _read_template("lang/go/go.mod"),
+            ),
+        ]
     elif flavor == "go-web":
         return [
+            (
+                "go.mod",
+                _read_template("lang/go/go.mod"),
+            ),
             (
                 "components/page.templ",
                 _read_template("lang/go/web/components/page.templ"),
@@ -617,7 +628,8 @@ def get_project_init_commands(
             )
             commands.append(["just", "setup"])
     elif lang == "go":
-        commands.append(["go", "mod", "init", project_name])
+        # go.mod is shipped as a scaffold file (see get_scaffold_files), so
+        # the project is a valid module from its first committed state.
         if flavor == "go-web":
             commands.append(["go", "get", "github.com/a-h/templ"])
             commands.append(["templ", "generate"])

@@ -299,7 +299,7 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
         self.assertTrue((project_path / "public" / ".gitkeep").exists())
 
     def test_create_first_flavor_is_primary(self):
-        """First flavor in list should be treated as primary for init commands."""
+        """First flavor in list should be treated as primary for scaffold output."""
         args = jolo.parse_args(
             ["create", "testproj", "--flavor", "go,python", "-d"]
         )
@@ -308,14 +308,13 @@ class TestCreateModeFlavorIntegration(unittest.TestCase):
             mocks["devcontainer_up"].return_value = True
             jolo.run_create_mode(args)
 
-            exec_calls = mocks["devcontainer_exec_command"].call_args_list
-            go_mod_called = any(
-                "go mod init" in str(call) for call in exec_calls
-            )
-            self.assertTrue(
-                go_mod_called,
-                f"Expected 'go mod init' to be called, got: {exec_calls}",
-            )
+        project_path = Path(self.tmpdir) / "testproj"
+        go_mod = project_path / "go.mod"
+        self.assertTrue(
+            go_mod.exists(),
+            "Expected go.mod to be scaffolded when go is the primary flavor",
+        )
+        self.assertIn("module testproj", go_mod.read_text())
 
     def test_create_empty_flavor_selection_aborts(self):
         """If interactive selector returns empty list, should abort."""

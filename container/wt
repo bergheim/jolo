@@ -19,7 +19,9 @@ Commands:
   <name>                                     Switch to worktree session
   main                                       Switch back to dev session
   list, ls                                   List worktree sessions
-  delete <name>, rm <name>                   Remove worktree + session
+  sync [<name>]                              Rebase <name> on main's branch (defaults to current worktree if cwd is one; fzf picks otherwise)
+  land [<name>] [--rm]                       Rebase <name> on current branch and merge into it (run from main; fzf picks if no name; --rm also removes worktree+branch+session afterwards)
+  delete [<name>], rm [<name>]               Remove worktree + branch + tmux session (fzf picks if no name)
   prune                                      Clean up stale worktree refs
   (no args)                                  List worktree sessions
 EOF
@@ -33,6 +35,110 @@ random_name() {
 
 session_name() {
     echo "wt-$1"
+}
+
+# Print "name<TAB>branch" for each /workspaces/* worktree except the main WS.
+# Used to feed fzf or to count candidates.
+list_worktree_candidates() {
+    git -C "$WS" worktree list --porcelain | awk -v ws="$WS" '
+        /^worktree / { path=$2; next }
+        /^branch refs\/heads\// {
+            sub(/^refs\/heads\//, "", $2); branch=$2; next
+        }
+        /^$/ {
+            if (path && branch && path != ws && path ~ /^\/workspaces\//) {
+                n = split(path, parts, "/")
+                printf "%s\t%s\n", parts[n], branch
+            }
+            path=""; branch=""
+        }
+    '
+}
+
+# Interactive fzf picker. Echoes selected worktree name on stdout and
+# returns 0; returns 1 if fzf is missing, no TTY, no candidates, or the
+# user aborted. Caller decides what to do on failure.
+pick_worktree() {
+    prompt="$1"
+    # /dev/tty rather than [ -t 0 ]/[ -t 1 ]: this function is called inside
+    # `name=$(pick_worktree ...)`, where stdout is always captured (so [ -t 1 ]
+    # is always false). fzf opens /dev/tty itself for its UI, so /dev/tty's
+    # accessibility is what actually tells us we're in an interactive context.
+    [ -r /dev/tty ] && [ -w /dev/tty ] || return 1
+    command -v fzf >/dev/null 2>&1 || return 1
+
+    candidates=$(list_worktree_candidates)
+    [ -z "$candidates" ] && return 1
+
+    # Target branch is whatever's checked out in the main workspace — that's
+    # what `wt land` would rebase against, so it's the most useful diff base
+    # for the preview. Fall back to main → master if WS is detached.
+    target=$(git -C "$WS" branch --show-current 2>/dev/null)
+    [ -z "$target" ] && target="main"
+
+    # Preview: single git plumbing call wrapped with shell glue. {1}=name,
+    # {2}=branch (fzf shell-quotes both, so they slot in safely as words).
+    # stderr → stdout so any git errors are visible inside the preview pane
+    # instead of vanishing.
+    preview='p=/workspaces/{1}; t='"$target"'; br={2};'
+    preview="$preview"' ahead=$(git -C "$p" rev-list --count "$t..$br" 2>&1);'
+    preview="$preview"' echo "branch: $br";'
+    preview="$preview"' echo "target: $t  (ahead by $ahead commit(s))";'
+    preview="$preview"' echo;'
+    preview="$preview"' echo "── HEAD ──";'
+    preview="$preview"' git -C "$p" log -1 --format="%h %s%n%n%b" "$br" 2>&1;'
+    preview="$preview"' case "$ahead" in (0|"") : ;; (*[!0-9]*) : ;; (*) echo; echo "── commits ahead of $t ──"; git -C "$p" log --oneline --decorate "$t..$br" 2>&1 ;; esac'
+
+    selected=$(printf '%s\n' "$candidates" \
+        | fzf --prompt="$prompt > " --height=60% --reverse \
+              --with-nth=1,2 --delimiter='\t' \
+              --preview="$preview" \
+              --preview-window=right:55%:wrap)
+    [ -z "$selected" ] && return 1
+    printf '%s\n' "$selected" | awk -F'\t' '{print $1}'
+}
+
+# If cwd is /workspaces/<name>(/...) where <name> != main workspace, echo
+# <name>. Otherwise echo nothing. Used to default `wt sync`/`wt rm` to the
+# worktree you're standing in, and to refuse `wt land` from inside the
+# worktree being landed.
+current_worktree_name() {
+    case "$PWD" in
+        /workspaces/*)
+            rest="${PWD#/workspaces/}"
+            cwd_name="${rest%%/*}"
+            ws_base="${WS##*/}"
+            if [ -n "$cwd_name" ] && [ "$cwd_name" != "$ws_base" ] \
+               && [ -d "/workspaces/$cwd_name" ]; then
+                printf '%s\n' "$cwd_name"
+            fi
+            ;;
+    esac
+}
+
+assert_worktree_clean() {
+    if [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]; then
+        echo "error: $2 has uncommitted changes" >&2
+        exit 1
+    fi
+}
+
+# Echo the branch checked out in the main workspace, or print an error and
+# return 1. Caller wraps in `target=$(resolve_target_branch ...) || exit 1`
+# because `exit` from inside $() only kills the subshell.
+resolve_target_branch() {
+    candidate="$1"
+    verb="$2"
+    target=$(git -C "$WS" branch --show-current)
+    if [ -z "$target" ]; then
+        echo "error: main workspace is in detached HEAD" >&2
+        return 1
+    fi
+    if [ "$target" = "$candidate" ]; then
+        echo "error: main is on branch '$candidate' — nothing to $verb" >&2
+        return 1
+    fi
+    printf '%s\n' "$target"
 }
 
 create_session() {
@@ -123,15 +229,28 @@ cmd_list() {
         current=$(tmux display-message -p '#S')
     fi
 
-    # Get worktrees, filter to /workspaces/* excluding main workspace
+    # One git call gets last-commit info for every branch — cheap regardless
+    # of worktree count. Format: "<branch>\t<sha>\t<reltime>\t<subject>"
+    branch_info=$(git -C "$WS" for-each-ref \
+        --format='%(refname:short)%09%(objectname:short)%09%(committerdate:relative)%09%(contents:subject)' \
+        refs/heads/ 2>/dev/null)
+
+    # Build rows tab-separated, then pipe through `column -t` so each column
+    # auto-sizes to the widest entry instead of being padded to a fixed
+    # one-size-fits-all width. Tab as the separator survives subjects with
+    # spaces; column treats consecutive tabs as one delimiter.
     git -C "$WS" worktree list --porcelain | while IFS= read -r line; do
         case "$line" in
             "worktree /workspaces/"*)
                 wt_path="${line#worktree }"
                 wt_name="${wt_path##*/}"
-                # Skip the main workspace
+                # Skip the main workspace. Clear wt_name so the next
+                # blank-line iteration doesn't print stale data.
                 ws_base="${WS##*/}"
-                [ "$wt_name" = "$ws_base" ] && continue
+                if [ "$wt_name" = "$ws_base" ]; then
+                    wt_name=""
+                    branch=""
+                fi
                 ;;
             "branch refs/heads/"*)
                 branch="${line#branch refs/heads/}"
@@ -146,28 +265,152 @@ cmd_list() {
                 fi
                 marker="  "
                 [ "$current" = "$sess" ] && marker="* "
-                printf "%s%-20s %-20s %s\n" "$marker" "$wt_name" "$branch" "$active"
+
+                # Collapse name+branch into one column when they match (the
+                # common case — `wt new <name>` always sets branch == name).
+                if [ "$wt_name" = "$branch" ]; then
+                    display="$wt_name"
+                else
+                    display="$wt_name (→ $branch)"
+                fi
+
+                # Look up last-commit info for this branch from the cached
+                # for-each-ref output. Use cut so subjects containing tabs
+                # don't get truncated mid-line.
+                match=$(printf '%s\n' "$branch_info" | awk -F'\t' -v b="$branch" '$1 == b { print; exit }')
+                if [ -n "$match" ]; then
+                    sha=$(printf '%s' "$match" | cut -f2)
+                    reltime=$(printf '%s' "$match" | cut -f3)
+                    subject=$(printf '%s' "$match" | cut -f4-)
+                    if [ ${#subject} -gt 60 ]; then
+                        subject=$(printf '%.57s...' "$subject")
+                    fi
+                else
+                    sha="-"
+                    reltime=""
+                    subject=""
+                fi
+
+                printf '%s%s\t%s\t%s\t%s\t%s\n' \
+                    "$marker" "$display" "$active" "$sha" "$reltime" "$subject"
                 wt_name=""
                 branch=""
                 ;;
         esac
+    done | column -t -s "$(printf '\t')"
+}
+
+cmd_land() {
+    name=""
+    rm_after=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --rm) rm_after=1 ;;
+            -*)   echo "error: unknown flag '$1'" >&2; exit 1 ;;
+            *)    [ -z "$name" ] && name="$1" ;;
+        esac
+        shift
     done
+
+    if [ -z "$name" ]; then
+        name=$(pick_worktree "land") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
+    fi
+
+    wt_path="/workspaces/$name"
+    [ ! -d "$wt_path" ] && { echo "error: no worktree '$name' found" >&2; exit 1; }
+
+    if [ "$(current_worktree_name)" = "$name" ]; then
+        echo "error: run 'wt land' from main, not from inside the worktree being landed" >&2
+        exit 1
+    fi
+
+    assert_worktree_clean "$wt_path" "worktree '$name'"
+    assert_worktree_clean "$WS" "main workspace"
+
+    target=$(resolve_target_branch "$name" "land") || exit 1
+
+    echo "rebasing $name on $target..."
+    if ! git -C "$wt_path" rebase "$target"; then
+        echo "" >&2
+        echo "rebase failed; resolve conflicts in $wt_path then re-run 'wt land $name'" >&2
+        echo "or run 'git -C $wt_path rebase --abort' to back out" >&2
+        exit 1
+    fi
+
+    ahead=$(git -C "$WS" rev-list --count "$target..$name")
+    if [ "$ahead" -eq 0 ]; then
+        echo "no commits to merge — $target is already up to date with $name"
+    elif [ "$ahead" -eq 1 ]; then
+        echo "merging $name into $target (fast-forward, 1 commit)..."
+        git -C "$WS" merge --ff-only "$name"
+    else
+        echo "merging $name into $target (--no-ff, $ahead commits)..."
+        git -C "$WS" merge --no-ff "$name"
+    fi
+
+    if git -C "$WS" remote get-url origin >/dev/null 2>&1; then
+        echo "pushing $target to origin..."
+        git -C "$WS" push origin "$target"
+    fi
+
+    if [ "$rm_after" = "1" ]; then
+        echo "landed $name into $target — cleaning up (--rm)..."
+        cmd_delete "$name"
+    else
+        echo "landed $name into $target — run 'wt rm $name' to clean up"
+    fi
+}
+
+cmd_sync() {
+    name=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -*)   echo "error: unknown flag '$1'" >&2; exit 1 ;;
+            *)    [ -z "$name" ] && name="$1" ;;
+        esac
+        shift
+    done
+
+    # No name: prefer the worktree we're standing in, then fzf-pick.
+    [ -z "$name" ] && name=$(current_worktree_name)
+    if [ -z "$name" ]; then
+        name=$(pick_worktree "sync") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
+    fi
+
+    wt_path="/workspaces/$name"
+    [ ! -d "$wt_path" ] && { echo "error: no worktree '$name' found" >&2; exit 1; }
+
+    assert_worktree_clean "$wt_path" "worktree '$name'"
+
+    target=$(resolve_target_branch "$name" "sync") || exit 1
+
+    echo "rebasing $name on $target..."
+    if ! git -C "$wt_path" rebase "$target"; then
+        echo "" >&2
+        echo "rebase failed; resolve conflicts in $wt_path (magit, git mergetool, etc.)" >&2
+        echo "or run 'git -C $wt_path rebase --abort' to back out" >&2
+        exit 1
+    fi
+    echo "synced $name with $target"
 }
 
 cmd_delete() {
     name="$1"
+    if [ -z "$name" ]; then
+        name=$(pick_worktree "rm") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
+    fi
     sess=$(session_name "$name")
     wt_path="/workspaces/$name"
 
-    # If directory is gone, clean up stale refs and tmux session
+    # Stale path: just prune refs and tear down the session.
     if [ ! -d "$wt_path" ]; then
         tmux kill-session -t "$sess" 2>/dev/null || true
         git -C "$WS" worktree prune
+        git -C "$WS" branch -D "$name" 2>/dev/null || true
         echo "pruned stale worktree $name"
         return
     fi
 
-    # Warn if dirty
     if [ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
         printf "worktree '%s' has uncommitted changes. delete anyway? [y/N] " "$name"
         read -r answer
@@ -177,7 +420,6 @@ cmd_delete() {
         esac
     fi
 
-    # If currently in this session, switch to dev first
     if [ -n "$TMUX" ]; then
         current=$(tmux display-message -p '#S')
         if [ "$current" = "$sess" ]; then
@@ -185,12 +427,12 @@ cmd_delete() {
         fi
     fi
 
-    # Kill tmux session
     tmux kill-session -t "$sess" 2>/dev/null || true
-
-    # Remove worktree
     git -C "$WS" worktree remove --force "$wt_path"
-    echo "removed worktree $name"
+    # Branches are shared across all worktrees of a repo.
+    git -C "$WS" branch -D "$name" 2>/dev/null || true
+
+    echo "removed worktree $name (branch deleted, tmux session killed)"
 }
 
 cmd_prune() {
@@ -213,13 +455,17 @@ case "${1:-}" in
     list|ls|"")
         cmd_list
         ;;
+    land)
+        shift
+        cmd_land "$@"
+        ;;
+    sync)
+        shift
+        cmd_sync "$@"
+        ;;
     delete|rm)
         shift
-        if [ -z "$1" ]; then
-            echo "error: name required" >&2
-            exit 1
-        fi
-        cmd_delete "$1"
+        cmd_delete "${1:-}"
         ;;
     prune)
         cmd_prune

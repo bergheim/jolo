@@ -203,17 +203,29 @@ class TestGetProjectInitCommands(unittest.TestCase):
         self.assertNotIn("elysia", config["example_test_content"])
         self.assertIn("bun:test", config["example_test_content"])
 
-    def test_go_bare_returns_go_mod_init(self):
-        """Go bare should return go mod init with project name."""
+    def test_go_bare_has_no_init_commands(self):
+        """Go bare ships go.mod via scaffold, so no in-container init needed."""
         commands = jolo.get_project_init_commands("go", "myproject")
-        self.assertIn(["go", "mod", "init", "myproject"], commands)
+        self.assertEqual(commands, [])
+
+    def test_go_scaffold_includes_go_mod(self):
+        """Go bare scaffold must include go.mod so the project is a valid module."""
+        files = dict(jolo.get_scaffold_files("go"))
+        self.assertIn("go.mod", files)
+        self.assertIn("module {{PROJECT_NAME}}", files["go.mod"])
 
     def test_go_web_returns_templ_commands(self):
-        """Go web should return go mod init and templ generate."""
+        """Go web should return templ generate (go.mod ships in scaffold)."""
         commands = jolo.get_project_init_commands("go-web", "myproject")
-        self.assertIn(["go", "mod", "init", "myproject"], commands)
+        self.assertNotIn(["go", "mod", "init", "myproject"], commands)
         self.assertIn(["go", "get", "github.com/a-h/templ"], commands)
         self.assertIn(["templ", "generate"], commands)
+
+    def test_go_web_scaffold_includes_go_mod(self):
+        """Go web scaffold must include go.mod alongside templ files."""
+        files = dict(jolo.get_scaffold_files("go-web"))
+        self.assertIn("go.mod", files)
+        self.assertIn("module {{PROJECT_NAME}}", files["go.mod"])
 
     def test_python_web_returns_fastapi_deps(self):
         """Python web should install FastAPI deps."""

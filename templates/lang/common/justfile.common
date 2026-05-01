@@ -28,6 +28,10 @@ db *args="start":
 share TARGET=".":
     @share {{TARGET}}
 
+# Manage git worktrees: list / new <name> / land <name> / rm <name> / main
+wt *args:
+    @wt {{args}}
+
 # Submit perf-rig.toml to the host-side perf hub
 perf:
     #!/bin/sh
