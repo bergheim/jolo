@@ -165,6 +165,7 @@ def detect_flavors(project_dir: Path) -> list[str]:
     ).exists()
     has_go = (project_dir / "go.mod").exists()
     has_rust = (project_dir / "Cargo.toml").exists()
+    has_elixir = (project_dir / "mix.exs").exists()
     has_shell = any(project_dir.glob("*.sh"))
 
     # Detect web vs bare by looking for common web indicators.
@@ -209,6 +210,28 @@ def detect_flavors(project_dir: Path) -> list[str]:
         flavors.append("go-web" if has_web else "go")
     if has_rust:
         flavors.append("rust-web" if has_web else "rust")
+    if has_elixir:
+        elixir_web = (
+            any(project_dir.glob("lib/*_web"))
+            or any(project_dir.glob("apps/*/lib/*_web"))
+            or (project_dir / "priv" / "static").exists()
+        )
+        if not elixir_web:
+            try:
+                mix_text = (
+                    (project_dir / "mix.exs")
+                    .read_text(errors="replace")
+                    .lower()
+                )
+            except OSError:
+                mix_text = ""
+            elixir_web = (
+                '"phoenix"' in mix_text
+                or "'phoenix'" in mix_text
+                or "phoenix.endpoint" in mix_text
+            )
+        if elixir_web:
+            flavors.append("elixir-web")
     if has_shell and not flavors:
         flavors.append("shell")
 

@@ -699,6 +699,43 @@ class TestDetectFlavors(unittest.TestCase):
         result = jolo.detect_flavors(Path(self.tmpdir))
         self.assertEqual(result, ["meta"])
 
+    def test_detects_elixir_web_from_phoenix_layout(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule Demo.MixProject do\nend\n"
+        )
+        Path(self.tmpdir, "config").mkdir()
+        Path(self.tmpdir, "config", "dev.exs").write_text("import Config\n")
+        Path(self.tmpdir, "lib").mkdir()
+        Path(self.tmpdir, "lib", "demo_web").mkdir()
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["elixir-web"])
+
+    def test_plain_elixir_repo_does_not_falsefire_as_web(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule Demo.MixProject do\nend\n"
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, [])
+
+    def test_dev_exs_alone_does_not_mark_elixir_as_web(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule Demo.MixProject do\nend\n"
+        )
+        Path(self.tmpdir, "config").mkdir()
+        Path(self.tmpdir, "config", "dev.exs").write_text("import Config\n")
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, [])
+
+    def test_detects_elixir_web_in_umbrella_layout(self):
+        Path(self.tmpdir, "mix.exs").write_text(
+            "defmodule DemoUmbrella.MixProject do\nend\n"
+        )
+        Path(self.tmpdir, "apps", "demo", "lib", "demo_web").mkdir(
+            parents=True
+        )
+        result = jolo.detect_flavors(Path(self.tmpdir))
+        self.assertEqual(result, ["elixir-web"])
+
 
 if __name__ == "__main__":
     unittest.main()
