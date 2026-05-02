@@ -106,7 +106,9 @@ class TestListAllDevcontainers(unittest.TestCase):
 
     def test_list_all_returns_empty_without_runtime(self):
         """Should return empty list if no container runtime."""
-        with mock.patch("jolo.get_container_runtime", return_value=None):
+        with mock.patch(
+            "_jolo.container.get_container_runtime", return_value=None
+        ):
             result = jolo.list_all_devcontainers()
             self.assertEqual(result, [])
 
