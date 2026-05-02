@@ -59,6 +59,7 @@ RUN apk update && apk add --no-cache \
     neovim \
     nodejs \
     openssh-client \
+    parallel \
     pinentry \
     pkgconf \
     podman \
