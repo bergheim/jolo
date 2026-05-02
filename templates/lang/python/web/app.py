@@ -28,11 +28,8 @@ def profiling_enabled() -> bool:
     return os.environ.get("APP_PROFILE", "1") != "0"
 
 
-# Tag samples with the commit currently checked out, refreshed cheaply.
-# Lifespan-time read would freeze on the SHA at startup — uvicorn --reload
-# only fires on file changes, not git commits, so any commit you make
-# during a session would leave the tag stale and break trigger's
-# pyroscope_url which filters by sha.
+# Per-request so commits during a session don't leave the tag stale —
+# uvicorn --reload doesn't fire on git commits.
 _sha_cache: tuple[str, float] = ("unknown", 0.0)
 
 
@@ -129,6 +126,10 @@ async def profile_request(request: Request, call_next):
             async for chunk in iterator:
                 drained += len(chunk) if isinstance(chunk, (bytes, bytearray)) else 0
                 if drained > _DRAIN_BYTE_CAP:
+                    # StreamingResponse relies on the generator running to
+                    # completion for cleanup; close it explicitly when we bail.
+                    if hasattr(iterator, "aclose"):
+                        await iterator.aclose()
                     break
         background = getattr(upstream, "background", None)
         if background is not None:
