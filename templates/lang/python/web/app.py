@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,22 @@ def profiling_enabled() -> bool:
     return os.environ.get("APP_PROFILE", "1") != "0"
 
 
+def _git_sha() -> str:
+    # Best-effort: tag samples with the commit currently checked out so a
+    # bench-run flame chart binds back to the SHA Bencher recorded.
+    # Re-read on every uvicorn --reload so the tag updates as you commit.
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=2,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()[:12]
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return "unknown"
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # PROJECT/PYROSCOPE_HOST come from the host .zshrc bind-mount. In
@@ -36,7 +53,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             application_name=os.environ["PROJECT"],
             server_address=os.environ["PYROSCOPE_HOST"],
             oncpu=False,
-            tags={"env": "dev"},
+            tags={"env": "dev", "sha": _git_sha()},
         )
     yield
     if profiling_enabled():
