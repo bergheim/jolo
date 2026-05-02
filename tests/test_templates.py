@@ -232,7 +232,15 @@ class TestGetProjectInitCommands(unittest.TestCase):
         commands = jolo.get_project_init_commands("python-web", "myproject")
         self.assertIn(["mkdir", "-p", "tests"], commands)
         self.assertIn(
-            ["uv", "add", "fastapi", "uvicorn[standard]", "jinja2"], commands
+            [
+                "uv",
+                "add",
+                "fastapi",
+                "uvicorn[standard]",
+                "jinja2",
+                "pyinstrument",
+            ],
+            commands,
         )
 
     def test_rust_returns_cargo_init(self):
@@ -252,7 +260,41 @@ class TestGetProjectInitCommands(unittest.TestCase):
             ["cargo", "add", "minijinja", "-F", "builtins,loader"],
             commands,
         )
+        self.assertIn(
+            ["cargo", "add", "pprof", "-F", "flamegraph"],
+            commands,
+        )
         self.assertIn(["just", "setup"], commands)
+
+
+class TestEnvrcTemplate(unittest.TestCase):
+    """Web flavors get a generated .envrc with profiling enabled."""
+
+    def test_web_flavors_enable_app_profile(self):
+        for flavor in [
+            "python-web",
+            "typescript-web",
+            "go-web",
+            "rust-web",
+            "elixir-web",
+        ]:
+            self.assertIn(
+                "export APP_PROFILE=1", jolo.get_envrc_content(flavor)
+            )
+
+    def test_non_web_flavors_skip_envrc(self):
+        self.assertEqual(jolo.get_envrc_content("python"), "")
+        self.assertEqual(jolo.get_envrc_content("go"), "")
+
+    def test_typescript_web_dev_uses_inspector_when_profile_enabled(self):
+        content = jolo.get_justfile_content("typescript-web", "myproject")
+        self.assertIn("--inspect=0.0.0.0:$(($PORT + 1000))", content)
+        self.assertIn('if [ "${APP_PROFILE:-1}" != "0" ]', content)
+
+    def test_rust_web_scaffold_includes_pprof_route(self):
+        config = jolo.get_test_framework_config("rust-web")
+        self.assertIn('"/debug/pprof/profile"', config["example_test_content"])
+        self.assertIn("ProfilerGuard", config["example_test_content"])
 
     def test_shell_returns_src_mkdir(self):
         """Shell should create src directory."""

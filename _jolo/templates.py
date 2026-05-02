@@ -362,6 +362,13 @@ def get_perf_rig_content(flavor: str, project_name: str) -> str:
     return content
 
 
+def get_envrc_content(flavor: str) -> str:
+    """Return generated .envrc content for web flavors."""
+    if not flavor.endswith("-web"):
+        return ""
+    return "export APP_PROFILE=1\n"
+
+
 def get_justfile_common_content(project_name: str) -> str:
     """Generate the tool-owned justfile.common content for a project."""
     common = _read_template("lang/common/justfile.common")
@@ -602,7 +609,14 @@ def get_project_init_commands(
         commands.append(["mkdir", "-p", "tests"])
         if flavor == "python-web":
             commands.append(
-                ["uv", "add", "fastapi", "uvicorn[standard]", "jinja2"]
+                [
+                    "uv",
+                    "add",
+                    "fastapi",
+                    "uvicorn[standard]",
+                    "jinja2",
+                    "pyinstrument",
+                ]
             )
             commands.append(["uv", "add", "--dev", "httpx"])
     elif lang == "typescript":
@@ -645,6 +659,7 @@ def get_project_init_commands(
             )
             commands.append(["cargo", "add", "tower-http", "-F", "fs"])
             commands.append(["cargo", "add", "serde", "-F", "derive"])
+            commands.append(["cargo", "add", "pprof", "-F", "flamegraph"])
             commands.append(["cargo", "add", "--dev", "tower"])
             commands.append(["just", "setup"])
     elif lang == "elixir":

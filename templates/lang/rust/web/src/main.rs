@@ -1,18 +1,26 @@
-use std::{env, sync::Arc};
+use std::{env, sync::Arc, time::Duration};
 
 use axum::{
-    extract::State,
-    response::Html,
+    extract::{Query, State},
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Response},
     routing::get,
     Router,
 };
 use axum_htmx::HxRequest;
 use minijinja::{context, Environment};
+use pprof::ProfilerGuard;
+use serde::Deserialize;
 use tower_http::services::ServeDir;
 use tower_livereload::LiveReloadLayer;
 
 struct AppState {
     env: Environment<'static>,
+}
+
+#[derive(Deserialize)]
+struct ProfileQuery {
+    seconds: Option<u64>,
 }
 
 #[tokio::main]
@@ -24,12 +32,19 @@ async fn main() {
 
     let state = Arc::new(AppState { env });
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/", get(handle_home))
         .route("/api/greet", get(handle_greet))
-        .nest_service("/static", ServeDir::new("static"))
-        .layer(LiveReloadLayer::new())
-        .with_state(state);
+        .nest_service("/static", ServeDir::new("static"));
+
+    if env::var("APP_PROFILE")
+        .map(|value| value != "0")
+        .unwrap_or(true)
+    {
+        app = app.route("/debug/pprof/profile", get(handle_profile));
+    }
+
+    let app = app.layer(LiveReloadLayer::new()).with_state(state);
 
     let addr = format!("0.0.0.0:{port}");
     println!("listening on {addr}");
@@ -52,6 +67,27 @@ async fn handle_greet(
         let tmpl = state.env.get_template("index.html").unwrap();
         Html(tmpl.render(context! { title => "Greeting" }).unwrap())
     }
+}
+
+async fn handle_profile(
+    Query(query): Query<ProfileQuery>,
+) -> Result<Response, (StatusCode, String)> {
+    let seconds = query.seconds.unwrap_or(5).clamp(1, 30);
+    let svg = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
+        let guard = ProfilerGuard::new(100).map_err(|err| err.to_string())?;
+        std::thread::sleep(Duration::from_secs(seconds));
+        let report = guard.report().build().map_err(|err| err.to_string())?;
+        let mut svg = Vec::new();
+        report
+            .flamegraph(&mut svg)
+            .map_err(|err| err.to_string())?;
+        Ok(svg)
+    })
+    .await
+    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
+    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err))?;
+
+    Ok(([(header::CONTENT_TYPE, "image/svg+xml")], svg).into_response())
 }
 
 #[cfg(test)]

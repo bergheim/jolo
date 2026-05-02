@@ -96,3 +96,48 @@ For some models this is dramatically slower:
 - Does ~OLLAMA_LLAMA_CPP=1~ work for gemma4:26b specifically?
 - Is the native engine used for Gemma 4 or only newer architectures?
 - What is the actual context size Ollama uses for gemma4:26b by default?
+
+* Is Pyroscope SOTA for automatic project profile snapshots?     :pyroscope:profiling:observability:jolo:
+:PROPERTIES:
+:DATE: 2026-05-02
+:PROMPT: lets $j-research and see if pyroscope is SOTA for automatically generating snapshots of our code in projects.
+:END:
+
+** Summary
+- If "snapshot" means an on-demand runtime performance profile/flamegraph tied to project/commit/source lines, Grafana Pyroscope is a SOTA OSS choice in 2026, especially because Pyroscope 2.0 just shipped with lower-cost storage/query architecture and OTLP Profiles support.
+- For Jolo projects, the target shape is not "profile everything all the time by default"; it is "profiling is always available": an agent can trigger a profile capture from any project, the artifact lands in the shared perf hub, and the user can inspect it in the same UI.
+- The pragmatic split is: keep cheap on-demand Speedscope/profile artifacts in early templates, and make Pyroscope the optional host-side perf-hub service for persistent profile history, source-code drilldown, and commit-window comparison.
+- Pyroscope's GitHub source integration is useful but not universal: source-line integration is documented for Go, Java, and Python, requires GitHub-hosted code, and needs ~service_repository~ plus ~service_git_ref~ labels.
+- Auto-instrumentation is credible but permission-heavy. Grafana Alloy's eBPF profiler can collect profiles without app code changes, but it needs root/host PID namespace or Linux capabilities that do not fit ordinary locked-down devcontainers.
+- OpenTelemetry Profiles reached public Alpha in March 2026. That confirms continuous profiling is becoming a first-class observability signal, but OTel Profiles is not yet the stable backend choice for critical production workloads.
+
+** Findings
+- Grafana documents Pyroscope as an OSS continuous profiling aggregation system that lets you analyze workload resource usage down to source line level and correlate profiles with metrics, logs, and traces ([[https://grafana.com/docs/pyroscope/latest/][Grafana Pyroscope docs]]).
+- Pyroscope 2.0 was announced 2026-04-21. Grafana says v2 removes write-path replication, makes query workers stateless, supports OTLP profiling, and has been running in Grafana Cloud Profiles since April 2025 ([[https://grafana.com/blog/pyroscope-2-0-release/][Pyroscope 2.0 announcement]], [[https://grafana.com/docs/pyroscope/latest/release-notes/v2-0/][v2.0 release notes]]).
+- Collection paths are flexible: a local Pyroscope server can be started as one process/container, but collecting app profiles still requires either SDK instrumentation or Grafana Alloy ([[https://grafana.com/docs/pyroscope/latest/get-started/][Get started with Pyroscope]]).
+- Auto-instrumentation via Alloy is the closest match to "automatic snapshots." The ~pyroscope.ebpf~ component profiles the current host and supports native code plus common high-level runtimes, but requires root in the host PID namespace or a set of BPF/perf/ptrace-style capabilities ([[https://grafana.com/docs/alloy/latest/reference/components/pyroscope/pyroscope.ebpf/][Alloy pyroscope.ebpf docs]]).
+- Pyroscope's profile-type support varies by collection method. Auto instrumentation covers CPU profiles; SDKs give richer runtime-specific profile types for some languages. The official support table lists SDK coverage for Go, Java, .NET, Ruby, Python, Rust, and Node.js ([[https://grafana.com/docs/pyroscope/latest/configure-client/profile-types/][Profile types and instrumentation]]).
+- Python scaffolds can integrate directly with ~pyroscope-io~ by adding a small setup block with ~application_name~, ~server_address~, optional ~sample_rate~, and tags. That is easy enough for opt-in project templates, but it is still application instrumentation, not zero-touch capture ([[https://grafana.com/docs/pyroscope/latest/configure-client/language-sdks/python/][Pyroscope Python SDK docs]]).
+- Go can be pulled via pprof endpoints by Alloy, which fits services that already expose ~net/http/pprof~. That is less invasive than SDK push mode but still requires exposing endpoints and running a collector ([[https://grafana.com/docs/pyroscope/latest/configure-client/grafana-alloy/go_pull/][Go pull-mode profiling]]).
+- Source-code integration is a strong reason to prefer Pyroscope over raw Speedscope files for a host perf hub: Pyroscope can map profile frames back to GitHub source and show line-level resource breakdowns. The documented requirements are Go/Java/Python support, GitHub access, and labels including ~service_repository~ and ~service_git_ref~ ([[https://grafana.com/docs/pyroscope/latest/view-and-analyze-profile-data/line-by-line/][Pyroscope source-code integration]]).
+- The source integration fetches code from GitHub at a git ref; it does not archive profile artifacts by itself. The perf hub still needs a ledger/artifact store keyed by project, run ID, commit, route, and testbed.
+- Parca remains the closest OSS alternative for zero-instrumentation continuous profiling. Its agent uses eBPF, discovers Kubernetes/systemd targets, emits pprof profiles, and supports broad language coverage; but it is more infrastructure-profile-first and less aligned with the existing Grafana/VictoriaMetrics/k6 stack ([[https://github.com/parca-dev/parca-agent][Parca Agent]], [[https://github.com/parca-dev/parca][Parca]]).
+- OpenTelemetry Profiles entered public Alpha in March 2026, with an OTLP profile data model, pprof interoperability, and an eBPF profiler. The same announcement says production-ready backends have not yet emerged and Alpha should not be used for critical production workloads ([[https://opentelemetry.io/blog/2026/profiles-alpha/][OpenTelemetry Profiles Alpha]]).
+
+** Links
+- [[https://grafana.com/docs/pyroscope/latest/][Grafana Pyroscope documentation]]
+- [[https://grafana.com/blog/pyroscope-2-0-release/][Grafana Labs -- Introducing Pyroscope 2.0]]
+- [[https://grafana.com/docs/pyroscope/latest/release-notes/v2-0/][Grafana Pyroscope v2.0 release notes]]
+- [[https://grafana.com/docs/alloy/latest/reference/components/pyroscope/pyroscope.ebpf/][Grafana Alloy -- pyroscope.ebpf]]
+- [[https://grafana.com/docs/pyroscope/latest/configure-client/profile-types/][Pyroscope profile types and instrumentation]]
+- [[https://grafana.com/docs/pyroscope/latest/configure-client/language-sdks/python/][Pyroscope Python SDK]]
+- [[https://grafana.com/docs/pyroscope/latest/configure-client/grafana-alloy/go_pull/][Pyroscope Go pull mode]]
+- [[https://grafana.com/docs/pyroscope/latest/view-and-analyze-profile-data/line-by-line/][Pyroscope source-code integration]]
+- [[https://github.com/parca-dev/parca-agent][Parca Agent]]
+- [[https://github.com/parca-dev/parca][Parca]]
+- [[https://opentelemetry.io/blog/2026/profiles-alpha/][OpenTelemetry Profiles public Alpha]]
+
+** Open Questions
+- Should Pyroscope live only in the global perf hub, or should generated projects include opt-in SDK glue for Python/Node/Go so profile capture works even without host eBPF privileges?
+- Is GitHub-only source integration acceptable for private/local projects, or should the perf hub rely primarily on stored Speedscope/pprof artifacts keyed by commit?
+- For devcontainers, can host-side Alloy eBPF see sibling container processes cleanly through the current Podman setup, or would SDK/pull-mode collection be simpler and less privileged?

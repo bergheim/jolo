@@ -762,6 +762,21 @@ def _regenerated_perf_rig_bytes(
     return get_perf_rig_content(flavor, target_dir.name).encode()
 
 
+def _regenerated_envrc_bytes(
+    target_dir: Path, force: bool = False
+) -> bytes | None:
+    """Return current ``.envrc`` bytes for web projects, or ``None``."""
+    from _jolo.templates import get_envrc_content
+
+    flavor = _resolve_flavor(target_dir, force)
+    if flavor is None:
+        return None
+    content = get_envrc_content(flavor)
+    if not content:
+        return None
+    return content.encode()
+
+
 def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
     """Return current ``.pre-commit-config.yaml`` bytes for this project."""
     from _jolo.templates import generate_precommit_config
@@ -964,6 +979,18 @@ def sync_template_files(target_dir: Path, force: bool = False) -> None:
         )
         if result in {"written", "updated", "unchanged"}:
             touched.append("perf-rig.toml")
+
+    regenerated_envrc = _regenerated_envrc_bytes(target_dir, force=force)
+    if regenerated_envrc is not None:
+        result = _sync_one_file(
+            target_dir,
+            ".envrc",
+            regenerated_envrc,
+            hashes,
+            force=force,
+        )
+        if result in {"written", "updated", "unchanged"}:
+            touched.append(".envrc")
 
     regenerated_precommit = (
         None

@@ -105,6 +105,7 @@ from _jolo.setup import (  # noqa: F401
 from _jolo.templates import (  # noqa: F401
     generate_precommit_config,
     get_coverage_config,
+    get_envrc_content,
     get_justfile_common_content,
     get_justfile_content,
     get_motd_content,

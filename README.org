@@ -63,7 +63,8 @@ Every project ships a justfile. ~just --list~ is the menu.
 | ~just a11y~         | Accessibility audit (WCAG 2.2 AA)                        |
 | ~just db~           | On-demand PostgreSQL                                     |
 | ~just share <path>~ | Copy to stash, print/clipboard a tailnet URL             |
-| ~just perf~         | Submit ~perf-rig.toml~ to the perf hub                   |
+| ~just perf~         | Run benchmarks via ~perf-rig.toml~; response deep-links to a Pyroscope flame chart |
+| ~just profile <path>~ | (python-web) Profile a route — flamegraph HTML + speedscope JSON |
 | ~just wt~           | Manage git worktrees (see below)                         |
 
 ** Worktrees

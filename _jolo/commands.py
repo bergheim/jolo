@@ -71,6 +71,7 @@ from _jolo.setup import (
 )
 from _jolo.templates import (
     generate_precommit_config,
+    get_envrc_content,
     get_justfile_common_content,
     get_justfile_content,
     get_motd_content,
@@ -1230,6 +1231,11 @@ def run_create_mode(args: argparse.Namespace) -> None:
     perf_rig_content = get_perf_rig_content(primary_flavor, project_name)
     (project_path / "perf-rig.toml").write_text(perf_rig_content)
     verbose_print("Generated perf-rig.toml")
+
+    envrc_content = get_envrc_content(primary_flavor)
+    if envrc_content:
+        (project_path / ".envrc").write_text(envrc_content)
+        verbose_print("Generated .envrc")
 
     # Generate and write .pre-commit-config.yaml based on selected flavors
     precommit_content = generate_precommit_config(flavors)
