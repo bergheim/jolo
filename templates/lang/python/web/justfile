@@ -19,3 +19,14 @@ test-watch:
 # Add a dependency
 add *packages:
     uv add {{packages}}
+
+# Profile a route (curl ?profile=1) and save the flamegraph to scratch/
+profile path="/":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p scratch
+    slug=$(printf '%s' "{{path}}" | sed 's|^/||;s|/|-|g')
+    [ -z "$slug" ] && slug=root
+    out="scratch/profile-$slug-$(date +%Y%m%dT%H%M%S).html"
+    curl -fsS "http://127.0.0.1:$PORT{{path}}?profile=1" -o "$out"
+    echo "wrote $out"
