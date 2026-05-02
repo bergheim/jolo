@@ -20,13 +20,19 @@ test-watch:
 add *packages:
     uv add {{packages}}
 
-# Profile a route (curl ?profile=1) and save the flamegraph to scratch/
+# Profile a route: pyinstrument HTML to scratch/ (auto-shared), speedscope JSON to stash/profiles/ (syncthing-mirrored)
 profile path="/":
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p scratch
+    proj="${PROJECT:?PROJECT not set; run inside a jolo container}"
+    json_dir="/workspaces/stash/profiles/$proj"
+    mkdir -p scratch "$json_dir"
     slug=$(printf '%s' "{{path}}" | sed 's|^/||;s|/|-|g')
     [ -z "$slug" ] && slug=root
-    out="scratch/profile-$slug-$(date +%Y%m%dT%H%M%S).html"
-    curl -fsS "http://127.0.0.1:$PORT{{path}}?profile=1" -o "$out"
-    echo "wrote $out"
+    ts=$(date +%Y%m%dT%H%M%S)
+    html="scratch/profile-$slug-$ts.html"
+    json="$json_dir/$slug-$ts.json"
+    curl -fsS "http://127.0.0.1:$PORT{{path}}?profile=1" -o "$html"
+    curl -fsS "http://127.0.0.1:$PORT{{path}}?profile=1&format=json" -o "$json"
+    echo "json:  $json"
+    share "$html"
