@@ -1,6 +1,7 @@
 import ipaddress
 import os
 import subprocess
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -27,20 +28,29 @@ def profiling_enabled() -> bool:
     return os.environ.get("APP_PROFILE", "1") != "0"
 
 
-def _git_sha() -> str:
-    # Best-effort: tag samples with the commit currently checked out so a
-    # bench-run flame chart binds back to the SHA Bencher recorded.
-    # Re-read on every uvicorn --reload so the tag updates as you commit.
+# Tag samples with the commit currently checked out, refreshed cheaply.
+# Lifespan-time read would freeze on the SHA at startup — uvicorn --reload
+# only fires on file changes, not git commits, so any commit you make
+# during a session would leave the tag stale and break trigger's
+# pyroscope_url which filters by sha.
+_sha_cache: tuple[str, float] = ("unknown", 0.0)
+
+
+def _git_sha_cached() -> str:
+    global _sha_cache
+    sha, last = _sha_cache
+    if time.monotonic() - last < 30:
+        return sha
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             capture_output=True, text=True, timeout=2,
         )
-        if out.returncode == 0:
-            return out.stdout.strip()[:12]
+        sha = out.stdout.strip()[:12] if out.returncode == 0 else "unknown"
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    return "unknown"
+        sha = "unknown"
+    _sha_cache = (sha, time.monotonic())
+    return sha
 
 
 @asynccontextmanager
@@ -53,7 +63,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             application_name=os.environ["PROJECT"],
             server_address=os.environ["PYROSCOPE_HOST"],
             oncpu=False,
-            tags={"env": "dev", "sha": _git_sha()},
+            tags={"env": "dev"},
         )
     yield
     if profiling_enabled():
@@ -78,7 +88,10 @@ async def pyroscope_route_tag(request: Request, call_next):
         if match == Match.FULL:
             pattern = getattr(route, "path", None) or getattr(route, "path_format", None)
             break
-    with pyroscope.tag_wrapper({"route": pattern} if pattern else {}):
+    tags: dict[str, str] = {"sha": _git_sha_cached()}
+    if pattern:
+        tags["route"] = pattern
+    with pyroscope.tag_wrapper(tags):
         return await call_next(request)
 
 
