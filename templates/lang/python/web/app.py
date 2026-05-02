@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pyinstrument import Profiler
 from pyinstrument.renderers.speedscope import SpeedscopeRenderer
+from starlette.routing import Match
 
 
 # Reject if any of these are set — request.client.host would reflect the
@@ -46,6 +47,22 @@ app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+@app.middleware("http")
+async def pyroscope_route_tag(request: Request, call_next):
+    if not profiling_enabled():
+        return await call_next(request)
+    # Match the route pattern (e.g. /items/{id}) instead of the raw URL
+    # so cardinality stays bounded — one tag value per route, not per id.
+    pattern: str | None = None
+    for route in request.app.routes:
+        match, _ = route.matches(request.scope)
+        if match == Match.FULL:
+            pattern = getattr(route, "path", None) or getattr(route, "path_format", None)
+            break
+    with pyroscope.tag_wrapper({"route": pattern} if pattern else {}):
+        return await call_next(request)
 
 
 def _is_loopback(request: Request) -> bool:
