@@ -1,5 +1,7 @@
 import ipaddress
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import pyroscope
 from fastapi import FastAPI, Request
@@ -9,18 +11,25 @@ from fastapi.templating import Jinja2Templates
 from pyinstrument import Profiler
 from pyinstrument.renderers.speedscope import SpeedscopeRenderer
 
-# Continuous profiling. PROJECT and PYROSCOPE_HOST are set globally in
-# the dev environment (host .zshrc → bind-mounted into every container)
-# so we don't gate on env presence — missing means misconfigured devhost
-# and we want startup to fail loudly.
-pyroscope.configure(
-    application_name=os.environ["PROJECT"],
-    server_address=os.environ["PYROSCOPE_HOST"],
-    oncpu=False,
-    tags={"env": "dev"},
-)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Continuous profiling. PROJECT and PYROSCOPE_HOST are set globally
+    # in the dev environment (host .zshrc → bind-mount); missing means
+    # misconfigured devhost, hence the bare lookup. In lifespan rather
+    # than module-level so plain `import app` (tests, scripts) doesn't
+    # require pyroscope to be reachable.
+    pyroscope.configure(
+        application_name=os.environ["PROJECT"],
+        server_address=os.environ["PYROSCOPE_HOST"],
+        oncpu=False,
+        tags={"env": "dev"},
+    )
+    yield
+    pyroscope.shutdown()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
