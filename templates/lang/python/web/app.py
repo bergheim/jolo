@@ -12,36 +12,40 @@ from pyinstrument import Profiler
 from pyinstrument.renderers.speedscope import SpeedscopeRenderer
 
 
+# Reject if any of these are set — request.client.host would reflect the
+# proxy's loopback, not the real caller.
+_PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded")
+# Cap drain so a `?profile=1` on a giant streaming download can't blow
+# memory. We lose profile coverage past this point on huge responses,
+# which is the right trade for an opt-in dev tool.
+_DRAIN_BYTE_CAP = 50 * 1024 * 1024
+
+
+def profiling_enabled() -> bool:
+    return os.environ.get("APP_PROFILE", "1") != "0"
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Continuous profiling. PROJECT and PYROSCOPE_HOST are set globally
-    # in the dev environment (host .zshrc → bind-mount); missing means
-    # misconfigured devhost, hence the bare lookup. In lifespan rather
-    # than module-level so plain `import app` (tests, scripts) doesn't
-    # require pyroscope to be reachable.
-    pyroscope.configure(
-        application_name=os.environ["PROJECT"],
-        server_address=os.environ["PYROSCOPE_HOST"],
-        oncpu=False,
-        tags={"env": "dev"},
-    )
+    # PROJECT/PYROSCOPE_HOST come from the host .zshrc bind-mount. In
+    # lifespan (not at import) so tests/scripts can `from app import app`
+    # without pyroscope being reachable.
+    if profiling_enabled():
+        pyroscope.configure(
+            application_name=os.environ["PROJECT"],
+            server_address=os.environ["PYROSCOPE_HOST"],
+            oncpu=False,
+            tags={"env": "dev"},
+        )
     yield
-    pyroscope.shutdown()
+    if profiling_enabled():
+        pyroscope.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
-
-# Reject if any of these are set — request.client.host would reflect the
-# proxy's loopback, not the real caller.
-_PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded")
-
-
-def profiling_enabled() -> bool:
-    return os.environ.get("APP_PROFILE", "1") != "0"
 
 
 def _is_loopback(request: Request) -> bool:
@@ -60,7 +64,7 @@ def _is_loopback(request: Request) -> bool:
 async def profile_request(request: Request, call_next):
     if (
         not profiling_enabled()
-        or request.query_params.get("profile") not in {"1", "true", "yes"}
+        or request.query_params.get("profile") != "1"
         or not _is_loopback(request)
     ):
         return await call_next(request)
@@ -74,8 +78,11 @@ async def profile_request(request: Request, call_next):
         # BackgroundTasks so cleanup the route attached actually fires.
         iterator = getattr(upstream, "body_iterator", None)
         if iterator is not None:
-            async for _chunk in iterator:
-                pass
+            drained = 0
+            async for chunk in iterator:
+                drained += len(chunk) if isinstance(chunk, (bytes, bytearray)) else 0
+                if drained > _DRAIN_BYTE_CAP:
+                    break
         background = getattr(upstream, "background", None)
         if background is not None:
             await background()
