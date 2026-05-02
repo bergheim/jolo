@@ -110,6 +110,7 @@ def build_devcontainer_json(
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "LLAMA_HOST": "${localEnv:LLAMA_HOST}",
+            "PYROSCOPE_HOST": "${localEnv:PYROSCOPE_HOST}",
             "PGHOST": "/tmp",
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",
