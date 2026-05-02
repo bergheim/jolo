@@ -88,6 +88,7 @@ perf:
     VALIDITY=$(printf '%s' "$RESP" | jq -r '.validity_status // "unknown"')
     RUN_ID=$(printf '%s' "$RESP" | jq -r '.run_id // "unknown"')
     GRAFANA=$(printf '%s' "$RESP" | jq -r '.grafana_url // empty')
+    PYROSCOPE=$(printf '%s' "$RESP" | jq -r '.pyroscope_url // empty')
     K6_EXIT=$(printf '%s' "$RESP" | jq -r '.k6_exit // "?"')
     FAIL=$(printf '%s' "$RESP" | jq -r '.failure_reason // empty')
     BENCHER=$(printf '%s' "$RESP" | jq -r '.bencher_report_url // empty')
@@ -96,6 +97,7 @@ perf:
     [ -n "$FAIL" ] && echo "failure_reason: $FAIL"
     echo "k6_exit:        $K6_EXIT"
     [ -n "$GRAFANA" ] && echo "grafana_url:    $GRAFANA"
+    [ -n "$PYROSCOPE" ] && echo "pyroscope_url:  $PYROSCOPE"
     [ -n "$BENCHER" ] && echo "bencher:        $BENCHER"
     # Exit 2 when the run completed but didn't pass validity — distinct
     # from exit 1 (hub/network/parse failure) so CI can tell them apart.
