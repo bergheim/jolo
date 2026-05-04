@@ -15,6 +15,6 @@ jobs:
       - name: Log in to ghcr.io
         run: echo ${{ secrets.GITHUB_TOKEN }} | podman login -u ${{ github.actor }} --password-stdin ghcr.io
       - name: Build image
-        run: podman build -t ghcr.io/${{ github.repository_owner }}/emacs-gui:latest .
+        run: podman build -t ghcr.io/${{ github.repository_owner }}/jolo:latest .
       - name: Push image
-        run: podman push ghcr.io/${{ github.repository_owner }}/emacs-gui:latest
+        run: podman push ghcr.io/${{ github.repository_owner }}/jolo:latest

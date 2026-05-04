@@ -8,7 +8,7 @@ AI-assisted development. The container includes multiple AI coding agents (Claud
 Gemini, Codex, Pi) pre-configured in autonomous mode, running in a tmux session.
 
 The project produces:
-- A container image (=emacs-gui=) with all dev tools pre-installed
+- A container image (=jolo=) with all dev tools pre-installed
 - =jolo= CLI for launching devcontainers with git worktree support
 - Templates for scaffolding new projects inside devcontainers
 
