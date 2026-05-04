@@ -12,7 +12,7 @@ from pathlib import Path
 
 import tomllib
 
-from _jolo import constants
+from _jolo import constants, registry
 from _jolo.cli import (
     _format_container_display,
     _podman_proxy_pidfile,
@@ -681,29 +681,35 @@ def _last_attach_mtime(workspace: Path) -> float:
 
 
 def _pick_container() -> Path | None:
-    """Show fzf picker for all containers (running and stopped)."""
+    """Show fzf picker for all containers (running, stopped, and known-on-disk)."""
     containers = list_all_devcontainers()
-    candidates = [
-        (name, folder, state)
-        for name, folder, state, image_id in containers
-        if Path(folder).exists()
-    ]
+    seen: dict[str, str] = {}
+    for _, folder, state, _image_id in containers:
+        if Path(folder).exists():
+            resolved = str(Path(folder).resolve())
+            seen[resolved] = state
+            registry.record(Path(folder))
 
-    if not candidates:
+    for path, _last_seen in registry.known_paths():
+        seen.setdefault(str(path.resolve()), "no container")
+
+    if not seen:
         sys.exit("No containers found.")
 
-    if len(candidates) == 1:
-        return Path(candidates[0][1])
+    if len(seen) == 1:
+        return Path(next(iter(seen)))
 
-    candidates.sort(
-        key=lambda item: _last_attach_mtime(Path(item[1])), reverse=True
+    candidates = sorted(
+        seen.items(),
+        key=lambda item: _last_attach_mtime(Path(item[0])),
+        reverse=True,
     )
 
     labels = []
-    for _, folder, state in candidates:
+    for folder, state in candidates:
         label = _format_container_display(folder)
         marker = "" if state == "running" else f" [{state}]"
-        labels.append(f"{label}{marker:<12} {folder}")
+        labels.append(f"{label}{marker:<16} {folder}")
 
     selected = _fzf_pick("Pick a container:", labels)
     if selected is None:
@@ -723,6 +729,7 @@ def run_attach_mode(args: argparse.Namespace) -> None:
         if not devcontainer_up(folder):
             sys.exit("Error: Failed to start container")
 
+    registry.record(folder)
     devcontainer_exec_tmux(folder)
 
 
@@ -1068,6 +1075,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
             "Container already running, reattaching. Use --recreate to rebuild."
         )
 
+    registry.record(git_root)
     _copy_url_to_clipboard(git_root)
 
     if args.prompt:
@@ -1149,6 +1157,8 @@ def run_tree_mode(args: argparse.Namespace) -> None:
             sys.exit("Error: Failed to start devcontainer")
         if args.recreate:
             _setup_test_hooks(worktree_path)
+
+    registry.record(worktree_path)
 
     if args.prompt:
         print(f"Started {args.agent} in: {worktree_path.name}")
@@ -1436,6 +1446,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
 
+    registry.record(project_path)
     _setup_test_hooks(project_path)
 
     # Run project init commands for primary flavor inside the container
@@ -1568,6 +1579,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
     if not devcontainer_up(project_path, remove_existing=True):
         sys.exit("Error: Failed to start devcontainer")
 
+    registry.record(project_path)
     _setup_test_hooks(project_path)
 
     if args.prompt:
@@ -1706,6 +1718,7 @@ def run_spawn_mode(args: argparse.Namespace) -> None:
                 for line in err_lines[-5:]:
                     print(f"    {line}", file=sys.stderr)
         else:
+            registry.record(path)
             print(f"  Ready: {path.name}")
 
     if failed:
