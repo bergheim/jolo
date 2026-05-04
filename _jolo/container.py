@@ -89,7 +89,7 @@ def build_devcontainer_json(
         "userEnvProbe": "none",
         **(
             {"postStartCommand": post_start_command}
-            if post_start_command
+            if post_start_command is not None
             else {}
         ),
         "runArgs": [

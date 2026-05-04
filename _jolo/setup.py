@@ -581,6 +581,16 @@ SYNCABLE_TEMPLATE_FILES = [
     "biome.json",
 ]
 
+# The string jolo used to hardcode as postStartCommand. On sync, an
+# existing devcontainer.json carrying *exactly* this value is treated as
+# stale plumbing and dropped — the symlink lives in entrypoint.sh now.
+# Any other value (including the old default with extra suffix like
+# "&& scripts/pg-init") is preserved verbatim.
+_OLD_CANONICAL_POST_START_COMMAND = (
+    "ln -sfn $HOME/.agents/skills $HOME/.claude/skills"
+)
+
+
 # Files that sync should drop in if missing but never overwrite if present.
 # Currently empty — perf-rig.toml graduated to strictly-owned sync so
 # `--force` can actually retrofit placeholder renames and the like.
@@ -1169,7 +1179,9 @@ def sync_devcontainer(
 
     # Preserve existing NOTIFY_APP and postStartCommand settings.
     # postStartCommand is user-owned (e.g. demokrate's scripts/pg-init);
-    # the skills symlink runs from container/entrypoint.sh now.
+    # the skills symlink runs from container/entrypoint.sh now. Projects
+    # that still have the exact old canonical default get cleaned up so
+    # ownership of the key really is 100% the user's.
     has_web = False
     post_start_command: str | None = None
     devcontainer_json = target_dir / ".devcontainer" / "devcontainer.json"
@@ -1177,7 +1189,9 @@ def sync_devcontainer(
         try:
             existing = json.loads(devcontainer_json.read_text())
             has_web = existing.get("containerEnv", {}).get("NOTIFY_APP") == "1"
-            post_start_command = existing.get("postStartCommand")
+            existing_post_start = existing.get("postStartCommand")
+            if existing_post_start != _OLD_CANONICAL_POST_START_COMMAND:
+                post_start_command = existing_post_start
         except (json.JSONDecodeError, ValueError):
             pass
 
