@@ -578,6 +578,7 @@ SYNCABLE_TEMPLATE_FILES = [
     "CLAUDE.md",
     "GEMINI.md",
     ".gitignore",
+    "biome.json",
 ]
 
 # Files that sync should drop in if missing but never overwrite if present.
@@ -1050,6 +1051,7 @@ def copy_template_files(target_dir: Path) -> None:
         "GEMINI.md",
         ".gitignore",
         ".editorconfig",
+        "biome.json",
     ]
 
     for filename in template_files:
