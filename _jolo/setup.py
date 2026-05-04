@@ -578,6 +578,7 @@ SYNCABLE_TEMPLATE_FILES = [
     "CLAUDE.md",
     "GEMINI.md",
     ".gitignore",
+    ".editorconfig",
     "biome.json",
 ]
 

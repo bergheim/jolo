@@ -858,6 +858,21 @@ class TestSanitizeForTestbed(unittest.TestCase):
             self.assertRegex(jolo.sanitize_for_testbed(raw), hub_re)
 
 
+class TestSyncableTemplateMembership(unittest.TestCase):
+    """Files copied at scaffold time should also be sync-tracked, otherwise
+    template improvements never reach existing projects on --recreate."""
+
+    def test_editorconfig_is_syncable(self):
+        from _jolo.setup import SYNCABLE_TEMPLATE_FILES
+
+        self.assertIn(".editorconfig", SYNCABLE_TEMPLATE_FILES)
+
+    def test_biome_json_is_syncable(self):
+        from _jolo.setup import SYNCABLE_TEMPLATE_FILES
+
+        self.assertIn("biome.json", SYNCABLE_TEMPLATE_FILES)
+
+
 class TestPerfRigTemplate(unittest.TestCase):
     """templates/perf-rig.toml placeholder."""
 
