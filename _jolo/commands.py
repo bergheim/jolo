@@ -177,7 +177,8 @@ def _sync_config(
     force: bool = False,
     port: int | None = None,
 ) -> None:
-    """Sync devcontainer config, skill templates, and template files."""
+    """Sync devcontainer config and template files. Skills are owned by
+    _setup_container_env, which runs in every container-up flow."""
     sync_devcontainer(
         name,
         target_dir=path,
@@ -185,7 +186,6 @@ def _sync_config(
         port=port,
         cross_container=is_podman_allowed(name),
     )
-    sync_skill_templates(path)
     sync_template_files(path, force=force)
 
 
@@ -260,10 +260,9 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
     setup_stash()
-    # devcontainer.json mounts .jolo/skills/ unconditionally; without this
-    # the bind source is missing and podman fails on jolo clone / first-time
-    # jolo up. _sync_config also calls it (on --recreate) but that path
-    # doesn't run the first time.
+    # devcontainer.json mounts .jolo/skills/ unconditionally; this is the
+    # single owner so podman never bombs on a missing bind source — covers
+    # clone, first-time up, recreate, create, init, tree, research.
     sync_skill_templates(workspace)
 
 

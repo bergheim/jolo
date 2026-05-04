@@ -144,8 +144,8 @@ class TestTemplateSystem(unittest.TestCase):
             "host-only copy\n",
         )
 
-    def test_copy_template_files_includes_stash_note_guidance_and_skill(self):
-        """Generated projects should get stash-note guidance and key skills."""
+    def test_copy_template_files_includes_stash_note_guidance(self):
+        """Generated projects should get stash-note guidance in AGENTS.md."""
         project_dir = Path(self.tmpdir) / "project"
         project_dir.mkdir()
 
@@ -154,6 +154,17 @@ class TestTemplateSystem(unittest.TestCase):
         agents = (project_dir / "AGENTS.md").read_text()
         self.assertIn("/workspaces/stash/notes", agents)
         self.assertIn("Would I want this loaded at session start", agents)
+
+    def test_sync_skill_templates_lands_key_skills(self):
+        """Skills like j-note-stash and j-scaffold-web must land in
+        .jolo/skills/. _setup_container_env owns this in real flows."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        with mock.patch(
+            "pathlib.Path.home", return_value=Path(self.tmpdir) / "home"
+        ):
+            setup.sync_skill_templates(project_dir)
 
         skill_file = (
             project_dir / ".jolo" / "skills" / "j-note-stash" / "SKILL.md"

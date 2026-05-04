@@ -1093,8 +1093,6 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copytree(src, dst, symlinks=True)
             verbose_print(f"Copied template dir: {dirname}/")
 
-    sync_skill_templates(target_dir)
-
 
 def ensure_test_gate_script(target_dir: Path) -> None:
     """Ensure scripts/test-gate exists in the target project."""
