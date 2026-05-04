@@ -1167,13 +1167,17 @@ def sync_devcontainer(
     if port is None:
         port = read_port_from_devcontainer(target_dir)
 
-    # Preserve existing NOTIFY_APP setting
+    # Preserve existing NOTIFY_APP and postStartCommand settings.
+    # postStartCommand is user-owned (e.g. demokrate's scripts/pg-init);
+    # the skills symlink runs from container/entrypoint.sh now.
     has_web = False
+    post_start_command: str | None = None
     devcontainer_json = target_dir / ".devcontainer" / "devcontainer.json"
     if devcontainer_json.exists():
         try:
             existing = json.loads(devcontainer_json.read_text())
             has_web = existing.get("containerEnv", {}).get("NOTIFY_APP") == "1"
+            post_start_command = existing.get("postStartCommand")
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -1188,6 +1192,7 @@ def sync_devcontainer(
         remote_user=os.environ.get("USER", "dev"),
         has_web=has_web,
         cross_container=cross_container,
+        post_start_command=post_start_command,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 

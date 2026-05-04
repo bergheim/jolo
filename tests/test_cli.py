@@ -332,6 +332,27 @@ class TestPortAllocation(unittest.TestCase):
         )
         self.assertNotIn("OLLAMA_HOST", config["containerEnv"])
 
+    def test_post_start_command_absent_by_default(self):
+        """Default rendering must not emit postStartCommand. The skills
+        symlink runs from container/entrypoint.sh; postStartCommand is
+        reserved for project-specific init the user owns."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        self.assertNotIn("postStartCommand", config)
+
+    def test_post_start_command_emitted_when_provided(self):
+        """When sync passes through an existing postStartCommand, it
+        must round-trip verbatim."""
+        import json
+
+        result = jolo.build_devcontainer_json(
+            "test", post_start_command="scripts/pg-init"
+        )
+        config = json.loads(result)
+        self.assertEqual(config["postStartCommand"], "scripts/pg-init")
+
 
 class TestPodmanSocketForwarding(unittest.TestCase):
     """Cross-container podman access opt-in surfaces in devcontainer.json
