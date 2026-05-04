@@ -99,7 +99,6 @@ RUN apk update && apk add --no-cache \
     musl-locales \
     musl-locales-lang \
     pnpm \
-    pre-commit \
     typescript \
     # build files for codex-acp
     libcap-dev \
@@ -191,6 +190,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
+    (uv tool install pre-commit) & pids="$pids $!" && \
     (uv tool install open-terminal) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
     curl -fsSL https://claude.ai/install.sh | bash && \
@@ -202,7 +202,6 @@ RUN mkdir -p $HOME/.local/bin && \
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
 RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
-    pre-commit autoupdate -c /tmp/pre-commit-hooks.yaml && \
     pre-commit install-hooks -c /tmp/pre-commit-hooks.yaml && \
     cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
