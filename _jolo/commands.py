@@ -260,6 +260,11 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
     setup_stash()
+    # devcontainer.json mounts .jolo/skills/ unconditionally; without this
+    # the bind source is missing and podman fails on jolo clone / first-time
+    # jolo up. _sync_config also calls it (on --recreate) but that path
+    # doesn't run the first time.
+    sync_skill_templates(workspace)
 
 
 def load_config(
