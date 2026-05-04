@@ -5,10 +5,7 @@ import json
 import unittest
 from pathlib import Path
 
-try:
-    import jolo
-except ImportError:
-    jolo = None
+import jolo
 
 
 class TestGitignoreTemplate(unittest.TestCase):

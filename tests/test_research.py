@@ -8,10 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-try:
-    import jolo
-except ImportError:
-    jolo = None
+import jolo
 
 FAKE_DT = datetime(2026, 2, 11, 14, 30, 45, tzinfo=timezone.utc)
 

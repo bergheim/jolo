@@ -9,10 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-try:
-    import jolo
-except ImportError:
-    jolo = None
+import jolo
 
 
 class TestWorktreePaths(unittest.TestCase):

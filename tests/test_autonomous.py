@@ -7,12 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-try:
-    import jolo
-    from _jolo import autonomous
-except ImportError:
-    jolo = None
-    autonomous = None
+import jolo
+from _jolo import autonomous
 
 
 class TestAutonomousArgParsing(unittest.TestCase):
