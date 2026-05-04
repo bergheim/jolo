@@ -10,6 +10,10 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 
+# Skills bind-mount lands at ~/.agents/skills; Claude looks at ~/.claude/skills.
+mkdir -p "$HOME/.claude"
+ln -sfn "$HOME/.agents/skills" "$HOME/.claude/skills"
+
 # Export GPG_TTY for gpg-agent/pinentry communication
 GPG_TTY="$(tty 2>/dev/null || echo "/dev/console")"
 export GPG_TTY

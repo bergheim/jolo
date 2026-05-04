@@ -59,6 +59,96 @@ class TestSyncDevcontainer(unittest.TestCase):
         self.assertTrue(devcontainer_dir.exists())
         self.assertTrue((devcontainer_dir / "devcontainer.json").exists())
 
+    def test_sync_preserves_existing_post_start_command(self):
+        """Recreate must not clobber a project-specific postStartCommand
+        (e.g. demokrate's '... && scripts/pg-init')."""
+        os.chdir(self.tmpdir)
+
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
+        devcontainer_dir.mkdir()
+        existing = {
+            "name": "demokrate",
+            "image": "old/image:v1",
+            "postStartCommand": "ln -sfn $HOME/.agents/skills $HOME/.claude/skills && scripts/pg-init",
+        }
+        (devcontainer_dir / "devcontainer.json").write_text(
+            json.dumps(existing)
+        )
+
+        config = {"base_image": "new/image:v2"}
+        jolo.sync_devcontainer("demokrate", config=config)
+
+        new_content = json.loads(
+            (devcontainer_dir / "devcontainer.json").read_text()
+        )
+        self.assertEqual(
+            new_content["postStartCommand"],
+            "ln -sfn $HOME/.agents/skills $HOME/.claude/skills && scripts/pg-init",
+        )
+
+    def test_sync_omits_post_start_command_when_absent(self):
+        """If the existing file has no postStartCommand, sync should
+        not invent one — the entrypoint owns the skills symlink now."""
+        os.chdir(self.tmpdir)
+
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
+        devcontainer_dir.mkdir()
+        existing = {"name": "fresh", "image": "old/image:v1"}
+        (devcontainer_dir / "devcontainer.json").write_text(
+            json.dumps(existing)
+        )
+
+        config = {"base_image": "new/image:v2"}
+        jolo.sync_devcontainer("fresh", config=config)
+
+        new_content = json.loads(
+            (devcontainer_dir / "devcontainer.json").read_text()
+        )
+        self.assertNotIn("postStartCommand", new_content)
+
+    def test_sync_drops_old_canonical_post_start_command(self):
+        """Existing projects whose postStartCommand is exactly the old
+        jolo-emitted default should be cleaned up on recreate so the
+        key really is 100% user-owned afterwards."""
+        os.chdir(self.tmpdir)
+
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
+        devcontainer_dir.mkdir()
+        existing = {
+            "name": "stale",
+            "image": "old/image:v1",
+            "postStartCommand": "ln -sfn $HOME/.agents/skills $HOME/.claude/skills",
+        }
+        (devcontainer_dir / "devcontainer.json").write_text(
+            json.dumps(existing)
+        )
+
+        config = {"base_image": "new/image:v2"}
+        jolo.sync_devcontainer("stale", config=config)
+
+        new_content = json.loads(
+            (devcontainer_dir / "devcontainer.json").read_text()
+        )
+        self.assertNotIn("postStartCommand", new_content)
+
+    def test_sync_handles_corrupt_devcontainer_json(self):
+        """Corrupt JSON in the existing file must not crash sync — it
+        falls back to a fresh write with no postStartCommand."""
+        os.chdir(self.tmpdir)
+
+        devcontainer_dir = Path(self.tmpdir) / ".devcontainer"
+        devcontainer_dir.mkdir()
+        (devcontainer_dir / "devcontainer.json").write_text("{ not json")
+
+        config = {"base_image": "new/image:v2"}
+        jolo.sync_devcontainer("salvage", config=config)
+
+        new_content = json.loads(
+            (devcontainer_dir / "devcontainer.json").read_text()
+        )
+        self.assertEqual(new_content["name"], "salvage")
+        self.assertNotIn("postStartCommand", new_content)
+
 
 class TestContainerRuntime(unittest.TestCase):
     """Test container runtime detection."""

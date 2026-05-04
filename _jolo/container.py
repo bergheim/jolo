@@ -26,6 +26,7 @@ def build_devcontainer_json(
     remote_user: str | None = None,
     has_web: bool = False,
     cross_container: bool = False,
+    post_start_command: str | None = None,
 ) -> str:
     """Build devcontainer.json content dynamically.
 
@@ -44,6 +45,12 @@ def build_devcontainer_json(
             without container recreation. Once True, the mount stays
             in devcontainer.json across recreates so re-allowing
             after a deny doesn't require another --recreate.
+        post_start_command: User-owned post-start hook to round-trip
+            verbatim. Jolo no longer emits a default — the skills
+            symlink moved into container/entrypoint.sh. Sync passes
+            through whatever the existing devcontainer.json already
+            had so per-project init (e.g. scripts/pg-init) survives
+            recreate.
     """
     if port is None:
         port = random_port()
@@ -80,7 +87,11 @@ def build_devcontainer_json(
         "remoteUser": remote_user,
         "updateRemoteUserUID": False,
         "userEnvProbe": "none",
-        "postStartCommand": "ln -sfn $HOME/.agents/skills $HOME/.claude/skills",
+        **(
+            {"postStartCommand": post_start_command}
+            if post_start_command is not None
+            else {}
+        ),
         "runArgs": [
             "--hostname",
             project_name,

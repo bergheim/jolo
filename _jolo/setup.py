@@ -581,6 +581,16 @@ SYNCABLE_TEMPLATE_FILES = [
     "biome.json",
 ]
 
+# The string jolo used to hardcode as postStartCommand. On sync, an
+# existing devcontainer.json carrying *exactly* this value is treated as
+# stale plumbing and dropped — the symlink lives in entrypoint.sh now.
+# Any other value (including the old default with extra suffix like
+# "&& scripts/pg-init") is preserved verbatim.
+_OLD_CANONICAL_POST_START_COMMAND = (
+    "ln -sfn $HOME/.agents/skills $HOME/.claude/skills"
+)
+
+
 # Files that sync should drop in if missing but never overwrite if present.
 # Currently empty — perf-rig.toml graduated to strictly-owned sync so
 # `--force` can actually retrofit placeholder renames and the like.
@@ -1167,13 +1177,21 @@ def sync_devcontainer(
     if port is None:
         port = read_port_from_devcontainer(target_dir)
 
-    # Preserve existing NOTIFY_APP setting
+    # Preserve existing NOTIFY_APP and postStartCommand settings.
+    # postStartCommand is user-owned (e.g. demokrate's scripts/pg-init);
+    # the skills symlink runs from container/entrypoint.sh now. Projects
+    # that still have the exact old canonical default get cleaned up so
+    # ownership of the key really is 100% the user's.
     has_web = False
+    post_start_command: str | None = None
     devcontainer_json = target_dir / ".devcontainer" / "devcontainer.json"
     if devcontainer_json.exists():
         try:
             existing = json.loads(devcontainer_json.read_text())
             has_web = existing.get("containerEnv", {}).get("NOTIFY_APP") == "1"
+            existing_post_start = existing.get("postStartCommand")
+            if existing_post_start != _OLD_CANONICAL_POST_START_COMMAND:
+                post_start_command = existing_post_start
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -1188,6 +1206,7 @@ def sync_devcontainer(
         remote_user=os.environ.get("USER", "dev"),
         has_web=has_web,
         cross_container=cross_container,
+        post_start_command=post_start_command,
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
