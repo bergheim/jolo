@@ -80,7 +80,7 @@ This repo builds and maintains the containerized Emacs GUI environment on Alpine
 You are encouraged to suggest state-of-the-art CLI tools that could improve development of this environment. We control the full stack in `Containerfile`, so proposals can be evaluated and baked into the image directly. Assume required tools exist in this repo’s container image; do not add fallbacks or checks for missing tools.
 
 **What this repo produces:**
-- Container image (`emacs-gui`) with all dev tools pre-installed
+- Container image (`jolo`) with all dev tools pre-installed
 - `jolo.py` + `_jolo/` package — CLI for launching devcontainers with git worktree support
 - Templates for new projects (`templates/`)
 
@@ -435,10 +435,10 @@ git rebase main && git -C "$MAIN" merge $(git branch --show-current)
 
 ```bash
 # Build with default user (tsb)
-podman build -t emacs-gui .
+podman build -t jolo .
 
 # Build matching your host user (recommended)
-podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t emacs-gui .
+podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t jolo .
 ```
 
 ## Testing
@@ -780,7 +780,7 @@ jolo autonomous --agents claude,codex # round-robin across a specific agent list
 
 **Emacs config isolation:**
 - Config (~/.config/emacs) copied to `.devcontainer/.emacs-config/` - writable
-- Package dirs mounted read-write from `~/.cache/emacs-container/` (NOT `~/.cache/emacs/`):
+- Package dirs mounted read-write from `~/.cache/jolo/` (NOT `~/.cache/emacs/`):
   - elpaca/ (package manager repos/builds)
   - tree-sitter/ (grammar files)
 - Separate from host Emacs cache to avoid version/libc mismatches (host=Emacs 31/glibc, container=30.x/musl)

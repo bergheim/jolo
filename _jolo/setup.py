@@ -62,7 +62,7 @@ def setup_emacs_config(workspace_dir: Path) -> None:
 
     Copies ~/.config/emacs to .devcontainer/.emacs-config/ so the container
     has an isolated, writable copy of the config. Package directories
-    (elpaca, tree-sitter) are in ~/.cache/emacs-container/ on the host,
+    (elpaca, tree-sitter) are in ~/.cache/jolo/ on the host,
     separate from the host's ~/.cache/emacs/ to avoid version/libc mismatches.
     """
     home = Path.home()
@@ -80,7 +80,7 @@ def setup_emacs_config(workspace_dir: Path) -> None:
     # Create container-specific cache dirs on host (separate from host Emacs cache)
     # These persist across projects so elpaca only builds once for the container's
     # Emacs version + musl libc combination.
-    container_cache = home / ".cache" / "emacs-container"
+    container_cache = home / ".cache" / "jolo"
     (container_cache / "elpaca").mkdir(parents=True, exist_ok=True)
     (container_cache / "tree-sitter").mkdir(parents=True, exist_ok=True)
 

@@ -32,7 +32,7 @@ NOUNS = [
 
 # Default configuration
 DEFAULT_CONFIG = {
-    "base_image": "localhost/emacs-gui:latest",
+    "base_image": "localhost/jolo:latest",
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
     "pass_path_gemini": ["api/llm/gemini", "api/llm/google"],
@@ -213,13 +213,13 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
     # Emacs: config copied for isolation, packages in container-specific cache
-    # Uses ~/.cache/emacs-container/ (not ~/.cache/emacs/) so the container builds
+    # Uses ~/.cache/jolo/ (not ~/.cache/emacs/) so the container builds
     # its own elpaca/tree-sitter for its Emacs version + musl, separate from host.
     # First boot is slow (elpaca builds everything), subsequent boots reuse the cache.
     "source=${localWorkspaceFolder}/.devcontainer/.emacs-config,target=/home/${localEnv:USER}/.config/emacs,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.emacs-cache,target=/home/${localEnv:USER}/.cache/emacs,type=bind",
-    "source=${localEnv:HOME}/.cache/emacs-container/elpaca,target=/home/${localEnv:USER}/.cache/emacs/elpaca,type=bind",
-    "source=${localEnv:HOME}/.cache/emacs-container/tree-sitter,target=/home/${localEnv:USER}/.cache/emacs/tree-sitter,type=bind",
+    "source=${localEnv:HOME}/.cache/jolo/elpaca,target=/home/${localEnv:USER}/.cache/emacs/elpaca,type=bind",
+    "source=${localEnv:HOME}/.cache/jolo/tree-sitter,target=/home/${localEnv:USER}/.cache/emacs/tree-sitter,type=bind",
     "source=${localEnv:HOME}/.gnupg/pubring.kbx,target=/home/${localEnv:USER}/.gnupg/pubring.kbx,type=bind,readonly",
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",

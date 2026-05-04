@@ -33,7 +33,7 @@ class TestConfigLoading(unittest.TestCase):
             global_config_dir=Path(self.tmpdir) / "noexist"
         )
 
-        self.assertEqual(config["base_image"], "localhost/emacs-gui:latest")
+        self.assertEqual(config["base_image"], "localhost/jolo:latest")
         self.assertEqual(config["pass_path_anthropic"], "api/llm/anthropic")
         self.assertEqual(config["pass_path_openai"], "api/llm/openai")
 
