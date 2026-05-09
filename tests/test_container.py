@@ -146,6 +146,23 @@ class TestSyncDevcontainer(unittest.TestCase):
         self.assertEqual(new_content["name"], "salvage")
         self.assertNotIn("postStartCommand", new_content)
 
+    def test_sync_emits_override_command_false_and_init(self):
+        """ENTRYPOINT must run as PID 1+ and the runtime's init must
+        forward signals — without these, the image's entrypoint.sh is
+        silently bypassed and SIGTERM hangs until the SIGKILL grace."""
+        os.chdir(self.tmpdir)
+
+        config = {"base_image": "test/image:v1"}
+        jolo.sync_devcontainer("init-check", config=config)
+
+        new_content = json.loads(
+            (
+                Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
+            ).read_text()
+        )
+        self.assertIs(new_content["overrideCommand"], False)
+        self.assertIn("--init", new_content["runArgs"])
+
 
 class TestContainerRuntime(unittest.TestCase):
     """Test container runtime detection."""

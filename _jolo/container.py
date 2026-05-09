@@ -47,10 +47,23 @@ def build_devcontainer_json(
             after a deny doesn't require another --recreate.
         post_start_command: User-owned post-start hook to round-trip
             verbatim. Jolo no longer emits a default — the skills
-            symlink moved into container/entrypoint.sh. Sync passes
+            symlink is baked into the Containerfile. Sync passes
             through whatever the existing devcontainer.json already
             had so per-project init (e.g. scripts/pg-init) survives
             recreate.
+
+    Two runtime knobs need explanation:
+
+    - ``overrideCommand: false`` lets the image's ENTRYPOINT
+      (container/entrypoint.sh) actually run as PID 1+. Devcontainer
+      CLI's default for image-based devcontainers is to replace the
+      command with a sleep loop, which silently disables every
+      side-effect entrypoint.sh sets up (dbus session bus,
+      open-terminal, ...).
+    - ``--init`` runarg injects the runtime's init (catatonit on
+      podman, tini on docker) as PID 1, so SIGTERM is forwarded to
+      entrypoint.sh and ``podman stop`` doesn't hang the full
+      10s grace period before SIGKILL.
     """
     if port is None:
         port = random_port()
@@ -87,12 +100,14 @@ def build_devcontainer_json(
         "remoteUser": remote_user,
         "updateRemoteUserUID": False,
         "userEnvProbe": "none",
+        "overrideCommand": False,
         **(
             {"postStartCommand": post_start_command}
             if post_start_command is not None
             else {}
         ),
         "runArgs": [
+            "--init",
             "--hostname",
             project_name,
             "--name",
