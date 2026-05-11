@@ -124,6 +124,7 @@ def build_devcontainer_json(
         "containerEnv": {
             "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
+            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/tmp/container-runtime/bus",
             "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
             "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
             "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}",
