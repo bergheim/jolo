@@ -36,34 +36,19 @@ def build_devcontainer_json(
     Args:
         project_name: Name of the project/container
         port: Port number for dev servers (random in 4000-5000 if not specified)
-        cross_container: When True, bind-mount the host's
-            ~/.config/jolo/podman-runtime/<project>/ gate directory
-            into /run/podman and set CONTAINER_HOST so podman inside
-            the container talks to whatever socat-managed socket
-            currently lives there. Toggling the proxy on the host
-            (jolo allow / jolo deny) flips the capability instantly
-            without container recreation. Once True, the mount stays
-            in devcontainer.json across recreates so re-allowing
-            after a deny doesn't require another --recreate.
-        post_start_command: User-owned post-start hook to round-trip
-            verbatim. Jolo no longer emits a default — the skills
-            symlink is baked into the Containerfile. Sync passes
-            through whatever the existing devcontainer.json already
-            had so per-project init (e.g. scripts/pg-init) survives
-            recreate.
+        cross_container: Bind-mount the host's per-project gate dir
+            (``~/.config/jolo/podman-runtime/<project>/``) into
+            ``/run/podman`` and set ``CONTAINER_HOST`` so podman inside
+            the container talks to the socat-managed socket there.
+            Toggle without recreation via ``jolo allow/deny podman``.
+        post_start_command: Value for devcontainer.json's
+            ``postStartCommand``; omitted when None.
 
-    Two runtime knobs need explanation:
-
-    - ``overrideCommand: false`` lets the image's ENTRYPOINT
-      (container/entrypoint.sh) actually run as PID 1+. Devcontainer
-      CLI's default for image-based devcontainers is to replace the
-      command with a sleep loop, which silently disables every
-      side-effect entrypoint.sh sets up (dbus session bus,
-      open-terminal, ...).
-    - ``--init`` runarg injects the runtime's init (catatonit on
-      podman, tini on docker) as PID 1, so SIGTERM is forwarded to
-      entrypoint.sh and ``podman stop`` doesn't hang the full
-      10s grace period before SIGKILL.
+    ``overrideCommand=false`` is required because the devcontainer CLI
+    otherwise replaces the image CMD with a sleep loop, silently
+    bypassing entrypoint.sh. The ``--init`` runarg injects catatonit
+    (podman) or tini (docker) as PID 1 so SIGTERM reaches entrypoint.sh
+    and ``podman stop`` doesn't wait the full grace period.
     """
     if port is None:
         port = random_port()
@@ -132,6 +117,9 @@ def build_devcontainer_json(
             "GH_TOKEN": "${localEnv:GH_TOKEN}",
             "PORT": str(port),
             "DEV_HOST": hostname,
+            "BRAINSTORM_HOST": "0.0.0.0",
+            "BRAINSTORM_URL_HOST": hostname,
+            "BRAINSTORM_PORT": str(port + 2),
             "WORKSPACE_FOLDER": workspace_folder,
             "HISTFILE": f"/home/{remote_user}/.zsh-state/.histfile",
             "NTFY_TOPIC": "jolo",

@@ -221,9 +221,6 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo 'export EDITOR=nvim' >> $HOME/.zshrc.container && \
     echo 'eval "$(mise activate zsh)"' >> $HOME/.zshrc.container && \
     echo 'export HISTFILE=$HOME/.zsh-state/.histfile' >> $HOME/.zshrc.container && \
-    echo 'export BRAINSTORM_HOST=0.0.0.0' >> $HOME/.zshrc.container && \
-    echo 'export BRAINSTORM_URL_HOST=${DEV_HOST:-localhost}' >> $HOME/.zshrc.container && \
-    echo 'export BRAINSTORM_PORT=$((PORT + 2))' >> $HOME/.zshrc.container && \
     echo '[ "$(tmux display-message -p "#{window_name}" 2>/dev/null)" = "shell" ] && motd 2>/dev/null' >> $HOME/.zshrc.container
 
 ENV EMACS_CONTAINER=1

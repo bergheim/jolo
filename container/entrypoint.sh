@@ -1,5 +1,5 @@
 #!/bin/sh
-# entrypoint.sh: Container startup - DBus, open-terminal, tmux/emacs launch
+# entrypoint.sh: PID 1+ — XDG dirs, DBus session bus, open-terminal, emacs/sleep
 set -e
 
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-$(id -u)}"
@@ -21,13 +21,6 @@ fi
 
 export NO_AT_BRIDGE=1
 
-# these errors are annoying:
-# Gdk-Message: 13:58:28.552: Unable to load sb_v_double_arrow from the cursor theme
-# export G_MESSAGES_DEBUG=""
-# export XCURSOR_PATH=${XCURSOR_PATH}:~/.local/share/icons
-# export XCURSOR_THEME=cursor_theme_name
-
-# Start open-terminal on the last port in the container's range
 if [ -n "$PORT" ]; then
     OT_PORT=$((PORT + 3))
     open-terminal run --host 0.0.0.0 --port "$OT_PORT" --api-key "${OPEN_TERMINAL_API_KEY:-devcontainer}" &
