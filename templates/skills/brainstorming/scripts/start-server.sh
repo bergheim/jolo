@@ -99,27 +99,55 @@ fi
 
 cd "$SCRIPT_DIR"
 
-# Resolve the harness PID (grandparent of this script).
-# $PPID is the ephemeral shell the harness spawned to run us — it dies
-# when this script exits. The harness itself is $PPID's parent.
-OWNER_PID="$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')"
-if [[ -z "$OWNER_PID" || "$OWNER_PID" == "1" ]]; then
-  OWNER_PID="$PPID"
+# Per-port pre-flight: when BRAINSTORM_PORT is fixed (jolo sets it to $PORT+2),
+# previous invocations from one-shot shells leak node server.cjs holding the
+# port. Find any orphan listening on the port and reap it before we bind.
+# Look up by port (not stale pidfile) so a missing pidfile doesn't strand us.
+# `ss -p` only reports PIDs owned by current uid, and the cmdline check
+# guarantees we never kill a recycled or unrelated PID.
+PORT_PIDFILE=""
+if [[ "${BRAINSTORM_PORT:-}" =~ ^[0-9]+$ ]]; then
+  PORT_PIDFILE="/tmp/brainstorm-port-${BRAINSTORM_PORT}.pid"
+  exec 9>"${PORT_PIDFILE}.lock"
+  if ! flock -n 9; then
+    echo "{\"error\": \"another start-server.sh is starting on port ${BRAINSTORM_PORT}\"}"
+    exit 1
+  fi
+  orphans=$(ss -ltnpH "sport = :${BRAINSTORM_PORT}" 2>/dev/null \
+    | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+  for pid in $orphans; do
+    if grep -aq server.cjs "/proc/$pid/cmdline" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      for _ in {1..10}; do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  done
+  for _ in {1..10}; do
+    ss -ltn "sport = :${BRAINSTORM_PORT}" 2>/dev/null | grep -q LISTEN || break
+    sleep 0.1
+  done
+  rm -f "$PORT_PIDFILE"
+  # Release the lock and close the fd so backgrounded node doesn't inherit it.
+  # Kernel-level bind serialization handles any further race.
+  flock -u 9
+  exec 9>&-
 fi
 
 # Foreground mode for environments that reap detached/background processes.
 if [[ "$FOREGROUND" == "true" ]]; then
   echo "$$" > "$PID_FILE"
-  env BRAINSTORM_DIR="$SESSION_DIR" BRAINSTORM_HOST="$BIND_HOST" BRAINSTORM_URL_HOST="$URL_HOST" BRAINSTORM_OWNER_PID="$OWNER_PID" node server.cjs
+  [[ -n "$PORT_PIDFILE" ]] && echo "$$" > "$PORT_PIDFILE"
+  env BRAINSTORM_DIR="$SESSION_DIR" BRAINSTORM_HOST="$BIND_HOST" BRAINSTORM_URL_HOST="$URL_HOST" node server.cjs
   exit $?
 fi
 
 # Start server, capturing output to log file
 # Use nohup to survive shell exit; disown to remove from job table
-nohup env BRAINSTORM_DIR="$SESSION_DIR" BRAINSTORM_HOST="$BIND_HOST" BRAINSTORM_URL_HOST="$URL_HOST" BRAINSTORM_OWNER_PID="$OWNER_PID" node server.cjs > "$LOG_FILE" 2>&1 &
+nohup env BRAINSTORM_DIR="$SESSION_DIR" BRAINSTORM_HOST="$BIND_HOST" BRAINSTORM_URL_HOST="$URL_HOST" node server.cjs > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 disown "$SERVER_PID" 2>/dev/null
 echo "$SERVER_PID" > "$PID_FILE"
+[[ -n "$PORT_PIDFILE" ]] && echo "$SERVER_PID" > "$PORT_PIDFILE"
 
 # Wait for server-started message (check log file)
 for i in {1..50}; do
