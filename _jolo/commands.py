@@ -1019,6 +1019,102 @@ def _copy_url_to_clipboard(workspace_dir: Path) -> None:
     clipboard_copy(url)
 
 
+def _ensure_project_template_files(
+    project_path: Path, project_name: str
+) -> None:
+    """Fill in the safe-if-absent subset of template files at the project root.
+
+    Mirrors what ``jolo create`` writes, but only for files that are
+    safe to add to an existing repo without clobber risk:
+
+    - Static copies: AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore,
+      .editorconfig, biome.json, agent config dirs (.claude, .codex,
+      .gemini, .pi, .playwright), docs/.
+    - Generated: MOTD, justfile, justfile.common, perf-rig.toml,
+      .envrc (web flavors), .pre-commit-config.yaml.
+
+    Skipped (clobber risk on existing project code): language scaffolds
+    (go.mod, src/main.py, package.json), test framework configs, type
+    checker configs.
+
+    Existing files and directories are left alone — this never produces
+    .jolonew sidecars and never overwrites. Use ``--recreate`` for full
+    template sync. Skipped entirely for the meta flavor.
+    """
+    flavors = detect_flavors(project_path)
+    primary_flavor = flavors[0] if flavors else "other"
+    if primary_flavor == "meta":
+        return
+
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+
+    for filename in (
+        "AGENTS.md",
+        "CLAUDE.md",
+        "GEMINI.md",
+        ".gitignore",
+        ".editorconfig",
+        "biome.json",
+    ):
+        src = templates_dir / filename
+        dst = project_path / filename
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+            verbose_print(f"Wrote template: {filename}")
+
+    for dirname in (
+        ".claude",
+        ".codex",
+        ".gemini",
+        ".pi",
+        ".playwright",
+        "docs",
+    ):
+        src = templates_dir / dirname
+        dst = project_path / dirname
+        if src.exists() and not dst.exists():
+            shutil.copytree(src, dst, symlinks=True)
+            verbose_print(f"Wrote template dir: {dirname}/")
+
+    motd_path = project_path / "MOTD"
+    if not motd_path.exists():
+        motd_path.write_text(get_motd_content(primary_flavor, project_name))
+        verbose_print("Wrote MOTD")
+
+    common_path = project_path / "justfile.common"
+    if not common_path.exists():
+        common_path.write_text(get_justfile_common_content(project_name))
+        verbose_print("Wrote justfile.common")
+
+    justfile_path = project_path / "justfile"
+    if not justfile_path.exists():
+        justfile_path.write_text(
+            get_justfile_content(primary_flavor, project_name)
+        )
+        verbose_print("Wrote justfile")
+
+    perf_rig_path = project_path / "perf-rig.toml"
+    if not perf_rig_path.exists():
+        perf_rig_path.write_text(
+            get_perf_rig_content(primary_flavor, project_name)
+        )
+        verbose_print("Wrote perf-rig.toml")
+
+    envrc_content = get_envrc_content(primary_flavor)
+    if envrc_content:
+        envrc_path = project_path / ".envrc"
+        if not envrc_path.exists():
+            envrc_path.write_text(envrc_content)
+            verbose_print("Wrote .envrc")
+
+    precommit_path = project_path / ".pre-commit-config.yaml"
+    if not precommit_path.exists():
+        precommit_path.write_text(generate_precommit_config(flavors))
+        verbose_print(
+            f"Wrote .pre-commit-config.yaml for flavors: {', '.join(flavors) or '(none detected)'}"
+        )
+
+
 def run_up_mode(args: argparse.Namespace) -> None:
     """Run up mode: start devcontainer in current git project."""
     git_root = find_git_root()
@@ -1048,6 +1144,9 @@ def run_up_mode(args: argparse.Namespace) -> None:
             config=config,
             cross_container=is_podman_allowed(project_name),
         )
+
+    _ensure_project_template_files(git_root, project_name)
+    ensure_test_gate_script(git_root)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:
@@ -1542,12 +1641,8 @@ def run_init_mode(args: argparse.Namespace) -> None:
     else:
         scaffold_devcontainer(project_name, project_path, config=config)
 
+    _ensure_project_template_files(project_path, project_name)
     ensure_test_gate_script(project_path)
-    precommit_path = project_path / ".pre-commit-config.yaml"
-    if not precommit_path.exists():
-        precommit_content = generate_precommit_config([])
-        precommit_path.write_text(precommit_content)
-        verbose_print("Generated .pre-commit-config.yaml for init")
 
     # Initial commit with all generated files
     cmd = ["git", "add", "."]
