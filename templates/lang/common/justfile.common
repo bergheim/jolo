@@ -4,6 +4,13 @@ export APP_PROFILE := env_var_or_default("APP_PROFILE", "1")
 help:
     @just --list
 
+# Restart the dev server in tmux pane dev:dev (atomic kill + re-run, leaves a usable shell)
+dev-restart:
+    #!/bin/sh
+    set -eu
+    CWD=$(tmux display-message -p -t dev:dev -F '#{pane_current_path}')
+    tmux respawn-pane -k -t dev:dev -c "$CWD" "just dev; exec zsh"
+
 # Open in browser
 browse:
     #!/bin/sh

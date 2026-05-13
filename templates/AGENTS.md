@@ -370,6 +370,7 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 | Recipe | Purpose |
 |--------|---------|
 | `just dev` | Run with auto-reload (use this for development) |
+| `just dev-restart` | Restart the dev server in tmux pane `dev:dev` |
 | `just run` | Run once without watching |
 | `just test` | Run tests |
 | `just test-watch` | Run tests on file change |
@@ -381,7 +382,9 @@ Use `just` recipes for common tasks. **Always use `just dev`** — it auto-reloa
 
 **fzf-pick by default for names of generated things.** When a command takes the name of something the tool generated — a worktree, project, container, branch, session, scaffolded artifact, anything from a known finite set the user can't be expected to remember exactly — it should fzf-pick when no name is supplied, `fzf` is on `PATH`, and stdin is a TTY. Fall through to a clean `error: name required` exit otherwise so non-interactive callers (CI, scripts) stay deterministic. Don't make people retype names they could pick from a list — they'll forget anyway, and the lookup roundtrip (`just wt ls` → squint → retype) is exactly the friction fzf eliminates. Apply this everywhere it fits: `wt land`/`wt rm`, project-name args in jolo subcommands, anything that takes a session/container id, etc.
 
-**Dev server log:** `just dev` runs automatically in a tmux window and logs all output (stdout + stderr) to `dev.log` at the project root. Read this file to check server output, errors, and request logs without needing access to the dev server's tmux pane.
+**Dev server log file:** `dev.log` at the project root is a real file — a tee'd capture of the dev server's stdout + stderr. Every language template's `just dev` recipe ends with `... 2>&1 | tee dev.log`. Read it with `Read` / `tail` / `rg` like any other file. No tmux needed.
+
+**Restart the dev server:** Run `just dev-restart`. It atomically kills the process tree in tmux window `dev:dev` (session `dev`, window named `dev` — see `container/dev.yml`), re-runs `just dev`, and drops back to a usable shell. Use it when the server has crashed, you need a clean reload, or you've changed something `--reload` doesn't pick up (new dependency, config file outside the watch glob).
 
 ## Cross-container podman access
 
