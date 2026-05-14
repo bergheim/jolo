@@ -27,7 +27,7 @@ extra=()
 [ "$form" = "desktop" ] && extra+=(--preset=desktop)
 
 mkdir -p "$outdir"
-lighthouse "http://localhost:$PORT$route" \
+lighthouse "http://localhost:${PORT}/${route#/}" \
     --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage' \
     --output=html --output=json \
     --output-path="$outdir/report" \
