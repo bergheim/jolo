@@ -1746,5 +1746,37 @@ class TestMetaSyncSkipsRootTemplates(unittest.TestCase):
         self.assertEqual(precommit.read_text(), "meta hooks\n")
 
 
+class TestEnsureLighthouseRunScript(unittest.TestCase):
+    """`scripts/lighthouse-run` ships only for web-flavor projects."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_web_flavor_copies_script(self):
+        setup.ensure_lighthouse_run_script(self.target, "typescript-web")
+        dst = self.target / "scripts" / "lighthouse-run"
+        self.assertTrue(dst.exists())
+        self.assertTrue(os.access(dst, os.X_OK))
+
+    def test_non_web_flavor_skips(self):
+        setup.ensure_lighthouse_run_script(self.target, "python")
+        self.assertFalse((self.target / "scripts" / "lighthouse-run").exists())
+        self.assertFalse((self.target / "scripts").exists())
+
+    def test_existing_script_not_overwritten(self):
+        scripts = self.target / "scripts"
+        scripts.mkdir()
+        dst = scripts / "lighthouse-run"
+        dst.write_text("# user-edited\n")
+        setup.ensure_lighthouse_run_script(self.target, "go-web")
+        self.assertEqual(dst.read_text(), "# user-edited\n")
+
+
 if __name__ == "__main__":
     unittest.main()

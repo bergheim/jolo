@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# lighthouse-run ROUTE FORM_FACTOR OUTPUT_DIR
+#
+# Run a single Lighthouse audit against the local dev server and write
+# report.report.{html,json} into OUTPUT_DIR. Validates FORM_FACTOR.
+# Assumes `lighthouse` on PATH and CHROME_PATH set — the jolo base
+# image provides both.
+set -euo pipefail
+
+if [ "$#" -ne 3 ]; then
+    echo "usage: lighthouse-run ROUTE FORM_FACTOR OUTPUT_DIR" >&2
+    exit 64
+fi
+
+route=$1
+form=$2
+outdir=$3
+
+case "$form" in
+    mobile|desktop) ;;
+    *) echo "FORM_FACTOR must be 'mobile' or 'desktop' (got: $form)" >&2; exit 2 ;;
+esac
+
+: "${PORT:?PORT not set; run inside a jolo container}"
+
+extra=()
+[ "$form" = "desktop" ] && extra+=(--preset=desktop)
+
+mkdir -p "$outdir"
+lighthouse "http://localhost:$PORT$route" \
+    --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage' \
+    --output=html --output=json \
+    --output-path="$outdir/report" \
+    --quiet "${extra[@]}"

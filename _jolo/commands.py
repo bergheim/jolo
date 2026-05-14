@@ -57,6 +57,7 @@ from _jolo.setup import (
     add_user_mounts,
     copy_template_files,
     copy_user_files,
+    ensure_lighthouse_run_script,
     ensure_test_gate_script,
     get_secrets,
     scaffold_devcontainer,
@@ -1106,6 +1107,8 @@ def _ensure_project_template_files(
         if not envrc_path.exists():
             envrc_path.write_text(envrc_content)
             verbose_print("Wrote .envrc")
+
+    ensure_lighthouse_run_script(project_path, primary_flavor)
 
     precommit_path = project_path / ".pre-commit-config.yaml"
     if not precommit_path.exists():

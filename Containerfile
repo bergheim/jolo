@@ -6,6 +6,7 @@ FROM alpine:edge
 # Skip Playwright's bundled browser - use system Chromium instead
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/bin/chromium
 
 RUN apk update && apk add --no-cache \
     autoconf \
@@ -174,7 +175,9 @@ RUN pnpm add -g \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
-    pa11y
+    pa11y \
+    lighthouse@13.3.0 \
+    @lhci/cli@0.15.1
 
 RUN cargo install --locked --root $HOME/.local bacon squawk
 

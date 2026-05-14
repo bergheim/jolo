@@ -1114,6 +1114,29 @@ def ensure_test_gate_script(target_dir: Path) -> None:
     verbose_print("Copied template: scripts/test-gate")
 
 
+def ensure_lighthouse_run_script(target_dir: Path, flavor: str) -> None:
+    """Ensure scripts/lighthouse-run exists for web-flavor projects."""
+    if not flavor.endswith("-web"):
+        return
+
+    templates_dir = Path(__file__).resolve().parent.parent / "templates"
+    src = templates_dir / "scripts" / "lighthouse-run"
+    if not src.exists():
+        print(
+            f"Warning: lighthouse-run template not found: {src}",
+            file=sys.stderr,
+        )
+        return
+
+    dst = target_dir / "scripts" / "lighthouse-run"
+    if dst.exists():
+        return
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    verbose_print("Copied template: scripts/lighthouse-run")
+
+
 def scaffold_devcontainer(
     project_name: str,
     target_dir: Path | None = None,
