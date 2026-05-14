@@ -41,14 +41,16 @@ setup:
 lighthouse ROUTE='/' FORM_FACTOR='mobile':
     #!/usr/bin/env bash
     set -euo pipefail
-    slug=$(printf '%s' "{{ROUTE}}" | sed 's|^/||; s|/|-|g; s|[^A-Za-z0-9_.-]|_|g')
+    route={{quote(ROUTE)}}
+    form={{quote(FORM_FACTOR)}}
+    slug=$(printf '%s' "$route" | sed 's|^/||; s|/|-|g; s|[^A-Za-z0-9_.-]|_|g')
     : "${slug:=root}"
     mkdir -p scratch/lighthouse
-    outdir=$(mktemp -d "scratch/lighthouse/${slug}-{{FORM_FACTOR}}-$(date +%Y%m%dT%H%M%S)-XXXXXX")
-    scripts/lighthouse-run "{{ROUTE}}" "{{FORM_FACTOR}}" "$outdir"
+    outdir=$(mktemp -d "scratch/lighthouse/${slug}-${form}-$(date +%Y%m%dT%H%M%S)-XXXXXX")
+    scripts/lighthouse-run "$route" "$form" "$outdir"
     json="$outdir/report.report.json"
     score=$(jq -r '.categories.performance.score' "$json")
-    echo "route:      {{ROUTE}}  ({{FORM_FACTOR}})"
+    echo "route:      $route  ($form)"
     echo "score:      $score"
     for a in first-contentful-paint largest-contentful-paint total-blocking-time cumulative-layout-shift speed-index; do
         printf "%-26s %s\n" "$a:" "$(jq -r ".audits[\"$a\"].displayValue" "$json")"

@@ -1074,7 +1074,11 @@ def copy_template_files(target_dir: Path) -> None:
 
     _save_template_hashes(target_dir, SYNCABLE_TEMPLATE_FILES)
 
-    # Copy template directories (skills, agent config, docs)
+    # Copy template directories (skills, agent config, docs).
+    # `scripts/` is intentionally excluded — callers use
+    # `ensure_test_gate_script()` and `ensure_lighthouse_run_script()`
+    # so per-script gating (e.g. lighthouse only for web flavors)
+    # works in create mode.
     template_dirs = [
         ".claude",
         ".codex",
@@ -1082,7 +1086,6 @@ def copy_template_files(target_dir: Path) -> None:
         ".pi",
         ".playwright",
         "docs",
-        "scripts",
     ]
     for dirname in template_dirs:
         src = templates_dir / dirname
