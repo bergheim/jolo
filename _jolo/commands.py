@@ -57,6 +57,7 @@ from _jolo.setup import (
     add_user_mounts,
     copy_template_files,
     copy_user_files,
+    ensure_lighthouse_run_script,
     ensure_test_gate_script,
     get_secrets,
     scaffold_devcontainer,
@@ -1107,6 +1108,8 @@ def _ensure_project_template_files(
             envrc_path.write_text(envrc_content)
             verbose_print("Wrote .envrc")
 
+    ensure_lighthouse_run_script(project_path, primary_flavor)
+
     precommit_path = project_path / ".pre-commit-config.yaml"
     if not precommit_path.exists():
         precommit_path.write_text(generate_precommit_config(flavors))
@@ -1329,6 +1332,8 @@ def run_create_mode(args: argparse.Namespace) -> None:
 
     # Copy template files (AGENTS.md, CLAUDE.md, .gitignore, .editorconfig, etc.)
     copy_template_files(project_path)
+    ensure_test_gate_script(project_path)
+    ensure_lighthouse_run_script(project_path, primary_flavor)
 
     # Generate MOTD for the project
     motd_content = get_motd_content(primary_flavor, project_name)

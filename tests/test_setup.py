@@ -1746,5 +1746,87 @@ class TestMetaSyncSkipsRootTemplates(unittest.TestCase):
         self.assertEqual(precommit.read_text(), "meta hooks\n")
 
 
+class TestEnsureLighthouseRunScript(unittest.TestCase):
+    """`scripts/lighthouse-run` ships only for web-flavor projects."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.target = Path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_web_flavor_copies_script(self):
+        setup.ensure_lighthouse_run_script(self.target, "typescript-web")
+        dst = self.target / "scripts" / "lighthouse-run"
+        self.assertTrue(dst.exists())
+        self.assertTrue(os.access(dst, os.X_OK))
+
+    def test_non_web_flavor_skips(self):
+        setup.ensure_lighthouse_run_script(self.target, "python")
+        self.assertFalse((self.target / "scripts" / "lighthouse-run").exists())
+        self.assertFalse((self.target / "scripts").exists())
+
+    def test_existing_script_not_overwritten(self):
+        scripts = self.target / "scripts"
+        scripts.mkdir()
+        dst = scripts / "lighthouse-run"
+        dst.write_text("# user-edited\n")
+        setup.ensure_lighthouse_run_script(self.target, "go-web")
+        self.assertEqual(dst.read_text(), "# user-edited\n")
+
+    def test_copy_template_files_does_not_leak_lighthouse_run(self):
+        """`copy_template_files()` (jolo create's bulk copy) must NOT ship
+        `scripts/lighthouse-run` — the per-script ensure helpers handle that
+        with flavor gating."""
+        setup.copy_template_files(self.target)
+        self.assertFalse((self.target / "scripts" / "lighthouse-run").exists())
+
+
+class TestLighthouseRunIntegration(unittest.TestCase):
+    """End-to-end: `_ensure_project_template_files` ships the recipe and
+    script together for web flavors and neither for non-web."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir)
+        self.original_cwd = os.getcwd()
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_typescript_web_gets_script_and_recipe(self):
+        (self.project / "package.json").write_text('{"name":"x"}')
+        (self.project / "tsconfig.json").write_text("{}")
+        (self.project / "src" / "components").mkdir(parents=True)
+
+        from _jolo.commands import _ensure_project_template_files
+
+        _ensure_project_template_files(self.project, "demo")
+
+        self.assertTrue((self.project / "scripts" / "lighthouse-run").exists())
+        self.assertIn("\nlighthouse ", (self.project / "justfile").read_text())
+
+    def test_non_web_typescript_gets_neither(self):
+        (self.project / "package.json").write_text('{"name":"x"}')
+        (self.project / "tsconfig.json").write_text("{}")
+
+        from _jolo.commands import _ensure_project_template_files
+
+        _ensure_project_template_files(self.project, "demo")
+
+        self.assertFalse(
+            (self.project / "scripts" / "lighthouse-run").exists()
+        )
+        self.assertNotIn(
+            "\nlighthouse ", (self.project / "justfile").read_text()
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
