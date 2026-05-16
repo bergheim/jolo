@@ -176,8 +176,8 @@ RUN pnpm add -g \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
     pa11y \
-    lighthouse@13.3.0 \
-    @lhci/cli@0.15.1
+    lighthouse \
+    @lhci/cli
 
 RUN cargo install --locked --root $HOME/.local bacon squawk
 
