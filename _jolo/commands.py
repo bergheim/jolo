@@ -1029,13 +1029,7 @@ def _ensure_gitignore(src: Path, dst: Path) -> None:
     No .gitignore: copy the template.
     Existing .gitignore without our marker: append the whole template once.
     Existing .gitignore with our marker: no-op.
-
-    Runs only on the explicit init / --recreate path, never on plain
-    `jolo up`, so a single append is the right model — repeated
-    invocations of the explicit sync still need the marker guard.
     """
-    if not src.exists():
-        return
     template = src.read_text()
     if not dst.exists():
         dst.write_text(template)
