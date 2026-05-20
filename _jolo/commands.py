@@ -54,6 +54,7 @@ from _jolo.container import (
 )
 from _jolo.setup import (
     JOLO_POST_COMMIT_INSTALL_SCRIPT,
+    TEMPLATE_HASHES_FILE,
     add_user_mounts,
     copy_template_files,
     copy_user_files,
@@ -1166,11 +1167,11 @@ def run_up_mode(args: argparse.Namespace) -> None:
         )
         _ensure_project_template_files(git_root, project_name)
         ensure_test_gate_script(git_root)
-    else:
-        scaffold_devcontainer(
-            project_name,
-            config=config,
-            cross_container=is_podman_allowed(project_name),
+    elif not (git_root / TEMPLATE_HASHES_FILE).exists():
+        sys.exit(
+            f"Error: project is not initialized for jolo "
+            f"({TEMPLATE_HASHES_FILE} missing).\n"
+            "Run `jolo up --recreate` to scaffold and start."
         )
 
     # Add user-specified mounts to devcontainer.json

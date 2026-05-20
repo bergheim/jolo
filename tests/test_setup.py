@@ -1902,7 +1902,6 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
                 return_value={"base_image": "jolo"},
             ),
             mock.patch("_jolo.commands.is_podman_allowed", return_value=False),
-            mock.patch("_jolo.commands.scaffold_devcontainer"),
             mock.patch("_jolo.commands._sync_config"),
             mock.patch("_jolo.commands._setup_container_env"),
             mock.patch(
@@ -1940,14 +1939,30 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
             agent="claude",
         )
 
-    def test_plain_up_skips_project_backfill(self):
+    def _mark_initialized(self):
+        from _jolo.setup import TEMPLATE_HASHES_FILE
+
+        marker = self.project / TEMPLATE_HASHES_FILE
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("{}")
+
+    def test_plain_up_errors_when_not_initialized(self):
         from _jolo.commands import run_up_mode
 
+        with self.assertRaises(SystemExit):
+            run_up_mode(self._args(recreate=False))
+        self.backfill.assert_not_called()
+        self.test_gate.assert_not_called()
+
+    def test_plain_up_skips_backfill_when_initialized(self):
+        from _jolo.commands import run_up_mode
+
+        self._mark_initialized()
         run_up_mode(self._args(recreate=False))
         self.backfill.assert_not_called()
         self.test_gate.assert_not_called()
 
-    def test_recreate_runs_project_backfill(self):
+    def test_recreate_runs_backfill(self):
         from _jolo.commands import run_up_mode
 
         run_up_mode(self._args(recreate=True))
