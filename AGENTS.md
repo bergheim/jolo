@@ -77,10 +77,19 @@ Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
 keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
 returns a plist. Re-read every path in `:wrote` before any later edit.
 
-`:autonomous:` TODOs may only be tagged after per-item user agreement. They must
-be bounded, in-container, non-destructive, free of external prompts, decision-free,
-one-branch-sized, and self-contained. Add/remove the tag only with
-`bergheim/agent-org-add-tag` / `bergheim/agent-org-remove-tag`.
+`:autonomous:` TODOs may only be tagged after per-item user agreement. Tag only
+when all criteria hold:
+
+- Bounded: the agent can verify "done" itself.
+- In-container: no host Emacs, systemd, DNS, sudo, Tailscale, or other host step.
+- Non-destructive: reversible by git reset plus branch deletion; no force-push.
+- No external prompts: no auth dances, trust dialogs, MFA, or browser logins.
+- Decision-free: no "decide first" or "consider whether" work remains.
+- One branch: fits one branch / one `jolo tree -p` run.
+- Self-contained: heading plus body is enough for a fresh agent.
+
+Add/remove the tag only with `bergheim/agent-org-add-tag` /
+`bergheim/agent-org-remove-tag`.
 
 Helper examples are in `docs/agent-ops.md`.
 

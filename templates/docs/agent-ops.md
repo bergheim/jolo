@@ -66,6 +66,19 @@ just wt
 
 `dev.log` is a tee of the dev server output.
 
+## Pre-commit Linters
+
+| Files | Linter | Hook repo |
+|-------|--------|-----------|
+| `*.py` | ruff | `https://github.com/astral-sh/ruff-pre-commit` |
+| `*.go` | golangci-lint | `https://github.com/golangci/golangci-lint` |
+| `*.rs` | clippy/rustfmt | `https://github.com/doublify/pre-commit-rust` |
+| `*.ts/*.js` | biome | `https://github.com/biomejs/biome` |
+| `*.sh` | shellcheck | `https://github.com/shellcheck-py/shellcheck-py` |
+| `Dockerfile` | hadolint | `https://github.com/hadolint/hadolint` |
+| `*.yaml/*.yml` | yamllint | `https://github.com/adrienverge/yamllint` |
+| `playbook*.yml` | ansible-lint | `https://github.com/ansible/ansible-lint` |
+
 ## Browser Automation
 
 Use `browser-check` for one-shot checks:

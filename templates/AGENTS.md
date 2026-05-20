@@ -60,10 +60,19 @@ Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
 keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
 returns a plist. Re-read every path in `:wrote` before any later edit.
 
-`:autonomous:` TODOs may only be tagged after per-item user agreement. They must
-be bounded, in-container, non-destructive, free of external prompts, decision-free,
-one-branch-sized, and self-contained. Add/remove the tag only with
-`bergheim/agent-org-add-tag` / `bergheim/agent-org-remove-tag`.
+`:autonomous:` TODOs may only be tagged after per-item user agreement. Tag only
+when all criteria hold:
+
+- Bounded: the agent can verify "done" itself.
+- In-container: no host Emacs, systemd, DNS, sudo, Tailscale, or other host step.
+- Non-destructive: reversible by git reset plus branch deletion; no force-push.
+- No external prompts: no auth dances, trust dialogs, MFA, or browser logins.
+- Decision-free: no "decide first" or "consider whether" work remains.
+- One branch: fits one branch.
+- Self-contained: heading plus body is enough for a fresh agent.
+
+Add/remove the tag only with `bergheim/agent-org-add-tag` /
+`bergheim/agent-org-remove-tag`.
 
 Helper examples are in `docs/agent-ops.md`.
 
@@ -71,11 +80,13 @@ Helper examples are in `docs/agent-ops.md`.
 
 - Use `just --list` as the command menu.
 - Custom commands belong in the justfile with a `# comment` description.
-- Use `just dev` for the long-running auto-reload server.
+- The dev server is expected to already be running via `just dev` with reload.
+  Do not start temporary servers on other ports for screenshots or tests.
 - Use `just dev-restart` after dependency/config changes or server crashes.
 - `dev.log` is a tee of dev-server stdout/stderr; read it like a normal file.
 - Use `$PORT` in every server command and URL. Do not hardcode 4000.
-- Servers bind to `0.0.0.0`; browser/curl connect to `localhost:$PORT`.
+- Servers bind to `0.0.0.0` for container networking; browser/curl connect to
+  `localhost:$PORT`.
 - Node projects use pnpm. Do not introduce npm/npx flows.
 
 | Task | Command |
@@ -110,6 +121,7 @@ Helper examples are in `docs/agent-ops.md`.
 - Pre-commit hooks are installed. If a hook blocks commit, fix the issue and
   retry; never skip hooks.
 - Prefer small, direct code and established project patterns.
+- Add type annotations and use strict mode where the language supports it.
 - Add abstractions only when they remove real complexity.
 - Validate at boundaries; do not duplicate internal checks.
 - Comments explain why, not what. Keep them rare and short.

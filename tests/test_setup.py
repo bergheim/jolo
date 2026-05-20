@@ -167,6 +167,7 @@ class TestTemplateSystem(unittest.TestCase):
         agent_ops = project_dir / "docs" / "agent-ops.md"
         self.assertTrue(agent_ops.exists())
         self.assertIn("Cross-Agent Reviews", agent_ops.read_text())
+        self.assertIn("golangci-lint", agent_ops.read_text())
 
     def test_copy_template_files_hash_tracks_agent_ops_doc(self):
         """On-demand agent recipes must sync on later recreate."""
