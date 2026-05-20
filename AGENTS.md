@@ -1,815 +1,171 @@
 # AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Rules for agents working in the jolo meta-project. Keep this file short: it is
+loaded into every session. Recipes and command catalogs live in
+`docs/agent-ops.md`.
 
-> **Note:** This is a META-PROJECT for building the AI development container environment.
-> It is NOT meant for general development. For projects created with `jolo create`,
-> see `templates/AGENTS.md` which gets copied to new projects.
+This repository builds the jolo AI devcontainer environment. It is not a normal
+app project. Generated projects use `templates/AGENTS.md`.
+
+## Session Start
+
+- Read `docs/PROJECT.org` and `docs/TODO.org`.
+- Scan recent note filenames with
+  `emacsclient -e '(bergheim/agent-denote-list "docs/notes" 15)'`.
+- For shared tooling, devcontainers, Emacs, org, denote, or agent behavior, also
+  scan `/workspaces/stash/notes`.
+- Read only notes relevant to the task.
+- Check `.git`: file means worktree, directory means main checkout.
+- Ignore `scratch/` and `reference/` in reviews, searches, and status summaries.
+- Nested cloned repos may carry their own agent files; those apply only inside
+  that cloned repo.
 
 ## Communication
 
-Assume the user is an experienced developer. Skip basic explanations, don't over-qualify statements, and don't pad responses with filler ("great question!", "certainly!"). Never use the phrase "smoke test" — just say "test" or "verify".
+- Assume an experienced developer. Be direct, skip basic explanations, and avoid
+  filler.
+- Never use the phrase "smoke test"; say "test" or "verify".
+- Disagree when evidence supports it; explain the reasoning.
+- If the user says they took a screenshot, read the newest
+  `/workspaces/stash/shot-*.png`.
 
-Disagree when you have evidence. If the user's approach has a flaw or you see a better alternative, say so directly with your reasoning — don't just go along with it. Pushback leads to better discussions and a better product. A wrong agreement costs more than a brief debate.
+## Planning
 
-## Screenshots
+Never implement non-trivial changes without first presenting a plan and getting
+explicit approval. Non-trivial means more than a couple of lines, multiple files,
+architecture, behavior, or likely side effects. Read/search commands are fine.
 
-When the user says they took a screenshot, read the latest one:
+Trivial typo/TODO/comment edits may proceed without a plan. If unsure, plan.
 
-```bash
-ls -t /workspaces/stash/shot-*.png | head -1
-```
+## Project Priorities
 
-Then use the Read tool on that file to view it.
+- Keep the codebase small. Prefer deleting code to adding wrappers.
+- Trust internal helpers to raise their own errors; validate only at system
+  boundaries.
+- Do not add backward-compatibility shims, migrations, aliases, deprecations,
+  stale-layout detection, or fallback code unless explicitly requested.
+- Custom commands belong in justfiles with comments so `just --list` is the menu.
+- Pick generated names with `fzf` when no name is supplied and `/dev/tty` is
+  usable; otherwise fail cleanly.
+- Comments explain why, not what. Keep them rare and short.
 
-## Scratch Directories
+## Files and Docs
 
-`scratch/` and `reference/` are gitignored scratch spaces. Use `scratch/` for experiments, generated assets (logos, mockups), and throwaway work. These directories are not part of the project and should be ignored during reviews, searches, and status checks.
-
-## Cloned Repos
-
-If a repo cloned with `jolo clone` includes its own agent instruction files (AGENTS/CLAUDE),
-those instructions apply only within that repo. They do not override this meta-project’s
-instructions.
-
-## Planning Before Acting
-
-**NEVER start implementing non-trivial changes without presenting a plan first.** If a task involves modifying more than a couple of lines, changing architecture, touching multiple files, or could have unintended side effects — stop and discuss the approach before writing any code. Do not assume approval. Do not "just fix it." Present the plan, wait for explicit approval, then execute.
-
-**Trivial changes are allowed without a plan.** Examples: add a TODO, fix a typo, or change a couple of lines in a single file with no behavioral impact. If you're unsure whether it's trivial, treat it as non-trivial and plan.
-
-This applies even when the problem is obvious. Diagnosing a problem is not the same as having permission to fix it.
-Non-destructive commands (reads/searches) do not require approval.
-
-## Minimalism
-
-Keep the codebase small. Fewer lines, fewer features, fewer moving parts. Do not add commands, helpers, or abstractions that provide marginal value over existing tools. If `podman logs` already works, we don't need `jolo logs`. Prefer deleting code to adding it.
-
-Do not add defensive checks that duplicate what called functions already handle. If `find_git_root()` raises on failure, the caller does not need to check for a git repo first. Trust internal code — only validate at system boundaries (user input, external APIs). Let functions fail naturally with their own errors.
-
-## CLI Conventions
-
-These apply to every CLI tool we ship in this repo — `wt`, `jolo`, `share`, `notify`, and any future helpers in `container/` or as a `jolo` subcommand.
-
-**Custom commands belong in the justfile.** `just --list` is the menu — it's how users (and agents reading a project for the first time) discover what's available. If we ship a binary and want users to actually find it, give it a `# comment` description and a recipe in the project's justfile (template or meta). A binary in `/usr/local/bin/` with no justfile entry is invisible. Don't tell the user to "drop `just` and run the binary directly" — fix the justfile instead. Cross-project recipes go in `templates/lang/common/justfile.common`.
-
-**fzf-pick by default for names of generated things.** When a command takes the name of something the tool generated — a worktree, project, container, branch, session, scaffolded artifact — and the user didn't supply one, fzf-pick from the known set when `fzf` is on `PATH` and `/dev/tty` is accessible. Fall through to a clean `error: name required` exit otherwise so non-interactive callers (CI, scripts) stay deterministic. Don't make people retype names they could pick from a list. Gate on `/dev/tty`, not `[ -t 1 ]` — pickers are typically invoked inside `name=$(pick_thing)`, where stdout is always captured.
-
-## Backward Compatibility
-
-This project is in heavy development. Do NOT worry about backward compatibility — just make the change directly.
-
-**Forbidden, unless the user explicitly asks for one:**
-- Migration commands (e.g. `jolo migrate-justfile`).
-- Sync-time warnings that detect old layouts ("your justfile lacks `import X`, add it…").
-- Fallback code paths that handle both old and new shapes.
-- Aliases, shims, re-exports for renamed symbols.
-- Deprecation messages.
-- Logic that infers intent from stale file contents.
-
-When a shape changes (env var, file layout, flag, template structure), ship only the new shape. If existing projects break, the user edits them by hand — that's the intended cost. **Do not propose automating it.** A cross-project note at `/workspaces/stash/notes/20260423T130003--backward-compatibility-is-forbidden-in-active-projects__convention_agents_workflow.org` has more context.
-
-## Comments
-
-Keep comments to a minimum. Only comment *why*, never *what*. Do not add comments that restate the code. Do not add comments that narrate the conversation or explain context that is obvious from reading the code. `printf '\a'` does not need a comment explaining what a terminal bell is, or if it works through tmux (which was in  the agent conversation). If a comment is needed at all, keep it to a few words — not a sentence.
-
-## Project Overview
-
-This repo builds and maintains the containerized Emacs GUI environment on Alpine Linux (musl-based), designed as a devcontainer for AI-assisted development. Alpine provides excellent package coverage and small image size. Browser automation uses Playwright with system Chromium. The container includes Claude Code CLI pre-configured in YOLO mode (`--dangerously-skip-permissions`).
-
-You are encouraged to suggest state-of-the-art CLI tools that could improve development of this environment. We control the full stack in `Containerfile`, so proposals can be evaluated and baked into the image directly. Assume required tools exist in this repo’s container image; do not add fallbacks or checks for missing tools.
-
-**What this repo produces:**
-- Container image (`jolo`) with all dev tools pre-installed
-- `jolo.py` + `_jolo/` package — CLI for launching devcontainers with git worktree support
-- Templates for new projects (`templates/`)
-
-## File Format Preferences
-
-Prefer org-mode (`.org`) over markdown for project documentation, TODOs, and notes. This is an Emacs-centric project.
-For new custom `.org` files under `docs/`, use denote-style filenames rather
-than ad hoc names. Do not create files like
-`docs/SOME_ARCHITECTURE_SUGGESTION.org`; create a denote-named file instead.
+- Prefer org-mode for project docs, TODOs, and notes.
+- New custom `.org` files under `docs/` must use denote filenames:
+  `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`.
+- Fixed files such as `docs/PROJECT.org`, `docs/TODO.org`, `docs/MEMORY.org`,
+  and `docs/RESEARCH.org` are exceptions.
+- Cross-project discoveries go in `/workspaces/stash/notes`; repo-specific
+  discoveries go in `docs/notes`.
+- Heuristic: Would I want this loaded at session start in an unrelated project?
+  If yes, use stash.
+- Denote notes are write-once. Create a new note for additions.
 
 ## Task Tracking
 
-`docs/TODO.org` is the active work log, not a reference document. Treat it as the single source of truth for what needs doing.
-
-- **Before starting work**: check TODO.org for existing tasks — don't duplicate effort
-- **When you complete a task**: mark it `DONE` immediately, not at the end of the session
-- **When you discover new work**: add it as a `TODO` heading right away
-- **When a task is no longer relevant**: mark it `CANCELLED` with a reason
-- **Never delete body text** when closing a TODO — the original description, context, and notes are valuable history. The reason goes in the LOGBOOK, not as a replacement for the body.
-
-### Autonomous TODO conventions (`:autonomous:` tag)
-
-`jolo autonomous` dispatches TODO items tagged `:autonomous:` to a fresh
-agent without user interaction. Tagging the wrong thing dispatches risky
-work into a context where there's no human to course-correct. So:
-
-**Eligibility — a TODO is `:autonomous:` only if all of these hold:**
-
-- **Bounded** — the agent can verify "done" itself (tests pass, files
-  compile, etc.). No "looks good?" judgment calls.
-- **In-container** — no host-side steps. No Emacs-host, systemd,
-  berghome, DNS/uniweb, sudo on host, `tailscale set …`. Everything
-  happens inside the dispatched container.
-- **Non-destructive** — no force-push, no `rm -rf` outside `scratch/`,
-  reversible by `git reset` + branch delete. If a step is hard to undo
-  it disqualifies the item.
-- **No external prompts** — no plugin auth dances, GitHub UI clicks,
-  trust dialogs, MFA, browser logins. The agent runs to completion or
-  errors out.
-- **No decisions pending** — body that says "decide X first" or
-  "consider whether Y" disqualifies until the decision is made.
-- **Fits one branch / one `jolo tree -p` run.**
-- **Body is a self-contained prompt** for the dispatched agent. If
-  reading the heading + body doesn't tell a fresh agent what to do,
-  it's not ready.
-
-**Tagging workflow:**
-
-- Tag only via the helper, never via text-edit:
-  ```bash
-  emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading regex" "autonomous")'
-  ```
-- **Per-item agreement required.** No bulk retagging. When a TODO
-  looks eligible, raise it with the user, get explicit OK, then tag.
-- Removing the tag uses `bergheim/agent-org-remove-tag` with the same
-  ergonomics.
-
-If the dispatched run errors, the agent should mark the heading
-`BLOCKED` (waiting on a system) or `WAITING` (waiting on a person)
-with a reason note, never silently abandon.
-
-### Editing org files with emacsclient
-
-**Always use `bergheim/agent-org-set-state` for org state changes** — never manually
-edit TODO/DONE keywords with a text editor. Org-mode adds CLOSED timestamps, LOGBOOK
-entries, and state transition metadata automatically. The helper handles buffer
-staleness, note capture, and save in one call.
-
-**Mark a TODO as DONE:**
-
-```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE")'
-```
-
-**Mark as DONE with a reason note:**
-
-```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE" "Resolved by commit abc1234.")'
-```
-
-**Cancel a TODO with a reason:**
-
-```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "CANCELLED" "No longer relevant because X.")'
-```
-
-This produces proper org metadata:
-
-```org
-** CANCELLED The task heading
-CLOSED: [2026-04-13 Mon 12:08]
-:LOGBOOK:
-- State "CANCELLED"  from "TODO"  [2026-04-13 Mon 12:08] \\
-  No longer relevant because X.
-:END:
-   Original body text preserved here...
-```
-
-Available states: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`, `CANCELLED`.
-
-`BLOCKED` means "stalled on an external dependency" (vendor response, upstream
-bug, cert renewal, etc.). Use `WAITING` for "waiting on a person" and `BLOCKED`
-for "waiting on a system." When `:clock t` is passed to `set-state`, transitions
-to `BLOCKED` close an active clock — this is a project policy choice, not an
-org-mode semantic.
-
-### Additional org helpers
-
-All of these share the same ambiguity-safe heading lookup — if the regex matches
-multiple headings, the helper errors and lists the line numbers so you can
-disambiguate.
-
-**Add a log note without changing state:**
-
-```bash
-emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
-```
-
-**Ensure a stable `:ID:` property:**
-
-```bash
-# Full plist response (default):
-emacsclient -e '(bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading")'
-# When you only need the id string:
-emacsclient -e '(plist-get (bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading") :id)'
-```
-
-**Transition by `:ID:` (immune to heading renames and duplicate headings):**
-
-```bash
-emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
-```
-
-**Track time on a transition (clock in on INPROGRESS, clock out on DONE/BLOCKED/CANCELLED):**
-
-```bash
-# Signature: set-state FILE HEADING-RE STATE &optional NOTE ENSURE-SESSION-ID CLOCK
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
-```
-
-The 5th arg (`ensure-session-id`) auto-adds `:SESSION_ID:` on INPROGRESS so logs
-and notifications can correlate back to the TODO. The 6th arg (`clock`) drives
-`org-clock-in`/`org-clock-out`.
-
-**Tag management:**
-
-```bash
-# Add :autonomous: tag (idempotent)
-emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
-
-# Remove a tag (idempotent)
-emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
-```
-
-### Helper return contract
-
-Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper returns
-a plist. The canonical key is `:wrote` — a list of absolute file paths
-the helper modified on disk, possibly empty when the operation was
-idempotent (state already matched, tag already present, ID already
-assigned, link already there).
-
-**Always re-Read every path in `:wrote` before any subsequent Edit.**
-The harness mtime-checks every Read→Edit pair; a helper's invisible
-write between them makes the next Edit fail with "File has been
-modified since read." Treat `:wrote` as ground truth — don't rely on
-mtime, which has 1-second resolution on older filesystems and can race
-within the same second.
-
-Other plist keys are helper-specific (`:state`, `:state-from`,
-`:heading`, `:id`, `:title`, `:path`, `:tags`, `:added`). Use
-`(plist-get RESULT :key)` to extract.
-
-## Project Memory
-
-### Structured files
-
-| File | Purpose |
-|------|---------|
-| `docs/PROJECT.org` | Project context, architecture, key decisions |
-| `docs/TODO.org` | Actionable work items |
-| `docs/MEMORY.org` | Legacy shared conventions (being replaced by denote notes) |
-| `docs/RESEARCH.org` | Legacy investigations (being replaced by denote notes) |
-
-### Denote notes (`docs/notes/`)
-
-Per-topic knowledge notes following denote's filename convention. Each note is a
-single topic in its own file — no monolithic dumps. Notes are write-once: to add
-to a topic, create a new note and reference the original.
-
-**Filename format:** `YYYYMMDDTHHMMSS--title-slug__kind_topic1_topic2.org`
-
-This rule applies to newly-created custom `.org` files anywhere under `docs/`,
-not just `docs/notes/`. The only exceptions are established structured files
-with fixed names such as `docs/PROJECT.org`, `docs/TODO.org`, `docs/MEMORY.org`,
-and `docs/RESEARCH.org`.
-
-**Note kinds** (fixed vocabulary, always the first keyword):
-`memory`, `research`, `decision`, `gotcha`, `convention`, `incident`
-
-**Topic keywords** (free-form, project-specific):
-`emacs`, `org`, `jolo`, `musl`, `evil`, `agent`, `skills`, `denote`, etc.
-
-**Creating notes via emacsclient:**
-
-```bash
-emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic1" "topic2")) "Body text.")'
-```
-
-**Finding notes:**
-
-```bash
-# All notes with keyword "emacs"
-emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
-
-# Notes matching keyword + title pattern
-emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
-
-# List 10 most recent
-emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
-```
-
-**Linking notes:**
-
-```bash
-# Add links from one note to related notes (idempotent, appends "Related notes" section)
-emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
-```
-
-Link when there is a real semantic relationship (one note explains, caused, or
-depends on another). Do not link just because notes share a keyword.
-
-**On session start:**
-1. Read `docs/PROJECT.org` and `docs/TODO.org`
-2. Scan note filenames: `(bergheim/agent-denote-list "docs/notes")`
-3. Read full content of notes relevant to current task
-
-**On discoveries:** Create a new denote note with the appropriate kind and topics.
-Link to existing related notes. Do not append to existing notes or to `MEMORY.org`.
-
-### Stash notes (`/workspaces/stash/notes/`)
-
-Cross-project knowledge belongs in stash notes. If a discovery would still be
-useful in an unrelated project or for host-level workflow, save it in
-`/workspaces/stash/notes` instead of only in `docs/notes/`.
-
-Use this heuristic:
-- Would I want this loaded at session start in an unrelated project?
-
-If yes, it belongs in stash. If the note depends on this repo's files, paths,
-branches, or local architecture, it is project-specific and belongs in
-`docs/notes/`.
-
-It is fine to write both:
-- a local incident note in `docs/notes/`
-- a separate generalized note in `/workspaces/stash/notes/`
-
-When working on shared tooling, devcontainer workflow, Emacs, org-mode, denote,
-agent behavior, or other cross-project infrastructure, also scan stash note
-filenames and read relevant stash notes before acting:
-
-```bash
-emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
-```
-
-### Personal memory
-
-Agent-specific files (not shared):
-- Claude: `.claude/MEMORY.md`
-- Gemini: `.gemini/MEMORY.md`
-- Codex: `.codex/MEMORY.md`
-- Pi: `.pi/MEMORY.md`
-
-Use personal memory for workflow preferences and agent-specific learnings.
-Use denote notes for anything another agent would benefit from knowing.
-
-## Emacs
-
-Emacs runs as a daemon in the container. Use `emacsclient --eval '(expr)'` to query state, check modes, read variables, or run diagnostics — never ask the user to run `M-x` or `M-:` manually.
-
-The real Emacs config lives on the host (`~/.config/emacs/`). The container copy at `.devcontainer/.emacs-config/` is not the source of truth. When config changes are needed, provide the snippet for the user to apply on the host.
-
-## Project Defaults
-
-**Port requirement:** When creating or scaffolding any project with a dev server (web apps, APIs, etc.), always use the `$PORT` environment variable. Each project gets a random port in the 4000-5000 range assigned at creation time.
-
-```bash
-# In your dev server config, always use $PORT
-pnpm run dev -- --port $PORT
-python -m http.server $PORT
-flask run --port $PORT
-```
-
-Port assignment:
-- `jolo create` / `jolo init` assigns a random port in 4000-5000, written to devcontainer.json
-- The port is stable for the project lifetime (stored in config, not re-randomized)
-- `jolo up` checks port availability before launching; errors if taken
-- In spawn mode (`jolo spawn N`), each worktree gets base_port + offset (4000, 4001, ...)
-- Ports 4000-5000 are forwarded from the container to the host and accessible via the Tailscale network
-
-## Git Workflow
-
-Keep a rebased, linear history. Work on feature branches, rebase onto `main` before merging, and use merge commits when combining multi-commit branches (to preserve the logical grouping). For single-commit branches, fast-forward merge is fine.
-
-**Never merge branches into each other.** If you have multiple feature branches to land, merge them to main one at a time, rebasing each onto the updated main before merging. Do not create a "combined" branch by merging feature branches together — this produces a tangled commit graph that is hard to read and bisect.
-
-```bash
-# WRONG: merging branches into each other
-git checkout feat-a && git merge feat-b && git merge feat-c  # tangled history
-
-# RIGHT: merge to main sequentially
-git checkout main && git merge --no-ff feat-a
-git checkout feat-b && git rebase main
-git checkout main && git merge --no-ff feat-b
-# repeat for each branch
-```
-
-For bigger tasks, use TDD and commit frequently on the branch as you make progress.
-**Default workflow: commit and push unless the user explicitly says not to.** If a remote exists, push after each meaningful commit so progress is visible and recoverable.
-
-**Branch naming:**
-- `feat/<slug>`
-- `fix/<slug>`
-- `docs/<slug>`
-- `chore/<slug>`
-- `refactor/<slug>`
-- `test/<slug>`
-
-**Worktree naming:**
-- `wt/<prefix>/<slug>` (example: `wt/feat/auth`, `wt/docs/readme`)
-
-```bash
-git checkout feature-branch
-git rebase main
-git checkout main
-git merge feature-branch          # fast-forward for single commit
-git merge --no-ff feature-branch  # merge commit for multi-commit branches
-```
-
-**Worktree awareness:** Check `.git` at session start — if it's a file (not a directory), you are in a worktree. All worktrees live under `/workspaces/`. You cannot checkout `main` here. Find the main tree and merge there:
-
-```bash
-# Detect: file = worktree, directory = main repo
-test -f .git && echo "worktree" || echo "main repo"
-
-# Merge from a worktree
-MAIN=$(git worktree list | awk '/\[main\]/{print $1}')
-git rebase main && git -C "$MAIN" merge $(git branch --show-current)
-```
-
-## Build Commands
-
-```bash
-# Build with default user (tsb)
-podman build -t jolo .
-
-# Build matching your host user (recommended)
-podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t jolo .
-```
-
-## Testing
-
-System Python on Alpine has no pytest and pip is blocked (externally-managed-environment). Use `uv` to run tests:
-
-```bash
-just test              # run all tests
-just test-k "pattern"  # run tests matching keyword
-just test-v            # verbose output
-```
-
-Test behavior, not scaffolding. Don't write tests for obvious error paths that just exercise guards you shouldn't have added in the first place. One test for the happy path is worth more than five tests for defensive branches.
-
-## Running
-
-```bash
-jolo up    # start devcontainer with tmux layout
-jolo up -d # start detached
-```
-
-## Architecture
-
-**Key files:**
-- `Containerfile` - Alpine-based image with Emacs, language servers, and dev tools
-- `container/entrypoint.sh` - Container startup: GPG agent setup, DBus, keeps container alive
-- `container/tmux-layout.sh` - Tmux session wrapper: starts tmuxinator layout, handles reattach and prompt mode
-- `container/dev.yml` - Tmuxinator config: 7-window layout (emacs, claude, codex, gemini, pi, dev, shell)
-- `container/e` - Smart Emacs launcher (GUI or terminal based on environment)
-- `container/motd` - Message of the day shown on shell login
-- `container/browser-check.js` - Browser automation CLI (Playwright + system Chromium)
-- `container/notify` - Push notification on agent completion (ntfy)
-- `container/db` - On-demand PostgreSQL (init/start/stop/status/log)
-- `jolo.py` + `_jolo/` - Devcontainer CLI split into a package: `constants.py`, `cli.py`, `templates.py`, `container.py`, `setup.py`, `worktree.py`, `commands.py`
-
-**Environment:**
-- `EMACS_CONTAINER=1` - Set inside container, can be used by Emacs config to skip loading certain packages
-- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` - Passed through to container for AI tools
-- `PNPM_HOME` - pnpm global package path (no sudo needed)
-- `PGHOST=/tmp` - PostgreSQL Unix socket directory
-- `LLAMA_HOST` - llama-swap (llama.cpp, OpenAI-compat) endpoint
-
-## Notifications
-
-Completion notifications use `ntfy.sh` with a default topic of `jolo`.
-Use `test` only for ad-hoc/manual test pings (e.g., `NTFY_TOPIC=test`).
-
-**Networking:**
-- Each project gets a random port in 4000-5000 assigned at creation time, forwarded from container to host
-- Use `$PORT` for dev servers - it's set in the container environment and accessible via Tailscale
-- Example: run `pnpm run dev -- --port $PORT` and access from another machine via `http://<tailscale-ip>:$PORT`
-
-## Installed Tools
-
-Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server, expert (Elixir)
-
-Runtimes: Go, Rust, Python, Ruby, Elixir/Erlang, Node.js, Bun, pnpm, mise (version manager)
-
-Database: PostgreSQL 18 + pgvector (on-demand via `db start` or `just db`, data in `.devcontainer/.pgdata/`)
-
-CLI: ripgrep, fd, eza, zoxide, jq, yq, gh, sqlite, cmake, tmux, tmuxinator, neovim (aliased as `vi`/`vim`), air (Go live-reload), postgresql-client
-
-AI tools: claude (Claude Code CLI), codex-cli (@openai/codex), gemini-cli (@google/gemini-cli), pi (@mariozechner/pi-coding-agent)
-
-Spell-checking: aspell, hunspell, enchant2
-
-Linting: pre-commit, ruff (Python), golangci-lint (Go), shellcheck (shell), hadolint (Dockerfile), yamllint (YAML), ansible-lint (Ansible)
-
-Browser automation: browser-check (uses Playwright with system Chromium), pa11y (WCAG 2.2 AA accessibility auditing)
-
-Image tooling: vips/vipsthumbnail, avifenc/avifdec (AVIF), cwebp/dwebp (WebP). Prefer AVIF > WebP > PNG/JPEG. Do not add ImageMagick or Pillow unless the project explicitly requires them.
-
-## Cross-container podman access
-
-Off by default per project. When allowed, `podman` inside a devcontainer
-becomes a remote client of the host's rootless podman daemon — useful
-when an agent needs to inspect or run commands in *sibling* devcontainers
-(e.g. driving a docker-compose stack in a peer project).
-
-The activation runs a host-side socat proxy at the project's gate path;
-toggling the proxy (`allow`/`deny`) flips the capability **instantly
-without container recreation**. The first allow on a project still
-needs one `--recreate` to retrofit the always-mount; after that,
-future toggles take effect on the next `podman …` call inside the
-running container.
-
-```sh
-# on the host, NOT inside any container:
-jolo allow podman <project>           # creates gate dir + starts socat
-cd <project> && jolo up --recreate    # one-time retrofit
-
-# later toggling — no recreate needed:
-jolo deny podman <project>            # stops socat (gate dir stays)
-jolo allow podman <project>           # restarts socat
-
-# what's running:
-jolo allowed                          # list projects with podman state
-```
-
-The gate directory `~/.config/jolo/podman-runtime/<project>/` is host-
-only (not bind-mounted into any devcontainer in a writable location),
-and `jolo` itself only exists on the host. An agent inside a container
-has no path to reach the gate or the CLI — activation has to be a
-deliberate host-side act.
-
-When allowed: `podman ps`, `podman exec <peer> <cmd>`, `podman logs
-<peer>` etc. all work as remote-client calls against the host daemon.
-When not allowed: `podman` errors with `Cannot connect to Podman …
-no such file or directory` — that's the "off" state, not a bug.
-
-Host requires `socat` (apk, pacman, etc.). `jolo allow` errors
-cleanly with an install hint if missing.
-
-## Public exposure (`jolo expose`)
-
-Headscale has no Funnel and no public HTTPS (its serve uses an internal
-CA), so public exposure goes through the host Caddy instead. `jolo expose`
-runs a foreground `socat` forwarding a fixed loopback slot
-(`127.0.0.1:9999`) to the selected project's `$PORT`. The project is
-public only while the command runs; Ctrl-C tears it down. The single slot
-allows exactly one exposed project at a time (a second `expose` fails to
-bind). Deny-by-default: nothing is reachable when idle, and choosing what
-to expose is a deliberate per-project act — there is no "all ports" mode.
-
-Host one-time setup (public Caddy box, which is also the dev host):
-
-```
-pub.glvortex.net {
-    basicauth /* { tsb <bcrypt — caddy hash-password> }
-    reverse_proxy localhost:9999
-}
-```
-
-Caddy auto-provisions a public Let's Encrypt cert (port 80 is open). Drop
-this in `/etc/caddy/conf.d/` so the main Caddyfile stays untouched.
-
-## Browser Automation Tool Guide
-
-Use `playwright-cli` for stateful browser automation with low token usage (artifacts written to `.playwright-cli/`). Use `browser-check` for quick stateless audits.
-
-### Task → Tool
+`docs/TODO.org` is the active work log and source of truth.
+
+- Before starting work, check for an existing TODO.
+- When starting a tracked task, mark it `INPROGRESS` with the org helper.
+- Mark completed work `DONE` immediately, not at session end.
+- Mark obsolete work `CANCELLED` with a reason.
+- Preserve TODO body text when closing.
+- Use `WAITING` for a person and `BLOCKED` for a system.
+
+Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
+keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
+returns a plist. Re-read every path in `:wrote` before any later edit.
+
+`:autonomous:` TODOs may only be tagged after per-item user agreement. They must
+be bounded, in-container, non-destructive, free of external prompts, decision-free,
+one-branch-sized, and self-contained. Add/remove the tag only with
+`bergheim/agent-org-add-tag` / `bergheim/agent-org-remove-tag`.
+
+Helper examples are in `docs/agent-ops.md`.
+
+## Git
+
+- Default workflow: create a feature branch, commit meaningful progress, and
+  push if a remote exists unless the user says not to.
+- Branch names: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
+  `refactor/<slug>`, `test/<slug>`.
+- Keep history rebased and linear.
+- Merge feature branches into `main`, not into each other.
+- Use merge commits for multi-commit branches; fast-forward single-commit
+  branches.
+- Never use `git reset --hard`, `git checkout --`, or `git commit --no-verify`
+  unless explicitly requested.
+- In a worktree, do not checkout `main`; find the main tree with
+  `git worktree list`.
+
+## Commands
 
 | Task | Command |
 |------|---------|
-| **Interactive Flow** | **Playwright CLI** (`playwright-cli`) |
-| Check what's on page | `browser-check URL --describe` |
-| Take screenshot | `browser-check URL --screenshot` |
-| Full page screenshot | `browser-check URL --screenshot --full-page` |
-| Generate PDF | `browser-check URL --pdf` |
-| Get ARIA tree | `browser-check URL --aria` |
-| Interactive elements only | `browser-check URL --aria --interactive` |
-| Capture console logs | `browser-check URL --console` |
-| Capture JS errors | `browser-check URL --errors` |
-| JSON output for scripts | `browser-check URL --json --console --errors` |
+| List recipes | `just --list` |
+| Run all tests | `just test` |
+| Run matching tests | `just test-k PATTERN` |
+| Verbose tests | `just test-v` |
+| Build image | `podman build -t jolo .` |
+| Launch project | `jolo up` |
+| Launch detached | `jolo up -d` |
+| Create worktree container | `jolo tree <slug>` |
+| Dispatch autonomous TODOs | `jolo autonomous --dry-run` first |
 
-### Playwright CLI
+System Python is externally managed on Alpine; use `uv` or the just recipes for
+Python tests.
 
-Stateful browser automation via local session artifacts on disk (`.playwright-cli/`).
+## Project Shape
 
-```bash
-# Open a session and inspect interactive refs
-playwright-cli open https://example.com
-playwright-cli snapshot
+Key files:
 
-# Interact using refs from the snapshot
-playwright-cli click e1
-playwright-cli fill e2 "hello"
+- `Containerfile` builds the Alpine image.
+- `container/entrypoint.sh` starts container services.
+- `container/dev.yml` defines the tmux layout.
+- `container/browser-check.js` is the browser audit CLI.
+- `container/agent-helpers.el` provides org/denote helpers.
+- `jolo.py` and `_jolo/` implement the CLI.
+- `templates/` is copied into generated projects.
 
-# Capture artifacts and close
-playwright-cli screenshot
-playwright-cli close
-```
+Environment and tooling expectations:
 
-### browser-check
+- Use `$PORT` for every dev server; never hardcode 4000.
+- Assume tools baked into the image exist; do not add fallback checks for them.
+- Browser automation uses Playwright with system Chromium.
+- Node package management is pnpm. Do not introduce npm/npx flows.
+- Image tooling preference: AVIF > WebP > PNG/JPEG; use vips/avifenc/cwebp.
+- Emacs runs as a daemon. Use `emacsclient --eval`; never ask the user to run
+  interactive Emacs commands.
+- Host Emacs config lives at `~/.config/emacs`; `.devcontainer/.emacs-config/`
+  is only a container copy.
 
-Stateless browser automation using Playwright with system Chromium. Each command launches a fresh browser.
+## Verification
 
-```bash
-# Basic page inspection
-browser-check https://example.com --describe
+- For code changes, run the narrowest meaningful test first, then broader tests
+  when the risk justifies it.
+- For CLI/template changes, run focused unit tests plus `just test` when feasible.
+- For visible web changes, verify with browser tooling and inspect the screenshot.
+- For accessibility-sensitive web work, run the project a11y recipe when present.
+- Report commands run and any tests you could not run.
 
-# Screenshot with custom output
-browser-check https://example.com --screenshot --output shot.png
-browser-check https://example.com --screenshot --full-page --output full.png
+## Security and Host Boundaries
 
-# PDF generation
-browser-check https://example.com --pdf --output doc.pdf
+- Containers have no X11; Wayland is conditional and isolated.
+- Host-only operations stay host-only. If a task requires host sudo, Tailscale,
+  DNS, systemd, or trust dialogs, explain the manual step instead of trying to
+  tunnel around it.
+- Cross-container Podman access is off by default and must be enabled from the
+  host. Treat `Cannot connect to Podman ... no such file or directory` as the
+  off state.
 
-# ARIA accessibility tree (93% less context than raw HTML)
-browser-check https://example.com --aria
-browser-check https://example.com --aria --interactive  # just buttons, links, inputs
+## More Recipes
 
-# Debug a page - capture console and errors
-browser-check https://localhost:4000 --console --errors
+Read `docs/agent-ops.md` only when needed for:
 
-# JSON output for programmatic use
-browser-check https://myapp.com --console --errors --aria --json
-
-# Wait longer for slow pages
-browser-check https://slow-site.com --wait 3000 --timeout 60000
-```
-
-### Common Patterns
-
-**Check if dev server is up:**
-```bash
-browser-check http://localhost:4000 --describe --console --errors
-```
-
-**Debug JavaScript errors:**
-```bash
-browser-check https://myapp.com --errors --console
-```
-
-**Get page structure for LLM:**
-```bash
-browser-check https://example.com --aria --interactive --json
-```
-
-**Screenshot with error checking:**
-```bash
-browser-check https://myapp.com --screenshot --errors --output debug.png
-```
-
-### Limitations
-
-- **Stateless**: `browser-check` commands launch fresh browser (no persistent sessions).
-- For advanced flows beyond CLI commands, write a Node.js Playwright script.
-
-## Code Quality Best Practices
-
-**Always set up pre-commit hooks** when scaffolding or working on a project. This catches issues before commits. The specific hooks depend on the project type.
-
-- **Never skip hooks**: NEVER use `git commit --no-verify`. Pre-commit hooks (ruff, format, tests, codespell) are the guardrails that keep code clean. If a hook blocks the commit, fix the underlying issue — add the word to the codespell allowlist, fix the lint error, fix the failing test. Skipping hooks to save time means shipping broken formatting, lint errors, and test failures that compound into a mess. No exceptions.
-
-### When to add hooks (decision heuristics)
-
-**Every project** gets basic hygiene hooks:
-```yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-added-large-files
-```
-
-**Code projects** - add language-specific linters based on files present:
-
-| Files | Linter | Hook repo |
-|-------|--------|-----------|
-| `*.py` | ruff | `https://github.com/astral-sh/ruff-pre-commit` |
-| `*.go` | golangci-lint | `https://github.com/golangci/golangci-lint` |
-| `*.rs` | clippy/rustfmt | `https://github.com/doublify/pre-commit-rust` |
-| `*.ts/*.js` | biome | `https://github.com/biomejs/biome` |
-| `*.sh` | shellcheck | `https://github.com/shellcheck-py/shellcheck-py` |
-| `Dockerfile` | hadolint | `https://github.com/hadolint/hadolint` |
-| `*.yaml/*.yml` | yamllint | `https://github.com/adrienverge/yamllint` |
-| `playbook*.yml` | ansible-lint | `https://github.com/ansible/ansible-lint` |
-
-**Prose projects** (docs, blogs, wikis) - add writing-focused tools:
-```yaml
-repos:
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.43.0
-    hooks:
-      - id: markdownlint-fix
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
-    hooks:
-      - id: codespell
-```
-
-**Mixed projects** - combine both code and prose hooks as needed.
-
-### Setup
-
-```bash
-# Initialize hooks (run once per project)
-pre-commit install
-
-# Run on all files (useful after adding new hooks)
-pre-commit run --all-files
-```
-
-When scaffolding new projects:
-1. Detect project type from files or user intent
-2. Create `.pre-commit-config.yaml` with appropriate hooks
-3. Add language-specific config (`pyproject.toml`, `biome.json`, etc.) if needed
-4. Run `pre-commit install`
-
-This is especially important in AI-assisted development where code is generated quickly - linters catch issues before they're committed.
-
-## jolo - Devcontainer Launcher
-
-Install: `ln -s $(pwd)/jolo.py ~/.local/bin/jolo`
-
-```bash
-# Basic usage
-jolo up                   # start devcontainer in current project
-jolo create newproject    # scaffold new project
-jolo tree feature-x       # create worktree + devcontainer
-jolo list                 # show containers/worktrees
-jolo attach               # pick a running container (sorted by MRU)
-jolo down                 # stop container
-
-# AI prompt mode (starts agent in detached tmux)
-jolo up -p "add user auth"       # run AI with prompt
-jolo tree feat -p "add OAuth"    # worktree + prompt
-jolo create app -p "scaffold"    # new project + prompt
-jolo up --agent gemini -p "..."  # use different agent (default: claude)
-
-# Spawn mode (multiple parallel agents)
-jolo spawn 5 -p "implement X"          # 5 random-named worktrees
-jolo spawn 3 --prefix auth -p "..."    # auth-1, auth-2, auth-3
-# Agents round-robin through configured list (claude, gemini, codex, pi)
-# Each gets unique PORT (4000, 4001, 4002, ...)
-
-# Other options
-jolo tree feat --from develop     # branch worktree from specific ref
-jolo up -d                        # start detached (no tmux attach)
-jolo up --shell                   # exec zsh directly (no tmux)
-jolo up --run claude              # exec command directly (no tmux)
-jolo up --run "pnpm test"         # run arbitrary command
-jolo init                         # initialize git + devcontainer in current dir
-jolo up --recreate                # sync config from template and recreate container
-jolo a --recreate                 # pick container, sync + recreate, reattach
-jolo prune                        # cleanup stopped/orphan containers and worktrees
-jolo destroy                      # nuclear: stop + rm all containers for project
-jolo list --all                   # show all containers globally
-jolo down --all                   # stop all containers for project
-jolo up -v                        # verbose mode (print commands)
-
-# Expose a project's dev server to the public internet (host-side, deny-by-default)
-jolo expose                       # pick/current project → public at pub.glvortex.net while running
-
-# Mount and copy options
-jolo up --mount ~/data:data          # mount ~/data to workspace/data (rw)
-jolo up --mount ~/data:data:ro       # mount ~/data to workspace/data (readonly)
-jolo up --mount ~/data:/mnt/data     # mount to absolute path
-jolo up --copy ~/config.json         # copy file to workspace root
-jolo up --copy ~/config.json:app/    # copy to workspace/app/config.json
-
-# Autonomous dispatch from TODO.org
-jolo autonomous                       # scan docs/TODO.org, dispatch :autonomous: items
-jolo autonomous --dry-run             # preview what would fire
-jolo autonomous --agents claude,codex # round-robin across a specific agent list
-# Requires host Emacs daemon to have loaded container/agent-helpers.el
-# so the CLI's emacsclient calls can reach the selector/mark helpers.
-# Host is responsible for scheduling (systemd timer, cron, ...).
-```
-
-**Security model:**
-- **No X11 access** — jolo containers have no X11 socket mount and no `DISPLAY` variable. This prevents X11 keylogging, screenshot capture, and input injection. Wayland access is conditional — the socket is only mounted when `WAYLAND_DISPLAY` is set on the host. Wayland's per-surface isolation makes this safe (unlike X11).
-- AI credentials copied (not mounted) to `.devcontainer/` at launch:
-  - Claude credentials: `.credentials.json` mounted RW from host (token refreshes persist), `settings.json` copied to `.claude-cache/` (container-specific hooks), `statsig/` mounted RO from host, `.claude.json` copied (MCP injection)
-  - Gemini: `.gemini-cache/` copied
-  - Codex: `.codex-cache/` copied
-  - Pi: `.pi-cache/` copied
-- Claude history/state is ephemeral per-project (no cross-project contamination)
-- GPG keyring (`pubring.kbx`, `trustdb.gpg`) mounted read-only; the agent socket is forwarded for signing. The `trustdb not writable` warning is expected and harmless.
-- Emacs config copied, package dirs mounted readonly from ~/.cache/emacs/
-- Shell history persisted per-project in `.devcontainer/.zsh-state/`
-
-**Emacs config isolation:**
-- Config (~/.config/emacs) copied to `.devcontainer/.emacs-config/` - writable
-- Package dirs mounted read-write from `~/.cache/jolo/` (NOT `~/.cache/emacs/`):
-  - elpaca/ (package manager repos/builds)
-  - tree-sitter/ (grammar files)
-- Separate from host Emacs cache to avoid version/libc mismatches (host=Emacs 31/glibc, container=30.x/musl)
-- First boot is slow (elpaca builds everything), subsequent boots reuse the shared cache
-- Cache dir (`.devcontainer/.emacs-cache/`) is fresh per-container
-- Changes to config stay in project, don't affect host
+- Exact org/denote `emacsclient` forms.
+- Browser-check and Playwright command catalogs.
+- jolo command catalog and podman gate operations.
+- Local llama-swap curl examples.
+- Cross-agent review snippets.
+- Share/notify/perf operational details.
