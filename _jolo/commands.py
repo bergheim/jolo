@@ -54,6 +54,7 @@ from _jolo.container import (
 )
 from _jolo.setup import (
     JOLO_POST_COMMIT_INSTALL_SCRIPT,
+    TEMPLATE_HASHES_FILE,
     add_user_mounts,
     copy_template_files,
     copy_user_files,
@@ -1020,6 +1021,26 @@ def _copy_url_to_clipboard(workspace_dir: Path) -> None:
     clipboard_copy(url)
 
 
+GITIGNORE_MARKER = "# Universal .gitignore template"
+
+
+def _ensure_gitignore(src: Path, dst: Path) -> None:
+    """Ensure the project's .gitignore covers jolo's machine-local paths.
+
+    No .gitignore: copy the template.
+    Existing .gitignore without our marker: append the whole template once.
+    Existing .gitignore with our marker: no-op.
+    """
+    template = src.read_text()
+    if not dst.exists():
+        dst.write_text(template)
+        return
+    existing = dst.read_text()
+    if GITIGNORE_MARKER in existing:
+        return
+    dst.write_text(existing.rstrip() + "\n\n" + template)
+
+
 def _ensure_project_template_files(
     project_path: Path, project_name: str
 ) -> None:
@@ -1053,7 +1074,6 @@ def _ensure_project_template_files(
         "AGENTS.md",
         "CLAUDE.md",
         "GEMINI.md",
-        ".gitignore",
         ".editorconfig",
         "biome.json",
     ):
@@ -1062,6 +1082,10 @@ def _ensure_project_template_files(
         if src.exists() and not dst.exists():
             shutil.copy2(src, dst)
             verbose_print(f"Wrote template: {filename}")
+
+    _ensure_gitignore(
+        templates_dir / ".gitignore", project_path / ".gitignore"
+    )
 
     for dirname in (
         ".claude",
@@ -1141,15 +1165,14 @@ def run_up_mode(args: argparse.Namespace) -> None:
             config,
             force=getattr(args, "force", False),
         )
-    else:
-        scaffold_devcontainer(
-            project_name,
-            config=config,
-            cross_container=is_podman_allowed(project_name),
+        _ensure_project_template_files(git_root, project_name)
+        ensure_test_gate_script(git_root)
+    elif not (git_root / TEMPLATE_HASHES_FILE).exists():
+        sys.exit(
+            f"Error: project is not initialized for jolo "
+            f"({TEMPLATE_HASHES_FILE} missing).\n"
+            "Run `jolo up --recreate` to scaffold and start."
         )
-
-    _ensure_project_template_files(git_root, project_name)
-    ensure_test_gate_script(git_root)
 
     # Add user-specified mounts to devcontainer.json
     if args.mount:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for filesystem & credential setup."""
 
+import argparse
 import json
 import os
 import tempfile
@@ -10,6 +11,7 @@ from unittest import mock
 
 import _jolo.setup as setup
 import jolo
+from _jolo.commands import GITIGNORE_MARKER
 
 
 class TestTemplateSystem(unittest.TestCase):
@@ -1826,6 +1828,146 @@ class TestLighthouseRunIntegration(unittest.TestCase):
         self.assertNotIn(
             "\nlighthouse ", (self.project / "justfile").read_text()
         )
+
+
+class TestEnsureGitignore(unittest.TestCase):
+    """`_ensure_gitignore` concats the template once, marker-guarded."""
+
+    JOLO_LINE = ".devcontainer/.claude-cache/"
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir)
+        self.original_cwd = os.getcwd()
+        (self.project / "package.json").write_text('{"name":"x"}')
+        (self.project / "tsconfig.json").write_text("{}")
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run(self):
+        from _jolo.commands import _ensure_project_template_files
+
+        _ensure_project_template_files(self.project, "demo")
+
+    def test_no_gitignore_writes_template(self):
+        self._run()
+        text = (self.project / ".gitignore").read_text()
+        self.assertIn(GITIGNORE_MARKER, text)
+        self.assertIn(self.JOLO_LINE, text)
+
+    def test_existing_gitignore_gets_template_appended(self):
+        gi = self.project / ".gitignore"
+        gi.write_text("# project's own\n*.log\nbuild/\n")
+        self._run()
+        text = gi.read_text()
+        self.assertIn("# project's own", text)
+        self.assertIn("build/", text)
+        self.assertIn(self.JOLO_LINE, text)
+
+    def test_append_is_idempotent(self):
+        gi = self.project / ".gitignore"
+        gi.write_text("build/\n")
+        self._run()
+        self._run()
+        text = gi.read_text()
+        self.assertEqual(text.count(GITIGNORE_MARKER), 1)
+        self.assertEqual(text.count(self.JOLO_LINE), 1)
+
+    def test_existing_gitignore_with_marker_untouched(self):
+        gi = self.project / ".gitignore"
+        original = f"build/\n{GITIGNORE_MARKER}\n.devcontainer/.pgdata/\n"
+        gi.write_text(original)
+        self._run()
+        self.assertEqual(gi.read_text(), original)
+
+
+class TestRunUpGatesProjectMutation(unittest.TestCase):
+    """Project-tree backfill is gated behind `--recreate`."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.project = Path(self.tmpdir)
+        (self.project / ".git").mkdir()
+        self.original_cwd = os.getcwd()
+        for patch in (
+            mock.patch(
+                "_jolo.commands.find_git_root", return_value=self.project
+            ),
+            mock.patch(
+                "_jolo.commands.load_config",
+                return_value={"base_image": "jolo"},
+            ),
+            mock.patch("_jolo.commands.is_podman_allowed", return_value=False),
+            mock.patch("_jolo.commands._sync_config"),
+            mock.patch("_jolo.commands._setup_container_env"),
+            mock.patch(
+                "_jolo.commands.is_container_running", return_value=False
+            ),
+            mock.patch("_jolo.commands.devcontainer_up", return_value=True),
+            mock.patch("_jolo.commands._setup_test_hooks"),
+            mock.patch("_jolo.commands.registry.record"),
+            mock.patch("_jolo.commands._copy_url_to_clipboard"),
+        ):
+            self.enterContext(patch)
+        self.backfill = self.enterContext(
+            mock.patch("_jolo.commands._ensure_project_template_files")
+        )
+        self.test_gate = self.enterContext(
+            mock.patch("_jolo.commands.ensure_test_gate_script")
+        )
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _args(self, *, recreate):
+        return argparse.Namespace(
+            recreate=recreate,
+            force=False,
+            mount=[],
+            copy=[],
+            prompt=None,
+            detach=True,
+            shell=False,
+            run=None,
+            agent="claude",
+        )
+
+    def _mark_initialized(self):
+        from _jolo.setup import TEMPLATE_HASHES_FILE
+
+        marker = self.project / TEMPLATE_HASHES_FILE
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("{}")
+
+    def test_plain_up_errors_when_not_initialized(self):
+        from _jolo.commands import run_up_mode
+
+        with self.assertRaises(SystemExit):
+            run_up_mode(self._args(recreate=False))
+        self.backfill.assert_not_called()
+        self.test_gate.assert_not_called()
+
+    def test_plain_up_skips_backfill_when_initialized(self):
+        from _jolo.commands import run_up_mode
+
+        self._mark_initialized()
+        run_up_mode(self._args(recreate=False))
+        self.backfill.assert_not_called()
+        self.test_gate.assert_not_called()
+
+    def test_recreate_runs_backfill(self):
+        from _jolo.commands import run_up_mode
+
+        run_up_mode(self._args(recreate=True))
+        self.backfill.assert_called_once()
+        self.test_gate.assert_called_once()
 
 
 if __name__ == "__main__":
