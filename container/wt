@@ -2,8 +2,8 @@
 set -e
 
 # wt — lightweight in-container worktree manager
-# Creates git worktrees at /workspaces/<name> with their own tmux sessions.
-# Switch instantly with `wt <name>` or tmux's `C-b s`.
+# Creates git worktrees at /workspaces/<name> as windows (wt:<name>) in the
+# current tmux session. Switch with `wt <name>` or tmux's `C-b w` / `C-b <n>`.
 
 ADJECTIVES="brave swift calm bold keen wild warm cool fair wise"
 NOUNS="panda falcon river mountain oak wolf hawk cedar fox bear"
@@ -15,15 +15,14 @@ usage() {
 Usage: wt <command> [options]
 
 Commands:
-  new <name> [--from <ref>] [-p <prompt>]   Create worktree + tmux session
-  <name>                                     Switch to worktree session
-  main                                       Switch back to dev session
-  list, ls                                   List worktree sessions
+  new <name> [--from <ref>] [-p <prompt>]   Create worktree + tmux window
+  <name>                                     Switch to worktree window
+  list, ls                                   List worktree windows
   sync [<name>]                              Rebase <name> on main's branch (defaults to current worktree if cwd is one; fzf picks otherwise)
-  land [<name>] [--rm]                       Rebase <name> on current branch and merge into it (run from main; fzf picks if no name; --rm also removes worktree+branch+session afterwards)
-  delete [<name>], rm [<name>]               Remove worktree + branch + tmux session (fzf picks if no name)
+  land [<name>] [--rm]                       Rebase <name> on current branch and merge into it (run from main; fzf picks if no name; --rm also removes worktree+branch+window afterwards)
+  delete [<name>], rm [<name>]               Remove worktree + branch + tmux window (fzf picks if no name)
   prune                                      Clean up stale worktree refs
-  (no args)                                  List worktree sessions
+  (no args)                                  List worktree windows
 EOF
 }
 
@@ -33,8 +32,19 @@ random_name() {
     echo "${adj}-${noun}"
 }
 
-session_name() {
-    echo "wt-$1"
+window_name() {
+    echo "wt:$1"
+}
+
+# Echo the window id (e.g. @3) of the wt:<name> window in the current session,
+# or nothing. tmux window names are not unique and `-t "=name"` targeting picks
+# the lowest index, so resolve the exact id and target that. list-windows with
+# no -t is scoped to the current session (never -a, which would match windows
+# in unrelated sessions). 2>/dev/null so a non-tmux caller just gets nothing.
+wt_window_id() {
+    win=$(window_name "$1")
+    tmux list-windows -F '#{window_id} #{window_name}' 2>/dev/null \
+        | awk -v w="$win" '$2 == w { print $1; exit }'
 }
 
 # Print "name<TAB>branch" for each /workspaces/* worktree except the main WS.
@@ -141,16 +151,18 @@ resolve_target_branch() {
     printf '%s\n' "$target"
 }
 
-create_session() {
+# Open a window for the worktree in the current session. new-window auto-selects
+# it (no -d), so callers land in the new window without a separate switch.
+create_window() {
     name="$1"
     prompt="$2"
     wt_path="/workspaces/$name"
-    sess=$(session_name "$name")
+    win=$(window_name "$name")
 
     if [ -n "$prompt" ]; then
-        tmux new-session -d -s "$sess" -c "$wt_path" "claude $prompt"
+        tmux new-window -n "$win" -c "$wt_path" "claude $prompt"
     else
-        tmux new-session -d -s "$sess" -c "$wt_path"
+        tmux new-window -n "$win" -c "$wt_path"
     fi
 }
 
@@ -202,21 +214,24 @@ cmd_new() {
         git -C "$WS" worktree add -b "$name" "$wt_path"
     fi
 
-    create_session "$name" "$prompt"
-    tmux switch-client -t "$(session_name "$name")"
+    create_window "$name" "$prompt"
     echo "created worktree $name at $wt_path"
 }
 
 cmd_switch() {
     name="$1"
-    sess=$(session_name "$name")
     wt_path="/workspaces/$name"
 
-    if tmux has-session -t "$sess" 2>/dev/null; then
-        tmux switch-client -t "$sess"
+    if [ -z "$TMUX" ]; then
+        echo "error: must be inside tmux" >&2
+        exit 1
+    fi
+
+    wid=$(wt_window_id "$name")
+    if [ -n "$wid" ]; then
+        tmux select-window -t "$wid"
     elif [ -d "$wt_path" ]; then
-        create_session "$name" ""
-        tmux switch-client -t "$sess"
+        create_window "$name" ""
     else
         echo "error: no worktree '$name' found" >&2
         exit 1
@@ -226,7 +241,7 @@ cmd_switch() {
 cmd_list() {
     current=""
     if [ -n "$TMUX" ]; then
-        current=$(tmux display-message -p '#S')
+        current=$(tmux display-message -p '#W')
     fi
 
     # One git call gets last-commit info for every branch — cheap regardless
@@ -257,14 +272,14 @@ cmd_list() {
                 ;;
             "")
                 [ -z "$wt_name" ] && continue
-                sess=$(session_name "$wt_name")
-                if tmux has-session -t "$sess" 2>/dev/null; then
-                    active="[session active]"
+                win=$(window_name "$wt_name")
+                if [ -n "$(wt_window_id "$wt_name")" ]; then
+                    active="[window open]"
                 else
-                    active="[no session]"
+                    active="[no window]"
                 fi
                 marker="  "
-                [ "$current" = "$sess" ] && marker="* "
+                [ "$current" = "$win" ] && marker="* "
 
                 # Collapse name+branch into one column when they match (the
                 # common case — `wt new <name>` always sets branch == name).
@@ -399,12 +414,12 @@ cmd_delete() {
     if [ -z "$name" ]; then
         name=$(pick_worktree "rm") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
     fi
-    sess=$(session_name "$name")
     wt_path="/workspaces/$name"
+    wid=$(wt_window_id "$name")
 
-    # Stale path: just prune refs and tear down the session.
+    # Stale path: just prune refs and tear down the window.
     if [ ! -d "$wt_path" ]; then
-        tmux kill-session -t "$sess" 2>/dev/null || true
+        [ -n "$wid" ] && tmux kill-window -t "$wid" 2>/dev/null || true
         git -C "$WS" worktree prune
         git -C "$WS" branch -D "$name" 2>/dev/null || true
         echo "pruned stale worktree $name"
@@ -420,19 +435,15 @@ cmd_delete() {
         esac
     fi
 
-    if [ -n "$TMUX" ]; then
-        current=$(tmux display-message -p '#S')
-        if [ "$current" = "$sess" ]; then
-            tmux switch-client -t dev
-        fi
-    fi
-
-    tmux kill-session -t "$sess" 2>/dev/null || true
     git -C "$WS" worktree remove --force "$wt_path"
     # Branches are shared across all worktrees of a repo.
     git -C "$WS" branch -D "$name" 2>/dev/null || true
 
-    echo "removed worktree $name (branch deleted, tmux session killed)"
+    # Echo before closing the window: if you ran this from inside the worktree's
+    # own window, kill-window closes the pane this script runs in, so the
+    # message must land first. tmux moves the client to an adjacent window.
+    echo "removed worktree $name (branch deleted, tmux window closed)"
+    [ -n "$wid" ] && tmux kill-window -t "$wid" 2>/dev/null || true
 }
 
 cmd_prune() {
@@ -444,13 +455,6 @@ case "${1:-}" in
     new)
         shift
         cmd_new "$@"
-        ;;
-    main)
-        if [ -z "$TMUX" ]; then
-            echo "error: must be inside tmux" >&2
-            exit 1
-        fi
-        tmux switch-client -t dev
         ;;
     list|ls|"")
         cmd_list
