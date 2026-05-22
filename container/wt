@@ -241,7 +241,7 @@ cmd_switch() {
 cmd_list() {
     current=""
     if [ -n "$TMUX" ]; then
-        current=$(tmux display-message -p '#W')
+        current=$(tmux display-message -p '#{window_id}')
     fi
 
     # One git call gets last-commit info for every branch — cheap regardless
@@ -272,14 +272,14 @@ cmd_list() {
                 ;;
             "")
                 [ -z "$wt_name" ] && continue
-                win=$(window_name "$wt_name")
-                if [ -n "$(wt_window_id "$wt_name")" ]; then
+                wid=$(wt_window_id "$wt_name")
+                if [ -n "$wid" ]; then
                     active="[window open]"
                 else
                     active="[no window]"
                 fi
                 marker="  "
-                [ "$current" = "$win" ] && marker="* "
+                [ -n "$wid" ] && [ "$current" = "$wid" ] && marker="* "
 
                 # Collapse name+branch into one column when they match (the
                 # common case — `wt new <name>` always sets branch == name).
