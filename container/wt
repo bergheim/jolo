@@ -442,7 +442,9 @@ cmd_delete() {
     # Echo before closing the window: if you ran this from inside the worktree's
     # own window, kill-window closes the pane this script runs in, so the
     # message must land first. tmux moves the client to an adjacent window.
-    echo "removed worktree $name (branch deleted, tmux window closed)"
+    # ${wid:+...} omits the window phrase when there's nothing to close (e.g.
+    # called from outside tmux via cmd_land --rm).
+    echo "removed worktree $name (branch deleted${wid:+, tmux window closed})"
     [ -n "$wid" ] && tmux kill-window -t "$wid" 2>/dev/null || true
 }
 
