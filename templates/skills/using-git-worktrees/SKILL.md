@@ -12,7 +12,7 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 **Core principle:** Systematic directory selection + safety verification = reliable isolation.
 
 **Higher-level rule:** If the repo already has a native worktree workflow
-(`just wt`, project scripts, AGENTS/CLAUDE instructions, tmux/session
+(`just wt`, project scripts, AGENTS/CLAUDE instructions, tmux window
 integration), use that instead of raw `git worktree add`.
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
@@ -37,7 +37,7 @@ Examples:
 - project scripts that create worktrees under `/workspaces/...`
 - repo docs that explicitly say where worktrees belong
 
-**Why:** native workflows may also create tmux sessions, assign ports,
+**Why:** native workflows may also create tmux windows, assign ports,
 or enforce cleanup/land conventions. Raw `git worktree add` would bypass
 those integrations.
 

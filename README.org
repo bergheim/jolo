@@ -69,15 +69,15 @@ Every project ships a justfile. ~just --list~ is the menu.
 
 ** Worktrees
 
-~just wt~ creates branches as worktrees under ~/workspaces/<name>/~ with their own tmux session. Worktrees share refs with main, so landing branches back doesn't need a fetch/push round-trip.
+~just wt~ creates branches as worktrees under ~/workspaces/<name>/~ as windows (~wt:<name>~) in the current tmux session. Worktrees share refs with main, so landing branches back doesn't need a fetch/push round-trip.
 
 | Command                          | Effect                                          |
 |----------------------------------+-------------------------------------------------|
-| ~just wt new <name>~             | Create branch + worktree + tmux session         |
+| ~just wt new <name>~             | Create branch + worktree + tmux window          |
 | ~just wt~                        | List worktrees with last-commit info            |
 | ~just wt sync~                   | Rebase current worktree on main                 |
 | ~just wt land [<name>] [--rm]~   | Rebase + merge to main; ~--rm~ also cleans up   |
-| ~just wt rm [<name>]~            | Remove worktree + branch + tmux session         |
+| ~just wt rm [<name>]~            | Remove worktree + branch + tmux window          |
 
 Without ~<name>~, ~land~ and ~rm~ fzf-pick from your worktrees with a preview pane showing ahead-of-main commits.
 
