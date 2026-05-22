@@ -32,19 +32,38 @@ random_name() {
     echo "${adj}-${noun}"
 }
 
+require_tmux() {
+    [ -n "$TMUX" ] && return
+    echo "error: must be inside tmux" >&2
+    exit 1
+}
+
 window_name() {
     echo "wt:$1"
 }
 
-# Echo the window id (e.g. @3) of the wt:<name> window in the current session,
-# or nothing. tmux window names are not unique and `-t "=name"` targeting picks
-# the lowest index, so resolve the exact id and target that. list-windows with
-# no -t is scoped to the current session (never -a, which would match windows
-# in unrelated sessions). 2>/dev/null so a non-tmux caller just gets nothing.
+# In a list-windows snapshot (`#{window_id} #{window_name}` per line, $2 above),
+# echo the id of the row whose name equals $1, or nothing. tmux window names
+# aren't unique and `-t "=name"` picks the lowest index, so resolve to id and
+# target that. Pulled out so cmd_list can fetch the snapshot once and reuse it
+# across all worktrees instead of forking tmux per row.
+match_window_id() {
+    printf '%s\n' "$2" | awk -v w="$1" '$2 == w { print $1; exit }'
+}
+
+# Single-shot lookup of the wt:<name> window in the current session. Falls
+# through to empty for non-tmux callers (list-windows with no -t is scoped to
+# the current session; never -a).
 wt_window_id() {
-    win=$(window_name "$1")
-    tmux list-windows -F '#{window_id} #{window_name}' 2>/dev/null \
-        | awk -v w="$win" '$2 == w { print $1; exit }'
+    match_window_id "$(window_name "$1")" \
+        "$(tmux list-windows -F '#{window_id} #{window_name}' 2>/dev/null)"
+}
+
+# Best-effort window close. No-op when $1 is empty (caller is outside tmux, or
+# no wt window matched). Stderr swallowed because tmux complains loudly when
+# the id has already gone away (e.g. user closed it manually).
+kill_window() {
+    [ -n "$1" ] && tmux kill-window -t "$1" 2>/dev/null || true
 }
 
 # Print "name<TAB>branch" for each /workspaces/* worktree except the main WS.
@@ -195,10 +214,7 @@ cmd_new() {
         exit 1
     fi
 
-    if [ -z "$TMUX" ]; then
-        echo "error: must be inside tmux" >&2
-        exit 1
-    fi
+    require_tmux
 
     wt_path="/workspaces/$name"
 
@@ -222,10 +238,7 @@ cmd_switch() {
     name="$1"
     wt_path="/workspaces/$name"
 
-    if [ -z "$TMUX" ]; then
-        echo "error: must be inside tmux" >&2
-        exit 1
-    fi
+    require_tmux
 
     wid=$(wt_window_id "$name")
     if [ -n "$wid" ]; then
@@ -240,8 +253,12 @@ cmd_switch() {
 
 cmd_list() {
     current=""
+    # One snapshot of all current-session windows, looked up per worktree row
+    # via match_window_id — avoids forking tmux once per worktree.
+    open_windows=""
     if [ -n "$TMUX" ]; then
         current=$(tmux display-message -p '#{window_id}')
+        open_windows=$(tmux list-windows -F '#{window_id} #{window_name}' 2>/dev/null)
     fi
 
     # One git call gets last-commit info for every branch — cheap regardless
@@ -272,7 +289,7 @@ cmd_list() {
                 ;;
             "")
                 [ -z "$wt_name" ] && continue
-                wid=$(wt_window_id "$wt_name")
+                wid=$(match_window_id "$(window_name "$wt_name")" "$open_windows")
                 if [ -n "$wid" ]; then
                     active="[window open]"
                 else
@@ -419,7 +436,7 @@ cmd_delete() {
 
     # Stale path: just prune refs and tear down the window.
     if [ ! -d "$wt_path" ]; then
-        [ -n "$wid" ] && tmux kill-window -t "$wid" 2>/dev/null || true
+        kill_window "$wid"
         git -C "$WS" worktree prune
         git -C "$WS" branch -D "$name" 2>/dev/null || true
         echo "pruned stale worktree $name"
@@ -445,7 +462,7 @@ cmd_delete() {
     # ${wid:+...} omits the window phrase when there's nothing to close (e.g.
     # called from outside tmux via cmd_land --rm).
     echo "removed worktree $name (branch deleted${wid:+, tmux window closed})"
-    [ -n "$wid" ] && tmux kill-window -t "$wid" 2>/dev/null || true
+    kill_window "$wid"
 }
 
 cmd_prune() {
