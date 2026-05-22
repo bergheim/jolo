@@ -31,7 +31,7 @@ fmt-check:
 # lint + format + test
 check: lint fmt-check test
 
-# worktree manager (in-container): wt new, wt ls, wt rm, wt main
+# worktree manager (in-container): wt new, wt ls, wt rm
 wt *args:
     wt {{args}}
 
