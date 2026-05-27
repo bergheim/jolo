@@ -154,7 +154,7 @@ ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
-ENV PATH="$PNPM_HOME:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
+ENV PATH="$PNPM_HOME/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
 # All Node.js global packages in one pnpm install
 RUN pnpm add -g \
@@ -191,6 +191,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
+    (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
     (uv tool install pre-commit) & pids="$pids $!" && \

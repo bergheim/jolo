@@ -493,7 +493,7 @@ Use `test` only for ad-hoc/manual test pings (e.g., `NTFY_TOPIC=test`).
 
 ## Installed Tools
 
-Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server
+Language servers: gopls, rust-analyzer, typescript-language-server, pyright, bash-language-server, yaml-language-server, dockerfile-language-server, ansible-language-server, py3-lsp-server, expert (Elixir)
 
 Runtimes: Go, Rust, Python, Ruby, Elixir/Erlang, Node.js, Bun, pnpm, mise (version manager)
 
