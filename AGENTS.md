@@ -552,6 +552,29 @@ no such file or directory` — that's the "off" state, not a bug.
 Host requires `socat` (apk, pacman, etc.). `jolo allow` errors
 cleanly with an install hint if missing.
 
+## Public exposure (`jolo expose`)
+
+Headscale has no Funnel and no public HTTPS (its serve uses an internal
+CA), so public exposure goes through the host Caddy instead. `jolo expose`
+runs a foreground `socat` forwarding a fixed loopback slot
+(`127.0.0.1:9999`) to the selected project's `$PORT`. The project is
+public only while the command runs; Ctrl-C tears it down. The single slot
+allows exactly one exposed project at a time (a second `expose` fails to
+bind). Deny-by-default: nothing is reachable when idle, and choosing what
+to expose is a deliberate per-project act — there is no "all ports" mode.
+
+Host one-time setup (public Caddy box, which is also the dev host):
+
+```
+pub.glvortex.net {
+    basicauth /* { tsb <bcrypt — caddy hash-password> }
+    reverse_proxy localhost:9999
+}
+```
+
+Caddy auto-provisions a public Let's Encrypt cert (port 80 is open). Drop
+this in `/etc/caddy/conf.d/` so the main Caddyfile stays untouched.
+
 ## Browser Automation Tool Guide
 
 Use `playwright-cli` for stateful browser automation with low token usage (artifacts written to `.playwright-cli/`). Use `browser-check` for quick stateless audits.
@@ -749,6 +772,9 @@ jolo destroy                      # nuclear: stop + rm all containers for projec
 jolo list --all                   # show all containers globally
 jolo down --all                   # stop all containers for project
 jolo up -v                        # verbose mode (print commands)
+
+# Expose a project's dev server to the public internet (host-side, deny-by-default)
+jolo expose                       # pick/current project → public at pub.glvortex.net while running
 
 # Mount and copy options
 jolo up --mount ~/data:data          # mount ~/data to workspace/data (rw)

@@ -2445,6 +2445,12 @@ def main(argv: list[str] | None = None) -> None:
         run_publish_mode(args)
         return
 
+    if cmd == "expose":
+        from _jolo.expose import run_expose_mode
+
+        run_expose_mode(args)
+        return
+
     if cmd == "allow":
         run_allow_mode(args)
         return

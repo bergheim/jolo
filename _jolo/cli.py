@@ -724,6 +724,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Print the plan without making changes",
     )
 
+    # expose: foreground socat forwarding the public Caddy slot to a project
+    subparsers.add_parser(
+        "expose",
+        parents=[p_verbose],
+        help="Expose a project's dev server publicly while running (Ctrl-C to stop)",
+    )
+
     # allow: opt a project into a gated capability
     sub_allow = subparsers.add_parser(
         "allow",

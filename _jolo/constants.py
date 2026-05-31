@@ -53,6 +53,11 @@ PORT_MIN = 4000
 PORT_MAX = 5000
 WORKTREE_PORTS = 3  # extra ports per container for agent-shell worktrees
 
+# `jolo expose`: the host-side Caddy vhost reverse-proxies pub.glvortex.net to
+# this loopback slot; `expose` runs socat forwarding the slot to a project port.
+EXPOSE_SLOT_PORT = 9999
+EXPOSE_PUBLIC_URL = "https://pub.glvortex.net"
+
 # Global verbose flag
 VERBOSE = False
 
