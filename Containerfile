@@ -199,8 +199,8 @@ RUN mkdir -p $HOME/.local/bin && \
     for p in $pids; do wait "$p" || exit 1; done && \
     curl -fsSL https://claude.ai/install.sh | bash && \
     command -v claude >/dev/null && \
-    # browser-check wrapper (resolve pnpm global node_modules at build time)
-    printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(pnpm root -g)" > $HOME/.local/bin/browser-check && \
+    # browser-check wrapper (resolve playwright's real node_modules at build time)
+    printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(dirname "$(pnpm ls -g playwright --depth 0 --json | jq -r '.[0].dependencies.playwright.path')")" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
 
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
