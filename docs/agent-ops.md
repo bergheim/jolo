@@ -86,6 +86,25 @@ Scan stash notes:
 emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
 ```
 
+## Stash Cookbook Notes
+
+Host-level setup (compose, dotfiles, services, homelab) goes in a single org
+note under `/workspaces/stash/notes`, not a folder of loose files. Put each file
+in a src block so `org-babel-tangle` regenerates it on demand:
+
+```org
+#+begin_src yaml :tangle ../svc/compose.yaml :mkdirp yes
+services:
+  app:
+    image: ghcr.io/example/app:latest
+#+end_src
+```
+
+- Keep `:tangle` paths relative to the note so they resolve under both
+  `/workspaces/stash` and host `~/stash`.
+- The note is the single source of truth; tangle regenerates the files.
+- Verify once: tangle to a temp dir and diff against the intended output.
+
 ## Git and Worktrees
 
 Detect checkout type:
@@ -223,6 +242,16 @@ When allowed inside a container:
 podman ps
 podman exec <peer> <cmd>
 podman logs --tail 50 <peer>
+```
+
+## Public Exposure (host-side)
+
+`jolo expose` runs on the HOST, not in a container. It forwards one project's
+`$PORT` to the public host Caddy via a foreground `socat` on loopback slot
+`127.0.0.1:9999`. Deny-by-default, one project at a time, torn down on Ctrl-C.
+
+```sh
+jolo expose   # pick/current project -> public at pub.glvortex.net while running
 ```
 
 ## Browser Automation

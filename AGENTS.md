@@ -58,6 +58,9 @@ Trivial typo/TODO/comment edits may proceed without a plan. If unsure, plan.
   and `docs/RESEARCH.org` are exceptions.
 - Cross-project discoveries go in `/workspaces/stash/notes`; repo-specific
   discoveries go in `docs/notes`.
+- Install/deploy/config docs (compose, dotfiles, service defs, homelab) are
+  host-level → `/workspaces/stash/notes`, as a literate cookbook: one org note
+  with `:tangle <path> :mkdirp yes` src blocks, not a folder of loose files.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
 - Denote notes are write-once. Create a new note for additions.
@@ -163,7 +166,12 @@ Environment and tooling expectations:
 - Containers have no X11; Wayland is conditional and isolated.
 - Host-only operations stay host-only. If a task requires host sudo, Tailscale,
   DNS, systemd, or trust dialogs, explain the manual step instead of trying to
-  tunnel around it.
+  tunnel around it, and record the host-side procedure in
+  `/workspaces/stash/notes` via `bergheim/agent-denote-*` — it does not persist
+  in container state.
+- `jolo expose` (host-side) publishes one project's `$PORT` publicly via host
+  Caddy; deny-by-default, one project at a time, only while it runs. A container
+  cannot expose itself.
 - Cross-container Podman access is off by default and must be enabled from the
   host. Treat `Cannot connect to Podman ... no such file or directory` as the
   off state.
@@ -173,8 +181,9 @@ Environment and tooling expectations:
 Read `docs/agent-ops.md` only when needed for:
 
 - Exact org/denote `emacsclient` forms.
+- Stash cookbook (literate `:tangle`) note format.
 - Browser-check and Playwright command catalogs.
-- jolo command catalog and podman gate operations.
+- jolo command catalog, host-side `jolo expose`, and podman gate operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.
 - Share/notify/perf operational details.

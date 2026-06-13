@@ -36,6 +36,9 @@ catalogs live in `docs/agent-ops.md`.
 - `docs/TODO.org` is the active work log.
 - Repo-specific discoveries go in `docs/notes`.
 - Cross-project discoveries go in `/workspaces/stash/notes`.
+- Install/deploy/config docs (compose, dotfiles, service defs, homelab) are
+  host-level → `/workspaces/stash/notes`, as a literate cookbook: one org note
+  with `:tangle <path> :mkdirp yes` src blocks, not a folder of loose files.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
 - Denote notes are write-once. Create a new note for additions.
@@ -145,7 +148,9 @@ Helper examples are in `docs/agent-ops.md`.
 - Cross-container Podman access is off by default and must be enabled from the
   host. `Cannot connect to Podman ... no such file or directory` is the off state.
 - Host-only operations stay host-only. If a task needs host sudo, Tailscale, DNS,
-  systemd, or trust dialogs, explain the manual step.
+  systemd, or trust dialogs, explain the manual step, and record the host-side
+  procedure in `/workspaces/stash/notes` via `bergheim/agent-denote-*` — it does
+  not persist in container state.
 - Emacs runs as a daemon. Use `emacsclient --eval`; never ask the user to run
   interactive Emacs commands.
 
