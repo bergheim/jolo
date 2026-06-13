@@ -37,6 +37,27 @@ architecture, behavior, or likely side effects. Read/search commands are fine.
 
 Trivial typo/TODO/comment edits may proceed without a plan. If unsure, plan.
 
+## Notes
+
+This is core to how we work. We capture knowledge as org notes written through
+`emacsclient`, never by hand. Denote owns naming: you pass a title and keywords,
+and it derives the filename — so these helpers are the only correct way to
+create and find notes.
+
+```bash
+# create a note (quoted list = filename keywords: kind, topics)
+emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic")) "Body text.")'
+# find / list project notes
+emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
+emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
+# scan stash notes (cross-project, host-level)
+emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
+```
+
+Where a note goes (stash vs `docs/notes`) and write-once rules are in
+[Files and Docs](#files-and-docs); less-common forms (link, batch) live in
+`docs/agent-ops.md`.
+
 ## Project Priorities
 
 - Keep the codebase small. Prefer deleting code to adding wrappers.
@@ -52,15 +73,15 @@ Trivial typo/TODO/comment edits may proceed without a plan. If unsure, plan.
 ## Files and Docs
 
 - Prefer org-mode for project docs, TODOs, and notes.
-- New custom `.org` files under `docs/` must use denote filenames:
-  `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`.
+- Create notes with the denote helpers (see Notes), not by hand-naming files.
 - Fixed files such as `docs/PROJECT.org`, `docs/TODO.org`, `docs/MEMORY.org`,
   and `docs/RESEARCH.org` are exceptions.
 - Cross-project discoveries go in `/workspaces/stash/notes`; repo-specific
   discoveries go in `docs/notes`.
-- Install/deploy/config docs (compose, dotfiles, service defs, homelab) are
-  host-level → `/workspaces/stash/notes`, as a literate cookbook: one org note
-  with `:tangle <path> :mkdirp yes` src blocks, not a folder of loose files.
+- Install/deploy/config (compose, dotfiles, service defs, homelab) →
+  a literate cookbook note in `/workspaces/stash/notes`: one org note with
+  `:tangle <path> :mkdirp yes` src blocks, not loose files. The note is the
+  source of truth; tangle regenerates the file.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
 - Denote notes are write-once. Create a new note for additions.
@@ -94,7 +115,13 @@ when all criteria hold:
 Add/remove the tag only with `bergheim/agent-org-add-tag` /
 `bergheim/agent-org-remove-tag`.
 
-Helper examples are in `docs/agent-ops.md`.
+Daily org forms (full state list and remove-tag in `docs/agent-ops.md`):
+
+```bash
+emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS")'
+emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
+emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+```
 
 ## Git
 
@@ -180,7 +207,8 @@ Environment and tooling expectations:
 
 Read `docs/agent-ops.md` only when needed for:
 
-- Exact org/denote `emacsclient` forms.
+- Less-common org/denote forms (link, remove-tag, full state list) and helper
+  return-plist details.
 - Stash cookbook (literate `:tangle`) note format.
 - Browser-check and Playwright command catalogs.
 - jolo command catalog, host-side `jolo expose`, and podman gate operations.

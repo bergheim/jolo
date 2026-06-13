@@ -5,28 +5,14 @@ Recipes for agents working in the jolo meta-project. Read this on demand; keep
 
 ## Org Helpers
 
-Mark a TODO done:
+Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`. Below are
+the less-common ones.
 
-```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE")'
-```
-
-Mark done with a reason:
+Set state with a reason (logged as a note):
 
 ```bash
 emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE" "Resolved by commit abc1234.")'
-```
-
-Cancel with a reason:
-
-```bash
 emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "CANCELLED" "No longer relevant because X.")'
-```
-
-Add a log note:
-
-```bash
-emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
 ```
 
 Ensure a stable ID:
@@ -48,10 +34,9 @@ Track time on transition:
 emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
 ```
 
-Manage the `autonomous` tag:
+Remove the `autonomous` tag:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
 
@@ -60,30 +45,19 @@ States: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`,
 
 ## Denote Helpers
 
-Create a project note:
+Daily forms (`create`, `find`, `list`, stash scan) are in `AGENTS.md`. Below are
+the less-common ones.
+
+Filter a find by content query:
 
 ```bash
-emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic1" "topic2")) "Body text.")'
-```
-
-Find project notes:
-
-```bash
-emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
 emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
-emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
 ```
 
 Link notes:
 
 ```bash
 emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
-```
-
-Scan stash notes:
-
-```bash
-emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
 ```
 
 ## Stash Cookbook Notes
