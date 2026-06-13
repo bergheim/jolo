@@ -141,3 +141,54 @@ For some models this is dramatically slower:
 - Should Pyroscope live only in the global perf hub, or should generated projects include opt-in SDK glue for Python/Node/Go so profile capture works even without host eBPF privileges?
 - Is GitHub-only source integration acceptable for private/local projects, or should the perf hub rely primarily on stored Speedscope/pprof artifacts keyed by commit?
 - For devcontainers, can host-side Alloy eBPF see sibling container processes cleanly through the current Podman setup, or would SDK/pull-mode collection be simpler and less privileged?
+
+* SOTA guidance for trimming agent instruction files       :agents:context:documentation:jolo:
+:PROPERTIES:
+:DATE: 2026-05-20
+:PROMPT: our AGENTS.md is way too high; check notes and go online to see SOTA before trimming
+:END:
+
+** Summary
+- Current guidance converges on small always-loaded instruction files: rules,
+  build/test commands, and non-obvious project constraints.
+- Detailed procedures belong in on-demand files, skills, or path-scoped rules so
+  agents only pay that context cost when needed.
+- The strongest empirical warning is arXiv:2602.11988: repository context files
+  can reduce task success and increase inference cost when they contain
+  unnecessary requirements.
+- For jolo, the existing stash convention note was aligned with SOTA: keep
+  AGENTS.md around 150-200 lines and move recipes to =docs/agent-ops.md=.
+
+** Findings
+- OpenAI Codex reads =AGENTS.md= before work and layers global/project/nested
+  files. Its docs show small examples focused on repository expectations, and
+  note the default combined project-doc cap is 32 KiB:
+  [[https://developers.openai.com/codex/guides/agents-md][OpenAI Codex AGENTS.md guide]].
+- Anthropic says CLAUDE.md files are loaded into every session, shorter files
+  produce better adherence, and project CLAUDE.md should target under 200 lines.
+  Multi-step procedures should move to skills or scoped rules:
+  [[https://code.claude.com/docs/en/memory][Claude memory docs]].
+- Anthropic best practices recommend pruning CLAUDE.md when rules get lost in a
+  large file:
+  [[https://code.claude.com/docs/en/best-practices][Claude Code best practices]].
+- VS Code Copilot custom-instruction guidance says instructions should be short,
+  self-contained, and explain the reason behind conventions:
+  [[https://code.visualstudio.com/docs/copilot/customization/custom-instructions][VS Code custom instructions]].
+- GitHub Copilot supports repository-wide, path-specific, and agent-specific
+  instruction files; path-specific instructions are the right shape for local
+  concerns that should not apply to every request:
+  [[https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions][GitHub Copilot repository instructions]].
+- =agents.md= documents AGENTS.md as a simple open format and encourages
+  concise project overview, build/test commands, style, testing, and security
+  notes:
+  [[https://agents.md/][agents.md]].
+- =Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding
+  Agents?= was submitted 2026-02-12. It reports that context files tended to
+  reduce task success and increased inference cost by over 20%; the authors
+  conclude human-written files should describe only minimal requirements:
+  [[https://arxiv.org/abs/2602.11988][arXiv:2602.11988]].
+
+** Implication
+AGENTS.md should be treated like startup code: every line must justify being
+loaded on every task. Recipes, command catalogs, examples, and long rationale
+belong in an on-demand companion doc.

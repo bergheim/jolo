@@ -157,6 +157,28 @@ class TestTemplateSystem(unittest.TestCase):
         self.assertIn("/workspaces/stash/notes", agents)
         self.assertIn("Would I want this loaded at session start", agents)
 
+    def test_copy_template_files_includes_agent_ops_doc(self):
+        """Generated projects should get on-demand agent recipes."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        setup.copy_template_files(project_dir)
+
+        agent_ops = project_dir / "docs" / "agent-ops.md"
+        self.assertTrue(agent_ops.exists())
+        self.assertIn("Cross-Agent Reviews", agent_ops.read_text())
+        self.assertIn("golangci-lint", agent_ops.read_text())
+
+    def test_copy_template_files_hash_tracks_agent_ops_doc(self):
+        """On-demand agent recipes must sync on later recreate."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        setup.copy_template_files(project_dir)
+
+        hashes = setup._load_template_hashes(project_dir)
+        self.assertIn("docs/agent-ops.md", hashes)
+
     def test_sync_skill_templates_lands_key_skills(self):
         """Skills like j-note-stash and j-scaffold-web must land in
         .jolo/skills/. _setup_container_env owns this in real flows."""

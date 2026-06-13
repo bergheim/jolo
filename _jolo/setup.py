@@ -580,6 +580,7 @@ SYNCABLE_TEMPLATE_FILES = [
     ".gitignore",
     ".editorconfig",
     "biome.json",
+    "docs/agent-ops.md",
 ]
 
 # The string jolo used to hardcode as postStartCommand. On sync, an
@@ -1040,7 +1041,7 @@ def copy_template_files(target_dir: Path) -> None:
     """Copy template files to the target directory.
 
     Copies AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore, and .editorconfig
-    from the templates/ directory, plus docs/ directory (TODO.org, RESEARCH.org).
+    from the templates/ directory, plus docs/ directory.
 
     Note: .pre-commit-config.yaml is generated dynamically based on language selection,
     not copied from templates.
@@ -1072,8 +1073,6 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
 
-    _save_template_hashes(target_dir, SYNCABLE_TEMPLATE_FILES)
-
     # Copy template directories (skills, agent config, docs).
     # `scripts/` is intentionally excluded — callers use
     # `ensure_test_gate_script()` and `ensure_lighthouse_run_script()`
@@ -1095,6 +1094,8 @@ def copy_template_files(target_dir: Path) -> None:
                 shutil.rmtree(dst)
             shutil.copytree(src, dst, symlinks=True)
             verbose_print(f"Copied template dir: {dirname}/")
+
+    _save_template_hashes(target_dir, SYNCABLE_TEMPLATE_FILES)
 
 
 def ensure_test_gate_script(target_dir: Path) -> None:

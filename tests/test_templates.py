@@ -872,6 +872,11 @@ class TestSyncableTemplateMembership(unittest.TestCase):
 
         self.assertIn("biome.json", SYNCABLE_TEMPLATE_FILES)
 
+    def test_agent_ops_is_syncable(self):
+        from _jolo.setup import SYNCABLE_TEMPLATE_FILES
+
+        self.assertIn("docs/agent-ops.md", SYNCABLE_TEMPLATE_FILES)
+
 
 class TestPerfRigTemplate(unittest.TestCase):
     """templates/perf-rig.toml placeholder."""

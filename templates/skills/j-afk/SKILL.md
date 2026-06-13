@@ -33,7 +33,7 @@ Work autonomously while the user is away. Create multiple feature branches seque
    c. If feasible, write a failing test first.
    d. Implement in small increments; commit after each coherent slice.
    e. Run `just test` (or `python -m pytest tests/`) and `just lint` (if available); fix anything you broke.
-   f. **First external review** — pipe the diff to codex (or gemini, claude, etc.); use the lean invocation pattern from AGENTS.md "Cross-Agent Reviews"; ask for the highest reasoning model.
+   f. **First external review** — pipe the diff to codex (or gemini, claude, etc.); use the lean invocation pattern from `docs/agent-ops.md` "Cross-Agent Reviews"; ask for the highest reasoning model.
    g. Apply review fixes; commit.
    h. **Second external review** — pipe again; different reviewer is fine.
    i. Apply fixes; commit. Optionally open a draft PR if a remote is configured.
