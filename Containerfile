@@ -13,6 +13,7 @@ RUN apk update && apk add --no-cache \
     automake \
     bash \
     bat \
+    bubblewrap \
     build-base \
     bind-tools \
     chromium \
@@ -59,6 +60,7 @@ RUN apk update && apk add --no-cache \
     ncurses-terminfo-base \
     neovim \
     nodejs \
+    nsjail \
     openssh-client \
     parallel \
     pinentry \
