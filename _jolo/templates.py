@@ -675,6 +675,9 @@ def get_project_init_commands(
                 f" --module {module_name} --live --install"
             ]
         )
+        # phx.new's `yes |` overwrites our .gitignore with Phoenix's, which
+        # drops every devcontainer/AI/scratch ignore. Restore the committed one.
+        commands.append(["git", "checkout", "--", ".gitignore"])
         commands.append(
             [
                 """sed -i "s/username: \\"postgres\\"/username: \\"$(whoami)\\"/" config/dev.exs"""
