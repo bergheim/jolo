@@ -238,6 +238,18 @@ class TestSecretsManagement(unittest.TestCase):
         self.assertEqual(secrets["ANTHROPIC_API_KEY"], "sk-ant-from-pass")
         self.assertEqual(secrets["OPENAI_API_KEY"], "sk-openai-from-pass")
 
+    def test_default_config_has_gateway_settings(self):
+        from _jolo.constants import DEFAULT_CONFIG
+
+        cfg = DEFAULT_CONFIG
+        self.assertEqual(cfg["pi_primary_model"], "gateway/gemini-3.1-pro")
+        self.assertEqual(
+            cfg["litellm_base_url"], "http://host.containers.internal:8088"
+        )
+        self.assertEqual(
+            cfg["pass_path_litellm_master"], "api/llm/litellm-master"
+        )
+
 
 class TestAddUserMounts(unittest.TestCase):
     """Test add_user_mounts() function."""
@@ -868,8 +880,8 @@ class TestPiLlamaConfig(unittest.TestCase):
         agent = ws / ".devcontainer" / ".pi-cache" / "agent"
         settings = json.loads((agent / "settings.json").read_text())
         # strong primary from DEFAULT_CONFIG["pi_primary_model"]
-        self.assertEqual(settings["defaultProvider"], "google")
-        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro-preview")
+        self.assertEqual(settings["defaultProvider"], "gateway")
+        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro")
         # llama is the worker, not the primary
         self.assertIn(
             "llama",
