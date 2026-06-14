@@ -923,6 +923,30 @@ class TestPiLlamaConfig(unittest.TestCase):
         )
         self.assertIs(trust["/workspaces/project"], True)
 
+    def test_setup_credential_cache_seeds_pi_packages(self):
+        """Pi settings seed the delegation packages + pnpm installer command.
+
+        npmCommand is mandatory: the image shims npm to fail, so without it
+        pi's startup auto-install never runs.
+        """
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+
+        settings = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "settings.json"
+            ).read_text()
+        )
+        self.assertEqual(settings["npmCommand"], ["pnpm"])
+        self.assertIn("npm:pi-subagents", settings["packages"])
+        self.assertEqual(settings["packages"], setup.PI_PACKAGES)
+
 
 class TestPatchJsonWithJq(unittest.TestCase):
     """Test jq-based JSON patch helper."""

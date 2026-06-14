@@ -31,6 +31,18 @@ PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
     "qwen3.5",
 ]
 
+# pi packages reconciled on first trusted startup (we pre-trust the workspace).
+# Seeded into settings.json `packages`; pi installs any missing ones at launch.
+PI_PACKAGES = [
+    "npm:pi-subagents",  # lead -> worker delegation; reads agents/*.md, per-agent model
+    "npm:pi-downshift",  # premium -> economy handoff when context gets expensive
+    "npm:@juicesharp/rpiv-advisor",  # escalate to a stronger reviewer model on demand
+]
+
+# The image ships pnpm only (npm is shimmed to fail), so point pi's package
+# installer at pnpm — otherwise `pi install` and startup auto-install both die.
+PI_NPM_COMMAND = ["pnpm"]
+
 
 def clear_directory_contents(path: Path) -> None:
     """Remove all contents of a directory without removing the directory itself.
@@ -369,6 +381,7 @@ def setup_credential_cache(
 
     _ensure_pi_trust(pi_cache, workspace_dir)
     _ensure_pi_delegation(pi_cache)
+    _write_pi_packages(pi_cache)
 
     pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
     _write_pi_primary(pi_cache, pi_primary)
@@ -425,6 +438,23 @@ def _ensure_pi_delegation(pi_cache: Path) -> None:
         "edits and searches to it — it runs a cheap local model. Keep design, "
         "judgment, and multi-step reasoning on the primary model.\n"
     )
+
+
+def _write_pi_packages(pi_cache: Path) -> None:
+    """Seed the pi packages that provide delegation and model routing.
+
+    pi reconciles missing packages from settings.json on first trusted startup.
+    `npmCommand` is mandatory here: the image shims `npm` to fail, so without it
+    pi's installer (which shells out to `npm install`) never runs.
+    """
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = agent_dir / "settings.json"
+    settings = _load_json_safe(settings_path)
+    settings["npmCommand"] = PI_NPM_COMMAND
+    existing = settings.get("packages", [])
+    settings["packages"] = list(dict.fromkeys([*existing, *PI_PACKAGES]))
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 
 
 def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
