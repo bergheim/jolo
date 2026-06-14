@@ -42,3 +42,15 @@ if [ -d "$skills_dir" ]; then
             "⚠ $skill_count skills in ~/.agents/skills — likely stale buildup; consider pruning .jolo/skills"
     fi
 fi
+
+# Warn if the cloud gateway isn't wired up. pi's cloud primary and any
+# OpenAI-style client route through the host LiteLLM gateway with a per-project
+# virtual key; without it only local/subscription agents work. No network probe
+# — reachability is `jolo doctor`'s job; this just flags missing env at a glance.
+if [ -z "$LITELLM_HOST" ]; then
+    gum style --foreground 3 \
+        "⚠ LITELLM_HOST unset — cloud gateway off; set it on the host and recreate"
+elif [ -z "$LITELLM_VIRTUAL_KEY" ]; then
+    gum style --foreground 3 \
+        "⚠ LITELLM_VIRTUAL_KEY unset — no gateway key minted (gateway down at create?); recreate once reachable"
+fi
