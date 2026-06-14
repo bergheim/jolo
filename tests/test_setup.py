@@ -2171,5 +2171,39 @@ class TestLitellmKeys(unittest.TestCase):
         self.assertIsNone(key)
 
 
+class TestContainerEnvKeys(unittest.TestCase):
+    """containerEnv must not leak raw provider keys; routes via gateway."""
+
+    def _env(self):
+        import _jolo.container as container
+
+        cfg = json.loads(container.build_devcontainer_json("proj", port=4000))
+        return cfg["containerEnv"]
+
+    def test_no_raw_provider_keys(self):
+        env = self._env()
+        self.assertNotIn("ANTHROPIC_API_KEY", env)
+        self.assertNotIn("GEMINI_API_KEY", env)
+        # OPENAI_API_KEY is present but points at the virtual key, not a real key.
+        self.assertEqual(
+            env["OPENAI_API_KEY"], "${localEnv:LITELLM_VIRTUAL_KEY}"
+        )
+
+    def test_gateway_env_present(self):
+        env = self._env()
+        self.assertEqual(
+            env["OPENAI_BASE_URL"], "http://host.containers.internal:8088/v1"
+        )
+        self.assertEqual(
+            env["LITELLM_VIRTUAL_KEY"], "${localEnv:LITELLM_VIRTUAL_KEY}"
+        )
+
+    def test_nanobanana_exception_retained(self):
+        env = self._env()
+        self.assertEqual(
+            env["NANOBANANA_GEMINI_API_KEY"], "${localEnv:GEMINI_API_KEY}"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
