@@ -2205,5 +2205,55 @@ class TestContainerEnvKeys(unittest.TestCase):
         )
 
 
+class TestPiGatewayConfig(unittest.TestCase):
+    """pi provider routes the cloud primary through the host LiteLLM gateway."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_writes_gateway_provider_with_virtual_key(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
+            ):
+                jolo.setup_credential_cache(ws)
+        models = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+            ).read_text()
+        )
+        gw = models["providers"]["gateway"]
+        self.assertEqual(
+            gw["baseUrl"], "http://host.containers.internal:8088/v1"
+        )
+        self.assertEqual(gw["apiKey"], "sk-proj")
+        self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
+
+    def test_no_gateway_provider_without_virtual_key(self):
+        ws = Path(self.tmpdir) / "project2"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+        models_path = (
+            ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+        )
+        models = (
+            json.loads(models_path.read_text()) if models_path.exists() else {}
+        )
+        self.assertNotIn("gateway", models.get("providers", {}))
+
+
 if __name__ == "__main__":
     unittest.main()

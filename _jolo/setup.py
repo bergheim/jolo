@@ -23,6 +23,9 @@ DEFAULT_CODEX_REASONING_EFFORT = "high"
 PI_LLAMA_PROVIDER = "llama"
 PI_LLAMA_CONTEXT_WINDOW = 32768
 PI_LLAMA_MAX_TOKENS = 8192
+PI_GATEWAY_PROVIDER = "gateway"
+PI_GATEWAY_CONTEXT_WINDOW = 1_000_000
+PI_GATEWAY_MAX_TOKENS = 8192
 PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
     "qwen3-coder-next",
     "qwen3-coder",
@@ -395,6 +398,10 @@ def setup_credential_cache(
     pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
     _write_pi_primary(pi_cache, pi_primary)
 
+    gateway_base = (cfg or constants.DEFAULT_CONFIG).get("litellm_base_url")
+    virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
+    _write_pi_gateway_config(pi_cache, gateway_base, virtual_key, pi_primary)
+
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
         _write_pi_llama_config(pi_cache, llama_host, pi_primary)
@@ -432,6 +439,53 @@ def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
     settings["defaultProvider"] = provider
     settings["defaultModel"] = model
     write_json(settings_path, settings)
+
+
+def _write_pi_gateway_config(
+    pi_cache: Path,
+    base_url: str | None,
+    virtual_key: str,
+    primary: str | None,
+) -> None:
+    """Define a pi provider that routes the cloud primary through host LiteLLM.
+
+    Mirrors the llama provider shape. The virtual key (project-scoped, capped,
+    revocable) is written into the project-local pi cache — never a real key.
+    No-ops unless the primary is a "gateway/<model>" target and a key exists.
+    """
+    if not base_url or not virtual_key or not primary:
+        return
+    provider, _, model = primary.partition("/")
+    if provider != PI_GATEWAY_PROVIDER or not model:
+        return
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    models_path = agent_dir / "models.json"
+    models = _load_json_safe(models_path)
+    providers = models.setdefault("providers", {})
+    providers[PI_GATEWAY_PROVIDER] = {
+        "baseUrl": _llama_v1_base_url(base_url),
+        "api": "openai-completions",
+        "apiKey": virtual_key,
+        "models": [
+            {
+                "id": model,
+                "name": f"{model} (litellm)",
+                # gateway primary is a frontier reasoning model by default
+                "reasoning": True,
+                "input": ["text"],
+                "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
+                "maxTokens": PI_GATEWAY_MAX_TOKENS,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                },
+            }
+        ],
+    }
+    models_path.write_text(json.dumps(models, indent=2) + "\n")
 
 
 def _ensure_pi_delegation(pi_cache: Path) -> None:
