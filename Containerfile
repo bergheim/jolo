@@ -158,8 +158,11 @@ ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 ENV PNPM_HOME=$HOME/.local/share/pnpm
 ENV PATH="$PNPM_HOME/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
-# All Node.js global packages in one pnpm install
+# All Node.js global packages in one pnpm install.
+# pnpm gates install-time scripts; allow the ones pi/gemini need (else silently skipped).
 RUN pnpm add -g \
+    --allow-build=@google/genai \
+    --allow-build=protobufjs \
     @biomejs/biome \
     playwright \
     @playwright/cli \
@@ -172,7 +175,7 @@ RUN pnpm add -g \
     @ansible/ansible-language-server \
     @openai/codex \
     @google/gemini-cli \
-    @mariozechner/pi-coding-agent \
+    @earendil-works/pi-coding-agent \
     pi-acp \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
@@ -192,7 +195,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (go install github.com/zricethezav/gitleaks/v8@latest) & pids="$pids $!" && \
     (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
-    (curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
+    (curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
