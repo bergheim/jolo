@@ -1,10 +1,15 @@
 #!/bin/sh
-# Copy a file/dir to the host stash and emit a tailnet URL pointing at
-# it. See AGENTS.md "Sharing files to the local laptop" for host setup.
+# Copy a file/dir to the host stash and emit a tailnet URL pointing at it.
+# Dotfiles are skipped at every depth, so .git, .env, .devcontainer, etc. never
+# leak into the web-served stash. See the stash share cookbook for host setup.
 
 set -eu
 
-target=${1:-.}
+target=${1:-}
+if [ -z "$target" ]; then
+    echo "share: usage: share <file-or-dir>" >&2
+    exit 1
+fi
 
 if [ ! -e "$target" ]; then
     echo "share: not found: $target" >&2
@@ -13,6 +18,10 @@ fi
 
 abs=$(realpath "$target")
 base=${abs##*/}
+
+case "$base" in
+    .*) echo "share: refusing to share a dotfile: $base" >&2; exit 1 ;;
+esac
 
 if [ -d /workspaces/stash ]; then
     stash=/workspaces/stash
@@ -29,7 +38,18 @@ project=${toplevel##*/}
 
 dst=$stash/share/$project
 mkdir -p "$dst"
-cp -R "$abs" "$dst/"
+
+if [ -d "$abs" ]; then
+    # Copy the tree minus every dotfile/dot-dir (.git, .env, ...). All remaining
+    # files are writable, so re-runs overwrite in place — no destructive rm.
+    mkdir -p "$dst/$base"
+    ( cd "$abs" && find . -mindepth 1 -name '.*' -prune -o -type f -print |
+        while IFS= read -r f; do
+            cp --parents "$f" "$dst/$base/"
+        done )
+else
+    cp "$abs" "$dst/$base"
+fi
 
 if [ -z "${SHARE_BASE_URL:-}" ]; then
     echo "→ $dst/$base"
@@ -37,6 +57,8 @@ if [ -z "${SHARE_BASE_URL:-}" ]; then
     exit 0
 fi
 
+# Directories need a trailing slash to resolve against the host file server.
+[ -d "$abs" ] && base="$base/"
 url="$SHARE_BASE_URL/$project/$base"
 printf '\033]52;c;%s\033\\' "$(printf '%s' "$url" | base64 -w0)"
 echo "→ $url (clipboard)"
