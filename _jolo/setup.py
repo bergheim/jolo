@@ -1448,6 +1448,26 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
                 pass
         secrets["GH_TOKEN"] = gh_token
 
+    # LiteLLM master key — host-side only, used to mint per-project virtual keys.
+    # Never injected into a container.
+    if "LITELLM_MASTER_KEY" not in secrets:
+        master = ""
+        if pass_available:
+            try:
+                result = subprocess.run(
+                    ["pass", "show", config["pass_path_litellm_master"]],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    master = result.stdout.strip()
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+        secrets["LITELLM_MASTER_KEY"] = master or os.environ.get(
+            "LITELLM_MASTER_KEY", ""
+        )
+
     return secrets
 
 
