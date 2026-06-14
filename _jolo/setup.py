@@ -31,6 +31,18 @@ PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
     "qwen3.5",
 ]
 
+# pi packages reconciled on first trusted startup (we pre-trust the workspace).
+# Seeded into settings.json `packages`; pi installs any missing ones at launch.
+PI_PACKAGES = [
+    "npm:pi-subagents",  # lead -> worker delegation; reads agents/*.md, per-agent model
+    "npm:pi-downshift",  # premium -> economy handoff when context gets expensive
+    "npm:@juicesharp/rpiv-advisor",  # escalate to a stronger reviewer model on demand
+]
+
+# The image ships pnpm only (npm is shimmed to fail), so point pi's package
+# installer at pnpm — otherwise `pi install` and startup auto-install both die.
+PI_NPM_COMMAND = ["pnpm"]
+
 
 def clear_directory_contents(path: Path) -> None:
     """Remove all contents of a directory without removing the directory itself.
@@ -164,7 +176,9 @@ def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
     return f"{content}{new_setting}\n"
 
 
-def setup_credential_cache(workspace_dir: Path) -> None:
+def setup_credential_cache(
+    workspace_dir: Path, cfg: dict | None = None
+) -> None:
     """Stage AI credentials for container use.
 
     Claude: .credentials.json is mounted RW from the host (token refreshes
@@ -366,10 +380,15 @@ def setup_credential_cache(workspace_dir: Path) -> None:
                 shutil.copy2(item, dst)
 
     _ensure_pi_trust(pi_cache, workspace_dir)
+    _ensure_pi_delegation(pi_cache)
+    _write_pi_packages(pi_cache)
+
+    pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
+    _write_pi_primary(pi_cache, pi_primary)
 
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
-        _write_pi_llama_config(pi_cache, llama_host)
+        _write_pi_llama_config(pi_cache, llama_host, pi_primary)
 
 
 def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
@@ -384,6 +403,77 @@ def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
     trust = _load_json_safe(trust_path)
     trust[f"/workspaces/{workspace_dir.name}"] = True
     trust_path.write_text(json.dumps(trust, indent=2) + "\n")
+
+
+def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
+    """Set the strong model that drives pi as primary (llama runs as a worker).
+
+    `primary` is a "provider/model" string. Empty/malformed leaves the default
+    unset so the llama path can fall back to llama-as-primary.
+    """
+    if not primary:
+        return
+    provider, _, model = primary.partition("/")
+    if not provider or not model:
+        return
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = agent_dir / "settings.json"
+    settings = _load_json_safe(settings_path)
+    settings["defaultProvider"] = provider
+    settings["defaultModel"] = model
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+
+
+def _ensure_pi_delegation(pi_cache: Path) -> None:
+    """Append-to-system-prompt text telling the primary to use the local worker.
+
+    Referenced by the pi launch command (--append-system-prompt @<this>), kept
+    out of the shared AGENTS.md so only pi sees it.
+    """
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    (agent_dir / "delegation.md").write_text(
+        "When a `worker` subagent is available, delegate trivial, fully-specified "
+        "edits and searches to it — it runs a cheap local model. Keep design, "
+        "judgment, and multi-step reasoning on the primary model.\n"
+    )
+
+
+def _write_pi_packages(pi_cache: Path) -> None:
+    """Seed the pi packages that provide delegation and model routing.
+
+    pi reconciles missing packages from settings.json on first trusted startup.
+    `npmCommand` is mandatory here: the image shims `npm` to fail, so without it
+    pi's installer (which shells out to `npm install`) never runs.
+    """
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = agent_dir / "settings.json"
+    settings = _load_json_safe(settings_path)
+    settings["npmCommand"] = PI_NPM_COMMAND
+    existing = settings.get("packages", [])
+    settings["packages"] = list(dict.fromkeys([*existing, *PI_PACKAGES]))
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+
+
+def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
+    """Seed the local-llama worker subagent for mechanical, specified tasks."""
+    agents_dir = agent_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    (agents_dir / "worker.md").write_text(
+        "---\n"
+        "name: worker\n"
+        "description: Mechanical, fully-specified edits — renames, boilerplate, "
+        "single-file changes with clear instructions. Not for design decisions.\n"
+        "tools: read, grep, find, ls, edit, write, bash\n"
+        f"model: {PI_LLAMA_PROVIDER}/{llama_model}\n"
+        "---\n"
+        "You are a worker for trivial, fully-specified tasks. Do exactly what is "
+        "asked, nothing more. If the task is ambiguous or needs a design choice, "
+        "STOP and say so instead of guessing. Make the minimal change and report "
+        "what you changed.\n"
+    )
 
 
 def _load_json_safe(path: Path) -> dict:
@@ -440,7 +530,9 @@ def _pi_default_llama_model(model_ids: list[str]) -> str | None:
     return model_ids[0] if model_ids else None
 
 
-def _write_pi_llama_config(pi_cache: Path, llama_host: str) -> None:
+def _write_pi_llama_config(
+    pi_cache: Path, llama_host: str, primary: str | None = None
+) -> None:
     agent_dir = pi_cache / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
@@ -485,11 +577,16 @@ def _write_pi_llama_config(pi_cache: Path, llama_host: str) -> None:
     if default_model is None:
         return
 
-    settings_path = agent_dir / "settings.json"
-    settings = _load_json_safe(settings_path)
-    settings["defaultProvider"] = PI_LLAMA_PROVIDER
-    settings["defaultModel"] = default_model
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    # The strong primary delegates mechanical work to this local worker.
+    _write_pi_worker(agent_dir, default_model)
+
+    # Only make llama the primary when no strong model is configured.
+    if not primary:
+        settings_path = agent_dir / "settings.json"
+        settings = _load_json_safe(settings_path)
+        settings["defaultProvider"] = PI_LLAMA_PROVIDER
+        settings["defaultModel"] = default_model
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 
 
 def setup_notification_hooks(

@@ -258,7 +258,7 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     """Set up secrets, credentials, hooks, and Emacs config for a container."""
     secrets = get_secrets(config)
     os.environ.update(secrets)
-    setup_credential_cache(workspace)
+    setup_credential_cache(workspace, config)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
     setup_stash()
