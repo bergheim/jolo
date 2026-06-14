@@ -29,3 +29,16 @@ gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git
 
 echo ""
 just --list --unsorted
+
+# Warn on runaway skill accumulation. pi loads each skill's body into context
+# (~1K tokens), so ~36 already fills a 32K local worker; the curated jolo set is
+# ~36. Default 40 hugs that ceiling but catches pileup (.jolo/skills never
+# prunes). Override via JOLO_SKILL_WARN. Claude (~100 tokens/skill) is unaffected.
+skills_dir="$HOME/.agents/skills"
+if [ -d "$skills_dir" ]; then
+    skill_count=$(find "$skills_dir" -name SKILL.md 2>/dev/null | wc -l)
+    if [ "$skill_count" -gt "${JOLO_SKILL_WARN:-40}" ]; then
+        gum style --foreground 3 \
+            "⚠ $skill_count skills in ~/.agents/skills — likely stale buildup; consider pruning .jolo/skills"
+    fi
+fi
