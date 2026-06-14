@@ -2170,6 +2170,47 @@ class TestLitellmKeys(unittest.TestCase):
                     key = setup.ensure_litellm_project_key("myproj")
         self.assertIsNone(key)
 
+    def test_setup_container_env_exports_virtual_key(self):
+        import _jolo.commands as commands
+        from _jolo.constants import DEFAULT_CONFIG
+
+        ws = Path(self.tmpdir) / "envproj"
+        (ws / ".devcontainer").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                with mock.patch.object(
+                    commands,
+                    "get_secrets",
+                    return_value={"LITELLM_MASTER_KEY": "sk-master"},
+                ):
+                    with mock.patch.object(
+                        commands,
+                        "ensure_litellm_project_key",
+                        return_value="sk-proj",
+                    ):
+                        with mock.patch.object(
+                            commands, "setup_credential_cache"
+                        ):
+                            with mock.patch.object(
+                                commands, "setup_notification_hooks"
+                            ):
+                                with mock.patch.object(
+                                    commands, "setup_emacs_config"
+                                ):
+                                    with mock.patch.object(
+                                        commands, "setup_stash"
+                                    ):
+                                        with mock.patch.object(
+                                            commands, "sync_skill_templates"
+                                        ):
+                                            commands._setup_container_env(
+                                                ws,
+                                                DEFAULT_CONFIG,
+                                            )
+                        self.assertEqual(
+                            os.environ.get("LITELLM_VIRTUAL_KEY"), "sk-proj"
+                        )
+
 
 class TestContainerEnvKeys(unittest.TestCase):
     """containerEnv must not leak raw provider keys; routes via gateway."""

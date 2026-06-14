@@ -59,6 +59,7 @@ from _jolo.setup import (
     copy_template_files,
     copy_user_files,
     ensure_lighthouse_run_script,
+    ensure_litellm_project_key,
     ensure_test_gate_script,
     get_secrets,
     scaffold_devcontainer,
@@ -258,6 +259,9 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     """Set up secrets, credentials, hooks, and Emacs config for a container."""
     secrets = get_secrets(config)
     os.environ.update(secrets)
+    virtual_key = ensure_litellm_project_key(workspace.name, config)
+    if virtual_key:
+        os.environ["LITELLM_VIRTUAL_KEY"] = virtual_key
     setup_credential_cache(workspace, config)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
