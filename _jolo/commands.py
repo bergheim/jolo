@@ -62,6 +62,7 @@ from _jolo.setup import (
     ensure_litellm_project_key,
     ensure_test_gate_script,
     get_secrets,
+    litellm_gateway_reachable,
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
@@ -1000,6 +1001,13 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
             else "missing"
         )
         check(key, bool(val), source)
+
+    base_url = config.get("litellm_base_url", "")
+    check(
+        "LiteLLM gateway",
+        litellm_gateway_reachable(base_url),
+        base_url or "unset",
+    )
 
     # gh auth
     gh_result = subprocess.run(

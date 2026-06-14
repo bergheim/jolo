@@ -2296,5 +2296,40 @@ class TestPiGatewayConfig(unittest.TestCase):
         self.assertNotIn("gateway", models.get("providers", {}))
 
 
+class TestLitellmGatewayReachable(unittest.TestCase):
+    """litellm_gateway_reachable degrades gracefully on any network error."""
+
+    def test_gateway_reachable_true_on_2xx(self):
+        class FakeResp:
+            status = 200
+
+            def __enter__(self_):
+                return self_
+
+            def __exit__(self_, *a):
+                return False
+
+            def read(self_):
+                return b"I'm alive!"
+
+        with mock.patch("urllib.request.urlopen", lambda *a, **k: FakeResp()):
+            self.assertTrue(
+                setup.litellm_gateway_reachable(
+                    "http://host.containers.internal:8088"
+                )
+            )
+
+    def test_gateway_reachable_false_on_error(self):
+        def boom(*a, **k):
+            raise OSError("refused")
+
+        with mock.patch("urllib.request.urlopen", boom):
+            self.assertFalse(
+                setup.litellm_gateway_reachable(
+                    "http://host.containers.internal:8088"
+                )
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

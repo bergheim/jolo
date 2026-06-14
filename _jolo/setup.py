@@ -1605,6 +1605,18 @@ def ensure_litellm_project_key(
     return key
 
 
+def litellm_gateway_reachable(base_url: str) -> bool:
+    """True if the LiteLLM gateway answers its liveness probe."""
+    if not base_url:
+        return False
+    url = base_url.rstrip("/") + "/health/liveliness"
+    try:
+        with urllib.request.urlopen(url, timeout=3):
+            return True
+    except (OSError, TimeoutError, urllib.error.URLError):
+        return False
+
+
 def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
     """Add user-specified mounts to devcontainer.json.
 
