@@ -304,6 +304,12 @@ def load_config(
             project_cfg = tomllib.load(f)
             config.update(project_cfg)
 
+    # The gateway address is host-specific; the LITELLM_HOST env overrides the
+    # configured value here so the rest of the code reads it from config alone.
+    env_gateway = os.environ.get("LITELLM_HOST")
+    if env_gateway:
+        config["litellm_base_url"] = env_gateway.rstrip("/")
+
     return config
 
 

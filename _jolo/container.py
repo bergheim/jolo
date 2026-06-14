@@ -114,10 +114,10 @@ def build_devcontainer_json(
             # OpenAI/OpenRouter usage route through the host LiteLLM gateway with
             # a per-project virtual key that is useless off-host. Subscription
             # agents (claude/codex/gemini) authenticate via mounted OAuth.
-            "OPENAI_BASE_URL": constants.DEFAULT_CONFIG[
-                "litellm_base_url"
-            ].rstrip("/")
-            + "/v1",
+            # LITELLM_HOST is the host gateway base URL (tailnet, like LLAMA_HOST),
+            # set on the host; OPENAI_BASE_URL is derived from it.
+            "LITELLM_HOST": "${localEnv:LITELLM_HOST}",
+            "OPENAI_BASE_URL": "${localEnv:LITELLM_HOST}/v1",
             # Same virtual key under both names: OpenAI-native clients read
             # OPENAI_API_KEY; pi reads LITELLM_VIRTUAL_KEY.
             "OPENAI_API_KEY": "${localEnv:LITELLM_VIRTUAL_KEY}",

@@ -44,13 +44,14 @@ DEFAULT_CONFIG = {
         "pi": "env -u ANTHROPIC_API_KEY pi --append-system-prompt @$HOME/.pi/agent/delegation.md",
     },
     # Strong model that drives pi as primary, served through the host LiteLLM
-    # gateway (see litellm_base_url). The local llama model runs as a worker
-    # subagent. "gateway/<model>" must match a model_name in the gateway config.
+    # gateway. The local llama model runs as a worker subagent.
+    # "gateway/<model>" must match a model_name in the gateway config.
     "pi_primary_model": "gateway/gemini-3.1-pro",
-    # LiteLLM control-plane gateway (host-side). Real provider keys live only in
-    # the gateway; containers get a per-project virtual key reached via podman's
-    # host.containers.internal route. The master key (host-only) mints keys.
-    "litellm_base_url": "http://host.containers.internal:8088",
+    # LiteLLM control-plane gateway base URL. Default empty; load_config()
+    # populates it from the host env LITELLM_HOST (e.g. http://<tailnet-host>:8088),
+    # so the rest of the code just reads config. Real provider keys live only in
+    # the gateway; containers get a per-project virtual key. Master key mints.
+    "litellm_base_url": "",
     "pass_path_litellm_master": "api/llm/litellm-master",
     "litellm_key_max_budget": 50.0,
     "litellm_key_budget_duration": "30d",
