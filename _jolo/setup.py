@@ -1537,6 +1537,8 @@ def _save_litellm_key_store(store: dict) -> None:
     path = _litellm_key_store_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(store, indent=2) + "\n")
+    # Holds live virtual keys — keep it owner-only.
+    path.chmod(0o600)
 
 
 def _litellm_generate_key(

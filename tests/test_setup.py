@@ -2170,6 +2170,19 @@ class TestLitellmKeys(unittest.TestCase):
                     key = setup.ensure_litellm_project_key("myproj")
         self.assertIsNone(key)
 
+    def test_key_store_is_owner_only(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch(
+                    "urllib.request.urlopen",
+                    self._urlopen_returning("sk-proj"),
+                ):
+                    setup.ensure_litellm_project_key("modeproj")
+        path = self.home / ".config" / "jolo" / "litellm-keys.json"
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
     def test_setup_container_env_exports_virtual_key(self):
         import _jolo.commands as commands
         from _jolo.constants import DEFAULT_CONFIG
