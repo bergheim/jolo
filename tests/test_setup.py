@@ -794,7 +794,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def test_writes_llama_provider_and_default_model(self):
-        """Should configure Pi to use the best available llama-swap coding model."""
+        """No strong primary -> llama is the fallback default, plus a worker subagent."""
         pi_cache = Path(self.tmpdir) / ".pi-cache"
 
         with mock.patch(
@@ -827,6 +827,9 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertEqual(settings["defaultProvider"], "llama")
         self.assertEqual(settings["defaultModel"], "qwen3-coder")
 
+        worker = (pi_cache / "agent" / "agents" / "worker.md").read_text()
+        self.assertIn("model: llama/qwen3-coder", worker)
+
     def test_preserves_existing_pi_models_json_providers(self):
         """Should merge the llama provider without deleting existing providers."""
         pi_cache = Path(self.tmpdir) / ".pi-cache"
@@ -846,15 +849,12 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertIn("custom", models["providers"])
         self.assertIn("llama", models["providers"])
 
-    def test_setup_credential_cache_uses_llama_host(self):
-        """setup_credential_cache should generate Pi config from LLAMA_HOST."""
+    def test_setup_credential_cache_strong_primary_with_llama_worker(self):
+        """Default config: strong model is primary, llama runs as a worker subagent."""
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
         home = Path(self.tmpdir) / "home"
         (home / ".pi" / "agent").mkdir(parents=True)
-        (home / ".pi" / "agent" / "settings.json").write_text(
-            '{"lastChangelogVersion":"0.67.68"}'
-        )
 
         env = {"LLAMA_HOST": "http://llama:11434"}
         with mock.patch("pathlib.Path.home", return_value=home):
@@ -864,6 +864,38 @@ class TestPiLlamaConfig(unittest.TestCase):
                     return_value=["qwen3.6"],
                 ):
                     jolo.setup_credential_cache(ws)
+
+        agent = ws / ".devcontainer" / ".pi-cache" / "agent"
+        settings = json.loads((agent / "settings.json").read_text())
+        # strong primary from DEFAULT_CONFIG["pi_primary_model"]
+        self.assertEqual(settings["defaultProvider"], "google")
+        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro-preview")
+        # llama is the worker, not the primary
+        self.assertIn(
+            "llama",
+            json.loads((agent / "models.json").read_text())["providers"],
+        )
+        self.assertIn(
+            "model: llama/qwen3.6",
+            (agent / "agents" / "worker.md").read_text(),
+        )
+        self.assertTrue((agent / "delegation.md").exists())
+
+    def test_setup_credential_cache_falls_back_to_llama_primary(self):
+        """Empty pi_primary_model -> llama becomes the primary again."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        env = {"LLAMA_HOST": "http://llama:11434"}
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, env, clear=True):
+                with mock.patch(
+                    "_jolo.setup._fetch_llama_model_ids",
+                    return_value=["qwen3.6"],
+                ):
+                    jolo.setup_credential_cache(ws, {"pi_primary_model": ""})
 
         settings = json.loads(
             (

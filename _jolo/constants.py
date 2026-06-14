@@ -41,8 +41,13 @@ DEFAULT_CONFIG = {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
         "gemini": "gemini --yolo --no-sandbox",
         "codex": "codex --dangerously-bypass-approvals-and-sandbox",
-        "pi": "env -u ANTHROPIC_API_KEY pi",
+        "pi": "env -u ANTHROPIC_API_KEY pi --append-system-prompt @$HOME/.pi/agent/delegation.md",
     },
+    # Strong model that drives pi as primary; the local llama model runs as a
+    # worker subagent. Empty string falls back to llama-as-primary. Needs the
+    # provider's auth in the container (google / GEMINI_API_KEY here). Override
+    # per-config.
+    "pi_primary_model": "google/gemini-3.1-pro-preview",
     "base_port": 4000,
     "notify_threshold": 60,
     "research_home": "~/jolo/research",
