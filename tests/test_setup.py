@@ -873,6 +873,24 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertEqual(settings["defaultProvider"], "llama")
         self.assertEqual(settings["defaultModel"], "qwen3.6")
 
+    def test_setup_credential_cache_trusts_workspace_without_llama(self):
+        """Pi trusts the project folder even when LLAMA_HOST is unset."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+
+        trust = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "trust.json"
+            ).read_text()
+        )
+        self.assertIs(trust["/workspaces/project"], True)
+
 
 class TestPatchJsonWithJq(unittest.TestCase):
     """Test jq-based JSON patch helper."""

@@ -365,9 +365,25 @@ def setup_credential_cache(workspace_dir: Path) -> None:
             else:
                 shutil.copy2(item, dst)
 
+    _ensure_pi_trust(pi_cache, workspace_dir)
+
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
         _write_pi_llama_config(pi_cache, llama_host)
+
+
+def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
+    """Pre-trust the container workspace so pi never prompts (mirrors gemini/codex).
+
+    pi's trust store walks up parents, so this entry covers everything under it.
+    Runs regardless of llama config.
+    """
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    trust_path = agent_dir / "trust.json"
+    trust = _load_json_safe(trust_path)
+    trust[f"/workspaces/{workspace_dir.name}"] = True
+    trust_path.write_text(json.dumps(trust, indent=2) + "\n")
 
 
 def _load_json_safe(path: Path) -> dict:
