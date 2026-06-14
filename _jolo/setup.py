@@ -1471,6 +1471,86 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
     return secrets
 
 
+def _litellm_key_store_path() -> Path:
+    return Path.home() / ".config" / "jolo" / "litellm-keys.json"
+
+
+def _load_litellm_key_store() -> dict:
+    return _load_json_safe(_litellm_key_store_path())
+
+
+def _save_litellm_key_store(store: dict) -> None:
+    path = _litellm_key_store_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(store, indent=2) + "\n")
+
+
+def _litellm_generate_key(
+    base_url: str, master_key: str, project_name: str, config: dict
+) -> str | None:
+    body = {
+        "key_alias": f"jolo-{project_name}",
+        "max_budget": config.get("litellm_key_max_budget"),
+        "budget_duration": config.get("litellm_key_budget_duration"),
+        "metadata": {"project": project_name, "source": "jolo"},
+    }
+    models = config.get("litellm_key_models") or []
+    if models:
+        body["models"] = models
+    req = urllib.request.Request(
+        base_url.rstrip("/") + "/key/generate",
+        data=json.dumps(body).encode(),
+        headers={
+            "Authorization": f"Bearer {master_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+    except (
+        OSError,
+        TimeoutError,
+        urllib.error.URLError,
+        json.JSONDecodeError,
+    ) as e:
+        print(
+            f"Warning: LiteLLM key mint failed for {project_name}: {e}",
+            file=sys.stderr,
+        )
+        return None
+    key = data.get("key")
+    return key if isinstance(key, str) and key else None
+
+
+def ensure_litellm_project_key(
+    project_name: str, cfg: dict | None = None
+) -> str | None:
+    """Return the project's LiteLLM virtual key, minting + caching it once.
+
+    LiteLLM only reveals a key's secret at creation, so jolo caches it per
+    project in ~/.config/jolo/litellm-keys.json and reuses it across launches
+    and worktrees (stable keys keep spend attribution clean). Returns None
+    (graceful) if the gateway base URL or master key is absent, or if minting
+    fails — the caller then launches without a cloud key.
+    """
+    config = cfg or constants.DEFAULT_CONFIG
+    base_url = config.get("litellm_base_url")
+    master_key = os.environ.get("LITELLM_MASTER_KEY")
+    if not base_url or not master_key:
+        return None
+    store = _load_litellm_key_store()
+    existing = store.get(project_name)
+    if isinstance(existing, str) and existing:
+        return existing
+    key = _litellm_generate_key(base_url, master_key, project_name, config)
+    if key:
+        store[project_name] = key
+        _save_litellm_key_store(store)
+    return key
+
+
 def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
     """Add user-specified mounts to devcontainer.json.
 

@@ -2095,5 +2095,81 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
         self.test_gate.assert_called_once()
 
 
+class TestLitellmKeys(unittest.TestCase):
+    """Per-project LiteLLM virtual key minting + caching."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.home = Path(self.tmpdir) / "home"
+        (self.home / ".config" / "jolo").mkdir(parents=True)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _urlopen_returning(self, key):
+        class FakeResp:
+            def __enter__(self_):
+                return self_
+
+            def __exit__(self_, *a):
+                return False
+
+            def read(self_):
+                return json.dumps({"key": key}).encode()
+
+        return lambda req, timeout=0: FakeResp()
+
+    def test_mints_and_caches_key(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch(
+                    "urllib.request.urlopen",
+                    self._urlopen_returning("sk-proj-abc"),
+                ):
+                    key = setup.ensure_litellm_project_key("myproj")
+        self.assertEqual(key, "sk-proj-abc")
+        store = json.loads(
+            (self.home / ".config" / "jolo" / "litellm-keys.json").read_text()
+        )
+        self.assertEqual(store["myproj"], "sk-proj-abc")
+
+    def test_reuses_cached_key_without_minting(self):
+        store_path = self.home / ".config" / "jolo" / "litellm-keys.json"
+        store_path.write_text(json.dumps({"myproj": "sk-cached"}))
+
+        def boom(*a, **k):
+            raise AssertionError("should not mint when cached")
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("urllib.request.urlopen", boom):
+                    key = setup.ensure_litellm_project_key("myproj")
+        self.assertEqual(key, "sk-cached")
+
+    def test_returns_none_without_master_key(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                key = setup.ensure_litellm_project_key("myproj")
+        self.assertIsNone(key)
+
+    def test_mint_failure_returns_none(self):
+        def raise_urlerror(*a, **k):
+            raise OSError("connection refused")
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("urllib.request.urlopen", raise_urlerror):
+                    key = setup.ensure_litellm_project_key("myproj")
+        self.assertIsNone(key)
+
+
 if __name__ == "__main__":
     unittest.main()
