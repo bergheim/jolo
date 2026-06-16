@@ -1,20 +1,28 @@
 ---
-name: j-save-state
-description: Save current session knowledge to shared project files and agent-private memory.
+name: j-save
+description: Save current session knowledge to shared project files and agent-private memory. Add the `resume` keyword to also write a paste-back handoff note for the next session.
 ---
 
-# /j-save-state
+# /j-save
 
-Persist what you've learned this session so it survives context loss and is available to all agents.
+Persist what you've learned this session so it survives context loss and is
+available to all agents. The end-of-session complement to `/j-resume` (which
+reads state back at the start of the next session).
 
 ## Arguments
 
+`/j-save [resume] [focus]`
+
+- `resume` — optional leading keyword. When present, also write the ephemeral
+  handoff note `scratch/resume-session.md` so the next session can hit the
+  ground running (see step 5). Without it, save durable knowledge only.
 - `[focus]` — optional keyword(s) or short phrase describing what to save
   around (e.g. `perf`, `grafana dashboards`, `jolo skills`, `public notes`).
-  When given, bias note creation, TODO updates, commit message, and summary
-  toward that topic.
+  When given, bias note creation, TODO updates, commit message, the handoff
+  note, and the summary toward that topic. Anything after a leading `resume`
+  is treated as focus.
 
-Without a focus argument, save broadly as before.
+Without arguments, save broadly as before.
 
 ## Instructions
 
@@ -100,34 +108,68 @@ Files (only if the above filter passes):
 ### 4. Commit
 
 Always `git commit` the changes without waiting for the user to ask. Use a
-short commit message like "save-state: <brief summary>".
+short commit message like "save: <brief summary>".
 
 If a focus argument was given, include it in the brief summary when it makes the
-commit clearer, for example `save-state: grafana dashboard mount`.
+commit clearer, for example `save: grafana dashboard mount`.
 
 **Public-notes mode (nested `docs/.git/`):** if the project is a public repo
 where `docs/` is its own private notes repo (detect via `test -d docs/.git`),
 do the commit inside `docs/` instead of in the outer repo. The emacs helpers
 (`agent-org-set-state`, `agent-denote-create`, etc.) already auto-commit per
-call; save-state's commit sweeps up any free-form edits that bypassed them
-and pushes the lot.
+call; this commit sweeps up any free-form edits that bypassed them and pushes
+the lot.
 
 ```bash
 if [ -d docs/.git ]; then
-  (cd docs && git add -A && git commit -m "save-state: <brief>" 2>/dev/null && git push 2>/dev/null) || true
+  (cd docs && git add -A && git commit -m "save: <brief>" 2>/dev/null && git push 2>/dev/null) || true
 else
-  git add docs/ && git commit -m "save-state: <brief>"
+  git add docs/ && git commit -m "save: <brief>"
 fi
 ```
 
 In public-notes mode the outer repo's `docs/` is gitignored, so a second
 outer-repo commit is not needed.
 
-### 5. Summary
+### 5. Handoff note (only if `resume` keyword given)
 
-After saving and committing, print a brief summary of what was written and where.
-If a focus argument was given, keep the summary scoped to that focus and mention
-any intentionally skipped unrelated state.
+Write `scratch/resume-session.md` — the ephemeral, paste-back-ready state of
+play for the next session. This is throwaway (`scratch/` is gitignored): no
+commit, read once and discarded. Skip this whole step unless the `resume`
+keyword was passed.
+
+Read the prior `scratch/resume-session.md` first if it exists. Items under
+**Still outstanding** / **Don't** usually carry forward verbatim unless this
+session resolved them — the prior note is your starting point; update, don't
+restart.
+
+Gather: `git status` + `git diff --stat` (uncommitted), `git log --oneline -n 5`
+(what shipped), top TODO items connected to the recent work, and anything you
+specifically verified working this session (envs, ports, sockets, services).
+
+Overwrite `scratch/resume-session.md` with these sections:
+
+- **Header** — one line: "Resuming. State at end of last session (YYYY-MM-DD)"
+  with today's actual date (`date +%Y-%m-%d` if unsure).
+- **Branch / commit context** — current branch, clean or dirty, what's
+  uncommitted, recent shipped commits (short hashes + subjects).
+- **What changed this session** — short bullets, each with WHY, not what.
+- **Re-verify (one batch)** — concrete copy-paste shell commands to re-confirm
+  the things you specifically verified. Include expected output where useful.
+  If you didn't verify it this session, don't put it here.
+- **Still outstanding (parked, do NOT redo)** — carry forward from the prior
+  note plus anything new; strike items resolved this session.
+- **Don't** — rabbit holes to avoid without explicit go-ahead. Carry forward
+  plus anything new this session warned off.
+
+Tight prose, focused bullets, under ~80 lines.
+
+### 6. Summary
+
+After saving and committing, print a brief summary of what was written and where
+(and that the handoff note was written, if `resume` was given). If a focus
+argument was given, keep the summary scoped to that focus and mention any
+intentionally skipped unrelated state.
 
 ## Rules
 
@@ -135,4 +177,6 @@ any intentionally skipped unrelated state.
 - **Be concise** — future-you reads this months later; key facts only, no filler
 - **Tag generously** — kind + topics make search useful
 - **No duplicates** — check existing notes with `agent-denote-find` before creating
-- **Write-once** — never edit existing notes; create new ones instead
+- **Write-once** — never edit existing denote notes; create new ones instead
+- **Handoff note carries forward** — parked/Don't items survive verbatim unless
+  this session resolved them. Future-you needs the same warnings current-you got.
