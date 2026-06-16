@@ -44,6 +44,15 @@ PI_PACKAGES = [
 PI_NPM_COMMAND = ["pnpm"]
 
 
+def write_json(
+    path: Path, obj, indent: int | str = 2, newline: bool = True
+) -> None:
+    """Write `obj` as JSON to `path`. Defaults match most call sites:
+    2-space indent with a trailing newline. Override per site as needed."""
+    text = json.dumps(obj, indent=indent)
+    path.write_text(text + "\n" if newline else text)
+
+
 def clear_directory_contents(path: Path) -> None:
     """Remove all contents of a directory without removing the directory itself.
 
@@ -223,7 +232,7 @@ def setup_credential_cache(
             project_entry["hasTrustDialogAccepted"] = True
             merge_mcp_configs(project_entry, mcp_templates)
 
-            claude_json_dst.write_text(json.dumps(claude_config, indent=2))
+            write_json(claude_json_dst, claude_config, newline=False)
         except Exception as e:
             print(
                 f"Warning: Failed to inject MCP configs into .claude.json: {e}",
@@ -283,7 +292,7 @@ def setup_credential_cache(
     # Inject MCP servers into Gemini settings
     merge_mcp_configs(settings, mcp_templates)
 
-    settings_path.write_text(json.dumps(settings, indent="\t"))
+    write_json(settings_path, settings, indent="\t", newline=False)
 
     trusted_folders_path = gemini_cache / "trustedFolders.json"
     project_path = f"/workspaces/{workspace_dir.name}"
@@ -402,7 +411,7 @@ def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
     trust_path = agent_dir / "trust.json"
     trust = _load_json_safe(trust_path)
     trust[f"/workspaces/{workspace_dir.name}"] = True
-    trust_path.write_text(json.dumps(trust, indent=2) + "\n")
+    write_json(trust_path, trust)
 
 
 def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
@@ -422,7 +431,7 @@ def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
     settings = _load_json_safe(settings_path)
     settings["defaultProvider"] = provider
     settings["defaultModel"] = model
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    write_json(settings_path, settings)
 
 
 def _ensure_pi_delegation(pi_cache: Path) -> None:
@@ -454,7 +463,7 @@ def _write_pi_packages(pi_cache: Path) -> None:
     settings["npmCommand"] = PI_NPM_COMMAND
     existing = settings.get("packages", [])
     settings["packages"] = list(dict.fromkeys([*existing, *PI_PACKAGES]))
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    write_json(settings_path, settings)
 
 
 def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
@@ -571,7 +580,7 @@ def _write_pi_llama_config(
             for model_id in model_ids
         ],
     }
-    models_path.write_text(json.dumps(models, indent=2) + "\n")
+    write_json(models_path, models)
 
     default_model = _pi_default_llama_model(model_ids)
     if default_model is None:
@@ -586,7 +595,7 @@ def _write_pi_llama_config(
         settings = _load_json_safe(settings_path)
         settings["defaultProvider"] = PI_LLAMA_PROVIDER
         settings["defaultModel"] = default_model
-        settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+        write_json(settings_path, settings)
 
 
 def setup_notification_hooks(
@@ -647,7 +656,7 @@ def setup_notification_hooks(
         stop_hooks.append(slow_hook)
 
     claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
-    claude_settings_path.write_text(json.dumps(settings, indent=2))
+    write_json(claude_settings_path, settings, newline=False)
 
     # Gemini: inject SessionEnd hook into .gemini-cache/settings.json
     gemini_settings_path = (
@@ -665,7 +674,7 @@ def setup_notification_hooks(
     if not any("notify" in str(h) for h in session_end_hooks):
         session_end_hooks.append(notify_hook)
     gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
-    gemini_settings_path.write_text(json.dumps(settings, indent="\t"))
+    write_json(gemini_settings_path, settings, indent="\t", newline=False)
 
     # Codex: append notify setting to .codex-cache/config.toml (best-effort)
     codex_config_path = (
@@ -739,7 +748,7 @@ def _save_template_hashes(
             hashes[filename] = _file_hash(dst)
     path = target_dir / TEMPLATE_HASHES_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(hashes, indent=2) + "\n")
+    write_json(path, hashes)
 
 
 def _sync_one_file(
@@ -1465,7 +1474,7 @@ def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
             mount_str += ",readonly"
         content["mounts"].append(mount_str)
 
-    devcontainer_json_path.write_text(json.dumps(content, indent=4) + "\n")
+    write_json(devcontainer_json_path, content, indent=4)
 
 
 def copy_user_files(copies: list[dict], workspace_dir: Path) -> None:
@@ -1521,7 +1530,7 @@ def add_worktree_git_mount(
     git_mount = f"source={main_git_dir},target={main_git_dir},type=bind"
     content["mounts"].append(git_mount)
 
-    devcontainer_json_path.write_text(json.dumps(content, indent=4) + "\n")
+    write_json(devcontainer_json_path, content, indent=4)
 
 
 def write_prompt_file(workspace_dir: Path, agent: str, prompt: str) -> None:
