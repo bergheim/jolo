@@ -6,8 +6,8 @@ description: Resume a session — read the paste-back handoff note to recall wha
 # /j-resume
 
 Get back up to speed at the start of a session. The start-of-session complement
-to `/j-save` (which writes durable knowledge and, with its `resume` keyword, the
-handoff note this skill reads). Read-only: never modify any files.
+to `/j-save`, which writes the handoff note this skill reads (and, with its
+`full` keyword, durable knowledge too). Read-only: never modify any files.
 
 ## Arguments
 
@@ -28,7 +28,7 @@ Without arguments, do the light read and summarize the whole picture.
 ### 1. Light read — "what we last worked on" (always)
 
 Read `scratch/resume-session.md` if it exists. This is the handoff note from the
-last session (written by `/j-save resume`): branch/commit context, what changed
+last session (written by `/j-save`): branch/commit context, what changed
 and why, re-verify commands, parked items, and don'ts.
 
 **Freshness check.** Compare the note's header date against recent history

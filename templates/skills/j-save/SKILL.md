@@ -1,32 +1,71 @@
 ---
 name: j-save
-description: Save current session knowledge to shared project files and agent-private memory. Add the `resume` keyword to also write a paste-back handoff note for the next session.
+description: Write the paste-back handoff note (scratch/resume-session.md) so the next session can hit the ground running. Add the `full` keyword to also save durable knowledge to denote notes + TODO and commit.
 ---
 
 # /j-save
 
-Persist what you've learned this session so it survives context loss and is
-available to all agents. The end-of-session complement to `/j-resume` (which
-reads state back at the start of the next session).
+Capture the state of play so the next session resumes cleanly. By default this
+is fast: it only writes the ephemeral handoff note. The `full` keyword adds the
+slower durable save (denote notes, TODO, commit). The end-of-session complement
+to `/j-resume`, which reads the handoff note back.
 
 ## Arguments
 
-`/j-save [resume] [focus]`
+`/j-save [full] [focus]`
 
-- `resume` — optional leading keyword. When present, also write the ephemeral
-  handoff note `scratch/resume-session.md` so the next session can hit the
-  ground running (see step 5). Without it, save durable knowledge only.
-- `[focus]` — optional keyword(s) or short phrase describing what to save
-  around (e.g. `perf`, `grafana dashboards`, `jolo skills`, `public notes`).
-  When given, bias note creation, TODO updates, commit message, the handoff
-  note, and the summary toward that topic. Anything after a leading `resume`
-  is treated as focus.
+- `full` — optional leading keyword. When present, after writing the handoff note
+  also save durable knowledge: denote notes for discoveries, TODO updates, and a
+  commit (steps 2-5). Without it, write the handoff note only and stop.
+- `[focus]` — optional keyword(s) or short phrase to bias the handoff note and
+  (under `full`) note creation, TODO updates, and the commit message toward a
+  topic (e.g. `perf`, `grafana dashboards`, `jolo skills`). Anything after a
+  leading `full` is treated as focus.
 
-Without arguments, save broadly as before.
+Without arguments, write the handoff note and stop.
 
 ## Instructions
 
-### 1. Create denote notes for discoveries
+### 1. Write the handoff note (always)
+
+Write `scratch/resume-session.md` — the ephemeral, paste-back-ready state of play
+for the next session. Throwaway (`scratch/` is gitignored): no commit, read once
+and discarded.
+
+Read the prior `scratch/resume-session.md` first if it exists. Items under
+**Still outstanding** / **Don't** usually carry forward verbatim unless this
+session resolved them — the prior note is your starting point; update, don't
+restart.
+
+Gather: `git status` + `git diff --stat` (uncommitted), `git log --oneline -n 5`
+(what shipped), top TODO items connected to the recent work, and anything you
+specifically verified working this session (envs, ports, sockets, services).
+
+Overwrite `scratch/resume-session.md` with these sections:
+
+- **Header** — one line: "Resuming. State at end of last session (YYYY-MM-DD)"
+  with today's actual date (`date +%Y-%m-%d` if unsure).
+- **Branch / commit context** — current branch, clean or dirty, what's
+  uncommitted, recent shipped commits (short hashes + subjects).
+- **What changed this session** — short bullets, each with WHY, not what.
+- **Re-verify (one batch)** — concrete copy-paste shell commands to re-confirm
+  the things you specifically verified. Include expected output where useful.
+  If you didn't verify it this session, don't put it here.
+- **Still outstanding (parked, do NOT redo)** — carry forward from the prior
+  note plus anything new; strike items resolved this session.
+- **Don't** — rabbit holes to avoid without explicit go-ahead. Carry forward
+  plus anything new this session warned off.
+
+Tight prose, focused bullets, under ~80 lines.
+
+**If `full` was not given, stop here** and print a one-line confirmation that the
+handoff note was written.
+
+---
+
+The remaining steps run **only when `full` was given.**
+
+### 2. Create denote notes for discoveries
 
 For each significant discovery, convention, gotcha, decision, or investigation from
 this session, create a denote note in `docs/notes/`:
@@ -62,7 +101,7 @@ create a new note referencing the original.
 keywords, or body match that focus. Still save off-focus discoveries only when
 they are important enough that another agent would need them soon.
 
-### 2. Update TODO.org
+### 3. Update TODO.org
 
 - Add new tasks discovered during the session as `TODO` headings
 - Mark completed tasks as `DONE` using `bergheim/agent-org-set-state`
@@ -70,7 +109,7 @@ they are important enough that another agent would need them soon.
 - If a focus argument was given, prefer TODO updates connected to that focus.
   Do not churn unrelated TODOs just because they are nearby.
 
-### 3. Agent-private memory — usually skip this
+### 4. Agent-private memory — usually skip this
 
 **Default: do not write here.** Fragmented memory is worse than no memory.
 Project knowledge in your private file is invisible to the other agents and
@@ -105,10 +144,10 @@ Files (only if the above filter passes):
 - **Codex**: `.codex/MEMORY.md`
 - **Pi**: `.pi/MEMORY.md`
 
-### 4. Commit
+### 5. Commit
 
-Always `git commit` the changes without waiting for the user to ask. Use a
-short commit message like "save: <brief summary>".
+Always `git commit` the durable changes without waiting for the user to ask. Use
+a short commit message like "save: <brief summary>".
 
 If a focus argument was given, include it in the brief summary when it makes the
 commit clearer, for example `save: grafana dashboard mount`.
@@ -131,52 +170,20 @@ fi
 In public-notes mode the outer repo's `docs/` is gitignored, so a second
 outer-repo commit is not needed.
 
-### 5. Handoff note (only if `resume` keyword given)
-
-Write `scratch/resume-session.md` — the ephemeral, paste-back-ready state of
-play for the next session. This is throwaway (`scratch/` is gitignored): no
-commit, read once and discarded. Skip this whole step unless the `resume`
-keyword was passed.
-
-Read the prior `scratch/resume-session.md` first if it exists. Items under
-**Still outstanding** / **Don't** usually carry forward verbatim unless this
-session resolved them — the prior note is your starting point; update, don't
-restart.
-
-Gather: `git status` + `git diff --stat` (uncommitted), `git log --oneline -n 5`
-(what shipped), top TODO items connected to the recent work, and anything you
-specifically verified working this session (envs, ports, sockets, services).
-
-Overwrite `scratch/resume-session.md` with these sections:
-
-- **Header** — one line: "Resuming. State at end of last session (YYYY-MM-DD)"
-  with today's actual date (`date +%Y-%m-%d` if unsure).
-- **Branch / commit context** — current branch, clean or dirty, what's
-  uncommitted, recent shipped commits (short hashes + subjects).
-- **What changed this session** — short bullets, each with WHY, not what.
-- **Re-verify (one batch)** — concrete copy-paste shell commands to re-confirm
-  the things you specifically verified. Include expected output where useful.
-  If you didn't verify it this session, don't put it here.
-- **Still outstanding (parked, do NOT redo)** — carry forward from the prior
-  note plus anything new; strike items resolved this session.
-- **Don't** — rabbit holes to avoid without explicit go-ahead. Carry forward
-  plus anything new this session warned off.
-
-Tight prose, focused bullets, under ~80 lines.
-
 ### 6. Summary
 
-After saving and committing, print a brief summary of what was written and where
-(and that the handoff note was written, if `resume` was given). If a focus
-argument was given, keep the summary scoped to that focus and mention any
-intentionally skipped unrelated state.
+Print a brief summary of what was written and where. If a focus argument was
+given, keep the summary scoped to that focus and mention any intentionally
+skipped unrelated state.
 
 ## Rules
 
-- **One topic per note** — don't create catch-all dumps
-- **Be concise** — future-you reads this months later; key facts only, no filler
-- **Tag generously** — kind + topics make search useful
-- **No duplicates** — check existing notes with `agent-denote-find` before creating
-- **Write-once** — never edit existing denote notes; create new ones instead
 - **Handoff note carries forward** — parked/Don't items survive verbatim unless
   this session resolved them. Future-you needs the same warnings current-you got.
+- **Concrete verify commands** — paste the actual command, not "make sure X works".
+  If you didn't verify it this session, leave it out.
+- Durable save (`full`) only:
+  - **One topic per note** — don't create catch-all dumps.
+  - **No duplicates** — check existing notes with `agent-denote-find` first.
+  - **Write-once** — never edit existing denote notes; create new ones instead.
+  - **Tag generously** — kind + topics make search useful.
