@@ -42,6 +42,9 @@ catalogs live in `docs/agent-ops.md`.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
 - Denote notes are write-once. Create a new note for additions.
+- To link notes, always use `bergheim/agent-denote-link`; never hand-write
+  `[[denote:ID]]` or a bare id (denote derives backlinks only from links its own
+  API emits, so a typed id never registers).
 - New custom `.org` files under `docs/` must use denote filenames:
   `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`.
 - Fixed files such as `docs/PROJECT.org` and `docs/TODO.org` are exceptions.

@@ -238,6 +238,47 @@ class TestSecretsManagement(unittest.TestCase):
         self.assertEqual(secrets["ANTHROPIC_API_KEY"], "sk-ant-from-pass")
         self.assertEqual(secrets["OPENAI_API_KEY"], "sk-openai-from-pass")
 
+    def test_default_config_has_gateway_settings(self):
+        from _jolo.constants import DEFAULT_CONFIG
+
+        cfg = DEFAULT_CONFIG
+        self.assertEqual(cfg["pi_primary_model"], "gateway/gemini-3.1-pro")
+        self.assertEqual(
+            cfg["pass_path_litellm_master"], "api/llm/litellm-master"
+        )
+        # Gateway address defaults empty; load_config folds in LITELLM_HOST.
+        self.assertEqual(cfg["litellm_base_url"], "")
+
+    def test_load_config_folds_litellm_host_env(self):
+        import _jolo.commands as commands
+
+        with mock.patch.dict(
+            os.environ, {"LITELLM_HOST": "http://gw.example:8088/"}, clear=True
+        ):
+            cfg = commands.load_config(
+                global_config_dir=Path("/nonexistent/jolo-global"),
+                project_dir=Path("/nonexistent/jolo-project"),
+            )
+        # env wins and the trailing slash is trimmed
+        self.assertEqual(cfg["litellm_base_url"], "http://gw.example:8088")
+
+    def test_get_secrets_includes_litellm_master_from_pass(self):
+        def mock_run(cmd, *args, **kwargs):
+            result = mock.Mock()
+            result.returncode = 0
+            result.stdout = (
+                "sk-litellm-master\n"
+                if "api/llm/litellm-master" in cmd
+                else "x\n"
+            )
+            return result
+
+        with mock.patch("shutil.which", return_value="/usr/bin/pass"):
+            with mock.patch("subprocess.run", side_effect=mock_run):
+                secrets = jolo.get_secrets()
+
+        self.assertEqual(secrets["LITELLM_MASTER_KEY"], "sk-litellm-master")
+
 
 class TestAddUserMounts(unittest.TestCase):
     """Test add_user_mounts() function."""
@@ -868,8 +909,8 @@ class TestPiLlamaConfig(unittest.TestCase):
         agent = ws / ".devcontainer" / ".pi-cache" / "agent"
         settings = json.loads((agent / "settings.json").read_text())
         # strong primary from DEFAULT_CONFIG["pi_primary_model"]
-        self.assertEqual(settings["defaultProvider"], "google")
-        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro-preview")
+        self.assertEqual(settings["defaultProvider"], "gateway")
+        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro")
         # llama is the worker, not the primary
         self.assertIn(
             "llama",
@@ -2064,6 +2105,271 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
         run_up_mode(self._args(recreate=True))
         self.backfill.assert_called_once()
         self.test_gate.assert_called_once()
+
+
+class TestLitellmKeys(unittest.TestCase):
+    """Per-project LiteLLM virtual key minting + caching."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.home = Path(self.tmpdir) / "home"
+        (self.home / ".config" / "jolo").mkdir(parents=True)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _urlopen_returning(self, key):
+        class FakeResp:
+            def __enter__(self_):
+                return self_
+
+            def __exit__(self_, *a):
+                return False
+
+            def read(self_):
+                return json.dumps({"key": key}).encode()
+
+        return lambda req, timeout=0: FakeResp()
+
+    def test_mints_and_caches_key(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch(
+                    "urllib.request.urlopen",
+                    self._urlopen_returning("sk-proj-abc"),
+                ):
+                    key = setup.ensure_litellm_project_key(
+                        "myproj", {"litellm_base_url": "http://gw:8088"}
+                    )
+        self.assertEqual(key, "sk-proj-abc")
+        store = json.loads(
+            (self.home / ".config" / "jolo" / "litellm-keys.json").read_text()
+        )
+        self.assertEqual(store["myproj"], "sk-proj-abc")
+
+    def test_reuses_cached_key_without_minting(self):
+        store_path = self.home / ".config" / "jolo" / "litellm-keys.json"
+        store_path.write_text(json.dumps({"myproj": "sk-cached"}))
+
+        def boom(*a, **k):
+            raise AssertionError("should not mint when cached")
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("urllib.request.urlopen", boom):
+                    key = setup.ensure_litellm_project_key(
+                        "myproj", {"litellm_base_url": "http://gw:8088"}
+                    )
+        self.assertEqual(key, "sk-cached")
+
+    def test_returns_none_without_master_key(self):
+        # gateway configured, but no master key in env -> graceful None
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                key = setup.ensure_litellm_project_key(
+                    "myproj", {"litellm_base_url": "http://gw:8088"}
+                )
+        self.assertIsNone(key)
+
+    def test_returns_none_without_gateway_url(self):
+        # master key present, but gateway address unset -> graceful None
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                key = setup.ensure_litellm_project_key(
+                    "myproj", {"litellm_base_url": ""}
+                )
+        self.assertIsNone(key)
+
+    def test_mint_failure_returns_none(self):
+        def raise_urlerror(*a, **k):
+            raise OSError("connection refused")
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("urllib.request.urlopen", raise_urlerror):
+                    key = setup.ensure_litellm_project_key(
+                        "myproj", {"litellm_base_url": "http://gw:8088"}
+                    )
+        self.assertIsNone(key)
+
+    def test_key_store_is_owner_only(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch(
+                    "urllib.request.urlopen",
+                    self._urlopen_returning("sk-proj"),
+                ):
+                    setup.ensure_litellm_project_key(
+                        "modeproj", {"litellm_base_url": "http://gw:8088"}
+                    )
+        path = self.home / ".config" / "jolo" / "litellm-keys.json"
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_setup_container_env_exports_virtual_key(self):
+        import _jolo.commands as commands
+        from _jolo.constants import DEFAULT_CONFIG
+
+        ws = Path(self.tmpdir) / "envproj"
+        (ws / ".devcontainer").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                with mock.patch.object(
+                    commands,
+                    "get_secrets",
+                    return_value={"LITELLM_MASTER_KEY": "sk-master"},
+                ):
+                    with mock.patch.object(
+                        commands,
+                        "ensure_litellm_project_key",
+                        return_value="sk-proj",
+                    ):
+                        with mock.patch.object(
+                            commands, "setup_credential_cache"
+                        ):
+                            with mock.patch.object(
+                                commands, "setup_notification_hooks"
+                            ):
+                                with mock.patch.object(
+                                    commands, "setup_emacs_config"
+                                ):
+                                    with mock.patch.object(
+                                        commands, "setup_stash"
+                                    ):
+                                        with mock.patch.object(
+                                            commands, "sync_skill_templates"
+                                        ):
+                                            commands._setup_container_env(
+                                                ws,
+                                                DEFAULT_CONFIG,
+                                            )
+                        self.assertEqual(
+                            os.environ.get("LITELLM_VIRTUAL_KEY"), "sk-proj"
+                        )
+
+
+class TestContainerEnvKeys(unittest.TestCase):
+    """containerEnv must not leak raw provider keys; routes via gateway."""
+
+    def _env(self):
+        import _jolo.container as container
+
+        cfg = json.loads(container.build_devcontainer_json("proj", port=4000))
+        return cfg["containerEnv"]
+
+    def test_no_raw_provider_keys(self):
+        env = self._env()
+        self.assertNotIn("ANTHROPIC_API_KEY", env)
+        self.assertNotIn("GEMINI_API_KEY", env)
+        # OPENAI_API_KEY is present but points at the virtual key, not a real key.
+        self.assertEqual(
+            env["OPENAI_API_KEY"], "${localEnv:LITELLM_VIRTUAL_KEY}"
+        )
+
+    def test_gateway_env_present(self):
+        env = self._env()
+        # Gateway address comes from the host env LITELLM_HOST (like LLAMA_HOST).
+        self.assertEqual(env["LITELLM_HOST"], "${localEnv:LITELLM_HOST}")
+        self.assertEqual(env["OPENAI_BASE_URL"], "${localEnv:LITELLM_HOST}/v1")
+        self.assertEqual(
+            env["LITELLM_VIRTUAL_KEY"], "${localEnv:LITELLM_VIRTUAL_KEY}"
+        )
+
+    def test_nanobanana_exception_retained(self):
+        env = self._env()
+        self.assertEqual(
+            env["NANOBANANA_GEMINI_API_KEY"], "${localEnv:GEMINI_API_KEY}"
+        )
+
+
+class TestPiGatewayConfig(unittest.TestCase):
+    """pi provider routes the cloud primary through the host LiteLLM gateway."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_writes_gateway_provider_with_virtual_key(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_primary_model": "gateway/gemini-3.1-pro",
+        }
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
+            ):
+                jolo.setup_credential_cache(ws, cfg)
+        models = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+            ).read_text()
+        )
+        gw = models["providers"]["gateway"]
+        self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
+        self.assertEqual(gw["apiKey"], "sk-proj")
+        self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
+
+    def test_no_gateway_provider_without_virtual_key(self):
+        ws = Path(self.tmpdir) / "project2"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+        models_path = (
+            ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+        )
+        models = (
+            json.loads(models_path.read_text()) if models_path.exists() else {}
+        )
+        self.assertNotIn("gateway", models.get("providers", {}))
+
+
+class TestLitellmGatewayReachable(unittest.TestCase):
+    """litellm_gateway_reachable degrades gracefully on any network error."""
+
+    def test_gateway_reachable_true_on_2xx(self):
+        class FakeResp:
+            status = 200
+
+            def __enter__(self_):
+                return self_
+
+            def __exit__(self_, *a):
+                return False
+
+            def read(self_):
+                return b"I'm alive!"
+
+        with mock.patch("urllib.request.urlopen", lambda *a, **k: FakeResp()):
+            self.assertTrue(setup.litellm_gateway_reachable("http://gw:8088"))
+
+    def test_gateway_reachable_false_on_error(self):
+        def boom(*a, **k):
+            raise OSError("refused")
+
+        with mock.patch("urllib.request.urlopen", boom):
+            self.assertFalse(setup.litellm_gateway_reachable("http://gw:8088"))
 
 
 if __name__ == "__main__":

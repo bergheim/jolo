@@ -23,6 +23,9 @@ DEFAULT_CODEX_REASONING_EFFORT = "high"
 PI_LLAMA_PROVIDER = "llama"
 PI_LLAMA_CONTEXT_WINDOW = 32768
 PI_LLAMA_MAX_TOKENS = 8192
+PI_GATEWAY_PROVIDER = "gateway"
+PI_GATEWAY_CONTEXT_WINDOW = 1_000_000
+PI_GATEWAY_MAX_TOKENS = 8192
 PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
     "qwen3-coder-next",
     "qwen3-coder",
@@ -395,6 +398,10 @@ def setup_credential_cache(
     pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
     _write_pi_primary(pi_cache, pi_primary)
 
+    gateway_base = (cfg or constants.DEFAULT_CONFIG).get("litellm_base_url")
+    virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
+    _write_pi_gateway_config(pi_cache, gateway_base, virtual_key, pi_primary)
+
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
         _write_pi_llama_config(pi_cache, llama_host, pi_primary)
@@ -432,6 +439,53 @@ def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
     settings["defaultProvider"] = provider
     settings["defaultModel"] = model
     write_json(settings_path, settings)
+
+
+def _write_pi_gateway_config(
+    pi_cache: Path,
+    base_url: str | None,
+    virtual_key: str,
+    primary: str | None,
+) -> None:
+    """Define a pi provider that routes the cloud primary through host LiteLLM.
+
+    Mirrors the llama provider shape. The virtual key (project-scoped, capped,
+    revocable) is written into the project-local pi cache — never a real key.
+    No-ops unless the primary is a "gateway/<model>" target and a key exists.
+    """
+    if not base_url or not virtual_key or not primary:
+        return
+    provider, _, model = primary.partition("/")
+    if provider != PI_GATEWAY_PROVIDER or not model:
+        return
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    models_path = agent_dir / "models.json"
+    models = _load_json_safe(models_path)
+    providers = models.setdefault("providers", {})
+    providers[PI_GATEWAY_PROVIDER] = {
+        "baseUrl": _llama_v1_base_url(base_url),
+        "api": "openai-completions",
+        "apiKey": virtual_key,
+        "models": [
+            {
+                "id": model,
+                "name": f"{model} (litellm)",
+                # gateway primary is a frontier reasoning model by default
+                "reasoning": True,
+                "input": ["text"],
+                "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
+                "maxTokens": PI_GATEWAY_MAX_TOKENS,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                },
+            }
+        ],
+    }
+    models_path.write_text(json.dumps(models, indent=2) + "\n")
 
 
 def _ensure_pi_delegation(pi_cache: Path) -> None:
@@ -1448,7 +1502,121 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
                 pass
         secrets["GH_TOKEN"] = gh_token
 
+    # LiteLLM master key — host-side only, used to mint per-project virtual keys.
+    # Never injected into a container.
+    if "LITELLM_MASTER_KEY" not in secrets:
+        master = ""
+        if pass_available:
+            try:
+                result = subprocess.run(
+                    ["pass", "show", config["pass_path_litellm_master"]],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    master = result.stdout.strip()
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+        secrets["LITELLM_MASTER_KEY"] = master or os.environ.get(
+            "LITELLM_MASTER_KEY", ""
+        )
+
     return secrets
+
+
+def _litellm_key_store_path() -> Path:
+    return Path.home() / ".config" / "jolo" / "litellm-keys.json"
+
+
+def _load_litellm_key_store() -> dict:
+    return _load_json_safe(_litellm_key_store_path())
+
+
+def _save_litellm_key_store(store: dict) -> None:
+    path = _litellm_key_store_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(store, indent=2) + "\n")
+    # Holds live virtual keys — keep it owner-only.
+    path.chmod(0o600)
+
+
+def _litellm_generate_key(
+    base_url: str, master_key: str, project_name: str, config: dict
+) -> str | None:
+    body = {
+        "key_alias": f"jolo-{project_name}",
+        "max_budget": config.get("litellm_key_max_budget"),
+        "budget_duration": config.get("litellm_key_budget_duration"),
+        "metadata": {"project": project_name, "source": "jolo"},
+    }
+    models = config.get("litellm_key_models") or []
+    if models:
+        body["models"] = models
+    req = urllib.request.Request(
+        base_url.rstrip("/") + "/key/generate",
+        data=json.dumps(body).encode(),
+        headers={
+            "Authorization": f"Bearer {master_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+    except (
+        OSError,
+        TimeoutError,
+        urllib.error.URLError,
+        json.JSONDecodeError,
+    ) as e:
+        print(
+            f"Warning: LiteLLM key mint failed for {project_name}: {e}",
+            file=sys.stderr,
+        )
+        return None
+    key = data.get("key")
+    return key if isinstance(key, str) and key else None
+
+
+def ensure_litellm_project_key(
+    project_name: str, cfg: dict | None = None
+) -> str | None:
+    """Return the project's LiteLLM virtual key, minting + caching it once.
+
+    LiteLLM only reveals a key's secret at creation, so jolo caches it per
+    project in ~/.config/jolo/litellm-keys.json and reuses it across launches
+    and worktrees (stable keys keep spend attribution clean). Returns None
+    (graceful) if the gateway base URL or master key is absent, or if minting
+    fails — the caller then launches without a cloud key.
+    """
+    config = cfg or constants.DEFAULT_CONFIG
+    base_url = config.get("litellm_base_url")
+    master_key = os.environ.get("LITELLM_MASTER_KEY")
+    if not base_url or not master_key:
+        return None
+    store = _load_litellm_key_store()
+    existing = store.get(project_name)
+    if isinstance(existing, str) and existing:
+        return existing
+    key = _litellm_generate_key(base_url, master_key, project_name, config)
+    if key:
+        store[project_name] = key
+        _save_litellm_key_store(store)
+    return key
+
+
+def litellm_gateway_reachable(base_url: str) -> bool:
+    """True if the LiteLLM gateway answers its liveness probe."""
+    if not base_url:
+        return False
+    url = base_url.rstrip("/") + "/health/liveliness"
+    try:
+        with urllib.request.urlopen(url, timeout=3):
+            return True
+    except (OSError, TimeoutError, urllib.error.URLError):
+        return False
 
 
 def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:

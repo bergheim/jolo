@@ -54,7 +54,12 @@ Filter a find by content query:
 emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
 ```
 
-Link notes:
+Link notes. This is the only sanctioned way to link — never hand-write
+`[[denote:ID]]` or a bare identifier in body text. It calls denote's
+`denote-format-link` for correct syntax, is idempotent (skips already-linked
+targets), and appends a `* Related notes` section. Denote derives backlinks from
+these forward links, so a hand-typed id silently fails to register and reverse
+links are never written (write-once):
 
 ```bash
 emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'

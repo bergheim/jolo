@@ -59,8 +59,10 @@ from _jolo.setup import (
     copy_template_files,
     copy_user_files,
     ensure_lighthouse_run_script,
+    ensure_litellm_project_key,
     ensure_test_gate_script,
     get_secrets,
+    litellm_gateway_reachable,
     scaffold_devcontainer,
     setup_credential_cache,
     setup_emacs_config,
@@ -258,6 +260,9 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     """Set up secrets, credentials, hooks, and Emacs config for a container."""
     secrets = get_secrets(config)
     os.environ.update(secrets)
+    virtual_key = ensure_litellm_project_key(workspace.name, config)
+    if virtual_key:
+        os.environ["LITELLM_VIRTUAL_KEY"] = virtual_key
     setup_credential_cache(workspace, config)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
@@ -298,6 +303,12 @@ def load_config(
         with open(project_config_file, "rb") as f:
             project_cfg = tomllib.load(f)
             config.update(project_cfg)
+
+    # The gateway address is host-specific; the LITELLM_HOST env overrides the
+    # configured value here so the rest of the code reads it from config alone.
+    env_gateway = os.environ.get("LITELLM_HOST")
+    if env_gateway:
+        config["litellm_base_url"] = env_gateway.rstrip("/")
 
     return config
 
@@ -996,6 +1007,13 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
             else "missing"
         )
         check(key, bool(val), source)
+
+    base_url = config.get("litellm_base_url", "")
+    check(
+        "LiteLLM gateway",
+        litellm_gateway_reachable(base_url),
+        base_url or "unset",
+    )
 
     # gh auth
     gh_result = subprocess.run(

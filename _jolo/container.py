@@ -110,9 +110,21 @@ def build_devcontainer_json(
             "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/tmp/container-runtime/bus",
-            "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
-            "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
-            "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}",
+            # Provider keys no longer enter the container. pi + first-party
+            # OpenAI/OpenRouter usage route through the host LiteLLM gateway with
+            # a per-project virtual key that is useless off-host. Subscription
+            # agents (claude/codex/gemini) authenticate via mounted OAuth.
+            # LITELLM_HOST is the host gateway base URL (tailnet, like LLAMA_HOST),
+            # set on the host; OPENAI_BASE_URL is derived from it.
+            "LITELLM_HOST": "${localEnv:LITELLM_HOST}",
+            "OPENAI_BASE_URL": "${localEnv:LITELLM_HOST}/v1",
+            # Same virtual key under both names: OpenAI-native clients read
+            # OPENAI_API_KEY; pi reads LITELLM_VIRTUAL_KEY.
+            "OPENAI_API_KEY": "${localEnv:LITELLM_VIRTUAL_KEY}",
+            "LITELLM_VIRTUAL_KEY": "${localEnv:LITELLM_VIRTUAL_KEY}",
+            # Documented raw-key exception: the nanobanana image-gen MCP server
+            # hardcodes the Google endpoint and cannot use the gateway. Pulls the
+            # host's GEMINI_API_KEY directly.
             "NANOBANANA_GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}",
             "GH_TOKEN": "${localEnv:GH_TOKEN}",
             "PORT": str(port),

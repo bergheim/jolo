@@ -42,7 +42,7 @@ Trivial typo/TODO/comment edits may proceed without a plan. If unsure, plan.
 This is core to how we work. We capture knowledge as org notes written through
 `emacsclient`, never by hand. Denote owns naming: you pass a title and keywords,
 and it derives the filename — so these helpers are the only correct way to
-create and find notes.
+create, find, and link notes.
 
 ```bash
 # create a note (quoted list = filename keywords: kind, topics)
@@ -52,10 +52,19 @@ emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
 emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
 # scan stash notes (cross-project, host-level)
 emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
+# link notes — the ONLY way to link; never hand-write [[denote:ID]] or a bare id
+emacsclient -e '(bergheim/agent-denote-link "/abs/source.org" (quote ("/abs/target.org")))'
 ```
 
+To link one note to another, always call `bergheim/agent-denote-link` — never
+type `[[denote:ID]]` or a bare identifier into body text. Denote derives
+backlinks only from links its own API emits, so a hand-typed id silently fails
+to register as a backlink; never add reverse links by hand (write-once). Find
+relevant targets first with `agent-denote-find`, then link forward; backlinks
+follow automatically.
+
 Where a note goes (stash vs `docs/notes`) and write-once rules are in
-[Files and Docs](#files-and-docs); less-common forms (link, batch) live in
+[Files and Docs](#files-and-docs); batch and other forms live in
 `docs/agent-ops.md`.
 
 ## Project Priorities
