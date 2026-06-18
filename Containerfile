@@ -196,6 +196,7 @@ RUN mkdir -p $HOME/.local/bin && \
     (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
     (curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
+    (curl -fsSL https://antigravity.google/cli/install.sh | bash) & pids="$pids $!" && \
     (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
@@ -224,6 +225,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo 'alias claude="env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias antigravity="agy"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
     echo "alias icat='kitten icat'" >> $HOME/.zshrc.container && \

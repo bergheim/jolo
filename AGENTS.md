@@ -160,6 +160,7 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 | Launch detached | `jolo up -d` |
 | Create worktree container | `jolo tree <slug>` |
 | Dispatch autonomous TODOs | `jolo autonomous --dry-run` first |
+| Launch Antigravity TUI | `agy` |
 
 System Python is externally managed on Alpine; use `uv` or the just recipes for
 Python tests.

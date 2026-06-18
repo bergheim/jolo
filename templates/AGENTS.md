@@ -106,6 +106,7 @@ Helper examples are in `docs/agent-ops.md`.
 | Add dependency | `just add NAME` |
 | Manage worktrees | `just wt` |
 | Run performance probe | `just perf` |
+| Launch Antigravity TUI | `agy` |
 
 ## Git
 
