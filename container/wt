@@ -2,13 +2,19 @@
 set -e
 
 # wt — lightweight in-container worktree manager
-# Creates git worktrees at /workspaces/<name> as windows (wt:<name>) in the
-# current tmux session. Switch with `wt <name>` or tmux's `C-b w` / `C-b <n>`.
+# Creates git worktrees under $WORKSPACE/.worktrees/<name> as windows
+# (wt:<name>) in the current tmux session. Switch with `wt <name>` or tmux's
+# `C-b w` / `C-b <n>`.
 
 ADJECTIVES="brave swift calm bold keen wild warm cool fair wise"
 NOUNS="panda falcon river mountain oak wolf hawk cedar fox bear"
 
 WS="${WORKSPACE_FOLDER:-$(pwd)}"
+# Worktrees live under the main workspace, which is bind-mounted from the host
+# and survives container rebuilds. A bare /workspaces/<name> sits on the
+# container's ephemeral overlay and gets nuked on recreate (the branch refs in
+# $WS/.git persist, but the working dir vanishes).
+WT_BASE="$WS/.worktrees"
 
 usage() {
     cat <<EOF
@@ -42,6 +48,22 @@ window_name() {
     echo "wt:$1"
 }
 
+branch_exists() {
+    git -C "$WS" show-ref --verify --quiet "refs/heads/$1"
+}
+
+# Keep .worktrees/ out of the main repo's view: it lives inside the working
+# tree now, so without this it shows as untracked and gets walked by rg/agents.
+# Written to info/exclude (per-repo, persistent, no commit). Idempotent.
+ensure_worktree_excluded() {
+    git_common=$(git -C "$WS" rev-parse --git-common-dir 2>/dev/null) || return 0
+    case "$git_common" in /*) ;; *) git_common="$WS/$git_common" ;; esac
+    exclude="$git_common/info/exclude"
+    mkdir -p "$git_common/info"
+    grep -qxF '.worktrees/' "$exclude" 2>/dev/null && return 0
+    printf '.worktrees/\n' >>"$exclude"
+}
+
 # In a list-windows snapshot (`#{window_id} #{window_name}` per line, $2 above),
 # echo the id of the row whose name equals $1, or nothing. tmux window names
 # aren't unique and `-t "=name"` picks the lowest index, so resolve to id and
@@ -66,16 +88,17 @@ kill_window() {
     [ -n "$1" ] && tmux kill-window -t "$1" 2>/dev/null || true
 }
 
-# Print "name<TAB>branch" for each /workspaces/* worktree except the main WS.
-# Used to feed fzf or to count candidates.
+# Print "name<TAB>branch" for each worktree under $WT_BASE. Used to feed fzf or
+# to count candidates. The main WS is excluded automatically — it sits above
+# $WT_BASE, not under it.
 list_worktree_candidates() {
-    git -C "$WS" worktree list --porcelain | awk -v ws="$WS" '
+    git -C "$WS" worktree list --porcelain | awk -v base="$WT_BASE/" '
         /^worktree / { path=$2; next }
         /^branch refs\/heads\// {
             sub(/^refs\/heads\//, "", $2); branch=$2; next
         }
         /^$/ {
-            if (path && branch && path != ws && path ~ /^\/workspaces\//) {
+            if (path && branch && index(path, base) == 1) {
                 n = split(path, parts, "/")
                 printf "%s\t%s\n", parts[n], branch
             }
@@ -109,7 +132,7 @@ pick_worktree() {
     # {2}=branch (fzf shell-quotes both, so they slot in safely as words).
     # stderr → stdout so any git errors are visible inside the preview pane
     # instead of vanishing.
-    preview='p=/workspaces/{1}; t='"$target"'; br={2};'
+    preview='p='"$WT_BASE"'/{1}; t='"$target"'; br={2};'
     preview="$preview"' ahead=$(git -C "$p" rev-list --count "$t..$br" 2>&1);'
     preview="$preview"' echo "branch: $br";'
     preview="$preview"' echo "target: $t  (ahead by $ahead commit(s))";'
@@ -127,18 +150,15 @@ pick_worktree() {
     printf '%s\n' "$selected" | awk -F'\t' '{print $1}'
 }
 
-# If cwd is /workspaces/<name>(/...) where <name> != main workspace, echo
-# <name>. Otherwise echo nothing. Used to default `wt sync`/`wt rm` to the
-# worktree you're standing in, and to refuse `wt land` from inside the
-# worktree being landed.
+# If cwd is $WT_BASE/<name>(/...), echo <name>. Otherwise echo nothing. Used to
+# default `wt sync`/`wt rm` to the worktree you're standing in, and to refuse
+# `wt land` from inside the worktree being landed.
 current_worktree_name() {
-    case "$PWD" in
-        /workspaces/*)
-            rest="${PWD#/workspaces/}"
+    case "$PWD/" in
+        "$WT_BASE"/*)
+            rest="${PWD#"$WT_BASE"/}"
             cwd_name="${rest%%/*}"
-            ws_base="${WS##*/}"
-            if [ -n "$cwd_name" ] && [ "$cwd_name" != "$ws_base" ] \
-               && [ -d "/workspaces/$cwd_name" ]; then
+            if [ -n "$cwd_name" ] && [ -d "$WT_BASE/$cwd_name" ]; then
                 printf '%s\n' "$cwd_name"
             fi
             ;;
@@ -175,7 +195,7 @@ resolve_target_branch() {
 create_window() {
     name="$1"
     prompt="$2"
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
     win=$(window_name "$name")
 
     if [ -n "$prompt" ]; then
@@ -216,12 +236,15 @@ cmd_new() {
 
     require_tmux
 
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
 
     if [ -d "$wt_path" ]; then
         echo "error: worktree already exists at $wt_path" >&2
         exit 1
     fi
+
+    ensure_worktree_excluded
+    mkdir -p "$WT_BASE"
 
     # Create the worktree
     if [ -n "$from_ref" ]; then
@@ -236,7 +259,7 @@ cmd_new() {
 
 cmd_switch() {
     name="$1"
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
 
     require_tmux
 
@@ -244,6 +267,16 @@ cmd_switch() {
     if [ -n "$wid" ]; then
         tmux select-window -t "$wid"
     elif [ -d "$wt_path" ]; then
+        create_window "$name" ""
+    elif branch_exists "$name"; then
+        # Dir gone (e.g. a pre-persistence worktree nuked on container rebuild)
+        # but the branch survived in $WS/.git. Re-materialize it from the branch,
+        # then open it. prune first to clear the dead registration so add works.
+        echo "worktree '$name' missing — re-materializing from branch '$name'" >&2
+        ensure_worktree_excluded
+        mkdir -p "$WT_BASE"
+        git -C "$WS" worktree prune
+        git -C "$WS" worktree add "$wt_path" "$name"
         create_window "$name" ""
     else
         echo "error: no worktree '$name' found" >&2
@@ -273,16 +306,13 @@ cmd_list() {
     # spaces; column treats consecutive tabs as one delimiter.
     git -C "$WS" worktree list --porcelain | while IFS= read -r line; do
         case "$line" in
-            "worktree /workspaces/"*)
+            # Only worktrees under $WT_BASE; the main WS sits above it and is
+            # excluded automatically. A registered-but-missing dir (its working
+            # tree got nuked on container rebuild) still lists here — that's the
+            # point: the user sees it and can `wt switch` to re-materialize it.
+            "worktree $WT_BASE/"*)
                 wt_path="${line#worktree }"
                 wt_name="${wt_path##*/}"
-                # Skip the main workspace. Clear wt_name so the next
-                # blank-line iteration doesn't print stale data.
-                ws_base="${WS##*/}"
-                if [ "$wt_name" = "$ws_base" ]; then
-                    wt_name=""
-                    branch=""
-                fi
                 ;;
             "branch refs/heads/"*)
                 branch="${line#branch refs/heads/}"
@@ -348,7 +378,7 @@ cmd_land() {
         name=$(pick_worktree "land") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
     fi
 
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
     [ ! -d "$wt_path" ] && { echo "error: no worktree '$name' found" >&2; exit 1; }
 
     if [ "$(current_worktree_name)" = "$name" ]; then
@@ -409,7 +439,7 @@ cmd_sync() {
         name=$(pick_worktree "sync") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
     fi
 
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
     [ ! -d "$wt_path" ] && { echo "error: no worktree '$name' found" >&2; exit 1; }
 
     assert_worktree_clean "$wt_path" "worktree '$name'"
@@ -431,7 +461,7 @@ cmd_delete() {
     if [ -z "$name" ]; then
         name=$(pick_worktree "rm") || { echo "error: name required (and no worktree picked)" >&2; exit 1; }
     fi
-    wt_path="/workspaces/$name"
+    wt_path="$WT_BASE/$name"
     wid=$(wt_window_id "$name")
 
     # Stale path: just prune refs and tear down the window.
