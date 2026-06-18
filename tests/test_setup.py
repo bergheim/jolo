@@ -242,7 +242,7 @@ class TestSecretsManagement(unittest.TestCase):
         from _jolo.constants import DEFAULT_CONFIG
 
         cfg = DEFAULT_CONFIG
-        self.assertEqual(cfg["pi_primary_model"], "gateway/gemini-3.1-pro")
+        self.assertEqual(cfg["pi_primary_model"], "gateway/gemini-3.5-flash")
         self.assertEqual(
             cfg["pass_path_litellm_master"], "api/llm/litellm-master"
         )
@@ -910,7 +910,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         settings = json.loads((agent / "settings.json").read_text())
         # strong primary from DEFAULT_CONFIG["pi_primary_model"]
         self.assertEqual(settings["defaultProvider"], "gateway")
-        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro")
+        self.assertEqual(settings["defaultModel"], "gemini-3.5-flash")
         # llama is the worker, not the primary
         self.assertIn(
             "llama",

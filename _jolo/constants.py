@@ -46,7 +46,7 @@ DEFAULT_CONFIG = {
     # Strong model that drives pi as primary, served through the host LiteLLM
     # gateway. The local llama model runs as a worker subagent.
     # "gateway/<model>" must match a model_name in the gateway config.
-    "pi_primary_model": "gateway/gemini-3.1-pro",
+    "pi_primary_model": "gateway/gemini-3.5-flash",
     # LiteLLM control-plane gateway base URL. Default empty; load_config()
     # populates it from the host env LITELLM_HOST (e.g. http://<tailnet-host>:8088),
     # so the rest of the code just reads config. Real provider keys live only in
