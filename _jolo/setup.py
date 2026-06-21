@@ -300,6 +300,22 @@ def setup_credential_cache(
     agy_settings_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(agy_settings_path, agy_settings, newline=False)
 
+    # agy gates its first-run theme/telemetry prompts on this marker (not on
+    # settings.json), so mark onboarding complete or it prompts every rebuild.
+    agy_onboarding_path = (
+        gemini_cache / "antigravity-cli" / "cache" / "onboarding.json"
+    )
+    agy_onboarding_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(
+        agy_onboarding_path,
+        {
+            "consumerOnboardingComplete": True,
+            "enterpriseOnboardingComplete": False,
+            "onboardingComplete": True,
+        },
+        newline=False,
+    )
+
     # Extensions and enablement config
     extensions_src = gemini_dir / "extensions"
     if extensions_src.is_dir():

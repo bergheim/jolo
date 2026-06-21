@@ -911,6 +911,19 @@ class TestPersistentCredentialStore(unittest.TestCase):
         self.assertEqual(data["colorScheme"], "light")
         self.assertEqual(data["enableTelemetry"], False)
 
+    def test_marks_agy_onboarding_complete(self):
+        """agy gates its first-run theme/telemetry prompts on
+        cache/onboarding.json, not settings.json — so we must mark it done."""
+        self._run()
+
+        onboarding = (
+            self.cache / "antigravity-cli" / "cache" / "onboarding.json"
+        )
+        self.assertTrue(onboarding.exists())
+        data = json.loads(onboarding.read_text())
+        self.assertTrue(data["onboardingComplete"])
+        self.assertTrue(data["consumerOnboardingComplete"])
+
     def test_agy_defaults_reset_on_rebuild(self):
         """The cache is wiped each rebuild, so agy prefs are re-baked to the
         defaults (no stale dark/telemetry-on survives)."""
