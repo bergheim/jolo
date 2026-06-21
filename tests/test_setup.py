@@ -823,6 +823,97 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertEqual(len(dir_mounts), 0)
 
 
+class TestPersistentCredentialStore(unittest.TestCase):
+    """OAuth tokens (agy, gemini) round-trip through ~/.config/jolo so they
+    survive .gemini-cache rebuilds across containers."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.home = Path(self.tmpdir) / "home"
+        self.home.mkdir(parents=True)
+        self.ws = Path(self.tmpdir) / "project"
+        self.ws.mkdir()
+        self.store = self.home / ".config" / "jolo"
+        self.cache = self.ws / ".devcontainer" / ".gemini-cache"
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            jolo.setup_credential_cache(self.ws)
+
+    @staticmethod
+    def _stamp(path: Path, mtime: float):
+        os.utime(path, (mtime, mtime))
+
+    def test_seeds_fresh_cache_from_store(self):
+        """A new container's cache is seeded from the shared store."""
+        self.store.mkdir(parents=True)
+        (self.store / "antigravity-oauth-token").write_text('{"token": "agy"}')
+        (self.store / "gemini-credentials.json").write_text("gemini-blob")
+
+        self._run()
+
+        agy = self.cache / "antigravity-cli" / "antigravity-oauth-token"
+        gem = self.cache / "gemini-credentials.json"
+        self.assertTrue(agy.exists())
+        self.assertEqual(agy.read_text(), '{"token": "agy"}')
+        self.assertEqual(gem.read_text(), "gemini-blob")
+
+    def test_writes_back_refreshed_token_before_clear(self):
+        """A token refreshed inside a container is copied up before the cache
+        is wiped, and survives into the rebuilt cache."""
+        self.store.mkdir(parents=True)
+        old = self.store / "antigravity-oauth-token"
+        old.write_text('{"token": "old"}')
+        self._stamp(old, 1000)
+
+        agy_cache = self.cache / "antigravity-cli"
+        agy_cache.mkdir(parents=True)
+        fresh = agy_cache / "antigravity-oauth-token"
+        fresh.write_text('{"token": "fresh"}')
+        self._stamp(fresh, 2000)
+
+        self._run()
+
+        self.assertEqual(old.read_text(), '{"token": "fresh"}')
+        seeded = self.cache / "antigravity-cli" / "antigravity-oauth-token"
+        self.assertEqual(seeded.read_text(), '{"token": "fresh"}')
+
+    def test_does_not_clobber_newer_store(self):
+        """An older cache token must not overwrite a newer shared store."""
+        self.store.mkdir(parents=True)
+        store_tok = self.store / "antigravity-oauth-token"
+        store_tok.write_text('{"token": "store-new"}')
+        self._stamp(store_tok, 2000)
+
+        agy_cache = self.cache / "antigravity-cli"
+        agy_cache.mkdir(parents=True)
+        stale = agy_cache / "antigravity-oauth-token"
+        stale.write_text('{"token": "cache-old"}')
+        self._stamp(stale, 1000)
+
+        self._run()
+
+        self.assertEqual(store_tok.read_text(), '{"token": "store-new"}')
+
+    def test_copies_gemini_credentials_from_host(self):
+        """Host gemini-credentials.json (renamed from oauth_creds.json) is
+        copied into the cache."""
+        gemini_dir = self.home / ".gemini"
+        gemini_dir.mkdir(parents=True)
+        (gemini_dir / "gemini-credentials.json").write_text("host-gemini")
+
+        self._run()
+
+        gem = self.cache / "gemini-credentials.json"
+        self.assertTrue(gem.exists())
+        self.assertEqual(gem.read_text(), "host-gemini")
+
+
 class TestPiLlamaConfig(unittest.TestCase):
     """Test Pi local llama.cpp provider setup."""
 

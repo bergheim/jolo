@@ -244,6 +244,31 @@ def setup_credential_cache(
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
+
+    # OAuth tokens that must survive cache rebuilds across containers. The host
+    # keeps these in the Secret Service keyring (no file), so containers
+    # file-fall-back and the live token only exists in this project's cache.
+    # Round-trip each through a shared host store: write back any token a
+    # container refreshed (before we wipe the cache), then re-seed below.
+    jolo_store = home / ".config" / "jolo"
+    persistent_creds = [
+        (
+            gemini_cache / "gemini-credentials.json",
+            jolo_store / "gemini-credentials.json",
+        ),
+        (
+            gemini_cache / "antigravity-cli" / "antigravity-oauth-token",
+            jolo_store / "antigravity-oauth-token",
+        ),
+    ]
+    for cache_token, store_token in persistent_creds:
+        if cache_token.exists() and (
+            not store_token.exists()
+            or cache_token.stat().st_mtime > store_token.stat().st_mtime
+        ):
+            store_token.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cache_token, store_token)
+
     if gemini_cache.exists():
         clear_directory_contents(gemini_cache)
     else:
@@ -253,11 +278,18 @@ def setup_credential_cache(
     for filename in [
         "settings.json",
         "google_accounts.json",
-        "oauth_creds.json",
+        "gemini-credentials.json",
     ]:
         src = gemini_dir / filename
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
+
+    # Seed from the shared store last so it wins over any stale host file
+    # (the store is the authoritative cross-container copy).
+    for cache_token, store_token in persistent_creds:
+        if store_token.exists():
+            cache_token.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(store_token, cache_token)
 
     # Extensions and enablement config
     extensions_src = gemini_dir / "extensions"
