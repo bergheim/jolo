@@ -247,6 +247,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo 'alias claude="env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias agy="agy --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
     echo "alias icat='kitten icat'" >> $HOME/.zshrc.container && \
