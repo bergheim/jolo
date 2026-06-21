@@ -251,28 +251,30 @@ def setup_credential_cache(
     # Round-trip each through a shared host store: write back any token a
     # container refreshed (before we wipe the cache), then re-seed below.
     jolo_store = home / ".config" / "jolo"
+    agy_dir = gemini_cache / "antigravity-cli"
     persistent_creds = [
         (
             gemini_cache / "gemini-credentials.json",
             jolo_store / "gemini-credentials.json",
         ),
         (
-            gemini_cache / "antigravity-cli" / "antigravity-oauth-token",
+            agy_dir / "antigravity-oauth-token",
             jolo_store / "antigravity-oauth-token",
         ),
     ]
+    jolo_store.mkdir(parents=True, exist_ok=True)
     for cache_token, store_token in persistent_creds:
         if cache_token.exists() and (
             not store_token.exists()
             or cache_token.stat().st_mtime > store_token.stat().st_mtime
         ):
-            store_token.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(cache_token, store_token)
 
     if gemini_cache.exists():
         clear_directory_contents(gemini_cache)
     else:
         gemini_cache.mkdir(parents=True)
+    agy_dir.mkdir(parents=True, exist_ok=True)
 
     gemini_dir = home / ".gemini"
     for filename in [
@@ -288,26 +290,20 @@ def setup_credential_cache(
     # (the store is the authoritative cross-container copy).
     for cache_token, store_token in persistent_creds:
         if store_token.exists():
-            cache_token.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(store_token, cache_token)
 
-    # Bake agy (Antigravity CLI) defaults so a fresh container doesn't prompt
-    # on first launch: light theme, telemetry off (forced — we say no).
-    agy_settings_path = gemini_cache / "antigravity-cli" / "settings.json"
-    agy_settings = _load_json_safe(agy_settings_path)
-    agy_settings.setdefault("colorScheme", "light")
-    agy_settings["enableTelemetry"] = False
-    agy_settings_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(agy_settings_path, agy_settings, newline=False)
-
-    # agy gates its first-run theme/telemetry prompts on this marker (not on
-    # settings.json), so mark onboarding complete or it prompts every rebuild.
-    agy_onboarding_path = (
-        gemini_cache / "antigravity-cli" / "cache" / "onboarding.json"
-    )
-    agy_onboarding_path.parent.mkdir(parents=True, exist_ok=True)
+    # Bake agy (Antigravity CLI) first-run defaults so a fresh container never
+    # prompts: light theme, telemetry off (forced — we say no), and onboarding
+    # marked done. agy gates the prompts on cache/onboarding.json, NOT on
+    # settings.json, so both files are required.
     write_json(
-        agy_onboarding_path,
+        agy_dir / "settings.json",
+        {"colorScheme": "light", "enableTelemetry": False},
+        newline=False,
+    )
+    (agy_dir / "cache").mkdir(exist_ok=True)
+    write_json(
+        agy_dir / "cache" / "onboarding.json",
         {
             "consumerOnboardingComplete": True,
             "enterpriseOnboardingComplete": False,
