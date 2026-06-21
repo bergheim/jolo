@@ -900,6 +900,32 @@ class TestPersistentCredentialStore(unittest.TestCase):
 
         self.assertEqual(store_tok.read_text(), '{"token": "store-new"}')
 
+    def test_bakes_agy_settings_defaults(self):
+        """Fresh cache gets agy defaults (light theme, telemetry off) so a new
+        container doesn't prompt on first launch."""
+        self._run()
+
+        agy_settings = self.cache / "antigravity-cli" / "settings.json"
+        self.assertTrue(agy_settings.exists())
+        data = json.loads(agy_settings.read_text())
+        self.assertEqual(data["colorScheme"], "light")
+        self.assertEqual(data["enableTelemetry"], False)
+
+    def test_agy_defaults_reset_on_rebuild(self):
+        """The cache is wiped each rebuild, so agy prefs are re-baked to the
+        defaults (no stale dark/telemetry-on survives)."""
+        agy_dir = self.cache / "antigravity-cli"
+        agy_dir.mkdir(parents=True)
+        (agy_dir / "settings.json").write_text(
+            '{"colorScheme": "dark", "enableTelemetry": true}'
+        )
+
+        self._run()
+
+        data = json.loads((agy_dir / "settings.json").read_text())
+        self.assertEqual(data["enableTelemetry"], False)
+        self.assertEqual(data["colorScheme"], "light")
+
     def test_copies_gemini_credentials_from_host(self):
         """Host gemini-credentials.json (renamed from oauth_creds.json) is
         copied into the cache."""

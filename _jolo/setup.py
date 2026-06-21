@@ -291,6 +291,15 @@ def setup_credential_cache(
             cache_token.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(store_token, cache_token)
 
+    # Bake agy (Antigravity CLI) defaults so a fresh container doesn't prompt
+    # on first launch: light theme, telemetry off (forced — we say no).
+    agy_settings_path = gemini_cache / "antigravity-cli" / "settings.json"
+    agy_settings = _load_json_safe(agy_settings_path)
+    agy_settings.setdefault("colorScheme", "light")
+    agy_settings["enableTelemetry"] = False
+    agy_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(agy_settings_path, agy_settings, newline=False)
+
     # Extensions and enablement config
     extensions_src = gemini_dir / "extensions"
     if extensions_src.is_dir():
