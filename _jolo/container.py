@@ -137,6 +137,9 @@ def build_devcontainer_json(
             "NTFY_TOPIC": "jolo",
             "NTFY_SERVER": "${localEnv:NTFY_SERVER}",
             "LLAMA_HOST": "${localEnv:LLAMA_HOST}",
+            # Hermes Agent control/API endpoint on the services host (tailnet),
+            # passthrough only — set HERMES_HOST in the host login env, like LLAMA_HOST.
+            "HERMES_HOST": "${localEnv:HERMES_HOST}",
             "PYROSCOPE_HOST": "${localEnv:PYROSCOPE_HOST}",
             "PGHOST": "/tmp",
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
