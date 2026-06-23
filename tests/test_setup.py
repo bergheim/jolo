@@ -2522,6 +2522,68 @@ class TestPiGatewayConfig(unittest.TestCase):
         self.assertNotIn("gateway", models.get("providers", {}))
 
 
+class TestPiCodexWorker(unittest.TestCase):
+    """pi delegates hard coding to a gateway-served codex specialist subagent."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run(self, cfg, env):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, env, clear=True):
+                jolo.setup_credential_cache(ws, cfg)
+        return ws / ".devcontainer" / ".pi-cache" / "agent"
+
+    def test_writes_codex_worker_and_registers_model(self):
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_primary_model": "gateway/gemini-3.1-pro",
+            "pi_codex_model": "gateway/gpt-5.5",
+        }
+        agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
+
+        worker = (agent / "agents" / "codex.md").read_text()
+        self.assertIn("name: codex", worker)
+        self.assertIn("model: gateway/gpt-5.5", worker)
+
+        gw = json.loads((agent / "models.json").read_text())["providers"][
+            "gateway"
+        ]
+        self.assertIn("gpt-5.5", [m["id"] for m in gw["models"]])
+
+        self.assertIn("codex", (agent / "delegation.md").read_text())
+
+    def test_no_codex_worker_without_gateway(self):
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_codex_model": "gateway/gpt-5.5",
+        }
+        agent = self._run(cfg, {})  # no virtual key -> no gateway
+        self.assertFalse((agent / "agents" / "codex.md").exists())
+
+    def test_codex_model_not_duplicated_when_already_present(self):
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_primary_model": "gateway/gpt-5.5",
+            "pi_codex_model": "gateway/gpt-5.5",
+        }
+        agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
+        gw = json.loads((agent / "models.json").read_text())["providers"][
+            "gateway"
+        ]
+        ids = [m["id"] for m in gw["models"]]
+        self.assertEqual(ids.count("gpt-5.5"), 1)
+
+
 class TestLitellmGatewayReachable(unittest.TestCase):
     """litellm_gateway_reachable degrades gracefully on any network error."""
 
