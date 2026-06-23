@@ -494,6 +494,25 @@ def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
     write_json(settings_path, settings)
 
 
+def _pi_model_entry(
+    model_id: str,
+    label: str,
+    reasoning: bool,
+    context_window: int,
+    max_tokens: int,
+) -> dict:
+    """A pi models.json entry. Shared by the gateway and llama providers."""
+    return {
+        "id": model_id,
+        "name": f"{model_id} ({label})",
+        "reasoning": reasoning,
+        "input": ["text"],
+        "contextWindow": context_window,
+        "maxTokens": max_tokens,
+        "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+    }
+
+
 def _write_pi_gateway_config(
     pi_cache: Path,
     base_url: str | None,
@@ -520,29 +539,22 @@ def _write_pi_gateway_config(
         provider, _, model = (primary or "").partition("/")
         if provider != PI_GATEWAY_PROVIDER or not model:
             return
+        # gateway primary defaults to a frontier reasoning model
         gateway = providers[PI_GATEWAY_PROVIDER] = {
             "api": "openai-completions",
             "models": [
-                {
-                    "id": model,
-                    "name": f"{model} (litellm)",
-                    # gateway primary is a frontier reasoning model by default
-                    "reasoning": True,
-                    "input": ["text"],
-                    "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
-                    "maxTokens": PI_GATEWAY_MAX_TOKENS,
-                    "cost": {
-                        "input": 0,
-                        "output": 0,
-                        "cacheRead": 0,
-                        "cacheWrite": 0,
-                    },
-                }
+                _pi_model_entry(
+                    model,
+                    "litellm",
+                    True,
+                    PI_GATEWAY_CONTEXT_WINDOW,
+                    PI_GATEWAY_MAX_TOKENS,
+                )
             ],
         }
     gateway["baseUrl"] = _llama_v1_base_url(base_url)
     gateway["apiKey"] = virtual_key
-    models_path.write_text(json.dumps(models, indent=2) + "\n")
+    write_json(models_path, models)
 
 
 def _ensure_pi_delegation(pi_cache: Path) -> None:
@@ -674,20 +686,13 @@ def _write_pi_llama_config(
             "maxTokensField": "max_tokens",
         },
         "models": [
-            {
-                "id": model_id,
-                "name": f"{model_id} (llama.cpp)",
-                "reasoning": False,
-                "input": ["text"],
-                "contextWindow": PI_LLAMA_CONTEXT_WINDOW,
-                "maxTokens": PI_LLAMA_MAX_TOKENS,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cacheRead": 0,
-                    "cacheWrite": 0,
-                },
-            }
+            _pi_model_entry(
+                model_id,
+                "llama.cpp",
+                False,
+                PI_LLAMA_CONTEXT_WINDOW,
+                PI_LLAMA_MAX_TOKENS,
+            )
             for model_id in model_ids
         ],
     }
