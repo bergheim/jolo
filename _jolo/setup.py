@@ -244,20 +244,73 @@ def setup_credential_cache(
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
+
+    # OAuth tokens that must survive cache rebuilds across containers. The host
+    # keeps these in the Secret Service keyring (no file), so containers
+    # file-fall-back and the live token only exists in this project's cache.
+    # Round-trip each through a shared host store: write back any token a
+    # container refreshed (before we wipe the cache), then re-seed below.
+    jolo_store = home / ".config" / "jolo"
+    agy_dir = gemini_cache / "antigravity-cli"
+    persistent_creds = [
+        (
+            gemini_cache / "gemini-credentials.json",
+            jolo_store / "gemini-credentials.json",
+        ),
+        (
+            agy_dir / "antigravity-oauth-token",
+            jolo_store / "antigravity-oauth-token",
+        ),
+    ]
+    jolo_store.mkdir(parents=True, exist_ok=True)
+    for cache_token, store_token in persistent_creds:
+        if cache_token.exists() and (
+            not store_token.exists()
+            or cache_token.stat().st_mtime > store_token.stat().st_mtime
+        ):
+            shutil.copy2(cache_token, store_token)
+
     if gemini_cache.exists():
         clear_directory_contents(gemini_cache)
     else:
         gemini_cache.mkdir(parents=True)
+    agy_dir.mkdir(parents=True, exist_ok=True)
 
     gemini_dir = home / ".gemini"
     for filename in [
         "settings.json",
         "google_accounts.json",
-        "oauth_creds.json",
+        "gemini-credentials.json",
     ]:
         src = gemini_dir / filename
         if src.exists():
             shutil.copy2(src, gemini_cache / filename)
+
+    # Seed from the shared store last so it wins over any stale host file
+    # (the store is the authoritative cross-container copy).
+    for cache_token, store_token in persistent_creds:
+        if store_token.exists():
+            shutil.copy2(store_token, cache_token)
+
+    # Bake agy (Antigravity CLI) first-run defaults so a fresh container never
+    # prompts: light theme, telemetry off (forced — we say no), and onboarding
+    # marked done. agy gates the prompts on cache/onboarding.json, NOT on
+    # settings.json, so both files are required.
+    write_json(
+        agy_dir / "settings.json",
+        {"colorScheme": "light", "enableTelemetry": False},
+        newline=False,
+    )
+    (agy_dir / "cache").mkdir(exist_ok=True)
+    write_json(
+        agy_dir / "cache" / "onboarding.json",
+        {
+            "consumerOnboardingComplete": True,
+            "enterpriseOnboardingComplete": False,
+            "onboardingComplete": True,
+        },
+        newline=False,
+    )
 
     # Extensions and enablement config
     extensions_src = gemini_dir / "extensions"
@@ -447,44 +500,48 @@ def _write_pi_gateway_config(
     virtual_key: str,
     primary: str | None,
 ) -> None:
-    """Define a pi provider that routes the cloud primary through host LiteLLM.
+    """Inject the project virtual key into pi's gateway provider.
 
-    Mirrors the llama provider shape. The virtual key (project-scoped, capped,
-    revocable) is written into the project-local pi cache — never a real key.
-    No-ops unless the primary is a "gateway/<model>" target and a key exists.
+    The model list comes from the copied host ~/.pi (same mechanism as claude).
+    We only patch the two values that can't be static: the project-scoped virtual
+    key (capped, revocable, never a real key) and the host gateway URL. When no
+    gateway provider was copied, bootstrap a minimal one from the primary so a
+    fresh setup still routes.
     """
-    if not base_url or not virtual_key or not primary:
-        return
-    provider, _, model = primary.partition("/")
-    if provider != PI_GATEWAY_PROVIDER or not model:
+    if not base_url or not virtual_key:
         return
     agent_dir = pi_cache / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     models_path = agent_dir / "models.json"
     models = _load_json_safe(models_path)
     providers = models.setdefault("providers", {})
-    providers[PI_GATEWAY_PROVIDER] = {
-        "baseUrl": _llama_v1_base_url(base_url),
-        "api": "openai-completions",
-        "apiKey": virtual_key,
-        "models": [
-            {
-                "id": model,
-                "name": f"{model} (litellm)",
-                # gateway primary is a frontier reasoning model by default
-                "reasoning": True,
-                "input": ["text"],
-                "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
-                "maxTokens": PI_GATEWAY_MAX_TOKENS,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cacheRead": 0,
-                    "cacheWrite": 0,
-                },
-            }
-        ],
-    }
+    gateway = providers.get(PI_GATEWAY_PROVIDER)
+    if gateway is None:
+        provider, _, model = (primary or "").partition("/")
+        if provider != PI_GATEWAY_PROVIDER or not model:
+            return
+        gateway = providers[PI_GATEWAY_PROVIDER] = {
+            "api": "openai-completions",
+            "models": [
+                {
+                    "id": model,
+                    "name": f"{model} (litellm)",
+                    # gateway primary is a frontier reasoning model by default
+                    "reasoning": True,
+                    "input": ["text"],
+                    "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
+                    "maxTokens": PI_GATEWAY_MAX_TOKENS,
+                    "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0,
+                    },
+                }
+            ],
+        }
+    gateway["baseUrl"] = _llama_v1_base_url(base_url)
+    gateway["apiKey"] = virtual_key
     models_path.write_text(json.dumps(models, indent=2) + "\n")
 
 

@@ -823,6 +823,136 @@ class TestCredentialMountStrategy(unittest.TestCase):
         self.assertEqual(len(dir_mounts), 0)
 
 
+class TestPersistentCredentialStore(unittest.TestCase):
+    """OAuth tokens (agy, gemini) round-trip through ~/.config/jolo so they
+    survive .gemini-cache rebuilds across containers."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.home = Path(self.tmpdir) / "home"
+        self.home.mkdir(parents=True)
+        self.ws = Path(self.tmpdir) / "project"
+        self.ws.mkdir()
+        self.store = self.home / ".config" / "jolo"
+        self.cache = self.ws / ".devcontainer" / ".gemini-cache"
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run(self):
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            jolo.setup_credential_cache(self.ws)
+
+    @staticmethod
+    def _stamp(path: Path, mtime: float):
+        os.utime(path, (mtime, mtime))
+
+    def test_seeds_fresh_cache_from_store(self):
+        """A new container's cache is seeded from the shared store."""
+        self.store.mkdir(parents=True)
+        (self.store / "antigravity-oauth-token").write_text('{"token": "agy"}')
+        (self.store / "gemini-credentials.json").write_text("gemini-blob")
+
+        self._run()
+
+        agy = self.cache / "antigravity-cli" / "antigravity-oauth-token"
+        gem = self.cache / "gemini-credentials.json"
+        self.assertTrue(agy.exists())
+        self.assertEqual(agy.read_text(), '{"token": "agy"}')
+        self.assertEqual(gem.read_text(), "gemini-blob")
+
+    def test_writes_back_refreshed_token_before_clear(self):
+        """A token refreshed inside a container is copied up before the cache
+        is wiped, and survives into the rebuilt cache."""
+        self.store.mkdir(parents=True)
+        old = self.store / "antigravity-oauth-token"
+        old.write_text('{"token": "old"}')
+        self._stamp(old, 1000)
+
+        agy_cache = self.cache / "antigravity-cli"
+        agy_cache.mkdir(parents=True)
+        fresh = agy_cache / "antigravity-oauth-token"
+        fresh.write_text('{"token": "fresh"}')
+        self._stamp(fresh, 2000)
+
+        self._run()
+
+        self.assertEqual(old.read_text(), '{"token": "fresh"}')
+        seeded = self.cache / "antigravity-cli" / "antigravity-oauth-token"
+        self.assertEqual(seeded.read_text(), '{"token": "fresh"}')
+
+    def test_does_not_clobber_newer_store(self):
+        """An older cache token must not overwrite a newer shared store."""
+        self.store.mkdir(parents=True)
+        store_tok = self.store / "antigravity-oauth-token"
+        store_tok.write_text('{"token": "store-new"}')
+        self._stamp(store_tok, 2000)
+
+        agy_cache = self.cache / "antigravity-cli"
+        agy_cache.mkdir(parents=True)
+        stale = agy_cache / "antigravity-oauth-token"
+        stale.write_text('{"token": "cache-old"}')
+        self._stamp(stale, 1000)
+
+        self._run()
+
+        self.assertEqual(store_tok.read_text(), '{"token": "store-new"}')
+
+    def test_bakes_agy_settings_defaults(self):
+        """Fresh cache gets agy defaults (light theme, telemetry off) so a new
+        container doesn't prompt on first launch."""
+        self._run()
+
+        agy_settings = self.cache / "antigravity-cli" / "settings.json"
+        self.assertTrue(agy_settings.exists())
+        data = json.loads(agy_settings.read_text())
+        self.assertEqual(data["colorScheme"], "light")
+        self.assertEqual(data["enableTelemetry"], False)
+
+    def test_marks_agy_onboarding_complete(self):
+        """agy gates its first-run theme/telemetry prompts on
+        cache/onboarding.json, not settings.json — so we must mark it done."""
+        self._run()
+
+        onboarding = (
+            self.cache / "antigravity-cli" / "cache" / "onboarding.json"
+        )
+        self.assertTrue(onboarding.exists())
+        data = json.loads(onboarding.read_text())
+        self.assertTrue(data["onboardingComplete"])
+        self.assertTrue(data["consumerOnboardingComplete"])
+
+    def test_agy_defaults_reset_on_rebuild(self):
+        """The cache is wiped each rebuild, so agy prefs are re-baked to the
+        defaults (no stale dark/telemetry-on survives)."""
+        agy_dir = self.cache / "antigravity-cli"
+        agy_dir.mkdir(parents=True)
+        (agy_dir / "settings.json").write_text(
+            '{"colorScheme": "dark", "enableTelemetry": true}'
+        )
+
+        self._run()
+
+        data = json.loads((agy_dir / "settings.json").read_text())
+        self.assertEqual(data["enableTelemetry"], False)
+        self.assertEqual(data["colorScheme"], "light")
+
+    def test_copies_gemini_credentials_from_host(self):
+        """Host gemini-credentials.json (renamed from oauth_creds.json) is
+        copied into the cache."""
+        gemini_dir = self.home / ".gemini"
+        gemini_dir.mkdir(parents=True)
+        (gemini_dir / "gemini-credentials.json").write_text("host-gemini")
+
+        self._run()
+
+        gem = self.cache / "gemini-credentials.json"
+        self.assertTrue(gem.exists())
+        self.assertEqual(gem.read_text(), "host-gemini")
+
+
 class TestPiLlamaConfig(unittest.TestCase):
     """Test Pi local llama.cpp provider setup."""
 
@@ -2327,6 +2457,53 @@ class TestPiGatewayConfig(unittest.TestCase):
         self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
         self.assertEqual(gw["apiKey"], "sk-proj")
         self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
+
+    def test_preserves_copied_gateway_models(self):
+        ws = Path(self.tmpdir) / "project_copy"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        agent = home / ".pi" / "agent"
+        agent.mkdir(parents=True)
+        (agent / "models.json").write_text(
+            json.dumps(
+                {
+                    "providers": {
+                        "gateway": {
+                            "baseUrl": "http://stale/v1",
+                            "api": "openai-completions",
+                            "apiKey": "sk-stale",
+                            "models": [
+                                {"id": "openrouter/anthropic/claude-opus-4.8"},
+                                {"id": "openrouter/openai/gpt-5.5"},
+                            ],
+                        }
+                    }
+                }
+            )
+        )
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_primary_model": "gateway/gemini-3.1-pro",
+        }
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
+            ):
+                jolo.setup_credential_cache(ws, cfg)
+        gw = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+            ).read_text()
+        )["providers"]["gateway"]
+        self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
+        self.assertEqual(gw["apiKey"], "sk-proj")
+        self.assertEqual(
+            [m["id"] for m in gw["models"]],
+            [
+                "openrouter/anthropic/claude-opus-4.8",
+                "openrouter/openai/gpt-5.5",
+            ],
+        )
 
     def test_no_gateway_provider_without_virtual_key(self):
         ws = Path(self.tmpdir) / "project2"

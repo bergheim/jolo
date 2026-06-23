@@ -147,6 +147,18 @@ RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zs
     mkdir -p /workspaces /opt/pre-commit-cache && \
     chown $USERNAME:$USERNAME /workspaces /opt/pre-commit-cache
 
+# Real glibc layer (x86_64 only). The Antigravity CLI (agy, installed later as
+# the agent user) is a glibc binary needing <= GLIBC_2.25; musl's gcompat lacks
+# glibc internals (__open/__read/__lseek), so a full glibc is required. Install
+# only the `glibc` pkg: `glibc-bin` pulls libc6-compat -> gcompat, which collides
+# on the loader. The pkg ships only /lib/ld-linux...; symlink /lib64 (agy's
+# interpreter path, absent on Alpine) to it.
+RUN curl -fsSL -o /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    curl -fsSL -o /tmp/glibc.apk https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-2.35-r1.apk && \
+    apk add --no-cache /tmp/glibc.apk && \
+    mkdir -p /lib64 && ln -sf /usr/glibc-compat/lib/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2 && \
+    rm -f /tmp/glibc.apk
+
 USER $USERNAME
 ENV HOME=/home/$USERNAME
 WORKDIR $HOME
@@ -208,6 +220,17 @@ RUN mkdir -p $HOME/.local/bin && \
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(dirname "$(pnpm ls -g playwright --depth 0 --json | jq -r '.[0].dependencies.playwright.path')")" > $HOME/.local/bin/browser-check && \
     chmod +x $HOME/.local/bin/browser-check
 
+# Antigravity CLI (agy): ships glibc-only with no musl build, so the upstream
+# installer 404s on Alpine. Fetch the glibc tarball directly; it runs via the
+# glibc layer installed above. Final 'agy --version' gates a working install.
+RUN manifest="$(curl -fsSL https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json)" && \
+    curl -fsSL -o /tmp/agy.tar.gz "$(echo "$manifest" | jq -r .url)" && \
+    echo "$(echo "$manifest" | jq -r .sha512)  /tmp/agy.tar.gz" | sha512sum -c - && \
+    tar -xzf /tmp/agy.tar.gz -C /tmp antigravity && \
+    install -m755 /tmp/antigravity $HOME/.local/bin/agy && \
+    rm -f /tmp/agy.tar.gz /tmp/antigravity && \
+    agy --version
+
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
 RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
@@ -224,6 +247,7 @@ RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/
     echo 'alias claude="env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias gemini="gemini --yolo --no-sandbox"' >> $HOME/.zshrc.container && \
     echo 'alias codex="codex --dangerously-bypass-approvals-and-sandbox"' >> $HOME/.zshrc.container && \
+    echo 'alias agy="agy --dangerously-skip-permissions"' >> $HOME/.zshrc.container && \
     echo 'alias vi=nvim' >> $HOME/.zshrc.container && \
     echo 'alias vim=nvim' >> $HOME/.zshrc.container && \
     echo "alias icat='kitten icat'" >> $HOME/.zshrc.container && \
