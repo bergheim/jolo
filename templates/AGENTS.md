@@ -41,7 +41,11 @@ catalogs live in `docs/agent-ops.md`.
   with `:tangle <path> :mkdirp yes` src blocks, not a folder of loose files.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
-- Denote notes are write-once. Create a new note for additions.
+- Denote notes are living documents: edit in place as understanding grows; git
+  is the history layer. Editing a note (even retitling via denote) never breaks
+  backlinks — they resolve by the immutable identifier, not the filename. One
+  note = one topic. Create a new note only for a genuinely new topic, and link
+  it. Prefer refining/consolidating over spawning near-duplicates.
 - To link notes, always use `bergheim/agent-denote-link`; never hand-write
   `[[denote:ID]]` or a bare id (denote derives backlinks only from links its own
   API emits, so a typed id never registers).

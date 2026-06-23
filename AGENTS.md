@@ -93,7 +93,11 @@ Where a note goes (stash vs `docs/notes`) and write-once rules are in
   source of truth; tangle regenerates the file.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
-- Denote notes are write-once. Create a new note for additions.
+- Denote notes are living documents: edit in place as understanding grows; git
+  is the history layer. Editing a note (even retitling via denote) never breaks
+  backlinks — they resolve by the immutable identifier, not the filename. One
+  note = one topic. Create a new note only for a genuinely new topic, and link
+  it. Prefer refining/consolidating over spawning near-duplicates.
 
 ## Task Tracking
 
