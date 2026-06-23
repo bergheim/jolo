@@ -458,6 +458,9 @@ def setup_credential_cache(
     virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
     _write_pi_gateway_config(pi_cache, gateway_base, virtual_key, pi_primary)
 
+    pi_codex = (cfg or constants.DEFAULT_CONFIG).get("pi_codex_model")
+    _write_pi_codex_worker(pi_cache, gateway_base, virtual_key, pi_codex)
+
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
         _write_pi_llama_config(pi_cache, llama_host, pi_primary)
@@ -570,8 +573,10 @@ def _ensure_pi_delegation(pi_cache: Path) -> None:
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "delegation.md").write_text(
         "When a `worker` subagent is available, delegate trivial, fully-specified "
-        "edits and searches to it — it runs a cheap local model. Keep design, "
-        "judgment, and multi-step reasoning on the primary model.\n"
+        "edits and searches to it — it runs a cheap local model. When a `codex` "
+        "subagent is available, delegate hard, reasoning-heavy coding — complex "
+        "refactors, multi-file changes, and gnarly debugging — to it. Keep design, "
+        "judgment, and orchestration on the primary model.\n"
     )
 
 
@@ -608,6 +613,63 @@ def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
         "asked, nothing more. If the task is ambiguous or needs a design choice, "
         "STOP and say so instead of guessing. Make the minimal change and report "
         "what you changed.\n"
+    )
+
+
+def _write_pi_codex_worker(
+    pi_cache: Path,
+    base_url: str | None,
+    virtual_key: str,
+    codex_model: str | None,
+) -> None:
+    """Seed a codex specialist subagent the primary delegates hard coding to.
+
+    The inverse of the llama `worker`: a strong, gateway-served model for complex
+    refactors, debugging, and multi-file changes. The model lives on the gateway,
+    so this is skipped when the gateway isn't configured or no model is set. The
+    `gateway/<model>` id is added to the gateway provider's model list if absent.
+    """
+    if not base_url or not virtual_key or not codex_model:
+        return
+    provider, _, model = codex_model.partition("/")
+    if provider != PI_GATEWAY_PROVIDER or not model:
+        return
+    agent_dir = pi_cache / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    models_path = agent_dir / "models.json"
+    models = _load_json_safe(models_path)
+    gateway = models.get("providers", {}).get(PI_GATEWAY_PROVIDER)
+    if gateway is None:
+        return
+    gateway_models = gateway.setdefault("models", [])
+    if not any(m.get("id") == model for m in gateway_models):
+        gateway_models.append(
+            _pi_model_entry(
+                model,
+                "litellm",
+                True,
+                PI_GATEWAY_CONTEXT_WINDOW,
+                PI_GATEWAY_MAX_TOKENS,
+            )
+        )
+        write_json(models_path, models)
+
+    agents_dir = agent_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    (agents_dir / "codex.md").write_text(
+        "---\n"
+        "name: codex\n"
+        "description: Hard coding tasks — complex refactors, multi-file changes, "
+        "debugging gnarly failures, algorithm-heavy work. For depth, not trivial "
+        "edits.\n"
+        "tools: read, grep, find, ls, edit, write, bash\n"
+        f"model: {codex_model}\n"
+        "---\n"
+        "You are a senior coding specialist. Take on complex, reasoning-heavy "
+        "implementation and debugging. Inspect the codebase before editing, make "
+        "the change, and report what you did and why. Match the surrounding "
+        "style; do not expand scope beyond the task.\n"
     )
 
 

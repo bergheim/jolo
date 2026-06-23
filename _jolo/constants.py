@@ -47,6 +47,12 @@ DEFAULT_CONFIG = {
     # gateway. The local llama model runs as a worker subagent.
     # "gateway/<model>" must match a model_name in the gateway config.
     "pi_primary_model": "gateway/gemini-3.1-pro",
+    # Codex specialist worker for pi: a strong coding model the primary delegates
+    # hard refactors, multi-file changes, and debugging to (inverse of the cheap
+    # llama worker). "gateway/<model>" must resolve on the gateway. Default routes
+    # to the ChatGPT-subscription backend (free-at-use, but rate-capped); swap to
+    # "gateway/openrouter/openai/gpt-5.2-codex" for pay-per-token codex.
+    "pi_codex_model": "gateway/gpt-5.5",
     # LiteLLM control-plane gateway base URL. Default empty; load_config()
     # populates it from the host env LITELLM_HOST (e.g. http://<tailnet-host>:8088),
     # so the rest of the code just reads config. Real provider keys live only in
