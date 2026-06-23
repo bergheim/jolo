@@ -211,6 +211,9 @@ def setup_credential_cache(
     # .credentials.json is mounted RW directly from the host (token refreshes persist).
     # Only copy settings.json (we inject notification hooks into it).
     claude_dir = home / ".claude"
+    # Bind sources for the container; podman fails the rebuild if they are absent.
+    (claude_dir / "statsig").mkdir(parents=True, exist_ok=True)
+    (claude_dir / "plugins").mkdir(parents=True, exist_ok=True)
     settings_src = claude_dir / "settings.json"
     if settings_src.exists():
         shutil.copy2(settings_src, claude_cache / "settings.json")
