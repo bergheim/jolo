@@ -4,7 +4,7 @@ windows:
   - emacs: e
   - claude: claude
   - codex: codex
-  - gemini: gemini
+  - agy: agy
   - pi: pi
   - dev: just dev
   - shell:
