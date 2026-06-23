@@ -500,44 +500,48 @@ def _write_pi_gateway_config(
     virtual_key: str,
     primary: str | None,
 ) -> None:
-    """Define a pi provider that routes the cloud primary through host LiteLLM.
+    """Inject the project virtual key into pi's gateway provider.
 
-    Mirrors the llama provider shape. The virtual key (project-scoped, capped,
-    revocable) is written into the project-local pi cache — never a real key.
-    No-ops unless the primary is a "gateway/<model>" target and a key exists.
+    The model list comes from the copied host ~/.pi (same mechanism as claude).
+    We only patch the two values that can't be static: the project-scoped virtual
+    key (capped, revocable, never a real key) and the host gateway URL. When no
+    gateway provider was copied, bootstrap a minimal one from the primary so a
+    fresh setup still routes.
     """
-    if not base_url or not virtual_key or not primary:
-        return
-    provider, _, model = primary.partition("/")
-    if provider != PI_GATEWAY_PROVIDER or not model:
+    if not base_url or not virtual_key:
         return
     agent_dir = pi_cache / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     models_path = agent_dir / "models.json"
     models = _load_json_safe(models_path)
     providers = models.setdefault("providers", {})
-    providers[PI_GATEWAY_PROVIDER] = {
-        "baseUrl": _llama_v1_base_url(base_url),
-        "api": "openai-completions",
-        "apiKey": virtual_key,
-        "models": [
-            {
-                "id": model,
-                "name": f"{model} (litellm)",
-                # gateway primary is a frontier reasoning model by default
-                "reasoning": True,
-                "input": ["text"],
-                "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
-                "maxTokens": PI_GATEWAY_MAX_TOKENS,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cacheRead": 0,
-                    "cacheWrite": 0,
-                },
-            }
-        ],
-    }
+    gateway = providers.get(PI_GATEWAY_PROVIDER)
+    if gateway is None:
+        provider, _, model = (primary or "").partition("/")
+        if provider != PI_GATEWAY_PROVIDER or not model:
+            return
+        gateway = providers[PI_GATEWAY_PROVIDER] = {
+            "api": "openai-completions",
+            "models": [
+                {
+                    "id": model,
+                    "name": f"{model} (litellm)",
+                    # gateway primary is a frontier reasoning model by default
+                    "reasoning": True,
+                    "input": ["text"],
+                    "contextWindow": PI_GATEWAY_CONTEXT_WINDOW,
+                    "maxTokens": PI_GATEWAY_MAX_TOKENS,
+                    "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0,
+                    },
+                }
+            ],
+        }
+    gateway["baseUrl"] = _llama_v1_base_url(base_url)
+    gateway["apiKey"] = virtual_key
     models_path.write_text(json.dumps(models, indent=2) + "\n")
 
 

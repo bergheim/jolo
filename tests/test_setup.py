@@ -2458,6 +2458,53 @@ class TestPiGatewayConfig(unittest.TestCase):
         self.assertEqual(gw["apiKey"], "sk-proj")
         self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
 
+    def test_preserves_copied_gateway_models(self):
+        ws = Path(self.tmpdir) / "project_copy"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        agent = home / ".pi" / "agent"
+        agent.mkdir(parents=True)
+        (agent / "models.json").write_text(
+            json.dumps(
+                {
+                    "providers": {
+                        "gateway": {
+                            "baseUrl": "http://stale/v1",
+                            "api": "openai-completions",
+                            "apiKey": "sk-stale",
+                            "models": [
+                                {"id": "openrouter/anthropic/claude-opus-4.8"},
+                                {"id": "openrouter/openai/gpt-5.5"},
+                            ],
+                        }
+                    }
+                }
+            )
+        )
+        cfg = {
+            "litellm_base_url": "http://gw:8088",
+            "pi_primary_model": "gateway/gemini-3.1-pro",
+        }
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
+            ):
+                jolo.setup_credential_cache(ws, cfg)
+        gw = json.loads(
+            (
+                ws / ".devcontainer" / ".pi-cache" / "agent" / "models.json"
+            ).read_text()
+        )["providers"]["gateway"]
+        self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
+        self.assertEqual(gw["apiKey"], "sk-proj")
+        self.assertEqual(
+            [m["id"] for m in gw["models"]],
+            [
+                "openrouter/anthropic/claude-opus-4.8",
+                "openrouter/openai/gpt-5.5",
+            ],
+        )
+
     def test_no_gateway_provider_without_virtual_key(self):
         ws = Path(self.tmpdir) / "project2"
         ws.mkdir()
