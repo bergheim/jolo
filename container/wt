@@ -3,7 +3,7 @@ set -e
 
 # wt — lightweight in-container worktree manager
 # Creates git worktrees under $WORKSPACE/.worktrees/<name> as windows
-# (wt:<name>) in the current tmux session. Switch with `wt <name>` or tmux's
+# (wt-<name>) in the current tmux session. Switch with `wt <name>` or tmux's
 # `C-b w` / `C-b <n>`.
 
 ADJECTIVES="brave swift calm bold keen wild warm cool fair wise"
@@ -45,7 +45,9 @@ require_tmux() {
 }
 
 window_name() {
-    echo "wt:$1"
+    # Separator is "-" not ":": tmux >3.6b rejects ":" and "." in window
+    # names because they are the session:window.pane target separators.
+    echo "wt-$1"
 }
 
 branch_exists() {
@@ -73,7 +75,7 @@ match_window_id() {
     printf '%s\n' "$2" | awk -v w="$1" '$2 == w { print $1; exit }'
 }
 
-# Single-shot lookup of the wt:<name> window in the current session. Falls
+# Single-shot lookup of the wt-<name> window in the current session. Falls
 # through to empty for non-tmux callers (list-windows with no -t is scoped to
 # the current session; never -a).
 wt_window_id() {

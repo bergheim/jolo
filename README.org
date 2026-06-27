@@ -69,7 +69,7 @@ Every project ships a justfile. ~just --list~ is the menu.
 
 ** Worktrees
 
-~just wt~ creates branches as worktrees under ~$WORKSPACE/.worktrees/<name>/~ as windows (~wt:<name>~) in the current tmux session. They live under the main workspace (bind-mounted from the host) so they survive container rebuilds — a bare ~/workspaces/<name>~ sits on the ephemeral overlay and gets nuked on recreate. Worktrees share refs with main, so landing branches back doesn't need a fetch/push round-trip. If a worktree's directory ever goes missing while its branch survives, ~just wt <name>~ re-materializes it.
+~just wt~ creates branches as worktrees under ~$WORKSPACE/.worktrees/<name>/~ as windows (~wt-<name>~) in the current tmux session. They live under the main workspace (bind-mounted from the host) so they survive container rebuilds — a bare ~/workspaces/<name>~ sits on the ephemeral overlay and gets nuked on recreate. Worktrees share refs with main, so landing branches back doesn't need a fetch/push round-trip. If a worktree's directory ever goes missing while its branch survives, ~just wt <name>~ re-materializes it.
 
 | Command                          | Effect                                          |
 |----------------------------------+-------------------------------------------------|

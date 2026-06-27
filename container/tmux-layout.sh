@@ -34,7 +34,7 @@ if [ -f "$PROMPT_FILE" ]; then
     sed -i "s|  - $AGENT:.*|  - $AGENT: $ESCAPED|" "$TMP_CONFIG"
     sed -i "s|startup_window:.*|startup_window: $AGENT|" "$TMP_CONFIG"
 
-    exec tmuxinator start -p "$TMP_CONFIG"
+    exec tmuxinator start --suppress-tmux-version-warning=1 -p "$TMP_CONFIG"
 fi
 
-exec tmuxinator start dev
+exec tmuxinator start --suppress-tmux-version-warning=1 dev
