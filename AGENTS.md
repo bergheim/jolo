@@ -197,7 +197,10 @@ Environment and tooling expectations:
 - For code changes, run the narrowest meaningful test first, then broader tests
   when the risk justifies it.
 - For CLI/template changes, run focused unit tests plus `just test` when feasible.
-- For visible web changes, verify with browser tooling and inspect the screenshot.
+- For visible web changes, screenshot and inspect with the pre-installed browser
+  tooling: `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
+  (multi-step). NEVER install a browser, puppeteer, playwright, or chromium —
+  they are already on PATH.
 - For accessibility-sensitive web work, run the project a11y recipe when present.
 - Report commands run and any tests you could not run.
 

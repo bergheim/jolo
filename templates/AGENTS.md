@@ -139,13 +139,17 @@ Helper examples are in `docs/agent-ops.md`.
 
 ## Frontend and Browser Work
 
-- After visible UI changes, verify the running app in browser tooling and inspect
-  the screenshot before committing.
-- Run `just a11y` when present for UI/accessibility changes.
-- Use semantic HTML, labels for inputs, keyboard-reachable controls, visible focus
+Browsing and screenshots are pre-installed. **NEVER** install a browser,
+`puppeteer`, `playwright`, `chromium`, or any screenshot tool — they are already
+on PATH. Use them directly:
+
+- `browser-check <url>` — one-shot: `--screenshot`, `--console`, `--errors`,
+  `--aria` snapshot. The default for quick checks and screenshots.
+- `playwright-cli` — multi-step interactive flows (open, click, fill, snapshot).
+- After visible UI changes, screenshot the running app and inspect it before
+  committing. Run `just a11y` when present.
+- Use semantic HTML, labeled inputs, keyboard-reachable controls, visible focus
   styles, useful alt text, and AA contrast.
-- Use `browser-check` for quick one-shot checks and `playwright-cli` for
-  multi-step flows.
 
 ## Host and Container Boundaries
 

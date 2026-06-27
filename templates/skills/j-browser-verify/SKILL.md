@@ -1,6 +1,6 @@
 ---
 name: j-browser-verify
-description: Verify a local web app is running and provide reproducible evidence using browser-check and optional Playwright screenshot capture.
+description: Browse, screenshot, or visually verify a local web app using the pre-installed browser-check and playwright-cli (never install your own browser). Use when asked to screenshot, browse, open/view a page, check the UI, or confirm the site is running.
 ---
 
 # /j-browser-verify

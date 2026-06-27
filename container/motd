@@ -22,10 +22,11 @@ elif [ -n "$PORT" ]; then
 fi
 
 hint="Run tasks with: just <recipe>"
+browser="Browse/shot: browser-check URL --screenshot  (pre-installed; don't install your own)"
 stash="Stash: /workspaces/stash (shared)"
 
 # Print bordered header
-gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${stash:+"$stash"}
+gum style --border rounded --padding "0 1" --border-foreground 4 "$header" ${git_line:+"$git_line"} ${hint:+"$hint"} ${browser:+"$browser"} ${stash:+"$stash"}
 
 echo ""
 just --list --unsorted
