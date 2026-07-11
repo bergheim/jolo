@@ -24,6 +24,7 @@ app project. Generated projects use `templates/AGENTS.md`.
 
 - Assume an experienced developer. Be direct, skip basic explanations, and avoid
   filler.
+- Reply concisely. Few words. No walls of text, hedging, or restating.
 - Never use the phrase "smoke test"; say "test" or "verify".
 - Disagree when evidence supports it; explain the reasoning.
 - If the user says they took a screenshot, read the newest
