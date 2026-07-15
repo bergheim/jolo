@@ -28,15 +28,23 @@ Without arguments, rank all open items from git + TODO.
 
 ### 1. Gather context (always)
 
-- Read `docs/TODO.org`. Treat as **actionable**: `TODO`, `NEXT`, and
-  `INPROGRESS`. Treat `BLOCKED` and `WAITING` as **not startable** — keep them
-  out of the ranking, but list them once afterward so the user sees what's
-  parked and why.
+- Enumerate TODOs with the org helper, not by hand-parsing the file:
+
+  ```bash
+  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
+  ```
+
+  It returns a JSON array; each entry has `position`, `state`, `heading`,
+  `tags`, and `autonomous`. Partition on `state`: **actionable** is `TODO`,
+  `NEXT`, `INPROGRESS`; **parked** is `BLOCKED` and `WAITING` (keep parked out
+  of the ranking, but list them once afterward so the user sees what's parked
+  and why); ignore `DONE`/`CANCELLED`. Only read `docs/TODO.org` directly when
+  you need a specific item's body text for effort/blocker context.
 - Run `git log --oneline -n 10` to see recent momentum (what area was last
   worked on). The wider window than j-save/j-resume's `-n 5` is deliberate:
   this read is for area detection, not a what-shipped recap.
-- Note which items carry the `:autonomous:` tag — these are agent-runnable
-  unattended (`jolo autonomous`).
+- The `autonomous` field marks items that are agent-runnable unattended
+  (`jolo autonomous`) — surface these in the `Auto` column of the table.
 - If a focus argument is given, split it into useful keywords and match against
   TODO titles, TODO body text, tags, referenced branch names, and recent commit
   subjects.
