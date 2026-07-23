@@ -1650,6 +1650,9 @@ def run_clone_mode(args: argparse.Namespace) -> None:
 
     os.chdir(target)
 
+    # A fresh clone is never scaffolded; force it so up doesn't bail
+    args.recreate = True
+
     # Auto-detect flavors if no devcontainer config exists
     if not (target / ".devcontainer").exists():
         detected = detect_flavors(target)
