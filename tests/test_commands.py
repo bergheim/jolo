@@ -361,7 +361,6 @@ class TestPodmanWiring(unittest.TestCase):
                 "_jolo.commands.is_podman_allowed", return_value=allowed
             ),
             mock.patch("_jolo.commands.sync_devcontainer") as fake_sync,
-            mock.patch("_jolo.commands.sync_skill_templates"),
             mock.patch("_jolo.commands.sync_template_files"),
         ):
             from _jolo import commands
@@ -956,43 +955,6 @@ class TestPickProject(unittest.TestCase):
         with mock.patch.object(Path, "exists", return_value=True):
             result = jolo.pick_project()
         self.assertEqual(result, Path("/home/user/myapp"))
-
-
-class TestSetupContainerEnvCreatesSkills(unittest.TestCase):
-    """devcontainer.json mounts .jolo/skills/ unconditionally; if the
-    directory is missing on first-time `jolo up` (e.g. via `jolo clone`),
-    podman fails the bind with `statfs ... no such file or directory`.
-    _setup_container_env must create the dir as part of the first-time
-    setup so the recreate path isn't the only one that lands skills."""
-
-    def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp())
-        self.original_cwd = Path.cwd()
-
-    def tearDown(self):
-        import shutil
-
-        os.chdir(self.original_cwd)
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    @mock.patch("_jolo.commands.setup_stash")
-    @mock.patch("_jolo.commands.setup_emacs_config")
-    @mock.patch("_jolo.commands.setup_notification_hooks")
-    @mock.patch("_jolo.commands.setup_credential_cache")
-    @mock.patch("_jolo.commands.get_secrets", return_value={})
-    def test_creates_jolo_skills_dir(self, *_mocks):
-        os.chdir(self.tmpdir)
-        skills_dir = self.tmpdir / ".jolo" / "skills"
-        self.assertFalse(skills_dir.exists())
-
-        from _jolo.commands import _setup_container_env
-
-        _setup_container_env(self.tmpdir, {"notify_threshold": 60})
-
-        self.assertTrue(
-            skills_dir.exists(),
-            ".jolo/skills/ must be created so podman bind-mount succeeds",
-        )
 
 
 if __name__ == "__main__":

@@ -174,17 +174,6 @@ class TestEnsureResearchRepo(unittest.TestCase):
             "research", research_home, config=config
         )
 
-    @mock.patch("_jolo.commands.scaffold_devcontainer")
-    @mock.patch("_jolo.commands.subprocess.run")
-    def test_copies_research_skill(self, mock_run, mock_scaffold):
-        research_home = Path(self.tmpdir) / "new-research"
-        config = {"research_home": str(research_home)}
-
-        jolo.ensure_research_repo(config)
-
-        skill_dir = research_home / ".jolo" / "skills" / "j-research"
-        self.assertTrue(skill_dir.exists())
-
 
 class TestResearchMode(unittest.TestCase):
     """Test run_research_mode logic."""

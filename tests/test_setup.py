@@ -81,71 +81,6 @@ class TestTemplateSystem(unittest.TestCase):
         content = (devcontainer_dir / "devcontainer.json").read_text()
         self.assertEqual(content, "existing")
 
-    def test_sync_skill_templates_keeps_extra_project_skills(self):
-        """Sync should overwrite template skills without deleting extras."""
-        project_dir = Path(self.tmpdir)
-        skills_dir = project_dir / ".jolo" / "skills"
-        skills_dir.mkdir(parents=True)
-
-        extra_skill = skills_dir / "custom-skill"
-        extra_skill.mkdir()
-        (extra_skill / "SKILL.md").write_text("custom project skill\n")
-
-        template_skill = skills_dir / "j-browser-verify"
-        template_skill.mkdir()
-        (template_skill / "SKILL.md").write_text("stale template copy\n")
-
-        setup.sync_skill_templates(project_dir)
-
-        self.assertTrue(extra_skill.exists())
-        self.assertEqual(
-            (extra_skill / "SKILL.md").read_text(), "custom project skill\n"
-        )
-
-        template_skill_src = (
-            Path(__file__).resolve().parent.parent
-            / "templates"
-            / "skills"
-            / "j-browser-verify"
-            / "SKILL.md"
-        )
-        self.assertEqual(
-            (template_skill / "SKILL.md").read_text(),
-            template_skill_src.read_text(),
-        )
-
-    def test_sync_skill_templates_copies_host_skills_without_overwriting_project(
-        self,
-    ):
-        """Host-global skills should be copied, but project skills win."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-        skills_dir = project_dir / ".jolo" / "skills"
-        skills_dir.mkdir(parents=True)
-        local_superpowers = skills_dir / "superpowers"
-        local_superpowers.mkdir()
-        (local_superpowers / "SKILL.md").write_text("project copy\n")
-
-        home = Path(self.tmpdir) / "home"
-        host_skills = home / ".agents" / "skills"
-        host_superpowers = host_skills / "superpowers"
-        host_superpowers.mkdir(parents=True)
-        (host_superpowers / "SKILL.md").write_text("host copy\n")
-        host_other = host_skills / "host-only"
-        host_other.mkdir()
-        (host_other / "SKILL.md").write_text("host-only copy\n")
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            setup.sync_skill_templates(project_dir)
-
-        self.assertEqual(
-            (local_superpowers / "SKILL.md").read_text(), "project copy\n"
-        )
-        self.assertEqual(
-            (skills_dir / "host-only" / "SKILL.md").read_text(),
-            "host-only copy\n",
-        )
-
     def test_copy_template_files_includes_stash_note_guidance(self):
         """Generated projects should get stash-note guidance in AGENTS.md."""
         project_dir = Path(self.tmpdir) / "project"
@@ -178,29 +113,6 @@ class TestTemplateSystem(unittest.TestCase):
 
         hashes = setup._load_template_hashes(project_dir)
         self.assertIn("docs/agent-ops.md", hashes)
-
-    def test_sync_skill_templates_lands_key_skills(self):
-        """Skills like j-note-stash and j-scaffold-web must land in
-        .jolo/skills/. _setup_container_env owns this in real flows."""
-        project_dir = Path(self.tmpdir) / "project"
-        project_dir.mkdir()
-
-        with mock.patch(
-            "pathlib.Path.home", return_value=Path(self.tmpdir) / "home"
-        ):
-            setup.sync_skill_templates(project_dir)
-
-        skill_file = (
-            project_dir / ".jolo" / "skills" / "j-note-stash" / "SKILL.md"
-        )
-        self.assertTrue(skill_file.exists())
-        self.assertIn("name: j-note-stash", skill_file.read_text())
-
-        web_skill = (
-            project_dir / ".jolo" / "skills" / "j-scaffold-web" / "SKILL.md"
-        )
-        self.assertTrue(web_skill.exists())
-        self.assertIn("name: j-scaffold-web", web_skill.read_text())
 
 
 class TestSecretsManagement(unittest.TestCase):
@@ -2377,13 +2289,10 @@ class TestLitellmKeys(unittest.TestCase):
                                     with mock.patch.object(
                                         commands, "setup_stash"
                                     ):
-                                        with mock.patch.object(
-                                            commands, "sync_skill_templates"
-                                        ):
-                                            commands._setup_container_env(
-                                                ws,
-                                                DEFAULT_CONFIG,
-                                            )
+                                        commands._setup_container_env(
+                                            ws,
+                                            DEFAULT_CONFIG,
+                                        )
                         self.assertEqual(
                             os.environ.get("LITELLM_VIRTUAL_KEY"), "sk-proj"
                         )

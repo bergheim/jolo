@@ -526,7 +526,6 @@ mlruns/
 
 # Machine-local sync state; committing creates recreate-time churn.
 .devcontainer/.template-hashes.json
-.jolo/skills/
 
 .superpowers/
 .pnpm-store/

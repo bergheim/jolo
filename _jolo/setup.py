@@ -1376,7 +1376,7 @@ def copy_template_files(target_dir: Path) -> None:
             shutil.copy2(src, dst)
             verbose_print(f"Copied template: {filename}")
 
-    # Copy template directories (skills, agent config, docs).
+    # Copy template directories (agent config, docs).
     # `scripts/` is intentionally excluded — callers use
     # `ensure_test_gate_script()` and `ensure_lighthouse_run_script()`
     # so per-script gating (e.g. lighthouse only for web flavors)
@@ -1508,7 +1508,7 @@ def sync_devcontainer(
 
     # Preserve existing NOTIFY_APP and postStartCommand settings.
     # postStartCommand is user-owned (e.g. demokrate's scripts/pg-init);
-    # the skills symlink runs from container/entrypoint.sh now. Projects
+    # the skills symlink is baked into the image now. Projects
     # that still have the exact old canonical default get cleaned up so
     # ownership of the key really is 100% the user's.
     has_web = False
@@ -1540,35 +1540,6 @@ def sync_devcontainer(
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
     print("Synced .devcontainer/ with current config")
-
-
-def _copy_skill_dir(src: Path, dst_root: Path, overwrite: bool) -> None:
-    for entry in src.iterdir():
-        if not entry.is_dir():
-            continue
-        dst = dst_root / entry.name
-        if dst.exists() and not overwrite:
-            continue
-        shutil.copytree(entry, dst, symlinks=True, dirs_exist_ok=overwrite)
-        verbose_print(f"Synced skill: {entry.name}")
-
-
-def sync_skill_templates(target_dir: Path) -> None:
-    """Sync host skills, then overlay repo template skills into .jolo/skills."""
-    templates_dir = Path(__file__).resolve().parent.parent / "templates"
-    skills_src = templates_dir / "skills"
-    skills_dst = target_dir / ".jolo" / "skills"
-    skills_dst.mkdir(parents=True, exist_ok=True)
-
-    if skills_src.exists() and skills_dst.resolve() == skills_src.resolve():
-        return
-
-    host_skills = Path.home() / ".agents" / "skills"
-    if host_skills.exists() and host_skills.resolve() != skills_dst.resolve():
-        _copy_skill_dir(host_skills, skills_dst, overwrite=False)
-
-    if skills_src.exists():
-        _copy_skill_dir(skills_src, skills_dst, overwrite=True)
 
 
 def get_secrets(config: dict | None = None) -> dict[str, str]:
