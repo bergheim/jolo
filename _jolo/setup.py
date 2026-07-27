@@ -1620,6 +1620,25 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
             "LITELLM_MASTER_KEY", ""
         )
 
+    # Shared Crawl4AI bearer token, injected into containers via containerEnv.
+    if "CRAWL4AI_API_TOKEN" not in secrets:
+        token = ""
+        if pass_available:
+            try:
+                result = subprocess.run(
+                    ["pass", "show", config["pass_path_crawl4ai"]],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    token = result.stdout.strip()
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+        secrets["CRAWL4AI_API_TOKEN"] = token or os.environ.get(
+            "CRAWL4AI_API_TOKEN", ""
+        )
+
     return secrets
 
 

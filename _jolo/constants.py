@@ -59,6 +59,7 @@ DEFAULT_CONFIG = {
     # the gateway; containers get a per-project virtual key. Master key mints.
     "litellm_base_url": "",
     "pass_path_litellm_master": "api/llm/litellm-master",
+    "pass_path_crawl4ai": "api/crawl/crawl4ai-token",
     "litellm_key_max_budget": 50.0,
     "litellm_key_budget_duration": "30d",
     "litellm_key_models": [],

@@ -191,6 +191,29 @@ class TestSecretsManagement(unittest.TestCase):
 
         self.assertEqual(secrets["LITELLM_MASTER_KEY"], "sk-litellm-master")
 
+    def test_get_secrets_includes_crawl4ai_token_from_pass(self):
+        def mock_run(cmd, *args, **kwargs):
+            result = mock.Mock()
+            result.returncode = 0
+            result.stdout = (
+                "crawl-token\n" if "api/crawl/crawl4ai-token" in cmd else "x\n"
+            )
+            return result
+
+        with mock.patch("shutil.which", return_value="/usr/bin/pass"):
+            with mock.patch("subprocess.run", side_effect=mock_run):
+                secrets = jolo.get_secrets()
+
+        self.assertEqual(secrets["CRAWL4AI_API_TOKEN"], "crawl-token")
+
+    def test_get_secrets_crawl4ai_token_env_fallback(self):
+        env = {"CRAWL4AI_API_TOKEN": "crawl-from-env"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            with mock.patch("shutil.which", return_value=None):
+                secrets = jolo.get_secrets()
+
+        self.assertEqual(secrets["CRAWL4AI_API_TOKEN"], "crawl-from-env")
+
 
 class TestAddUserMounts(unittest.TestCase):
     """Test add_user_mounts() function."""
