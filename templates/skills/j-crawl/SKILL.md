@@ -12,7 +12,8 @@ reach for hosted Firecrawl — the endpoint is already there.
 
 ## When to use what
 
-- **Find pages** → `WebSearch` (built-in). Crawl4AI is not a search engine.
+- **Find pages** → `WebSearch` (built-in), or j-search (self-hosted SearXNG)
+  when no search tool exists. Crawl4AI is not a search engine.
 - **Ordinary page → text** → `WebFetch` first. It's cheaper.
 - **JS-rendered / anti-bot / whole-site ingestion** → Crawl4AI `/md` (below).
   Reach here only when `WebFetch` returns junk or JS-gated content.
