@@ -63,6 +63,16 @@ def build_devcontainer_json(
 
     mounts = constants.BASE_MOUNTS.copy()
 
+    # Skills have one source of truth: the jolo checkout's templates/skills,
+    # mounted RW into every container. Edits anywhere are live everywhere
+    # and surface in jolo's git status.
+    skills_src = (
+        Path(__file__).resolve().parent.parent / "templates" / "skills"
+    )
+    mounts.append(
+        f"source={skills_src},target=/home/${{localEnv:USER}}/.agents/skills,type=bind"
+    )
+
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(constants.WAYLAND_MOUNT)
 

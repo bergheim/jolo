@@ -350,6 +350,26 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertEqual(config["postStartCommand"], "scripts/pg-init")
 
+    def test_skills_mounted_from_jolo_checkout(self):
+        """Skills have one source of truth: the checkout's templates/skills,
+        bind-mounted into every container. No per-project copies."""
+        import json
+
+        import _jolo.container as container
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        skills_mounts = [m for m in config["mounts"] if ".agents/skills" in m]
+        self.assertEqual(len(skills_mounts), 1)
+        expected_src = (
+            Path(container.__file__).resolve().parent.parent
+            / "templates"
+            / "skills"
+        )
+        self.assertIn(f"source={expected_src},", skills_mounts[0])
+        for m in config["mounts"]:
+            self.assertNotIn(".jolo/skills", m)
+
 
 class TestPodmanSocketForwarding(unittest.TestCase):
     """Cross-container podman access opt-in surfaces in devcontainer.json

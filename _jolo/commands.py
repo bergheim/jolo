@@ -69,7 +69,6 @@ from _jolo.setup import (
     setup_notification_hooks,
     setup_stash,
     sync_devcontainer,
-    sync_skill_templates,
     sync_template_files,
     write_prompt_file,
 )
@@ -181,8 +180,7 @@ def _sync_config(
     force: bool = False,
     port: int | None = None,
 ) -> None:
-    """Sync devcontainer config and template files. Skills are owned by
-    _setup_container_env, which runs in every container-up flow."""
+    """Sync devcontainer config and template files."""
     sync_devcontainer(
         name,
         target_dir=path,
@@ -267,10 +265,6 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
     setup_stash()
-    # devcontainer.json mounts .jolo/skills/ unconditionally; this is the
-    # single owner so podman never bombs on a missing bind source — covers
-    # clone, first-time up, recreate, create, init, tree, research.
-    sync_skill_templates(workspace)
 
 
 def load_config(
@@ -2000,14 +1994,6 @@ def ensure_research_repo(config: dict) -> Path:
     research_home.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init"], cwd=research_home, check=True)
     scaffold_devcontainer("research", research_home, config=config)
-
-    # Copy just the research skill
-    templates_dir = Path(__file__).resolve().parent.parent / "templates"
-    skill_src = templates_dir / "skills" / "j-research"
-    if skill_src.exists():
-        skill_dst = research_home / ".jolo" / "skills" / "j-research"
-        skill_dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(skill_src, skill_dst)
 
     subprocess.run(["git", "add", "."], cwd=research_home, check=True)
     subprocess.run(
