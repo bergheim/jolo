@@ -155,6 +155,7 @@ def build_devcontainer_json(
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",
             "CRAWL4AI_URL": "${localEnv:CRAWL4AI_URL}",
+            "CRAWL4AI_API_TOKEN": "${localEnv:CRAWL4AI_API_TOKEN}",
             "PROJECT": project_name,
             "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
             **({"NOTIFY_APP": "1"} if has_web else {}),

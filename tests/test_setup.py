@@ -2325,6 +2325,14 @@ class TestContainerEnvKeys(unittest.TestCase):
             env["LITELLM_VIRTUAL_KEY"], "${localEnv:LITELLM_VIRTUAL_KEY}"
         )
 
+    def test_crawl4ai_env_present(self):
+        env = self._env()
+        self.assertEqual(env["CRAWL4AI_URL"], "${localEnv:CRAWL4AI_URL}")
+        self.assertEqual(
+            env["CRAWL4AI_API_TOKEN"],
+            "${localEnv:CRAWL4AI_API_TOKEN}",
+        )
+
     def test_nanobanana_exception_retained(self):
         env = self._env()
         self.assertEqual(
