@@ -1051,7 +1051,66 @@ class TestPiLlamaConfig(unittest.TestCase):
         )
         self.assertEqual(settings["npmCommand"], ["pnpm"])
         self.assertIn("npm:pi-subagents", settings["packages"])
+        self.assertIn("npm:pi-lens", settings["packages"])
         self.assertEqual(settings["packages"], setup.PI_PACKAGES)
+
+    def test_setup_credential_cache_seeds_pi_pnpm_workspace_policy(self):
+        """Pi's managed extension workspace denies ast-grep's musl-broken build."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+
+        workspace = (
+            ws
+            / ".devcontainer"
+            / ".pi-cache"
+            / "agent"
+            / "npm"
+            / "pnpm-workspace.yaml"
+        )
+        self.assertEqual(
+            workspace.read_text(),
+            "allowBuilds:\n  '@ast-grep/cli': false\n",
+        )
+
+    def test_setup_credential_cache_preserves_pi_pnpm_workspace_metadata(self):
+        """Existing pnpm workspace policy survives, but ast-grep is forced off."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        npm_dir = home / ".pi" / "agent" / "npm"
+        npm_dir.mkdir(parents=True)
+        (npm_dir / "pnpm-workspace.yaml").write_text(
+            "allowBuilds:\n"
+            "  '@ast-grep/cli': true\n"
+            "  '@google/genai': false\n"
+            "  protobufjs: false\n"
+            "minimumReleaseAgeExclude:\n"
+            "  - pi-subagents@0.37.2\n"
+        )
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            with mock.patch.dict(os.environ, {}, clear=True):
+                jolo.setup_credential_cache(ws)
+
+        workspace = (
+            ws
+            / ".devcontainer"
+            / ".pi-cache"
+            / "agent"
+            / "npm"
+            / "pnpm-workspace.yaml"
+        ).read_text()
+        self.assertIn("  '@ast-grep/cli': false\n", workspace)
+        self.assertIn("  '@google/genai': false\n", workspace)
+        self.assertIn("  protobufjs: false\n", workspace)
+        self.assertIn("minimumReleaseAgeExclude:\n", workspace)
+        self.assertIn("  - pi-subagents@0.37.2\n", workspace)
 
 
 class TestPatchJsonWithJq(unittest.TestCase):

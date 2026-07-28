@@ -40,11 +40,15 @@ PI_PACKAGES = [
     "npm:pi-subagents",  # lead -> worker delegation; reads agents/*.md, per-agent model
     "npm:pi-downshift",  # premium -> economy handoff when context gets expensive
     "npm:@juicesharp/rpiv-advisor",  # escalate to a stronger reviewer model on demand
+    "npm:pi-lens",  # LSP/ast-grep code intelligence; ast-grep build is disabled below
 ]
 
 # The image ships pnpm only (npm is shimmed to fail), so point pi's package
 # installer at pnpm — otherwise `pi install` and startup auto-install both die.
 PI_NPM_COMMAND = ["pnpm"]
+PI_PNPM_BUILD_POLICY = {
+    "@ast-grep/cli": False,
+}
 
 
 def write_json(
@@ -450,6 +454,7 @@ def setup_credential_cache(
     _ensure_pi_trust(pi_cache, workspace_dir)
     _ensure_pi_delegation(pi_cache)
     _write_pi_packages(pi_cache)
+    _write_pi_pnpm_workspace_policy(pi_cache)
 
     pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
     _write_pi_primary(pi_cache, pi_primary)
@@ -595,6 +600,67 @@ def _write_pi_packages(pi_cache: Path) -> None:
     existing = settings.get("packages", [])
     settings["packages"] = list(dict.fromkeys([*existing, *PI_PACKAGES]))
     write_json(settings_path, settings)
+
+
+def _quote_yaml_key(key: str) -> str:
+    return "'" + key.replace("'", "''") + "'"
+
+
+def _yaml_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _set_top_level_yaml_mapping_value(
+    content: str, section: str, key: str, value: bool
+) -> str:
+    """Set one key in a simple top-level YAML mapping, preserving other keys."""
+    entry = f"  {_quote_yaml_key(key)}: {_yaml_bool(value)}"
+    if not content.strip():
+        return f"{section}:\n{entry}\n"
+
+    lines = content.splitlines()
+    section_index = None
+    for index, line in enumerate(lines):
+        if re.match(rf"^{re.escape(section)}\s*:", line.strip()):
+            section_index = index
+            break
+
+    if section_index is None:
+        prefix = [f"{section}:", entry, ""]
+        return "\n".join([*prefix, *lines]) + "\n"
+
+    lines[section_index] = f"{section}:"
+    end_index = section_index + 1
+    while end_index < len(lines):
+        line = lines[end_index]
+        if line.strip() and not line.startswith((" ", "\t")):
+            break
+        end_index += 1
+
+    for index in range(section_index + 1, end_index):
+        stripped = lines[index].strip()
+        if stripped.startswith((f"{key}:", f"'{key}':", f'"{key}":')):
+            indent = re.match(r"\s*", lines[index]).group(0) or "  "
+            lines[index] = (
+                f"{indent}{_quote_yaml_key(key)}: {_yaml_bool(value)}"
+            )
+            return "\n".join(lines) + "\n"
+
+    lines.insert(section_index + 1, entry)
+    return "\n".join(lines) + "\n"
+
+
+def _write_pi_pnpm_workspace_policy(pi_cache: Path) -> None:
+    """Seed pnpm build policy for Pi's managed extension workspace."""
+    npm_dir = pi_cache / "agent" / "npm"
+    npm_dir.mkdir(parents=True, exist_ok=True)
+    workspace_path = npm_dir / "pnpm-workspace.yaml"
+    content = workspace_path.read_text() if workspace_path.exists() else ""
+    for package, allowed in PI_PNPM_BUILD_POLICY.items():
+        content = _set_top_level_yaml_mapping_value(
+            content, "allowBuilds", package, allowed
+        )
+    workspace_path.write_text(content)
 
 
 def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:

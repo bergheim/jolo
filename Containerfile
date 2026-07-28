@@ -196,7 +196,8 @@ RUN pnpm add -g \
     lighthouse \
     @lhci/cli
 
-RUN cargo install --locked --root $HOME/.local bacon squawk
+RUN cargo install --locked --root $HOME/.local bacon squawk ast-grep && \
+    ast-grep --version
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
