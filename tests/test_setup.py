@@ -154,7 +154,9 @@ class TestSecretsManagement(unittest.TestCase):
         from _jolo.constants import DEFAULT_CONFIG
 
         cfg = DEFAULT_CONFIG
-        self.assertEqual(cfg["pi_primary_model"], "gateway/gemini-3.1-pro")
+        self.assertEqual(
+            cfg["pi_primary_model"], "gateway/openrouter/openai/gpt-5.6"
+        )
         self.assertEqual(
             cfg["pass_path_litellm_master"], "api/llm/litellm-master"
         )
@@ -975,7 +977,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         settings = json.loads((agent / "settings.json").read_text())
         # strong primary from DEFAULT_CONFIG["pi_primary_model"]
         self.assertEqual(settings["defaultProvider"], "gateway")
-        self.assertEqual(settings["defaultModel"], "gemini-3.1-pro")
+        self.assertEqual(settings["defaultModel"], "openrouter/openai/gpt-5.6")
         # llama is the worker, not the primary
         self.assertIn(
             "llama",
@@ -2546,25 +2548,27 @@ class TestPiCodexWorker(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/gemini-3.1-pro",
-            "pi_codex_model": "gateway/gpt-5.5",
+            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
         }
         agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
 
         worker = (agent / "agents" / "codex.md").read_text()
         self.assertIn("name: codex", worker)
-        self.assertIn("model: gateway/gpt-5.5", worker)
+        self.assertIn("model: gateway/openrouter/openai/gpt-5.6", worker)
 
         gw = json.loads((agent / "models.json").read_text())["providers"][
             "gateway"
         ]
-        self.assertIn("gpt-5.5", [m["id"] for m in gw["models"]])
+        self.assertIn(
+            "openrouter/openai/gpt-5.6", [m["id"] for m in gw["models"]]
+        )
 
         self.assertIn("codex", (agent / "delegation.md").read_text())
 
     def test_no_codex_worker_without_gateway(self):
         cfg = {
             "litellm_base_url": "http://gw:8088",
-            "pi_codex_model": "gateway/gpt-5.5",
+            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
         }
         agent = self._run(cfg, {})  # no virtual key -> no gateway
         self.assertFalse((agent / "agents" / "codex.md").exists())
@@ -2572,15 +2576,15 @@ class TestPiCodexWorker(unittest.TestCase):
     def test_codex_model_not_duplicated_when_already_present(self):
         cfg = {
             "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/gpt-5.5",
-            "pi_codex_model": "gateway/gpt-5.5",
+            "pi_primary_model": "gateway/openrouter/openai/gpt-5.6",
+            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
         }
         agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
         gw = json.loads((agent / "models.json").read_text())["providers"][
             "gateway"
         ]
         ids = [m["id"] for m in gw["models"]]
-        self.assertEqual(ids.count("gpt-5.5"), 1)
+        self.assertEqual(ids.count("openrouter/openai/gpt-5.6"), 1)
 
 
 class TestLitellmGatewayReachable(unittest.TestCase):
