@@ -228,7 +228,14 @@ BASE_MOUNTS = [
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/.pi-cache,target=/home/${localEnv:USER}/.pi,type=bind",
+    # pi: one host config shared by every container, so packages/themes/agents
+    # and the OAuth login added in one project are live in all of them. Only
+    # sessions are per-project — nested mount below shadows the shared dir.
+    # The gateway's LiteLLM key is NOT in here: models.json stores the literal
+    # "$LITELLM_VIRTUAL_KEY" and each container resolves its own, keeping
+    # per-project spend attribution.
+    "source=${localEnv:HOME}/.pi,target=/home/${localEnv:USER}/.pi,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.pi-sessions,target=/home/${localEnv:USER}/.pi/agent/sessions,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",

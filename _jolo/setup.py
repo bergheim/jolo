@@ -24,6 +24,10 @@ PI_LLAMA_PROVIDER = "llama"
 PI_LLAMA_CONTEXT_WINDOW = 32768
 PI_LLAMA_MAX_TOKENS = 8192
 PI_GATEWAY_PROVIDER = "gateway"
+# models.json is shared across containers, so it stores this env-var name
+# rather than the key. Each container resolves its own project-scoped key,
+# which is what keeps LiteLLM spend attribution per-project.
+PI_VIRTUAL_KEY_ENV = "LITELLM_VIRTUAL_KEY"
 PI_GATEWAY_CONTEXT_WINDOW = 1_000_000
 PI_GATEWAY_MAX_TOKENS = 8192
 PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
@@ -433,51 +437,43 @@ def setup_credential_cache(
             file=sys.stderr,
         )
 
-    # Pi credentials
-    pi_cache = workspace_dir / ".devcontainer" / ".pi-cache"
-    if pi_cache.exists():
-        clear_directory_contents(pi_cache)
-    else:
-        pi_cache.mkdir(parents=True)
+    # Pi config is the host's, mounted directly into every container — no cache
+    # copy, so an OAuth login or `pi install` done inside a container persists
+    # and is live everywhere. Sessions are mounted per-project over the top.
+    pi_home = home / ".pi"
+    (pi_home / "agent").mkdir(parents=True, exist_ok=True)
+    # Mount sources must exist before start or podman statfs-aborts the run.
+    (workspace_dir / ".devcontainer" / ".pi-sessions").mkdir(
+        parents=True, exist_ok=True
+    )
 
-    pi_dir = home / ".pi"
-    if pi_dir.exists():
-        for item in pi_dir.iterdir():
-            dst = pi_cache / item.name
-            if item.is_dir():
-                if dst.exists():
-                    shutil.rmtree(dst)
-                shutil.copytree(item, dst, symlinks=True)
-            else:
-                shutil.copy2(item, dst)
-
-    _ensure_pi_trust(pi_cache, workspace_dir)
-    _ensure_pi_delegation(pi_cache)
-    _write_pi_packages(pi_cache)
-    _write_pi_pnpm_workspace_policy(pi_cache)
+    _ensure_pi_trust(pi_home, workspace_dir)
+    _ensure_pi_delegation(pi_home)
+    _write_pi_packages(pi_home)
+    _write_pi_pnpm_workspace_policy(pi_home)
 
     pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
-    _write_pi_primary(pi_cache, pi_primary)
+    _write_pi_primary(pi_home, pi_primary)
 
     gateway_base = (cfg or constants.DEFAULT_CONFIG).get("litellm_base_url")
     virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
-    _write_pi_gateway_config(pi_cache, gateway_base, virtual_key, pi_primary)
+    _write_pi_gateway_config(pi_home, gateway_base, virtual_key, pi_primary)
 
     pi_codex = (cfg or constants.DEFAULT_CONFIG).get("pi_codex_model")
-    _write_pi_codex_worker(pi_cache, gateway_base, virtual_key, pi_codex)
+    _write_pi_codex_worker(pi_home, gateway_base, virtual_key, pi_codex)
 
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
-        _write_pi_llama_config(pi_cache, llama_host, pi_primary)
+        _write_pi_llama_config(pi_home, llama_host, pi_primary)
 
 
-def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
+def _ensure_pi_trust(pi_home: Path, workspace_dir: Path) -> None:
     """Pre-trust the container workspace so pi never prompts (mirrors gemini/codex).
 
     pi's trust store walks up parents, so this entry covers everything under it.
     Runs regardless of llama config.
     """
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     trust_path = agent_dir / "trust.json"
     trust = _load_json_safe(trust_path)
@@ -485,21 +481,26 @@ def _ensure_pi_trust(pi_cache: Path, workspace_dir: Path) -> None:
     write_json(trust_path, trust)
 
 
-def _write_pi_primary(pi_cache: Path, primary: str | None) -> None:
-    """Set the strong model that drives pi as primary (llama runs as a worker).
+def _write_pi_primary(pi_home: Path, primary: str | None) -> None:
+    """Seed the strong model that drives pi as primary (llama runs as a worker).
 
     `primary` is a "provider/model" string. Empty/malformed leaves the default
     unset so the llama path can fall back to llama-as-primary.
+
+    Set-if-unset: pi's config is shared across containers, so overwriting here
+    would reset a model the user picked (e.g. via /model) on every `jolo up`.
     """
     if not primary:
         return
     provider, _, model = primary.partition("/")
     if not provider or not model:
         return
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     settings_path = agent_dir / "settings.json"
     settings = _load_json_safe(settings_path)
+    if settings.get("defaultProvider") or settings.get("defaultModel"):
+        return
     settings["defaultProvider"] = provider
     settings["defaultModel"] = model
     write_json(settings_path, settings)
@@ -525,7 +526,7 @@ def _pi_model_entry(
 
 
 def _write_pi_gateway_config(
-    pi_cache: Path,
+    pi_home: Path,
     base_url: str | None,
     virtual_key: str,
     primary: str | None,
@@ -540,7 +541,7 @@ def _write_pi_gateway_config(
     """
     if not base_url or not virtual_key:
         return
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     models_path = agent_dir / "models.json"
     models = _load_json_safe(models_path)
@@ -564,17 +565,23 @@ def _write_pi_gateway_config(
             ],
         }
     gateway["baseUrl"] = _llama_v1_base_url(base_url)
-    gateway["apiKey"] = virtual_key
+    # Store the env-var reference, never the key itself. models.json is shared
+    # by every container, so a literal would let the last project to launch
+    # overwrite everyone's key and destroy per-project spend attribution. pi
+    # resolves "$VAR" per process (core/provider-composer.js), so each
+    # container supplies its own. pi never rewrites models.json, so the
+    # reference cannot be expanded back into the shared file.
+    gateway["apiKey"] = f"${PI_VIRTUAL_KEY_ENV}"
     write_json(models_path, models)
 
 
-def _ensure_pi_delegation(pi_cache: Path) -> None:
+def _ensure_pi_delegation(pi_home: Path) -> None:
     """Append-to-system-prompt text telling the primary to use the local worker.
 
     Referenced by the pi launch command (--append-system-prompt @<this>), kept
     out of the shared AGENTS.md so only pi sees it.
     """
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "delegation.md").write_text(
         "When a `worker` subagent is available, delegate trivial, fully-specified "
@@ -585,14 +592,14 @@ def _ensure_pi_delegation(pi_cache: Path) -> None:
     )
 
 
-def _write_pi_packages(pi_cache: Path) -> None:
+def _write_pi_packages(pi_home: Path) -> None:
     """Seed the pi packages that provide delegation and model routing.
 
     pi reconciles missing packages from settings.json on first trusted startup.
     `npmCommand` is mandatory here: the image shims `npm` to fail, so without it
     pi's installer (which shells out to `npm install`) never runs.
     """
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
     settings_path = agent_dir / "settings.json"
     settings = _load_json_safe(settings_path)
@@ -650,9 +657,9 @@ def _set_top_level_yaml_mapping_value(
     return "\n".join(lines) + "\n"
 
 
-def _write_pi_pnpm_workspace_policy(pi_cache: Path) -> None:
+def _write_pi_pnpm_workspace_policy(pi_home: Path) -> None:
     """Seed pnpm build policy for Pi's managed extension workspace."""
-    npm_dir = pi_cache / "agent" / "npm"
+    npm_dir = pi_home / "agent" / "npm"
     npm_dir.mkdir(parents=True, exist_ok=True)
     workspace_path = npm_dir / "pnpm-workspace.yaml"
     content = workspace_path.read_text() if workspace_path.exists() else ""
@@ -683,7 +690,7 @@ def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
 
 
 def _write_pi_codex_worker(
-    pi_cache: Path,
+    pi_home: Path,
     base_url: str | None,
     virtual_key: str,
     codex_model: str | None,
@@ -700,7 +707,7 @@ def _write_pi_codex_worker(
     provider, _, model = codex_model.partition("/")
     if provider != PI_GATEWAY_PROVIDER or not model:
         return
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
     models_path = agent_dir / "models.json"
@@ -794,9 +801,9 @@ def _pi_default_llama_model(model_ids: list[str]) -> str | None:
 
 
 def _write_pi_llama_config(
-    pi_cache: Path, llama_host: str, primary: str | None = None
+    pi_home: Path, llama_host: str, primary: str | None = None
 ) -> None:
-    agent_dir = pi_cache / "agent"
+    agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
     model_ids = _pi_chat_model_ids(_fetch_llama_model_ids(llama_host))
