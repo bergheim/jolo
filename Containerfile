@@ -196,8 +196,7 @@ RUN pnpm add -g \
     lighthouse \
     @lhci/cli
 
-RUN cargo install --locked --root $HOME/.local bacon squawk ast-grep && \
-    ast-grep --version
+RUN cargo install --locked --root $HOME/.local bacon squawk
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
@@ -214,12 +213,18 @@ RUN mkdir -p $HOME/.local/bin && \
     (uv tool install ty) & pids="$pids $!" && \
     (uv tool install pre-commit) & pids="$pids $!" && \
     (uv tool install open-terminal) & pids="$pids $!" && \
+    # apk's ast-grep is ancient (0.28.1); PyPI ships current musllinux wheels
+    (uv tool install ast-grep-cli) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
     curl -fsSL https://claude.ai/install.sh | bash && \
     command -v claude >/dev/null && \
     # browser-check wrapper (resolve playwright's real node_modules at build time)
     printf '#!/bin/sh\nNODE_PATH=%s exec node /usr/local/lib/browser-check.js "$@"\n' "$(dirname "$(pnpm ls -g playwright --depth 0 --json | jq -r '.[0].dependencies.playwright.path')")" > $HOME/.local/bin/browser-check && \
-    chmod +x $HOME/.local/bin/browser-check
+    chmod +x $HOME/.local/bin/browser-check && \
+    # pi-lens spawns `ast-grep --no -- ast-grep ...` (npx prefix on a PATH binary); strip it
+    printf '#!/bin/sh\n[ "$1" = "--no" ] && [ "$2" = "--" ] && [ "$3" = "ast-grep" ] && shift 3\nexec %s "$@"\n' "$(readlink -f $HOME/.local/bin/ast-grep)" > /tmp/sg-wrapper && \
+    install -m755 /tmp/sg-wrapper $HOME/.local/bin/ast-grep && \
+    rm /tmp/sg-wrapper
 
 # Antigravity CLI (agy): ships glibc-only with no musl build, so the upstream
 # installer 404s on Alpine. Fetch the glibc tarball directly; it runs via the
