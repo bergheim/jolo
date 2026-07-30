@@ -1,6 +1,7 @@
 ---
 name: j-save
 description: Write the paste-back handoff note (scratch/resume-session.md) so the next session can hit the ground running. Add the `full` keyword to also save durable knowledge to denote notes + TODO and commit.
+disable-model-invocation: true
 ---
 
 # /j-save

@@ -1,6 +1,7 @@
 ---
 name: j-next
 description: Prioritize open TODO items by effort and impact, recommend what to work on next. Add the `full` keyword to also weigh project notes and stash context.
+disable-model-invocation: true
 ---
 
 # /j-next

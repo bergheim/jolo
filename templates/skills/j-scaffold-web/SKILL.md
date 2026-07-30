@@ -1,6 +1,7 @@
 ---
 name: j-scaffold-web
 description: Scaffold a new frontend web project with Vite, Tailwind CSS, and standard configuration. Supports React, Svelte, and Vue frameworks.
+disable-model-invocation: true
 ---
 
 # /j-scaffold-web

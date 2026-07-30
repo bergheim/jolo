@@ -1,6 +1,7 @@
 ---
 name: j-sync-docs
 description: Reconcile project docs (MEMORY.org, TODO.org, AGENTS.md) with the current state of the code and recent commits.
+disable-model-invocation: true
 ---
 
 # /j-sync-docs

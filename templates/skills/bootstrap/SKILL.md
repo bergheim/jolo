@@ -1,6 +1,7 @@
 ---
 name: bootstrap
 description: Get oriented on host-level, cross-project knowledge by reading the stash README map. Use when starting fresh in a container, or when you need the lay of the land for hardware, dotfiles/preferences, Emacs, Linux, or cross-project conventions that live outside the current repo.
+disable-model-invocation: true
 ---
 
 # /bootstrap
