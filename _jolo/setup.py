@@ -24,9 +24,6 @@ PI_LLAMA_PROVIDER = "llama"
 PI_LLAMA_CONTEXT_WINDOW = 32768
 PI_LLAMA_MAX_TOKENS = 8192
 PI_GATEWAY_PROVIDER = "gateway"
-# models.json is shared across containers, so it stores this env-var name
-# rather than the key. Each container resolves its own project-scoped key,
-# which is what keeps LiteLLM spend attribution per-project.
 PI_VIRTUAL_KEY_ENV = "LITELLM_VIRTUAL_KEY"
 PI_GATEWAY_CONTEXT_WINDOW = 1_000_000
 PI_GATEWAY_MAX_TOKENS = 8192
@@ -440,28 +437,32 @@ def setup_credential_cache(
     # Pi config is the host's, mounted directly into every container — no cache
     # copy, so an OAuth login or `pi install` done inside a container persists
     # and is live everywhere. Sessions are mounted per-project over the top.
+    # Both ends of that nested mount must exist first, or podman aborts the run:
+    # the per-project source, and the target inside the now-shared ~/.pi.
     pi_home = home / ".pi"
-    (pi_home / "agent").mkdir(parents=True, exist_ok=True)
-    # Mount sources must exist before start or podman statfs-aborts the run.
+    (pi_home / "agent" / "sessions").mkdir(parents=True, exist_ok=True)
     (workspace_dir / ".devcontainer" / ".pi-sessions").mkdir(
         parents=True, exist_ok=True
     )
 
+    pi_cfg = cfg or constants.DEFAULT_CONFIG
     _ensure_pi_trust(pi_home, workspace_dir)
     _ensure_pi_delegation(pi_home)
     _write_pi_packages(pi_home)
     _write_pi_pnpm_workspace_policy(pi_home)
 
-    pi_primary = (cfg or constants.DEFAULT_CONFIG).get("pi_primary_model")
+    pi_primary = pi_cfg.get("pi_primary_model")
     _write_pi_primary(pi_home, pi_primary)
 
-    gateway_base = (cfg or constants.DEFAULT_CONFIG).get("litellm_base_url")
-    virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
-    gateway_model = (cfg or constants.DEFAULT_CONFIG).get("pi_gateway_model")
-    _write_pi_gateway_config(pi_home, gateway_base, virtual_key, gateway_model)
+    gateway_base = pi_cfg.get("litellm_base_url")
+    virtual_key = os.environ.get(PI_VIRTUAL_KEY_ENV, "")
+    _write_pi_gateway_config(
+        pi_home, gateway_base, virtual_key, pi_cfg.get("pi_gateway_model")
+    )
 
-    pi_codex = (cfg or constants.DEFAULT_CONFIG).get("pi_codex_model")
-    _write_pi_codex_worker(pi_home, gateway_base, virtual_key, pi_codex)
+    _write_pi_codex_worker(
+        pi_home, gateway_base, virtual_key, pi_cfg.get("pi_codex_model")
+    )
 
     llama_host = os.environ.get("LLAMA_HOST")
     if llama_host:
@@ -498,6 +499,16 @@ def _write_pi_primary(pi_home: Path, primary: str | None) -> None:
         return
     agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
+    _seed_pi_default_model(agent_dir, provider, model)
+
+
+def _seed_pi_default_model(agent_dir: Path, provider: str, model: str) -> None:
+    """Set pi's default model only when the user has not chosen one.
+
+    Single writer for this setting: pi's config is shared across containers, so
+    any unconditional write here resets a model picked via /model on every
+    `jolo up`.
+    """
     settings_path = agent_dir / "settings.json"
     settings = _load_json_safe(settings_path)
     if settings.get("defaultProvider") or settings.get("defaultModel"):
@@ -538,9 +549,8 @@ def _write_pi_gateway_config(
     to the project-scoped virtual key. When no gateway provider exists yet,
     bootstrap a minimal one from `gateway_model`.
 
-    `gateway_model` is a bare model id, deliberately independent of the primary:
-    pi now defaults to the openai-codex subscription, but the gateway must still
-    exist so glm-5.2 and the llama routing remain selectable.
+    `gateway_model` is a bare model id, deliberately independent of the primary
+    so the gateway stays selectable whatever pi defaults to.
     """
     if not base_url or not virtual_key:
         return
@@ -553,7 +563,6 @@ def _write_pi_gateway_config(
     if gateway is None:
         if not gateway_model:
             return
-        # gateway bootstrap defaults to a frontier reasoning model
         gateway = providers[PI_GATEWAY_PROVIDER] = {
             "api": "openai-completions",
             "models": [
@@ -567,12 +576,8 @@ def _write_pi_gateway_config(
             ],
         }
     gateway["baseUrl"] = _llama_v1_base_url(base_url)
-    # Store the env-var reference, never the key itself. models.json is shared
-    # by every container, so a literal would let the last project to launch
-    # overwrite everyone's key and destroy per-project spend attribution. pi
-    # resolves "$VAR" per process (core/provider-composer.js), so each
-    # container supplies its own. pi never rewrites models.json, so the
-    # reference cannot be expanded back into the shared file.
+    # Shared file: store the reference, never the key. Each container resolves
+    # its own, which is what keeps LiteLLM spend attribution per-project.
     gateway["apiKey"] = f"${PI_VIRTUAL_KEY_ENV}"
     write_json(models_path, models)
 
@@ -847,11 +852,7 @@ def _write_pi_llama_config(
 
     # Only make llama the primary when no strong model is configured.
     if not primary:
-        settings_path = agent_dir / "settings.json"
-        settings = _load_json_safe(settings_path)
-        settings["defaultProvider"] = PI_LLAMA_PROVIDER
-        settings["defaultModel"] = default_model
-        write_json(settings_path, settings)
+        _seed_pi_default_model(agent_dir, PI_LLAMA_PROVIDER, default_model)
 
 
 def setup_notification_hooks(

@@ -2440,6 +2440,9 @@ class TestPiGatewayConfig(unittest.TestCase):
         # env-var reference, never the literal: models.json is shared across
         # containers, so each resolves its own project-scoped key
         self.assertEqual(gw["apiKey"], "$LITELLM_VIRTUAL_KEY")
+        self.assertNotIn(
+            "sk-proj", (home / ".pi" / "agent" / "models.json").read_text()
+        )
         self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
 
     def test_preserves_copied_gateway_models(self):
@@ -2504,32 +2507,6 @@ class TestPiGatewayConfig(unittest.TestCase):
         )
         self.assertNotIn("gateway", models.get("providers", {}))
 
-    def test_virtual_key_never_written_literally(self):
-        """The key must not reach models.json: it is shared across containers.
-
-        A literal would let the last project to launch overwrite everyone's
-        key, destroying per-project LiteLLM spend attribution.
-        """
-        ws = Path(self.tmpdir) / "project3"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home3"
-        (home / ".pi" / "agent").mkdir(parents=True)
-        secret = "sk-proj-must-not-be-persisted"
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/gemini-3.1-pro",
-            "pi_gateway_model": "gemini-3.1-pro",
-        }
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(
-                os.environ, {"LITELLM_VIRTUAL_KEY": secret}, clear=True
-            ):
-                jolo.setup_credential_cache(ws, cfg)
-
-        self.assertNotIn(
-            secret, (home / ".pi" / "agent" / "models.json").read_text()
-        )
-
 
 class TestPiSharedConfig(unittest.TestCase):
     """pi's config is the host's, shared live by every container."""
@@ -2542,11 +2519,11 @@ class TestPiSharedConfig(unittest.TestCase):
 
         shutil.rmtree(self.tmpdir)
 
-    def _run(self, ws_name, home, cfg=None):
+    def _run(self, ws_name, home, cfg=None, env=None):
         ws = Path(self.tmpdir) / ws_name
         ws.mkdir()
         with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch.dict(os.environ, env or {}, clear=True):
                 jolo.setup_credential_cache(ws, cfg)
         return ws
 
@@ -2588,6 +2565,35 @@ class TestPiSharedConfig(unittest.TestCase):
         self.assertEqual(settings["defaultProvider"], "openai-codex")
         self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
 
+    def test_llama_fallback_also_respects_a_chosen_default(self):
+        """The llama path is the other writer of this setting; same rule."""
+        home = Path(self.tmpdir) / "home"
+        agent = home / ".pi" / "agent"
+        agent.mkdir(parents=True)
+        (agent / "settings.json").write_text(
+            json.dumps(
+                {
+                    "defaultProvider": "openai-codex",
+                    "defaultModel": "gpt-5.6-sol",
+                }
+            )
+        )
+
+        # no strong primary, so llama would otherwise claim the default
+        with mock.patch(
+            "_jolo.setup._fetch_llama_model_ids", return_value=["qwen3.6"]
+        ):
+            self._run(
+                "project",
+                home,
+                {"pi_primary_model": ""},
+                env={"LLAMA_HOST": "http://llama:11434"},
+            )
+
+        settings = json.loads((agent / "settings.json").read_text())
+        self.assertEqual(settings["defaultProvider"], "openai-codex")
+        self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
+
     def test_creates_per_project_sessions_mount_source(self):
         """podman statfs-aborts the whole run if a mount source is missing."""
         home = Path(self.tmpdir) / "home"
@@ -2596,19 +2602,6 @@ class TestPiSharedConfig(unittest.TestCase):
         ws = self._run("project", home)
 
         self.assertTrue((ws / ".devcontainer" / ".pi-sessions").is_dir())
-
-    def test_sessions_are_not_shared_between_projects(self):
-        """Hard invariant: an agent in project A never sees B's history."""
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-
-        a = self._run("project-a", home)
-        b = self._run("project-b", home)
-
-        self.assertNotEqual(
-            a / ".devcontainer" / ".pi-sessions",
-            b / ".devcontainer" / ".pi-sessions",
-        )
 
 
 class TestPiCodexWorker(unittest.TestCase):

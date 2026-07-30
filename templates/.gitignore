@@ -513,7 +513,7 @@ mlruns/
 .devcontainer/.claude.json
 .devcontainer/.gemini-cache/
 .devcontainer/.codex-cache/
-.devcontainer/.pi-cache/
+.devcontainer/.pi-sessions/
 .devcontainer/.emacs-config/
 .devcontainer/.emacs-cache/
 .devcontainer/.histfile
