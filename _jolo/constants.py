@@ -43,10 +43,16 @@ DEFAULT_CONFIG = {
         "codex": "codex --dangerously-bypass-approvals-and-sandbox",
         "pi": "env -u ANTHROPIC_API_KEY pi --append-system-prompt @$HOME/.pi/agent/delegation.md",
     },
-    # Strong model that drives pi as primary, served through the host LiteLLM
-    # gateway. The local llama model runs as a worker subagent.
-    # "gateway/<model>" must match a model_name in the gateway config.
-    "pi_primary_model": "gateway/openrouter/openai/gpt-5.6",
+    # Strong model that drives pi as primary. The local llama model runs as a
+    # worker subagent. Defaults to the ChatGPT Plus/Pro subscription (`/login`
+    # -> openai-codex) rather than the metered gateway: same class of model,
+    # billed to the subscription instead of per-token. Only seeded when no
+    # default is set, so a model picked via /model is never overwritten.
+    "pi_primary_model": "openai-codex/gpt-5.6-sol",
+    # Model the gateway provider is bootstrapped with on a fresh host. Kept
+    # separate from the primary so the gateway (and with it glm-5.2 and the
+    # llama routing) still exists as an option even when pi defaults elsewhere.
+    "pi_gateway_model": "openrouter/openai/gpt-5.6",
     # Codex specialist worker for pi: a strong coding model the primary delegates
     # hard refactors, multi-file changes, and debugging to (inverse of the cheap
     # llama worker). "gateway/<model>" must resolve on the gateway.
@@ -228,7 +234,14 @@ BASE_MOUNTS = [
     "source=${localWorkspaceFolder}/.devcontainer/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/.pi-cache,target=/home/${localEnv:USER}/.pi,type=bind",
+    # pi: one host config shared by every container, so packages/themes/agents
+    # and the OAuth login added in one project are live in all of them. Only
+    # sessions are per-project — nested mount below shadows the shared dir.
+    # The gateway's LiteLLM key is NOT in here: models.json stores the literal
+    # "$LITELLM_VIRTUAL_KEY" and each container resolves its own, keeping
+    # per-project spend attribution.
+    "source=${localEnv:HOME}/.pi,target=/home/${localEnv:USER}/.pi,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.pi-sessions,target=/home/${localEnv:USER}/.pi/agent/sessions,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
