@@ -73,3 +73,7 @@ docs/superpowers/
 docs/2026-*.org
 docs/2027-*.org
 .jolo-perf.log
+
+# Test + agent run artifacts
+.coverage
+.pi-subagents/
