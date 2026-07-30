@@ -1,6 +1,7 @@
 ---
 name: j-resume
 description: Resume a session — read the paste-back handoff note to recall what we last worked on, falling back to a git+TODO status when none exists. Add the `full` keyword to also deep-scan project notes and memory.
+disable-model-invocation: true
 ---
 
 # /j-resume

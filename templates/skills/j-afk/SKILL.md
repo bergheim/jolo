@@ -1,6 +1,7 @@
 ---
 name: j-afk
 description: Work autonomously while the user is away. Create multiple feature branches sequentially, each with a self-contained improvement.
+disable-model-invocation: true
 ---
 
 # /j-afk

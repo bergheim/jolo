@@ -1,6 +1,7 @@
 ---
 name: j-worktree
 description: Create an isolated git worktree in a new tmux window via `just wt new`. Use when the user asks to use, create, spin up, or work in a worktree in a jolo container.
+disable-model-invocation: true
 ---
 
 # /j-worktree

@@ -1,6 +1,7 @@
 ---
 name: j-note-stash
 description: Use when the user explicitly wants to save a cross-project lesson, incident, convention, or gotcha to the shared stash denote notes.
+disable-model-invocation: true
 ---
 
 # /j-note-stash
