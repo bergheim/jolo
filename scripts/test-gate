@@ -12,4 +12,9 @@ if [ "$value" != "true" ]; then
 fi
 
 echo "[test-gate] running tests (test-on-$stage)..."
+# Pre-commit exports repository-local Git variables. Tests create temporary
+# repositories, so leaking those variables can mutate this repository instead.
+for name in $(git rev-parse --local-env-vars); do
+    unset "$name"
+done
 just test

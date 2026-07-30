@@ -55,8 +55,8 @@ DEFAULT_CONFIG = {
     "pi_gateway_model": "openrouter/openai/gpt-5.6",
     # Codex specialist worker for pi: a strong coding model the primary delegates
     # hard refactors, multi-file changes, and debugging to (inverse of the cheap
-    # llama worker). "gateway/<model>" must resolve on the gateway.
-    "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
+    # llama worker). Use the authenticated Codex OAuth route at maximum reasoning.
+    "pi_codex_model": "openai-codex/gpt-5.6-sol:xhigh",
     # LiteLLM control-plane gateway base URL. Default empty; load_config()
     # populates it from the host env LITELLM_HOST (e.g. http://<tailnet-host>:8088),
     # so the rest of the code just reads config. Real provider keys live only in

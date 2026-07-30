@@ -159,6 +159,9 @@ class TestSecretsManagement(unittest.TestCase):
         self.assertEqual(cfg["pi_primary_model"], "openai-codex/gpt-5.6-sol")
         self.assertEqual(cfg["pi_gateway_model"], "openrouter/openai/gpt-5.6")
         self.assertEqual(
+            cfg["pi_codex_model"], "openai-codex/gpt-5.6-sol:xhigh"
+        )
+        self.assertEqual(
             cfg["pass_path_litellm_master"], "api/llm/litellm-master"
         )
         # Gateway address defaults empty; load_config folds in LITELLM_HOST.
@@ -1028,7 +1031,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertIs(trust["/workspaces/project"], True)
 
     def test_setup_credential_cache_seeds_pi_packages(self):
-        """Pi settings seed the delegation packages + pnpm installer command.
+        """Pi seeds its bundled subagent extension and managed packages.
 
         npmCommand is mandatory: the image shims npm to fail, so without it
         pi's startup auto-install never runs.
@@ -1036,7 +1039,44 @@ class TestPiLlamaConfig(unittest.TestCase):
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
         home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
+        agent_dir = home / ".pi" / "agent"
+        agent_dir.mkdir(parents=True)
+        custom_package = {
+            "source": "npm:custom-filtered",
+            "skills": [],
+        }
+        (agent_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "packages": [
+                        "npm:pi-subagents",
+                        "npm:pi-subagents@0.37.2",
+                        {
+                            "source": "npm:pi-subagents@0.37.2",
+                            "skills": [],
+                        },
+                        "npm:custom",
+                        custom_package,
+                    ]
+                }
+            )
+        )
+        npm_dir = agent_dir / "npm"
+        npm_dir.mkdir()
+        (npm_dir / "package.json").write_text(
+            json.dumps(
+                {
+                    "private": True,
+                    "dependencies": {
+                        "pi-subagents": "^0.37.2",
+                        "custom": "^1.0.0",
+                    },
+                }
+            )
+        )
+        obsolete_config = agent_dir / "extensions" / "subagent" / "config.json"
+        obsolete_config.parent.mkdir(parents=True)
+        obsolete_config.write_text('{"toolDescriptionMode":"compact"}')
 
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(os.environ, {}, clear=True):
@@ -1046,9 +1086,34 @@ class TestPiLlamaConfig(unittest.TestCase):
             (home / ".pi" / "agent" / "settings.json").read_text()
         )
         self.assertEqual(settings["npmCommand"], ["pnpm"])
-        self.assertIn("npm:pi-subagents", settings["packages"])
+        self.assertFalse(
+            any(
+                str(
+                    package.get("source", "")
+                    if isinstance(package, dict)
+                    else package
+                ).startswith("npm:pi-subagents")
+                for package in settings["packages"]
+            )
+        )
+        self.assertIn("npm:custom", settings["packages"])
+        self.assertIn(custom_package, settings["packages"])
         self.assertIn("npm:pi-lens", settings["packages"])
-        self.assertEqual(settings["packages"], setup.PI_PACKAGES)
+        self.assertEqual(
+            settings["packages"],
+            ["npm:custom", custom_package, *setup.PI_PACKAGES],
+        )
+
+        extension = (
+            agent_dir / "extensions" / "pi-official-subagent.ts"
+        ).read_text()
+        self.assertIn("getExamplesPath", extension)
+        self.assertIn('"extensions", "subagent", "index.ts"', extension)
+        self.assertFalse(obsolete_config.exists())
+
+        package_data = json.loads((npm_dir / "package.json").read_text())
+        self.assertNotIn("pi-subagents", package_data["dependencies"])
+        self.assertIn("custom", package_data["dependencies"])
 
     def test_setup_credential_cache_seeds_pi_pnpm_workspace_policy(self):
         """Pi's managed extension workspace denies ast-grep's musl-broken build."""
@@ -1080,7 +1145,7 @@ class TestPiLlamaConfig(unittest.TestCase):
             "  '@google/genai': false\n"
             "  protobufjs: false\n"
             "minimumReleaseAgeExclude:\n"
-            "  - pi-subagents@0.37.2\n"
+            "  - pi-web-access@0.15.0\n"
         )
 
         with mock.patch("pathlib.Path.home", return_value=home):
@@ -1094,7 +1159,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertIn("  '@google/genai': false\n", workspace)
         self.assertIn("  protobufjs: false\n", workspace)
         self.assertIn("minimumReleaseAgeExclude:\n", workspace)
-        self.assertIn("  - pi-subagents@0.37.2\n", workspace)
+        self.assertIn("  - pi-web-access@0.15.0\n", workspace)
 
 
 class TestPatchJsonWithJq(unittest.TestCase):
@@ -2605,7 +2670,7 @@ class TestPiSharedConfig(unittest.TestCase):
 
 
 class TestPiCodexWorker(unittest.TestCase):
-    """pi delegates hard coding to a gateway-served codex specialist subagent."""
+    """Pi delegates hard coding to a provider-qualified codex specialist."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -2646,6 +2711,16 @@ class TestPiCodexWorker(unittest.TestCase):
         )
 
         self.assertIn("codex", (agent / "delegation.md").read_text())
+
+    def test_writes_direct_codex_worker_without_gateway(self):
+        cfg = {
+            "pi_codex_model": "openai-codex/gpt-5.6-sol:xhigh",
+        }
+        agent = self._run(cfg, {})
+
+        worker = (agent / "agents" / "codex.md").read_text()
+        self.assertIn("name: codex", worker)
+        self.assertIn("model: openai-codex/gpt-5.6-sol:xhigh", worker)
 
     def test_no_codex_worker_without_gateway(self):
         cfg = {

@@ -11,13 +11,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from _jolo import constants
-from _jolo.cli import (
+from . import constants
+from .cli import (
     detect_flavors,
     read_port_from_devcontainer,
     verbose_print,
 )
-from _jolo.container import build_devcontainer_json
+from .container import build_devcontainer_json
 
 DEFAULT_CODEX_REASONING_EFFORT = "high"
 PI_LLAMA_PROVIDER = "llama"
@@ -38,7 +38,6 @@ PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
 # pi packages reconciled on first trusted startup (we pre-trust the workspace).
 # Seeded into settings.json `packages`; pi installs any missing ones at launch.
 PI_PACKAGES = [
-    "npm:pi-subagents",  # lead -> worker delegation; reads agents/*.md, per-agent model
     "npm:pi-downshift",  # premium -> economy handoff when context gets expensive
     "npm:@juicesharp/rpiv-advisor",  # escalate to a stronger reviewer model on demand
     "npm:pi-lens",  # LSP/ast-grep code intelligence; ast-grep build is disabled below
@@ -448,6 +447,7 @@ def setup_credential_cache(
     pi_cfg = cfg or constants.DEFAULT_CONFIG
     _ensure_pi_trust(pi_home, workspace_dir)
     _ensure_pi_delegation(pi_home)
+    _write_pi_official_subagent(pi_home)
     _write_pi_packages(pi_home)
     _write_pi_pnpm_workspace_policy(pi_home)
 
@@ -604,8 +604,32 @@ def _ensure_pi_delegation(pi_home: Path) -> None:
     )
 
 
+def _write_pi_official_subagent(pi_home: Path) -> None:
+    """Load the subagent extension bundled with the installed Pi version."""
+    extensions_dir = pi_home / "agent" / "extensions"
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    obsolete_config = extensions_dir / "subagent" / "config.json"
+    obsolete_config.unlink(missing_ok=True)
+    if obsolete_config.parent.is_dir():
+        try:
+            obsolete_config.parent.rmdir()
+        except OSError:
+            pass
+    (extensions_dir / "pi-official-subagent.ts").write_text(
+        'import path from "node:path";\n'
+        'import { pathToFileURL } from "node:url";\n'
+        'import { getExamplesPath, type ExtensionAPI } from "@earendil-works/pi-coding-agent";\n'
+        "\n"
+        "export default async function (pi: ExtensionAPI) {\n"
+        '  const entry = path.join(getExamplesPath(), "extensions", "subagent", "index.ts");\n'
+        "  const extension = await import(pathToFileURL(entry).href);\n"
+        "  return extension.default(pi);\n"
+        "}\n"
+    )
+
+
 def _write_pi_packages(pi_home: Path) -> None:
-    """Seed the pi packages that provide delegation and model routing.
+    """Seed Pi packages for model routing, review, and code intelligence.
 
     pi reconciles missing packages from settings.json on first trusted startup.
     `npmCommand` is mandatory here: the image shims `npm` to fail, so without it
@@ -616,9 +640,30 @@ def _write_pi_packages(pi_home: Path) -> None:
     settings_path = agent_dir / "settings.json"
     settings = _load_json_safe(settings_path)
     settings["npmCommand"] = PI_NPM_COMMAND
-    existing = settings.get("packages", [])
-    settings["packages"] = list(dict.fromkeys([*existing, *PI_PACKAGES]))
+    existing = []
+    for package in settings.get("packages", []):
+        source = (
+            package.get("source") if isinstance(package, dict) else package
+        )
+        if isinstance(source, str) and (
+            source == "npm:pi-subagents"
+            or source.startswith("npm:pi-subagents@")
+        ):
+            continue
+        if package not in existing:
+            existing.append(package)
+    settings["packages"] = [
+        *existing,
+        *(package for package in PI_PACKAGES if package not in existing),
+    ]
     write_json(settings_path, settings)
+
+    package_path = agent_dir / "npm" / "package.json"
+    package_data = _load_json_safe(package_path)
+    dependencies = package_data.get("dependencies")
+    if isinstance(dependencies, dict) and "pi-subagents" in dependencies:
+        dependencies.pop("pi-subagents")
+        write_json(package_path, package_data)
 
 
 def _quote_yaml_key(key: str) -> str:
@@ -659,7 +704,8 @@ def _set_top_level_yaml_mapping_value(
     for index in range(section_index + 1, end_index):
         stripped = lines[index].strip()
         if stripped.startswith((f"{key}:", f"'{key}':", f'"{key}":')):
-            indent = re.match(r"\s*", lines[index]).group(0) or "  "
+            match = re.match(r"\s*", lines[index])
+            indent = match.group(0) if match else "  "
             lines[index] = (
                 f"{indent}{_quote_yaml_key(key)}: {_yaml_bool(value)}"
             )
@@ -709,36 +755,38 @@ def _write_pi_codex_worker(
 ) -> None:
     """Seed a codex specialist subagent the primary delegates hard coding to.
 
-    The inverse of the llama `worker`: a strong, gateway-served model for complex
-    refactors, debugging, and multi-file changes. The model lives on the gateway,
-    so this is skipped when the gateway isn't configured or no model is set. The
-    `gateway/<model>` id is added to the gateway provider's model list if absent.
+    The inverse of the llama `worker`: a strong model for complex refactors,
+    debugging, and multi-file changes. Gateway models are registered in the
+    custom provider; built-in providers such as openai-codex need no catalog edit.
     """
-    if not base_url or not virtual_key or not codex_model:
+    if not codex_model:
         return
     provider, _, model = codex_model.partition("/")
-    if provider != PI_GATEWAY_PROVIDER or not model:
+    if not provider or not model:
         return
     agent_dir = pi_home / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
-    models_path = agent_dir / "models.json"
-    models = _load_json_safe(models_path)
-    gateway = models.get("providers", {}).get(PI_GATEWAY_PROVIDER)
-    if gateway is None:
-        return
-    gateway_models = gateway.setdefault("models", [])
-    if not any(m.get("id") == model for m in gateway_models):
-        gateway_models.append(
-            _pi_model_entry(
-                model,
-                "litellm",
-                True,
-                PI_GATEWAY_CONTEXT_WINDOW,
-                PI_GATEWAY_MAX_TOKENS,
+    if provider == PI_GATEWAY_PROVIDER:
+        if not base_url or not virtual_key:
+            return
+        models_path = agent_dir / "models.json"
+        models = _load_json_safe(models_path)
+        gateway = models.get("providers", {}).get(PI_GATEWAY_PROVIDER)
+        if gateway is None:
+            return
+        gateway_models = gateway.setdefault("models", [])
+        if not any(m.get("id") == model for m in gateway_models):
+            gateway_models.append(
+                _pi_model_entry(
+                    model,
+                    "litellm",
+                    True,
+                    PI_GATEWAY_CONTEXT_WINDOW,
+                    PI_GATEWAY_MAX_TOKENS,
+                )
             )
-        )
-        write_json(models_path, models)
+            write_json(models_path, models)
 
     agents_dir = agent_dir / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
@@ -1113,7 +1161,7 @@ def _regenerated_justfile_common_bytes(
 ) -> bytes | None:
     """Return current ``justfile.common`` bytes for this project, or ``None``
     if flavor cannot be resolved or the flavor opts out of shared recipes."""
-    from _jolo.templates import get_justfile_common_content
+    from .templates import get_justfile_common_content
 
     flavor = _resolve_flavor(target_dir, force)
     if flavor is None:
@@ -1136,7 +1184,7 @@ def _regenerated_justfile_bytes(
     ``git restore`` from a pre-split commit). Custom recipes the user
     wants to keep should be re-added afterwards from git history.
     """
-    from _jolo.templates import get_justfile_content
+    from .templates import get_justfile_content
 
     flavor = _resolve_flavor(target_dir, force)
     if flavor is None:
@@ -1149,7 +1197,7 @@ def _regenerated_perf_rig_bytes(
 ) -> bytes | None:
     """Return current ``perf-rig.toml`` bytes for this project, or ``None``
     if flavor cannot be resolved or the flavor opts out of shared recipes."""
-    from _jolo.templates import get_perf_rig_content
+    from .templates import get_perf_rig_content
 
     flavor = _resolve_flavor(target_dir, force)
     if flavor is None:
@@ -1163,7 +1211,7 @@ def _regenerated_envrc_bytes(
     target_dir: Path, force: bool = False
 ) -> bytes | None:
     """Return current ``.envrc`` bytes for web projects, or ``None``."""
-    from _jolo.templates import get_envrc_content
+    from .templates import get_envrc_content
 
     flavor = _resolve_flavor(target_dir, force)
     if flavor is None:
@@ -1176,7 +1224,7 @@ def _regenerated_envrc_bytes(
 
 def _regenerated_precommit_config_bytes(target_dir: Path) -> bytes | None:
     """Return current ``.pre-commit-config.yaml`` bytes for this project."""
-    from _jolo.templates import generate_precommit_config
+    from .templates import generate_precommit_config
 
     flavors = detect_flavors(target_dir)
     return generate_precommit_config(flavors).encode()
@@ -1542,6 +1590,7 @@ def scaffold_devcontainer(
         target_dir = Path.cwd()
     if config is None:
         config = constants.DEFAULT_CONFIG
+    assert config is not None
 
     devcontainer_dir = target_dir / ".devcontainer"
     devcontainer_json = devcontainer_dir / "devcontainer.json"
@@ -1582,6 +1631,7 @@ def sync_devcontainer(
         target_dir = Path.cwd()
     if config is None:
         config = constants.DEFAULT_CONFIG
+    assert config is not None
 
     # Preserve existing port if not explicitly overridden
     if port is None:
@@ -1627,6 +1677,7 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
     """Get API secrets from pass or environment variables."""
     if config is None:
         config = constants.DEFAULT_CONFIG
+    assert config is not None
 
     secrets = {}
 
