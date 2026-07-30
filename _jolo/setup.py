@@ -508,6 +508,11 @@ def _seed_pi_default_model(agent_dir: Path, provider: str, model: str) -> None:
     Single writer for this setting: pi's config is shared across containers, so
     any unconditional write here resets a model picked via /model on every
     `jolo up`.
+
+    `or`, not `and`: either field alone still means the user touched this, and
+    seeding would overwrite it. A half-set default is harmless — pi falls back
+    to its own per-provider default — whereas clobbering one is the exact
+    regression this guard exists to prevent.
     """
     settings_path = agent_dir / "settings.json"
     settings = _load_json_safe(settings_path)
