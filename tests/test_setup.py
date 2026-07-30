@@ -154,9 +154,10 @@ class TestSecretsManagement(unittest.TestCase):
         from _jolo.constants import DEFAULT_CONFIG
 
         cfg = DEFAULT_CONFIG
-        self.assertEqual(
-            cfg["pi_primary_model"], "gateway/openrouter/openai/gpt-5.6"
-        )
+        # pi defaults to the ChatGPT subscription; the gateway stays
+        # available but is no longer what pi reaches for by default
+        self.assertEqual(cfg["pi_primary_model"], "openai-codex/gpt-5.6-sol")
+        self.assertEqual(cfg["pi_gateway_model"], "openrouter/openai/gpt-5.6")
         self.assertEqual(
             cfg["pass_path_litellm_master"], "api/llm/litellm-master"
         )
@@ -975,9 +976,10 @@ class TestPiLlamaConfig(unittest.TestCase):
 
         agent = home / ".pi" / "agent"
         settings = json.loads((agent / "settings.json").read_text())
-        # strong primary from DEFAULT_CONFIG["pi_primary_model"]
-        self.assertEqual(settings["defaultProvider"], "gateway")
-        self.assertEqual(settings["defaultModel"], "openrouter/openai/gpt-5.6")
+        # strong primary from DEFAULT_CONFIG["pi_primary_model"] — the
+        # subscription, not the metered gateway
+        self.assertEqual(settings["defaultProvider"], "openai-codex")
+        self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
         # llama is the worker, not the primary
         self.assertIn(
             "llama",
@@ -2423,6 +2425,7 @@ class TestPiGatewayConfig(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/gemini-3.1-pro",
+            "pi_gateway_model": "gemini-3.1-pro",
         }
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(
@@ -2465,6 +2468,7 @@ class TestPiGatewayConfig(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/gemini-3.1-pro",
+            "pi_gateway_model": "gemini-3.1-pro",
         }
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(
@@ -2514,6 +2518,7 @@ class TestPiGatewayConfig(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/gemini-3.1-pro",
+            "pi_gateway_model": "gemini-3.1-pro",
         }
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(
@@ -2631,6 +2636,7 @@ class TestPiCodexWorker(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/gemini-3.1-pro",
+            "pi_gateway_model": "gemini-3.1-pro",
             "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
         }
         agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
@@ -2660,6 +2666,7 @@ class TestPiCodexWorker(unittest.TestCase):
         cfg = {
             "litellm_base_url": "http://gw:8088",
             "pi_primary_model": "gateway/openrouter/openai/gpt-5.6",
+            "pi_gateway_model": "openrouter/openai/gpt-5.6",
             "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
         }
         agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})

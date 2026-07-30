@@ -457,7 +457,8 @@ def setup_credential_cache(
 
     gateway_base = (cfg or constants.DEFAULT_CONFIG).get("litellm_base_url")
     virtual_key = os.environ.get("LITELLM_VIRTUAL_KEY", "")
-    _write_pi_gateway_config(pi_home, gateway_base, virtual_key, pi_primary)
+    gateway_model = (cfg or constants.DEFAULT_CONFIG).get("pi_gateway_model")
+    _write_pi_gateway_config(pi_home, gateway_base, virtual_key, gateway_model)
 
     pi_codex = (cfg or constants.DEFAULT_CONFIG).get("pi_codex_model")
     _write_pi_codex_worker(pi_home, gateway_base, virtual_key, pi_codex)
@@ -529,15 +530,17 @@ def _write_pi_gateway_config(
     pi_home: Path,
     base_url: str | None,
     virtual_key: str,
-    primary: str | None,
+    gateway_model: str | None,
 ) -> None:
-    """Inject the project virtual key into pi's gateway provider.
+    """Point pi's gateway provider at the host LiteLLM and keep it routable.
 
-    The model list comes from the copied host ~/.pi (same mechanism as claude).
-    We only patch the two values that can't be static: the project-scoped virtual
-    key (capped, revocable, never a real key) and the host gateway URL. When no
-    gateway provider was copied, bootstrap a minimal one from the primary so a
-    fresh setup still routes.
+    We only patch what can't be static: the host gateway URL, and the reference
+    to the project-scoped virtual key. When no gateway provider exists yet,
+    bootstrap a minimal one from `gateway_model`.
+
+    `gateway_model` is a bare model id, deliberately independent of the primary:
+    pi now defaults to the openai-codex subscription, but the gateway must still
+    exist so glm-5.2 and the llama routing remain selectable.
     """
     if not base_url or not virtual_key:
         return
@@ -548,15 +551,14 @@ def _write_pi_gateway_config(
     providers = models.setdefault("providers", {})
     gateway = providers.get(PI_GATEWAY_PROVIDER)
     if gateway is None:
-        provider, _, model = (primary or "").partition("/")
-        if provider != PI_GATEWAY_PROVIDER or not model:
+        if not gateway_model:
             return
-        # gateway primary defaults to a frontier reasoning model
+        # gateway bootstrap defaults to a frontier reasoning model
         gateway = providers[PI_GATEWAY_PROVIDER] = {
             "api": "openai-completions",
             "models": [
                 _pi_model_entry(
-                    model,
+                    gateway_model,
                     "litellm",
                     True,
                     PI_GATEWAY_CONTEXT_WINDOW,
