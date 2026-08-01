@@ -259,6 +259,9 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.gnupg/trustdb.gpg,target=/home/${localEnv:USER}/.gnupg/trustdb.gpg,type=bind,readonly",
     "source=${localEnv:XDG_RUNTIME_DIR}/gnupg/S.gpg-agent,target=/home/${localEnv:USER}/.gnupg/S.gpg-agent,type=bind",
     "source=${localEnv:HOME}/.config/gh,target=/home/${localEnv:USER}/.config/gh,type=bind,readonly",
+    # rpiv-advisor stores config under XDG, not ~/.pi, so it does not ride the
+    # shared pi mount and vanishes on recreate. Writable: /advisor edits persist.
+    "source=${localEnv:HOME}/.config/rpiv-advisor,target=/home/${localEnv:USER}/.config/rpiv-advisor,type=bind",
     "source=${localEnv:HOME}/stash,target=/workspaces/stash,type=bind",
 ]
 
