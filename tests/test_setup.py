@@ -992,7 +992,6 @@ class TestPiLlamaConfig(unittest.TestCase):
             "model: llama/qwen3.6",
             (agent / "agents" / "worker.md").read_text(),
         )
-        self.assertTrue((agent / "delegation.md").exists())
 
     def test_setup_credential_cache_falls_back_to_llama_primary(self):
         """Empty pi_primary_model -> llama becomes the primary again."""
@@ -1114,6 +1113,18 @@ class TestPiLlamaConfig(unittest.TestCase):
         package_data = json.loads((npm_dir / "package.json").read_text())
         self.assertNotIn("pi-subagents", package_data["dependencies"])
         self.assertIn("custom", package_data["dependencies"])
+
+    def test_setup_does_not_write_pi_delegation(self):
+        """delegation.md is a host preference; jolo must not write it."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            setup.setup_credential_cache(ws)
+
+        self.assertFalse((home / ".pi" / "agent" / "delegation.md").exists())
 
     def test_setup_credential_cache_seeds_pi_pnpm_workspace_policy(self):
         """Pi's managed extension workspace denies ast-grep's musl-broken build."""
@@ -2709,8 +2720,6 @@ class TestPiCodexWorker(unittest.TestCase):
         self.assertIn(
             "openrouter/openai/gpt-5.6", [m["id"] for m in gw["models"]]
         )
-
-        self.assertIn("codex", (agent / "delegation.md").read_text())
 
     def test_writes_direct_codex_worker_without_gateway(self):
         cfg = {

@@ -446,7 +446,6 @@ def setup_credential_cache(
 
     pi_cfg = cfg or constants.DEFAULT_CONFIG
     _ensure_pi_trust(pi_home, workspace_dir)
-    _ensure_pi_delegation(pi_home)
     _write_pi_official_subagent(pi_home)
     _write_pi_packages(pi_home)
     _write_pi_pnpm_workspace_policy(pi_home)
@@ -585,23 +584,6 @@ def _write_pi_gateway_config(
     # its own, which is what keeps LiteLLM spend attribution per-project.
     gateway["apiKey"] = f"${PI_VIRTUAL_KEY_ENV}"
     write_json(models_path, models)
-
-
-def _ensure_pi_delegation(pi_home: Path) -> None:
-    """Append-to-system-prompt text telling the primary to use the local worker.
-
-    Referenced by the pi launch command (--append-system-prompt @<this>), kept
-    out of the shared AGENTS.md so only pi sees it.
-    """
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    (agent_dir / "delegation.md").write_text(
-        "When a `worker` subagent is available, delegate trivial, fully-specified "
-        "edits and searches to it — it runs a cheap local model. When a `codex` "
-        "subagent is available, delegate hard, reasoning-heavy coding — complex "
-        "refactors, multi-file changes, and gnarly debugging — to it. Keep design, "
-        "judgment, and orchestration on the primary model.\n"
-    )
 
 
 def _write_pi_official_subagent(pi_home: Path) -> None:
