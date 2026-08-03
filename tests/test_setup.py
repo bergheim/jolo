@@ -1030,7 +1030,7 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertIs(trust["/workspaces/project"], True)
 
     def test_setup_credential_cache_seeds_pi_packages(self):
-        """Pi seeds its bundled subagent extension and managed packages.
+        """Pi seeds its managed packages.
 
         npmCommand is mandatory: the image shims npm to fail, so without it
         pi's startup auto-install never runs.
@@ -1073,10 +1073,6 @@ class TestPiLlamaConfig(unittest.TestCase):
                 }
             )
         )
-        obsolete_config = agent_dir / "extensions" / "subagent" / "config.json"
-        obsolete_config.parent.mkdir(parents=True)
-        obsolete_config.write_text('{"toolDescriptionMode":"compact"}')
-
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(os.environ, {}, clear=True):
                 jolo.setup_credential_cache(ws)
@@ -1103,13 +1099,6 @@ class TestPiLlamaConfig(unittest.TestCase):
             ["npm:custom", custom_package, *setup.PI_PACKAGES],
         )
 
-        extension = (
-            agent_dir / "extensions" / "pi-official-subagent.ts"
-        ).read_text()
-        self.assertIn("getExamplesPath", extension)
-        self.assertIn('"extensions", "subagent", "index.ts"', extension)
-        self.assertFalse(obsolete_config.exists())
-
         package_data = json.loads((npm_dir / "package.json").read_text())
         self.assertNotIn("pi-subagents", package_data["dependencies"])
         self.assertIn("custom", package_data["dependencies"])
@@ -1125,6 +1114,19 @@ class TestPiLlamaConfig(unittest.TestCase):
             setup.setup_credential_cache(ws)
 
         self.assertFalse((home / ".pi" / "agent" / "delegation.md").exists())
+
+    def test_setup_does_not_write_pi_subagent_extension(self):
+        """The subagent shim is a host preference; jolo must not write it."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            setup.setup_credential_cache(ws)
+
+        extensions = home / ".pi" / "agent" / "extensions"
+        self.assertFalse((extensions / "pi-official-subagent.ts").exists())
 
     def test_setup_credential_cache_seeds_pi_pnpm_workspace_policy(self):
         """Pi's managed extension workspace denies ast-grep's musl-broken build."""

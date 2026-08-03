@@ -446,7 +446,6 @@ def setup_credential_cache(
 
     pi_cfg = cfg or constants.DEFAULT_CONFIG
     _ensure_pi_trust(pi_home, workspace_dir)
-    _write_pi_official_subagent(pi_home)
     _write_pi_packages(pi_home)
     _write_pi_pnpm_workspace_policy(pi_home)
 
@@ -584,30 +583,6 @@ def _write_pi_gateway_config(
     # its own, which is what keeps LiteLLM spend attribution per-project.
     gateway["apiKey"] = f"${PI_VIRTUAL_KEY_ENV}"
     write_json(models_path, models)
-
-
-def _write_pi_official_subagent(pi_home: Path) -> None:
-    """Load the subagent extension bundled with the installed Pi version."""
-    extensions_dir = pi_home / "agent" / "extensions"
-    extensions_dir.mkdir(parents=True, exist_ok=True)
-    obsolete_config = extensions_dir / "subagent" / "config.json"
-    obsolete_config.unlink(missing_ok=True)
-    if obsolete_config.parent.is_dir():
-        try:
-            obsolete_config.parent.rmdir()
-        except OSError:
-            pass
-    (extensions_dir / "pi-official-subagent.ts").write_text(
-        'import path from "node:path";\n'
-        'import { pathToFileURL } from "node:url";\n'
-        'import { getExamplesPath, type ExtensionAPI } from "@earendil-works/pi-coding-agent";\n'
-        "\n"
-        "export default async function (pi: ExtensionAPI) {\n"
-        '  const entry = path.join(getExamplesPath(), "extensions", "subagent", "index.ts");\n'
-        "  const extension = await import(pathToFileURL(entry).href);\n"
-        "  return extension.default(pi);\n"
-        "}\n"
-    )
 
 
 def _write_pi_packages(pi_home: Path) -> None:
