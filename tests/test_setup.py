@@ -1029,79 +1029,64 @@ class TestPiLlamaConfig(unittest.TestCase):
         trust = json.loads((home / ".pi" / "agent" / "trust.json").read_text())
         self.assertIs(trust["/workspaces/project"], True)
 
-    def test_setup_credential_cache_seeds_pi_packages(self):
-        """Pi seeds its managed packages.
+    def test_npm_command_goes_to_project_settings(self):
+        """npmCommand is an image fact: pnpm in the container, not on the host."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
 
-        npmCommand is mandatory: the image shims npm to fail, so without it
-        pi's startup auto-install never runs.
+        with mock.patch("pathlib.Path.home", return_value=home):
+            setup.setup_credential_cache(ws)
+
+        project_settings = json.loads(
+            (ws / ".pi" / "settings.json").read_text()
+        )
+        self.assertEqual(project_settings["npmCommand"], ["pnpm"])
+
+    def test_project_settings_preserves_existing_keys(self):
+        """Merge into .pi/settings.json; never clobber what the project set."""
+        ws = Path(self.tmpdir) / "project"
+        (ws / ".pi").mkdir(parents=True)
+        (ws / ".pi" / "settings.json").write_text(
+            json.dumps({"theme": "gruvbox-light"})
+        )
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            setup.setup_credential_cache(ws)
+
+        project_settings = json.loads(
+            (ws / ".pi" / "settings.json").read_text()
+        )
+        self.assertEqual(project_settings["theme"], "gruvbox-light")
+        self.assertEqual(project_settings["npmCommand"], ["pnpm"])
+
+    def test_setup_does_not_write_host_pi_settings(self):
+        """settings.json is host-owned. jolo writes only project scope.
+
+        pi_primary_model is set to "" to isolate this from the unrelated,
+        pre-existing set-if-unset defaultProvider/defaultModel seeding in
+        _write_pi_primary, which legitimately still writes host settings.json.
         """
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
         home = Path(self.tmpdir) / "home"
         agent_dir = home / ".pi" / "agent"
         agent_dir.mkdir(parents=True)
-        custom_package = {
-            "source": "npm:custom-filtered",
-            "skills": [],
-        }
         (agent_dir / "settings.json").write_text(
-            json.dumps(
-                {
-                    "packages": [
-                        "npm:pi-subagents",
-                        "npm:pi-subagents@0.37.2",
-                        {
-                            "source": "npm:pi-subagents@0.37.2",
-                            "skills": [],
-                        },
-                        "npm:custom",
-                        custom_package,
-                    ]
-                }
-            )
+            json.dumps({"packages": ["npm:host-owned"], "theme": "mine"})
         )
-        npm_dir = agent_dir / "npm"
-        npm_dir.mkdir()
-        (npm_dir / "package.json").write_text(
-            json.dumps(
-                {
-                    "private": True,
-                    "dependencies": {
-                        "pi-subagents": "^0.37.2",
-                        "custom": "^1.0.0",
-                    },
-                }
-            )
-        )
+
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(os.environ, {}, clear=True):
-                jolo.setup_credential_cache(ws)
+                setup.setup_credential_cache(ws, {"pi_primary_model": ""})
 
-        settings = json.loads(
-            (home / ".pi" / "agent" / "settings.json").read_text()
-        )
-        self.assertEqual(settings["npmCommand"], ["pnpm"])
-        self.assertFalse(
-            any(
-                str(
-                    package.get("source", "")
-                    if isinstance(package, dict)
-                    else package
-                ).startswith("npm:pi-subagents")
-                for package in settings["packages"]
-            )
-        )
-        self.assertIn("npm:custom", settings["packages"])
-        self.assertIn(custom_package, settings["packages"])
-        self.assertIn("npm:pi-lens", settings["packages"])
+        settings = json.loads((agent_dir / "settings.json").read_text())
         self.assertEqual(
-            settings["packages"],
-            ["npm:custom", custom_package, *setup.PI_PACKAGES],
+            settings, {"packages": ["npm:host-owned"], "theme": "mine"}
         )
-
-        package_data = json.loads((npm_dir / "package.json").read_text())
-        self.assertNotIn("pi-subagents", package_data["dependencies"])
-        self.assertIn("custom", package_data["dependencies"])
 
     def test_setup_does_not_write_pi_delegation(self):
         """delegation.md is a host preference; jolo must not write it."""
