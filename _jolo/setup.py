@@ -20,35 +20,10 @@ from .cli import (
 from .container import build_devcontainer_json
 
 DEFAULT_CODEX_REASONING_EFFORT = "high"
-PI_LLAMA_PROVIDER = "llama"
-PI_LLAMA_CONTEXT_WINDOW = 32768
-PI_LLAMA_MAX_TOKENS = 8192
-PI_GATEWAY_PROVIDER = "gateway"
-PI_VIRTUAL_KEY_ENV = "LITELLM_VIRTUAL_KEY"
-PI_GATEWAY_CONTEXT_WINDOW = 1_000_000
-PI_GATEWAY_MAX_TOKENS = 8192
-PI_LLAMA_DEFAULT_MODEL_PRIORITY = [
-    "qwen3-coder-next",
-    "qwen3-coder",
-    "qwen3.6",
-    "qwen3.6-small",
-    "qwen3.5",
-]
-
-# pi packages reconciled on first trusted startup (we pre-trust the workspace).
-# Seeded into settings.json `packages`; pi installs any missing ones at launch.
-PI_PACKAGES = [
-    "npm:pi-downshift",  # premium -> economy handoff when context gets expensive
-    "npm:@juicesharp/rpiv-advisor",  # escalate to a stronger reviewer model on demand
-    "npm:pi-lens",  # LSP/ast-grep code intelligence; ast-grep build is disabled below
-]
 
 # The image ships pnpm only (npm is shimmed to fail), so point pi's package
 # installer at pnpm — otherwise `pi install` and startup auto-install both die.
 PI_NPM_COMMAND = ["pnpm"]
-PI_PNPM_BUILD_POLICY = {
-    "@ast-grep/cli": False,
-}
 
 
 def write_json(
@@ -192,14 +167,13 @@ def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
     return f"{content}{new_setting}\n"
 
 
-def setup_credential_cache(
-    workspace_dir: Path, cfg: dict | None = None
-) -> None:
+def setup_credential_cache(workspace_dir: Path) -> None:
     """Stage AI credentials for container use.
 
     Claude: .credentials.json is mounted RW from the host (token refreshes
     persist). Only settings.json is copied (for notification hook injection).
-    Gemini/Codex/Pi: fully copied to .devcontainer cache dirs.
+    Gemini/Codex: fully copied to .devcontainer cache dirs.
+    Pi: ~/.pi is mounted directly from the host; jolo writes nothing there.
     """
     home = Path.home()
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -444,366 +418,21 @@ def setup_credential_cache(
         parents=True, exist_ok=True
     )
 
-    pi_cfg = cfg or constants.DEFAULT_CONFIG
-    _ensure_pi_trust(pi_home, workspace_dir)
-    _ensure_pi_delegation(pi_home)
-    _write_pi_official_subagent(pi_home)
-    _write_pi_packages(pi_home)
-    _write_pi_pnpm_workspace_policy(pi_home)
-
-    pi_primary = pi_cfg.get("pi_primary_model")
-    _write_pi_primary(pi_home, pi_primary)
-
-    gateway_base = pi_cfg.get("litellm_base_url")
-    virtual_key = os.environ.get(PI_VIRTUAL_KEY_ENV, "")
-    _write_pi_gateway_config(
-        pi_home, gateway_base, virtual_key, pi_cfg.get("pi_gateway_model")
-    )
-
-    _write_pi_codex_worker(
-        pi_home, gateway_base, virtual_key, pi_cfg.get("pi_codex_model")
-    )
-
-    llama_host = os.environ.get("LLAMA_HOST")
-    if llama_host:
-        _write_pi_llama_config(pi_home, llama_host, pi_primary)
+    _write_pi_project_settings(workspace_dir)
 
 
-def _ensure_pi_trust(pi_home: Path, workspace_dir: Path) -> None:
-    """Pre-trust the container workspace so pi never prompts (mirrors gemini/codex).
+def _write_pi_project_settings(workspace_dir: Path) -> None:
+    """Pin pnpm for this workspace only.
 
-    pi's trust store walks up parents, so this entry covers everything under it.
-    Runs regardless of llama config.
+    The image shims npm to fail, so pi's installer needs pnpm — but ~/.pi is
+    shared with the host, where npm is fine. Project settings override global
+    per-key; the workspace's pi trust is host config, not jolo's concern.
     """
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    trust_path = agent_dir / "trust.json"
-    trust = _load_json_safe(trust_path)
-    trust[f"/workspaces/{workspace_dir.name}"] = True
-    write_json(trust_path, trust)
-
-
-def _write_pi_primary(pi_home: Path, primary: str | None) -> None:
-    """Seed the strong model that drives pi as primary (llama runs as a worker).
-
-    `primary` is a "provider/model" string. Empty/malformed leaves the default
-    unset so the llama path can fall back to llama-as-primary.
-
-    Set-if-unset: pi's config is shared across containers, so overwriting here
-    would reset a model the user picked (e.g. via /model) on every `jolo up`.
-    """
-    if not primary:
-        return
-    provider, _, model = primary.partition("/")
-    if not provider or not model:
-        return
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    _seed_pi_default_model(agent_dir, provider, model)
-
-
-def _seed_pi_default_model(agent_dir: Path, provider: str, model: str) -> None:
-    """Set pi's default model only when the user has not chosen one.
-
-    Single writer for this setting: pi's config is shared across containers, so
-    any unconditional write here resets a model picked via /model on every
-    `jolo up`.
-
-    `or`, not `and`: either field alone still means the user touched this, and
-    seeding would overwrite it. A half-set default is harmless — pi falls back
-    to its own per-provider default — whereas clobbering one is the exact
-    regression this guard exists to prevent.
-    """
-    settings_path = agent_dir / "settings.json"
-    settings = _load_json_safe(settings_path)
-    if settings.get("defaultProvider") or settings.get("defaultModel"):
-        return
-    settings["defaultProvider"] = provider
-    settings["defaultModel"] = model
-    write_json(settings_path, settings)
-
-
-def _pi_model_entry(
-    model_id: str,
-    label: str,
-    reasoning: bool,
-    context_window: int,
-    max_tokens: int,
-) -> dict:
-    """A pi models.json entry. Shared by the gateway and llama providers."""
-    return {
-        "id": model_id,
-        "name": f"{model_id} ({label})",
-        "reasoning": reasoning,
-        "input": ["text"],
-        "contextWindow": context_window,
-        "maxTokens": max_tokens,
-        "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
-    }
-
-
-def _write_pi_gateway_config(
-    pi_home: Path,
-    base_url: str | None,
-    virtual_key: str,
-    gateway_model: str | None,
-) -> None:
-    """Point pi's gateway provider at the host LiteLLM and keep it routable.
-
-    We only patch what can't be static: the host gateway URL, and the reference
-    to the project-scoped virtual key. When no gateway provider exists yet,
-    bootstrap a minimal one from `gateway_model`.
-
-    `gateway_model` is a bare model id, deliberately independent of the primary
-    so the gateway stays selectable whatever pi defaults to.
-    """
-    if not base_url or not virtual_key:
-        return
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    models_path = agent_dir / "models.json"
-    models = _load_json_safe(models_path)
-    providers = models.setdefault("providers", {})
-    gateway = providers.get(PI_GATEWAY_PROVIDER)
-    if gateway is None:
-        if not gateway_model:
-            return
-        gateway = providers[PI_GATEWAY_PROVIDER] = {
-            "api": "openai-completions",
-            "models": [
-                _pi_model_entry(
-                    gateway_model,
-                    "litellm",
-                    True,
-                    PI_GATEWAY_CONTEXT_WINDOW,
-                    PI_GATEWAY_MAX_TOKENS,
-                )
-            ],
-        }
-    gateway["baseUrl"] = _llama_v1_base_url(base_url)
-    # Shared file: store the reference, never the key. Each container resolves
-    # its own, which is what keeps LiteLLM spend attribution per-project.
-    gateway["apiKey"] = f"${PI_VIRTUAL_KEY_ENV}"
-    write_json(models_path, models)
-
-
-def _ensure_pi_delegation(pi_home: Path) -> None:
-    """Append-to-system-prompt text telling the primary to use the local worker.
-
-    Referenced by the pi launch command (--append-system-prompt @<this>), kept
-    out of the shared AGENTS.md so only pi sees it.
-    """
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    (agent_dir / "delegation.md").write_text(
-        "When a `worker` subagent is available, delegate trivial, fully-specified "
-        "edits and searches to it — it runs a cheap local model. When a `codex` "
-        "subagent is available, delegate hard, reasoning-heavy coding — complex "
-        "refactors, multi-file changes, and gnarly debugging — to it. Keep design, "
-        "judgment, and orchestration on the primary model.\n"
-    )
-
-
-def _write_pi_official_subagent(pi_home: Path) -> None:
-    """Load the subagent extension bundled with the installed Pi version."""
-    extensions_dir = pi_home / "agent" / "extensions"
-    extensions_dir.mkdir(parents=True, exist_ok=True)
-    obsolete_config = extensions_dir / "subagent" / "config.json"
-    obsolete_config.unlink(missing_ok=True)
-    if obsolete_config.parent.is_dir():
-        try:
-            obsolete_config.parent.rmdir()
-        except OSError:
-            pass
-    (extensions_dir / "pi-official-subagent.ts").write_text(
-        'import path from "node:path";\n'
-        'import { pathToFileURL } from "node:url";\n'
-        'import { getExamplesPath, type ExtensionAPI } from "@earendil-works/pi-coding-agent";\n'
-        "\n"
-        "export default async function (pi: ExtensionAPI) {\n"
-        '  const entry = path.join(getExamplesPath(), "extensions", "subagent", "index.ts");\n'
-        "  const extension = await import(pathToFileURL(entry).href);\n"
-        "  return extension.default(pi);\n"
-        "}\n"
-    )
-
-
-def _write_pi_packages(pi_home: Path) -> None:
-    """Seed Pi packages for model routing, review, and code intelligence.
-
-    pi reconciles missing packages from settings.json on first trusted startup.
-    `npmCommand` is mandatory here: the image shims `npm` to fail, so without it
-    pi's installer (which shells out to `npm install`) never runs.
-    """
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    settings_path = agent_dir / "settings.json"
+    settings_path = workspace_dir / ".pi" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings = _load_json_safe(settings_path)
     settings["npmCommand"] = PI_NPM_COMMAND
-    existing = []
-    for package in settings.get("packages", []):
-        source = (
-            package.get("source") if isinstance(package, dict) else package
-        )
-        if isinstance(source, str) and (
-            source == "npm:pi-subagents"
-            or source.startswith("npm:pi-subagents@")
-        ):
-            continue
-        if package not in existing:
-            existing.append(package)
-    settings["packages"] = [
-        *existing,
-        *(package for package in PI_PACKAGES if package not in existing),
-    ]
     write_json(settings_path, settings)
-
-    package_path = agent_dir / "npm" / "package.json"
-    package_data = _load_json_safe(package_path)
-    dependencies = package_data.get("dependencies")
-    if isinstance(dependencies, dict) and "pi-subagents" in dependencies:
-        dependencies.pop("pi-subagents")
-        write_json(package_path, package_data)
-
-
-def _quote_yaml_key(key: str) -> str:
-    return "'" + key.replace("'", "''") + "'"
-
-
-def _yaml_bool(value: bool) -> str:
-    return "true" if value else "false"
-
-
-def _set_top_level_yaml_mapping_value(
-    content: str, section: str, key: str, value: bool
-) -> str:
-    """Set one key in a simple top-level YAML mapping, preserving other keys."""
-    entry = f"  {_quote_yaml_key(key)}: {_yaml_bool(value)}"
-    if not content.strip():
-        return f"{section}:\n{entry}\n"
-
-    lines = content.splitlines()
-    section_index = None
-    for index, line in enumerate(lines):
-        if re.match(rf"^{re.escape(section)}\s*:", line.strip()):
-            section_index = index
-            break
-
-    if section_index is None:
-        prefix = [f"{section}:", entry, ""]
-        return "\n".join([*prefix, *lines]) + "\n"
-
-    lines[section_index] = f"{section}:"
-    end_index = section_index + 1
-    while end_index < len(lines):
-        line = lines[end_index]
-        if line.strip() and not line.startswith((" ", "\t")):
-            break
-        end_index += 1
-
-    for index in range(section_index + 1, end_index):
-        stripped = lines[index].strip()
-        if stripped.startswith((f"{key}:", f"'{key}':", f'"{key}":')):
-            match = re.match(r"\s*", lines[index])
-            indent = match.group(0) if match else "  "
-            lines[index] = (
-                f"{indent}{_quote_yaml_key(key)}: {_yaml_bool(value)}"
-            )
-            return "\n".join(lines) + "\n"
-
-    lines.insert(section_index + 1, entry)
-    return "\n".join(lines) + "\n"
-
-
-def _write_pi_pnpm_workspace_policy(pi_home: Path) -> None:
-    """Seed pnpm build policy for Pi's managed extension workspace."""
-    npm_dir = pi_home / "agent" / "npm"
-    npm_dir.mkdir(parents=True, exist_ok=True)
-    workspace_path = npm_dir / "pnpm-workspace.yaml"
-    content = workspace_path.read_text() if workspace_path.exists() else ""
-    for package, allowed in PI_PNPM_BUILD_POLICY.items():
-        content = _set_top_level_yaml_mapping_value(
-            content, "allowBuilds", package, allowed
-        )
-    workspace_path.write_text(content)
-
-
-def _write_pi_worker(agent_dir: Path, llama_model: str) -> None:
-    """Seed the local-llama worker subagent for mechanical, specified tasks."""
-    agents_dir = agent_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    (agents_dir / "worker.md").write_text(
-        "---\n"
-        "name: worker\n"
-        "description: Mechanical, fully-specified edits — renames, boilerplate, "
-        "single-file changes with clear instructions. Not for design decisions.\n"
-        "tools: read, grep, find, ls, edit, write, bash\n"
-        f"model: {PI_LLAMA_PROVIDER}/{llama_model}\n"
-        "---\n"
-        "You are a worker for trivial, fully-specified tasks. Do exactly what is "
-        "asked, nothing more. If the task is ambiguous or needs a design choice, "
-        "STOP and say so instead of guessing. Make the minimal change and report "
-        "what you changed.\n"
-    )
-
-
-def _write_pi_codex_worker(
-    pi_home: Path,
-    base_url: str | None,
-    virtual_key: str,
-    codex_model: str | None,
-) -> None:
-    """Seed a codex specialist subagent the primary delegates hard coding to.
-
-    The inverse of the llama `worker`: a strong model for complex refactors,
-    debugging, and multi-file changes. Gateway models are registered in the
-    custom provider; built-in providers such as openai-codex need no catalog edit.
-    """
-    if not codex_model:
-        return
-    provider, _, model = codex_model.partition("/")
-    if not provider or not model:
-        return
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-
-    if provider == PI_GATEWAY_PROVIDER:
-        if not base_url or not virtual_key:
-            return
-        models_path = agent_dir / "models.json"
-        models = _load_json_safe(models_path)
-        gateway = models.get("providers", {}).get(PI_GATEWAY_PROVIDER)
-        if gateway is None:
-            return
-        gateway_models = gateway.setdefault("models", [])
-        if not any(m.get("id") == model for m in gateway_models):
-            gateway_models.append(
-                _pi_model_entry(
-                    model,
-                    "litellm",
-                    True,
-                    PI_GATEWAY_CONTEXT_WINDOW,
-                    PI_GATEWAY_MAX_TOKENS,
-                )
-            )
-            write_json(models_path, models)
-
-    agents_dir = agent_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    (agents_dir / "codex.md").write_text(
-        "---\n"
-        "name: codex\n"
-        "description: Hard coding tasks — complex refactors, multi-file changes, "
-        "debugging gnarly failures, algorithm-heavy work. For depth, not trivial "
-        "edits.\n"
-        "tools: read, grep, find, ls, edit, write, bash\n"
-        f"model: {codex_model}\n"
-        "---\n"
-        "You are a senior coding specialist. Take on complex, reasoning-heavy "
-        "implementation and debugging. Inspect the codebase before editing, make "
-        "the change, and report what you did and why. Match the surrounding "
-        "style; do not expand scope beyond the task.\n"
-    )
 
 
 def _load_json_safe(path: Path) -> dict:
@@ -814,98 +443,6 @@ def _load_json_safe(path: Path) -> dict:
         return json.loads(path.read_text())
     except (json.JSONDecodeError, ValueError):
         return {}
-
-
-def _llama_v1_base_url(llama_host: str) -> str:
-    return llama_host.rstrip("/") + "/v1"
-
-
-def _fetch_llama_model_ids(llama_host: str) -> list[str]:
-    models_url = _llama_v1_base_url(llama_host) + "/models"
-    try:
-        with urllib.request.urlopen(models_url, timeout=3) as response:
-            payload = json.loads(response.read().decode())
-    except (
-        OSError,
-        TimeoutError,
-        urllib.error.URLError,
-        json.JSONDecodeError,
-    ) as e:
-        print(
-            f"Warning: Failed to fetch llama-swap models from {models_url}: {e}",
-            file=sys.stderr,
-        )
-        return []
-
-    return [
-        item["id"]
-        for item in payload.get("data", [])
-        if isinstance(item, dict) and isinstance(item.get("id"), str)
-    ]
-
-
-def _pi_chat_model_ids(model_ids: list[str]) -> list[str]:
-    blocked = ("embed", "embedding", "bge", "e5")
-    return [
-        model_id
-        for model_id in model_ids
-        if not any(part in model_id.lower() for part in blocked)
-    ]
-
-
-def _pi_default_llama_model(model_ids: list[str]) -> str | None:
-    for preferred in PI_LLAMA_DEFAULT_MODEL_PRIORITY:
-        if preferred in model_ids:
-            return preferred
-    return model_ids[0] if model_ids else None
-
-
-def _write_pi_llama_config(
-    pi_home: Path, llama_host: str, primary: str | None = None
-) -> None:
-    agent_dir = pi_home / "agent"
-    agent_dir.mkdir(parents=True, exist_ok=True)
-
-    model_ids = _pi_chat_model_ids(_fetch_llama_model_ids(llama_host))
-    if not model_ids:
-        return
-
-    models_path = agent_dir / "models.json"
-    models = _load_json_safe(models_path)
-    providers = models.setdefault("providers", {})
-    providers[PI_LLAMA_PROVIDER] = {
-        "baseUrl": _llama_v1_base_url(llama_host),
-        "api": "openai-completions",
-        "apiKey": "llama",
-        "compat": {
-            "supportsDeveloperRole": False,
-            "supportsReasoningEffort": False,
-            "supportsUsageInStreaming": False,
-            "maxTokensField": "max_tokens",
-        },
-        "models": [
-            _pi_model_entry(
-                model_id,
-                "llama.cpp",
-                False,
-                PI_LLAMA_CONTEXT_WINDOW,
-                PI_LLAMA_MAX_TOKENS,
-            )
-            for model_id in model_ids
-        ],
-    }
-    write_json(models_path, models)
-
-    default_model = _pi_default_llama_model(model_ids)
-    if default_model is None:
-        return
-
-    # The strong primary delegates mechanical work to this local worker.
-    _write_pi_worker(agent_dir, default_model)
-
-    # Only make llama the primary when no strong model is configured.
-    if not primary:
-        _seed_pi_default_model(agent_dir, PI_LLAMA_PROVIDER, default_model)
 
 
 def setup_notification_hooks(

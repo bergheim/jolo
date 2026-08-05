@@ -261,7 +261,7 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     virtual_key = ensure_litellm_project_key(workspace.name, config)
     if virtual_key:
         os.environ["LITELLM_VIRTUAL_KEY"] = virtual_key
-    setup_credential_cache(workspace, config)
+    setup_credential_cache(workspace)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
     setup_stash()

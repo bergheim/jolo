@@ -47,6 +47,9 @@ uv.lock
 .devcontainer/.gemini-cache/
 .devcontainer/.claude.json
 
+# container-generated pi project settings
+.pi/
+
 # Playwright CLI session artifacts
 .playwright-cli/
 
