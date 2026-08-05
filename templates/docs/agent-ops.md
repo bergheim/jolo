@@ -3,7 +3,28 @@
 Recipes for generated jolo projects. Read this on demand; keep `AGENTS.md` for
 rules that matter every session.
 
+Before assuming the helper list is complete, inspect the live Emacs daemon:
+
+```bash
+emacsclient -e '(apropos-internal "^bergheim/agent-")'
+```
+
 ## Org Helpers
+
+Public arglists:
+
+- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-ensure-id FILE HEADING-RE`
+- `bergheim/agent-org-add-note FILE HEADING-RE NOTE`
+- `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-remove-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-add-todo FILE HEADING &optional BODY TAGS STATE`
+- `bergheim/agent-org-list-todos ORG-FILE`
+- `bergheim/agent-org-get-entry FILE LOCATOR &optional BY-ID`
+- `bergheim/agent-org-autonomous-select ORG-FILE`
+- `bergheim/agent-org-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
+- `bergheim/agent-worklog-recent &optional N`
 
 ```bash
 emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE")'
@@ -15,6 +36,11 @@ emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123
 emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
 emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
+emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
+emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "TODO Heading")'
+emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "abc-def-123" t)'
+emacsclient -e '(bergheim/agent-worklog-recent 10)'
 ```
 
 States: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`,
@@ -22,11 +48,25 @@ States: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`,
 
 ## Denote Helpers
 
+Public arglists:
+
+- `bergheim/agent-denote-create DIR TITLE KEYWORDS &optional BODY`
+- `bergheim/agent-denote-find DIR &optional KEYWORDS TITLE-RE`
+- `bergheim/agent-denote-read FILEPATH`
+- `bergheim/agent-denote-list DIR &optional LIMIT`
+- `bergheim/agent-denote-link SOURCE-PATH TARGET-PATHS`
+- `bergheim/agent-denote-get-backlinks FILEPATH`
+
+`agent-denote-list` returns only `:id`, `:title`, and `:keywords`. Use
+`agent-denote-find` when a path is needed.
+
 ```bash
 emacsclient -e '(bergheim/agent-denote-create "docs/notes" "Title here" (quote ("kind" "topic1" "topic2")) "Body text.")'
 emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("emacs")))'
 emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
+emacsclient -e '(bergheim/agent-denote-read "/abs/path/to/note.org")'
 emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
+emacsclient -e '(bergheim/agent-denote-get-backlinks "/abs/path/to/note.org")'
 emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
 ```
 

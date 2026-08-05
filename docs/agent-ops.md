@@ -3,10 +3,30 @@
 Recipes for agents working in the jolo meta-project. Read this on demand; keep
 `AGENTS.md` for rules that matter every session.
 
+Before assuming the helper list is complete, inspect the live Emacs daemon:
+
+```bash
+emacsclient -e '(apropos-internal "^bergheim/agent-")'
+```
+
 ## Org Helpers
 
-Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`. Below are
-the less-common ones.
+Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`.
+
+Public arglists:
+
+- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-ensure-id FILE HEADING-RE`
+- `bergheim/agent-org-add-note FILE HEADING-RE NOTE`
+- `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-remove-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-add-todo FILE HEADING &optional BODY TAGS STATE`
+- `bergheim/agent-org-list-todos ORG-FILE`
+- `bergheim/agent-org-get-entry FILE LOCATOR &optional BY-ID`
+- `bergheim/agent-org-autonomous-select ORG-FILE`
+- `bergheim/agent-org-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
+- `bergheim/agent-worklog-recent &optional N`
 
 Set state with a reason (logged as a note):
 
@@ -40,18 +60,56 @@ Remove the `autonomous` tag:
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
 
+Add a new top-level TODO. Optional args are body, tags, then state:
+
+```bash
+emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
+```
+
+List TODO headings, or read one full entry without hand-parsing org text. Both
+return JSON strings:
+
+```bash
+emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
+emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "TODO Heading")'
+emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "20260805T105637Z-0e76d6" t)'
+```
+
+Read recent cross-project worklog entries:
+
+```bash
+emacsclient -e '(bergheim/agent-worklog-recent 10)'
+```
+
 States: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`,
 `CANCELLED`.
 
 ## Denote Helpers
 
-Daily forms (`create`, `find`, `list`, stash scan) are in `AGENTS.md`. Below are
-the less-common ones.
+Daily forms (`create`, `find`, `list`, stash scan) are in `AGENTS.md`.
+
+Public arglists:
+
+- `bergheim/agent-denote-create DIR TITLE KEYWORDS &optional BODY`
+- `bergheim/agent-denote-find DIR &optional KEYWORDS TITLE-RE`
+- `bergheim/agent-denote-read FILEPATH`
+- `bergheim/agent-denote-list DIR &optional LIMIT`
+- `bergheim/agent-denote-link SOURCE-PATH TARGET-PATHS`
+- `bergheim/agent-denote-get-backlinks FILEPATH`
+
+`agent-denote-list` is an index view and returns only `:id`, `:title`, and
+`:keywords`. Use `agent-denote-find` when a file path is needed.
 
 Filter a find by content query:
 
 ```bash
 emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
+```
+
+Read a note by path:
+
+```bash
+emacsclient -e '(bergheim/agent-denote-read "/abs/path/to/note.org")'
 ```
 
 Link notes. This is the only sanctioned way to link — never hand-write
@@ -63,6 +121,12 @@ links are never written (write-once):
 
 ```bash
 emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/abs/path/to/target1.org" "/abs/path/to/target2.org")))'
+```
+
+Read backlinks by absolute note path:
+
+```bash
+emacsclient -e '(bergheim/agent-denote-get-backlinks "/abs/path/to/note.org")'
 ```
 
 ## Stash Cookbook Notes

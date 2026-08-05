@@ -10,10 +10,15 @@
 (require 'ert)
 (require 'org)
 (require 'cl-lib)
+(require 'json)
 
 (defvar test-agent-helpers--keyword-header
   "#+TODO: TODO(t) NEXT(n) INPROGRESS(i) WAITING(w) BLOCKED(b) | DONE(d) CANCELLED(c)\n\n"
   "TODO keyword declaration used by test fixtures.")
+
+;; Tests must never append to the real stash worklog by default. Worklog-specific
+;; coverage binds this to a temp directory with `test-agent-helpers--with-worklog'.
+(setq bergheim/agent-worklog-dir nil)
 
 (defmacro test-agent-helpers--with-file (body-string &rest body)
   "Create a temp org file containing BODY-STRING (prefixed with the keyword
@@ -47,6 +52,13 @@ kill the buffer afterward."
   (with-temp-buffer
     (insert-file-contents file)
     (buffer-string)))
+
+(defun test-agent-helpers--json-read (string)
+  "Parse STRING as JSON using predictable alist/list containers."
+  (let ((json-object-type 'alist)
+        (json-array-type 'list)
+        (json-key-type 'symbol))
+    (json-read-from-string string)))
 
 ;; ----------------------------------------------------------------------------
 ;; Existing set-state behavior (should keep passing)
@@ -185,6 +197,69 @@ and reports `:wrote' only when the buffer was actually modified."
                      (list (expand-file-name test-file))))
       (should-not (member "alpha" (plist-get r1 :tags)))
       (should (equal (plist-get r2 :wrote) nil)))))
+
+;; ----------------------------------------------------------------------------
+;; New: TODO creation and read helpers
+;; ----------------------------------------------------------------------------
+
+(ert-deftest agent-helpers/add-todo-appends-entry-with-body-tags-and-id ()
+  "`add-todo' appends a top-level entry and returns its stable ID."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Existing\n"
+      (let* ((result (bergheim/agent-org-add-todo
+                      test-file "New task" "Body line" '("alpha" "beta") "NEXT"))
+             (id (plist-get result :id))
+             (contents (test-agent-helpers--contents test-file)))
+        (should (equal (plist-get result :wrote)
+                       (list (expand-file-name test-file))))
+        (should (equal (plist-get result :heading) "New task"))
+        (should (equal (plist-get result :state) "NEXT"))
+        (should (string-match-p "^\\* NEXT New task  :alpha:beta:" contents))
+        (should (string-match-p (concat ":ID:[[:space:]]+" (regexp-quote id))
+                                contents))
+        (should (string-match-p "Body line" contents))))))
+
+(ert-deftest agent-helpers/add-todo-invalid-input-errors-before-write ()
+  "`add-todo' validates heading and tags before mutating the file."
+  (test-agent-helpers--with-file "* TODO Existing\n"
+    (let ((before (test-agent-helpers--contents test-file)))
+      (should-error
+       (bergheim/agent-org-add-todo test-file "Bad\nheading" "body")
+       :type 'error)
+      (should (equal (test-agent-helpers--contents test-file) before))
+      (should-error
+       (bergheim/agent-org-add-todo test-file "Bad tag" nil '("bad-tag!"))
+       :type 'error)
+      (should (equal (test-agent-helpers--contents test-file) before)))))
+
+(ert-deftest agent-helpers/list-todos-returns-json-for-every-todo-keyword ()
+  "`list-todos' returns JSON objects in file order for TODO-keyword headings."
+  (test-agent-helpers--with-file
+      "* TODO First  :autonomous:\n* Plain heading\n* DONE Closed\n* NEXT Later  :alpha:\n"
+    (let ((items (test-agent-helpers--json-read
+                  (bergheim/agent-org-list-todos test-file))))
+      (should (= (length items) 3))
+      (should (equal (alist-get 'state (nth 0 items)) "TODO"))
+      (should (equal (alist-get 'heading (nth 0 items)) "First"))
+      (should (eq (alist-get 'autonomous (nth 0 items)) t))
+      (should (equal (alist-get 'state (nth 1 items)) "DONE"))
+      (should-not (alist-get 'autonomous (nth 1 items)))
+      (should (equal (alist-get 'tags (nth 2 items)) '("alpha"))))))
+
+(ert-deftest agent-helpers/get-entry-returns-body-with-drawers-removed ()
+  "`get-entry' returns a JSON object for a heading regexp or ID lookup."
+  (test-agent-helpers--with-file
+      "* TODO Read me  :alpha:\n:PROPERTIES:\n:ID: entry-1\n:CUSTOM: value\n:END:\n:LOGBOOK:\n- hidden note\n:END:\nVisible body\n"
+    (let* ((by-heading (test-agent-helpers--json-read
+                        (bergheim/agent-org-get-entry test-file "Read me")))
+           (by-id (test-agent-helpers--json-read
+                   (bergheim/agent-org-get-entry test-file "entry-1" t))))
+      (should (equal (alist-get 'state by-heading) "TODO"))
+      (should (equal (alist-get 'heading by-heading) "Read me"))
+      (should (equal (alist-get 'tags by-heading) '("alpha")))
+      (should (string-match-p "Visible body" (alist-get 'body by-heading)))
+      (should-not (string-match-p "LOGBOOK" (alist-get 'body by-heading)))
+      (should (equal (alist-get 'heading by-id) "Read me")))))
 
 ;; ----------------------------------------------------------------------------
 ;; New: SESSION_ID auto-assignment on INPROGRESS
@@ -534,6 +609,27 @@ and `:wrote' contains only the org file (or is empty on no-op)."
         (should (string-match-p "INPROGRESS  Foo" contents))
         (should (string-match-p "DONE  Bar" contents))))))
 
+(ert-deftest agent-helpers/worklog-recent-returns-json-tail ()
+  "`worklog-recent' returns the last N entries as JSON."
+  (test-agent-helpers--with-worklog log-path
+    (test-agent-helpers--with-file "* TODO Foo\n* TODO Bar\n"
+      (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+      (bergheim/agent-org-set-state test-file "TODO Bar" "DONE")
+      (let ((items (test-agent-helpers--json-read
+                    (bergheim/agent-worklog-recent 1))))
+        (should (= (length items) 1))
+        (should (equal (alist-get 'project (car items))
+                       (bergheim/agent-worklog--project-name test-file)))
+        (should (equal (alist-get 'transition (car items)) "TODO → DONE"))
+        (should (string-match-p "DONE  Bar" (alist-get 'summary (car items))))))))
+
+(ert-deftest agent-helpers/worklog-recent-empty-when-unconfigured ()
+  "`worklog-recent' returns an empty JSON array without a worklog file."
+  (let ((bergheim/agent-worklog-dir nil))
+    (should (equal (test-agent-helpers--json-read
+                    (bergheim/agent-worklog-recent 5))
+                   '()))))
+
 ;; ----------------------------------------------------------------------------
 ;; Denote helpers: structured returns
 ;; ----------------------------------------------------------------------------
@@ -550,6 +646,47 @@ and `:wrote' contains only the org file (or is empty on no-op)."
           (should (string-match-p "[0-9]\\{8\\}T[0-9]\\{6\\}"
                                   (plist-get result :id)))
           (should (equal (plist-get result :title) "Hello world")))
+      (delete-directory dir t))))
+
+(ert-deftest agent-helpers/denote-list-returns-index-without-path ()
+  "`denote-list' is an index view; `denote-find' carries paths."
+  (let ((dir (make-temp-file "agent-denote-" t)))
+    (unwind-protect
+        (let* ((created (bergheim/agent-denote-create
+                         dir "Indexed note" '("kind" "topic")))
+               (listed (car (bergheim/agent-denote-list dir 1)))
+               (found (car (bergheim/agent-denote-find dir '("kind") "Indexed"))))
+          (should (equal (plist-get listed :id) (plist-get created :id)))
+          (should (equal (plist-get listed :title) "indexed note"))
+          (should (equal (plist-get listed :keywords) '("kind" "topic")))
+          (should-not (plist-member listed :path))
+          (should (equal (plist-get found :path) (plist-get created :path))))
+      (delete-directory dir t))))
+
+(ert-deftest agent-helpers/denote-get-backlinks-finds-linking-notes ()
+  "`denote-get-backlinks' reports notes that link to the target path."
+  (skip-unless (require 'denote nil t))
+  (let ((dir (make-temp-file "agent-denote-" t)))
+    (unwind-protect
+        (let* ((source (bergheim/agent-denote-create
+                        dir "Source note" '("kind" "source")))
+               (target (bergheim/agent-denote-create
+                        dir "Target note" '("kind" "target")))
+               (source-path (plist-get source :path))
+               (target-path (plist-get target :path)))
+          (bergheim/agent-denote-link source-path (list target-path))
+          (let ((backlinks (bergheim/agent-denote-get-backlinks target-path)))
+            (should (= (length backlinks) 1))
+            (should (equal (plist-get (car backlinks) :path) source-path))
+            (should (equal (plist-get (car backlinks) :title) "Source note"))))
+      (dolist (buf (buffer-list))
+        (let ((path (buffer-file-name buf)))
+          (when (and path
+                     (string-prefix-p (file-truename dir)
+                                      (file-truename path)))
+            (with-current-buffer buf
+              (set-buffer-modified-p nil))
+            (kill-buffer buf))))
       (delete-directory dir t))))
 
 (provide 'test-agent-helpers)
