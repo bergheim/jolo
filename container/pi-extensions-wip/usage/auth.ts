@@ -24,11 +24,19 @@ function readJson(file: string): ReadResult {
   } catch (err: any) {
     return err?.code === "ENOENT" ? { missing: true } : { corrupt: true };
   }
+  let parsed: unknown;
   try {
-    return { ok: JSON.parse(raw) };
+    parsed = JSON.parse(raw);
   } catch {
     return { corrupt: true };
   }
+  // A credential store must be a plain object: null, arrays, and scalars all
+  // parse fine as JSON but crash the `entry.foo` lookups below if allowed
+  // through.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { corrupt: true };
+  }
+  return { ok: parsed as Record<string, any> };
 }
 
 function fromAuthFile(
@@ -39,7 +47,11 @@ function fromAuthFile(
   if ("corrupt" in result) return { stale: "unreadable" };
   const entry = result.ok[provider];
   if (!entry?.access) return { stale: "no credential" };
-  if (typeof entry.expires === "number" && entry.expires <= nowMs) {
+  // Real codex/anthropic entries always carry a numeric `expires` (unlike
+  // Antigravity's file, which has none by design). An absent field is as
+  // untrustworthy as a malformed one here, so both fail safe as expired
+  // rather than being read as a live, never-expiring token.
+  if (typeof entry.expires !== "number" || entry.expires <= nowMs) {
     return { stale: "expired" };
   }
   return { token: entry.access };
