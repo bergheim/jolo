@@ -150,17 +150,10 @@ class TestSecretsManagement(unittest.TestCase):
         self.assertEqual(secrets["ANTHROPIC_API_KEY"], "sk-ant-from-pass")
         self.assertEqual(secrets["OPENAI_API_KEY"], "sk-openai-from-pass")
 
-    def test_default_config_has_gateway_settings(self):
+    def test_default_config_has_litellm_settings(self):
         from _jolo.constants import DEFAULT_CONFIG
 
         cfg = DEFAULT_CONFIG
-        # pi defaults to the ChatGPT subscription; the gateway stays
-        # available but is no longer what pi reaches for by default
-        self.assertEqual(cfg["pi_primary_model"], "openai-codex/gpt-5.6-sol")
-        self.assertEqual(cfg["pi_gateway_model"], "openrouter/openai/gpt-5.6")
-        self.assertEqual(
-            cfg["pi_codex_model"], "openai-codex/gpt-5.6-sol:xhigh"
-        )
         self.assertEqual(
             cfg["pass_path_litellm_master"], "api/llm/litellm-master"
         )
@@ -894,7 +887,7 @@ class TestPersistentCredentialStore(unittest.TestCase):
         self.assertEqual(gem.read_text(), "host-gemini")
 
 
-class TestPiLlamaConfig(unittest.TestCase):
+class TestPiWriteContract(unittest.TestCase):
     """Test Pi project settings and the ~/.pi/agent write contract.
 
     llama/gateway/codex provider config and default-model seeding were
@@ -2311,12 +2304,12 @@ class TestPiSharedConfig(unittest.TestCase):
 
         shutil.rmtree(self.tmpdir)
 
-    def _run(self, ws_name, home, cfg=None, env=None):
+    def _run(self, ws_name, home, env=None):
         ws = Path(self.tmpdir) / ws_name
         ws.mkdir()
         with mock.patch("pathlib.Path.home", return_value=home):
             with mock.patch.dict(os.environ, env or {}, clear=True):
-                jolo.setup_credential_cache(ws, cfg)
+                jolo.setup_credential_cache(ws)
         return ws
 
     def test_does_not_wipe_existing_pi_config(self):
@@ -2327,12 +2320,17 @@ class TestPiSharedConfig(unittest.TestCase):
         (agent / "auth.json").write_text('{"openai-codex": {"type": "oauth"}}')
         (agent / "npm").mkdir()
         (agent / "npm" / "marker").write_text("installed-in-container")
+        settings_content = '{"customSetting": "user-set-value"}'
+        (agent / "settings.json").write_text(settings_content)
 
         self._run("project", home)
 
         self.assertIn("openai-codex", (agent / "auth.json").read_text())
         self.assertEqual(
             (agent / "npm" / "marker").read_text(), "installed-in-container"
+        )
+        self.assertEqual(
+            (agent / "settings.json").read_text(), settings_content
         )
 
     def test_creates_per_project_sessions_mount_source(self):

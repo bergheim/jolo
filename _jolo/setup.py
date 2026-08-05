@@ -167,9 +167,7 @@ def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
     return f"{content}{new_setting}\n"
 
 
-def setup_credential_cache(
-    workspace_dir: Path, cfg: dict | None = None
-) -> None:
+def setup_credential_cache(workspace_dir: Path) -> None:
     """Stage AI credentials for container use.
 
     Claude: .credentials.json is mounted RW from the host (token refreshes
