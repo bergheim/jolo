@@ -39,6 +39,13 @@ function readJson(file: string): ReadResult {
   return { ok: parsed as Record<string, any> };
 }
 
+// The only thing standing between a malformed store and fetchOne's
+// `credential.token.slice(...)` crashing downstream: no reader may hand back
+// `{token}` unless the value is a genuine, non-empty string.
+function isLiveToken(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 function fromAuthFile(
   provider: string, authFile: string, nowMs: number,
 ): Credential {
@@ -46,7 +53,7 @@ function fromAuthFile(
   if ("missing" in result) return { stale: "no credential" };
   if ("corrupt" in result) return { stale: "unreadable" };
   const entry = result.ok[provider];
-  if (!entry?.access) return { stale: "no credential" };
+  if (!isLiveToken(entry?.access)) return { stale: "no credential" };
   // Real codex/anthropic entries always carry a numeric `expires` (unlike
   // Antigravity's file, which has none by design). An absent field is as
   // untrustworthy as a malformed one here, so both fail safe as expired
@@ -69,15 +76,26 @@ export function readAnthropicCredential(
   return fromAuthFile("anthropic", authFile, nowMs);
 }
 
-// Antigravity is not in auth.json: separate file, different shape, and it
-// carries no expiry field — so there is nothing to check but presence.
+// Antigravity has two possible stores. Preferred: auth.json's
+// `google-antigravity` entry — pi's own credential store, populated when
+// Antigravity is logged in through pi, same shape as codex/anthropic.
+// Fallback: the standalone `agy` CLI's own token file, a different shape
+// with no expiry field, read read-only purely for quota visibility when pi
+// has no Antigravity login of its own.
 export function readAntigravityCredential(
-  tokenFile = ANTIGRAVITY_TOKEN_FILE,
+  tokenFile = ANTIGRAVITY_TOKEN_FILE, authFile = AUTH_FILE,
 ): Credential {
+  const authResult = readJson(authFile);
+  if ("ok" in authResult) {
+    const access = authResult.ok["google-antigravity"]?.access;
+    if (isLiveToken(access)) return { token: access };
+  }
+
   const result = readJson(tokenFile);
   if ("missing" in result) return { stale: "no credential" };
   if ("corrupt" in result) return { stale: "unreadable" };
-  return result.ok.token
-    ? { token: result.ok.token }
+  const accessToken = result.ok.token?.access_token;
+  return isLiveToken(accessToken)
+    ? { token: accessToken }
     : { stale: "no credential" };
 }

@@ -30,11 +30,22 @@ fs.writeFileSync(
   }),
 );
 
+// Real agy CLI shape: auth.json above has no "google-antigravity" key, so
+// readAntigravityCredential falls back to this file and its nested
+// token.access_token — not a bare string.
 const antigravityDir = path.join(fakeHome, ".gemini", "antigravity-cli");
 fs.mkdirSync(antigravityDir, { recursive: true });
+const antigravityTokenFile = path.join(antigravityDir, "antigravity-oauth-token");
 fs.writeFileSync(
-  path.join(antigravityDir, "antigravity-oauth-token"),
-  JSON.stringify({ token: "antigravity-secret-tokenCCC333" }),
+  antigravityTokenFile,
+  JSON.stringify({
+    token: {
+      access_token: "antigravity-secret-tokenCCC333", token_type: "Bearer",
+      refresh_token: "r", expiry: "2099-01-01T00:00:00Z",
+    },
+    id_token: "idtok",
+    auth_method: "oauth",
+  }),
 );
 
 const { fetchAll, cachePathFor } = await import("./core.ts");
@@ -112,6 +123,12 @@ if ("usage" in codexGood) {
   assert.equal(codexGood.usage.weeklyPercent, 10);
   assert.equal(codexGood.usage.resetsInSeconds, 100);
 }
+// Real nested-token agy fixture must resolve to usage, not crash on
+// `credential.token.slice(...)` (the bug this file now guards against).
+assert.ok(
+  "usage" in statusOf(good, "antigravity"),
+  "antigravity should have usage from the real nested agy token shape, not stale",
+);
 
 // --- cache hit: same nowMs, fetchImpl for codex must not be called again ---
 let codexFetchedAgain = false;
@@ -298,6 +315,43 @@ const T9 = T8 + 61_000;
     "usage" in statusOf(resultsE, "claude"),
     "other providers must still succeed while codex is hung",
   );
+}
+
+const T10 = T9 + 61_000;
+
+// --- Fix 1/2 regression: fetchAll must resolve with a stale marker, never
+// throw, when a credential reader hits a malformed real-world shape — this
+// is the exact bug report: an unguarded `{ token: <object> }` reaching
+// fetchOne's `credential.token.slice(-12)` threw
+// "TypeError: credential.token.slice is not a function" instead of
+// degrading gracefully.
+{
+  fs.writeFileSync(antigravityTokenFile, JSON.stringify({
+    token: { wrong_field: "no access_token here" }, id_token: "id", auth_method: "oauth",
+  }));
+
+  let threwD = false;
+  let resultsF: Awaited<ReturnType<typeof fetchAll>> = [];
+  try {
+    resultsF = await fetchAll(T10, defaultFetch as unknown as typeof fetch);
+  } catch {
+    threwD = true;
+  }
+  assert.equal(threwD, false, "fetchAll must not throw on a malformed credential shape");
+  assert.ok(
+    "stale" in statusOf(resultsF, "antigravity"),
+    "a malformed credential must degrade antigravity to a stale marker, not crash fetchAll",
+  );
+
+  // Restore the valid fixture for anything appended after this block.
+  fs.writeFileSync(antigravityTokenFile, JSON.stringify({
+    token: {
+      access_token: "antigravity-secret-tokenCCC333", token_type: "Bearer",
+      refresh_token: "r", expiry: "2099-01-01T00:00:00Z",
+    },
+    id_token: "idtok",
+    auth_method: "oauth",
+  }));
 }
 
 console.log("core.test.ts PASS");
