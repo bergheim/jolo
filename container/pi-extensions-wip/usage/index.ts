@@ -17,10 +17,60 @@ function line(status: ProviderStatus): string {
 // barColor speaks red/yellow/green; the theme only knows semantic slots.
 const TONE = { red: "error", yellow: "warning", green: "success" } as const;
 
-function footerLine(theme: { fg(color: string, text: string): string }, status: ProviderStatus): string {
-  if ("stale" in status) return theme.fg("dim", `${status.name} —`);
+// Uncolored text only: width budgeting (renderFooterLines) measures this,
+// never the ANSI-wrapped result, so a color escape sequence can never be
+// sliced in half by a width cut.
+function plainSegment(status: ProviderStatus): string {
+  if ("stale" in status) return `${status.name} —`;
   const bar = renderBar(status.usage.sessionPercent, 6);
-  return theme.fg(TONE[barColor(status.usage.sessionPercent)], `${status.name} ${bar}`);
+  return `${status.name} ${bar}`;
+}
+
+function footerLine(theme: { fg(color: string, text: string): string }, status: ProviderStatus): string {
+  const segment = plainSegment(status);
+  if ("stale" in status) return theme.fg("dim", segment);
+  return theme.fg(TONE[barColor(status.usage.sessionPercent)], segment);
+}
+
+// pi's Component.render(width) contract requires every returned line to fit
+// the viewport; a narrow terminal can't always show all providers. We drop
+// whole columns rather than wrap (footer must stay one line) or truncate
+// inside a colored segment (would cut an ANSI escape in half and corrupt the
+// terminal). Included/omitted is decided on the plain, uncolored text, then
+// theme.fg is applied only to segments already known to fit.
+export function renderFooterLines(
+  theme: { fg(color: string, text: string): string },
+  statuses: ProviderStatus[],
+  width: number,
+): string[] {
+  const safeWidth = Math.max(0, width);
+
+  if (statuses.length === 0) {
+    return [theme.fg("dim", "usage: loading…".slice(0, safeWidth))];
+  }
+
+  const sep = "  ";
+  const included: ProviderStatus[] = [];
+  let used = 0;
+  for (const status of statuses) {
+    const seg = plainSegment(status);
+    const next = used + (included.length > 0 ? sep.length : 0) + seg.length;
+    if (next > safeWidth) break;
+    included.push(status);
+    used = next;
+  }
+
+  if (included.length === 0) return [""];
+
+  const parts = included.map((s) => footerLine(theme, s));
+  const omitted = statuses.length - included.length;
+  if (omitted > 0) {
+    const marker = `+${omitted}`;
+    if (used + sep.length + marker.length <= safeWidth) {
+      parts.push(theme.fg("dim", marker));
+    }
+  }
+  return [parts.join(sep)];
 }
 
 export default function (pi: ExtensionAPI) {
@@ -48,9 +98,8 @@ export default function (pi: ExtensionAPI) {
       requestRender = () => tui.requestRender();
       return {
         invalidate() {},
-        render(): string[] {
-          if (statuses.length === 0) return [theme.fg("dim", "usage: loading…")];
-          return [statuses.map((s) => footerLine(theme, s)).join("  ")];
+        render(width: number): string[] {
+          return renderFooterLines(theme, statuses, width);
         },
       };
     });
@@ -59,7 +108,12 @@ export default function (pi: ExtensionAPI) {
 
   // Quota moves as turns run; re-fetch before each one. fetchAll's own
   // cache (core.ts, 60s TTL) keeps this from hammering provider APIs.
-  pi.on("turn_start", async () => {
-    await refresh();
+  // turn_start sits inline in pi's sequential turn pipeline, so this must
+  // not await: the footer already repaints itself via requestRender() once
+  // refresh() lands. fetchAll degrades every failure internally, but the
+  // catch here is cheap insurance against an unhandled rejection wedging
+  // the process if that guarantee is ever broken.
+  pi.on("turn_start", () => {
+    refresh().catch(() => {});
   });
 }

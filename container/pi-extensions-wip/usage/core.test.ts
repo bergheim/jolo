@@ -259,4 +259,45 @@ const codexAccountKey = "codex-secret-tokenAAA111".slice(-12);
   );
 }
 
+const T9 = T8 + 61_000;
+
+// --- finding 1(a): a fetchImpl that never settles must not wedge fetchAll ---
+// turn_start awaits fetchAll inline (index.ts), so a stalled connection that
+// never resolves or rejects must not be able to hang it forever. Guarded
+// with Promise.race against a timer well above the 5s per-request timeout,
+// so a regression here fails this test run instead of hanging it.
+{
+  const hangingCodexFetch = (url: string) => {
+    if (url.includes("wham/usage")) return new Promise<Response>(() => {}); // never settles
+    return defaultFetch(url);
+  };
+  const guardMs = 8_000; // > the 5s per-request timeout, with margin for CI jitter
+  let guardTimer: ReturnType<typeof setTimeout>;
+  const guard = new Promise<never>((_, reject) => {
+    guardTimer = setTimeout(
+      () => reject(new Error("fetchAll did not resolve within the guard window — timeout wiring regressed")),
+      guardMs,
+    );
+  });
+
+  const started = Date.now();
+  let resultsE: Awaited<ReturnType<typeof fetchAll>>;
+  try {
+    resultsE = await Promise.race([fetchAll(T9, hangingCodexFetch as unknown as typeof fetch), guard]);
+  } finally {
+    clearTimeout(guardTimer!);
+  }
+  const elapsedMs = Date.now() - started;
+
+  assert.ok(elapsedMs < guardMs, "fetchAll must resolve before the guard window elapses");
+  assert.ok(
+    "stale" in statusOf(resultsE, "codex"),
+    "a hung fetchImpl must degrade codex to a stale marker, not hang fetchAll",
+  );
+  assert.ok(
+    "usage" in statusOf(resultsE, "claude"),
+    "other providers must still succeed while codex is hung",
+  );
+}
+
 console.log("core.test.ts PASS");

@@ -15,6 +15,48 @@ export type ProviderStatus =
 
 const CACHE_TTL_MS = 60_000;
 
+// turn_start sits inline in pi's sequential turn pipeline (index.ts), so a
+// provider request that never settles would wedge every subsequent turn.
+// 5s is generous for a quota GET/POST yet short enough that a hang is never
+// mistaken for a slow terminal.
+const REQUEST_TIMEOUT_MS = 5_000;
+
+// Signals AND races: the AbortSignal asks a well-behaved fetchImpl to cancel
+// its connection, but the race against `timeout` is what actually frees the
+// caller if fetchImpl ignores the signal or the connection is stuck below
+// the point abort can reach — a stalled connection must still degrade to a
+// stale marker, not hang fetchOne (and therefore fetchAll) forever.
+async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  let timer!: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`timeout after ${REQUEST_TIMEOUT_MS}ms`));
+    }, REQUEST_TIMEOUT_MS);
+  });
+
+  try {
+    // Wrapped in .then() so a fetchImpl that throws synchronously (some
+    // test doubles do) becomes a rejected promise instead of escaping this
+    // try/finally before the timer is armed against Promise.race — an
+    // uncleared timer here would reject `timeout` with no handler attached
+    // once construction never reached Promise.race, crashing the process
+    // five seconds later on an orphaned unhandled rejection.
+    const request = Promise.resolve().then(() => fetchImpl(url, { ...init, signal: controller.signal }));
+    // Once raced away, a request that eventually settles must not surface
+    // as an unhandled rejection.
+    request.catch(() => {});
+    return await Promise.race([request, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // tmpdir, never ~/.pi: that mount is shared live with the host and every
 // other container, and cache churn does not belong in contended space.
 // accountKey is hashed rather than embedded raw: /tmp is world-readable and
@@ -100,7 +142,7 @@ async function discoverGoogleProjectId(
     // A failure on one endpoint (network throw, non-OK, bad JSON) must fall
     // through to the next mirror rather than aborting discovery entirely.
     try {
-      const response = await fetchImpl(endpoint, {
+      const response = await fetchWithTimeout(fetchImpl, endpoint, {
         method: "POST",
         headers: googleHeaders(token),
         body: JSON.stringify({ metadata: googleMetadata() }),
@@ -119,13 +161,13 @@ async function discoverGoogleProjectId(
 }
 
 async function requestCodex(token: string, fetchImpl: typeof fetch): Promise<Response> {
-  return fetchImpl("https://chatgpt.com/backend-api/wham/usage", {
+  return fetchWithTimeout(fetchImpl, "https://chatgpt.com/backend-api/wham/usage", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 async function requestClaude(token: string, fetchImpl: typeof fetch): Promise<Response> {
-  return fetchImpl("https://api.anthropic.com/api/oauth/usage", {
+  return fetchWithTimeout(fetchImpl, "https://api.anthropic.com/api/oauth/usage", {
     headers: {
       Authorization: `Bearer ${token}`,
       "anthropic-beta": "oauth-2025-04-20",
@@ -136,7 +178,7 @@ async function requestClaude(token: string, fetchImpl: typeof fetch): Promise<Re
 async function requestAntigravity(token: string, fetchImpl: typeof fetch): Promise<Response> {
   const projectId = await discoverGoogleProjectId(token, fetchImpl);
   if (!projectId) throw new Error("missing projectId (try /login again)");
-  return fetchImpl(GOOGLE_QUOTA_ENDPOINT, {
+  return fetchWithTimeout(fetchImpl, GOOGLE_QUOTA_ENDPOINT, {
     method: "POST",
     headers: googleHeaders(token, projectId),
     body: JSON.stringify({ project: projectId }),
