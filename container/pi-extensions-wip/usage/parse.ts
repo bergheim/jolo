@@ -8,6 +8,20 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+// Ported from the reference's readPercentCandidate. Providers disagree on
+// whether "used" is 0-100 or 0-1; non-integer values in [0,1] are treated as
+// fractions and rescaled. 0 and 1 are integers, so they pass through as
+// literal 1% (not rescaled to 100%) — the boundary the reference chose for
+// the genuinely ambiguous case. Anything outside [0,100] is rejected rather
+// than clamped, so a bogus 250 doesn't render as a full bar.
+function percent(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value >= 0 && value <= 1) {
+    return Number.isInteger(value) ? value : value * 100;
+  }
+  return value >= 0 && value <= 100 ? value : null;
+}
+
 function obj(value: unknown): Record<string, any> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
@@ -21,12 +35,12 @@ export function parseCodexUsage(payload: unknown): Usage | null {
   const rateLimit = obj(obj(payload)?.rate_limit);
   if (!rateLimit) return null;
   const primary = obj(rateLimit.primary_window);
-  const session = num(primary?.used_percent);
+  const session = percent(primary?.used_percent);
   if (session === null) return null;
   const secondary = obj(rateLimit.secondary_window);
   return {
     sessionPercent: session,
-    weeklyPercent: num(secondary?.used_percent) ?? session,
+    weeklyPercent: percent(secondary?.used_percent) ?? session,
     resetsInSeconds: num(primary?.reset_after_seconds),
   };
 }
@@ -48,13 +62,13 @@ export function parseAnthropicUsage(payload: unknown, nowMs = Date.now()): Usage
   const body = obj(payload);
   if (!body) return null;
   const fiveHour = obj(body.five_hour);
-  const session = num(fiveHour?.utilization);
+  const session = percent(fiveHour?.utilization);
   if (session === null) return null;
   const sevenDay = obj(body.seven_day);
   const resetsAt = typeof fiveHour?.resets_at === "string" ? fiveHour.resets_at : null;
   return {
     sessionPercent: session,
-    weeklyPercent: num(sevenDay?.utilization) ?? session,
+    weeklyPercent: percent(sevenDay?.utilization) ?? session,
     resetsInSeconds: resetsAt ? secondsUntil(resetsAt, nowMs) : null,
   };
 }

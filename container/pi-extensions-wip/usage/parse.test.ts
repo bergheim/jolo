@@ -36,6 +36,25 @@ assert.equal(
   null,
 );
 
+// Fractional percent (0-1, non-integer) is rescaled x100
+assert.deepEqual(
+  parseCodexUsage({ rate_limit: { primary_window: { used_percent: 0.42 } } }),
+  { sessionPercent: 42, weeklyPercent: 42, resetsInSeconds: null },
+);
+
+// Integer 1 in [0,1] is the ambiguous boundary: taken literally as 1%, not
+// rescaled to 100% (matches the reference's readPercentCandidate).
+assert.deepEqual(
+  parseCodexUsage({ rate_limit: { primary_window: { used_percent: 1 } } }),
+  { sessionPercent: 1, weeklyPercent: 1, resetsInSeconds: null },
+);
+
+// Out-of-range percent (>100) is rejected, not clamped into a full bar
+assert.equal(
+  parseCodexUsage({ rate_limit: { primary_window: { used_percent: 250 } } }),
+  null,
+);
+
 // --- Anthropic: api.anthropic.com/api/oauth/usage ---
 // Real shape is five_hour/seven_day.{utilization, resets_at (ISO string)} —
 // unrelated to Codex's rate_limit.*_window shape, so this is NOT a delegate
@@ -79,6 +98,42 @@ assert.equal(parseAnthropicUsage([1, 2, 3]), null);
 assert.equal(
   parseAnthropicUsage({ five_hour: { utilization: "55" } }, fixedNow),
   null,
+);
+
+// Fractional percent (0-1, non-integer) is rescaled x100
+assert.deepEqual(
+  parseAnthropicUsage({ five_hour: { utilization: 0.42 } }, fixedNow),
+  { sessionPercent: 42, weeklyPercent: 42, resetsInSeconds: null },
+);
+
+// Out-of-range percent (>100) is rejected, not clamped into a full bar
+assert.equal(
+  parseAnthropicUsage({ five_hour: { utilization: 250 } }, fixedNow),
+  null,
+);
+
+// resets_at unparseable -> resetsInSeconds is null, not a throw
+assert.deepEqual(
+  parseAnthropicUsage(
+    {
+      five_hour: { utilization: 10, resets_at: "not-a-date" },
+      seven_day: { utilization: 5 },
+    },
+    fixedNow,
+  ),
+  { sessionPercent: 10, weeklyPercent: 5, resetsInSeconds: null },
+);
+
+// resets_at in the past -> clamped to 0, never negative
+assert.deepEqual(
+  parseAnthropicUsage(
+    {
+      five_hour: { utilization: 10, resets_at: new Date(fixedNow - 3600_000).toISOString() },
+      seven_day: { utilization: 5 },
+    },
+    fixedNow,
+  ),
+  { sessionPercent: 10, weeklyPercent: 5, resetsInSeconds: 0 },
 );
 
 // --- Google: cloudcode-pa.googleapis.com/.../retrieveUserQuota ---
