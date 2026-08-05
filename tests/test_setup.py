@@ -895,7 +895,12 @@ class TestPersistentCredentialStore(unittest.TestCase):
 
 
 class TestPiLlamaConfig(unittest.TestCase):
-    """Test Pi local llama.cpp provider setup."""
+    """Test Pi project settings and the ~/.pi/agent write contract.
+
+    llama/gateway/codex provider config and default-model seeding were
+    deleted (host owns ~/.pi entirely now); only project-scoped settings
+    and the write-nothing-under-agent contract remain to test.
+    """
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -904,130 +909,6 @@ class TestPiLlamaConfig(unittest.TestCase):
         import shutil
 
         shutil.rmtree(self.tmpdir)
-
-    def test_writes_llama_provider_and_default_model(self):
-        """No strong primary -> llama is the fallback default, plus a worker subagent."""
-        pi_cache = Path(self.tmpdir) / ".pi-cache"
-
-        with mock.patch(
-            "_jolo.setup._fetch_llama_model_ids",
-            return_value=["bge-m3", "qwen3-coder", "qwen3.6", "gemma4"],
-        ):
-            setup._write_pi_llama_config(
-                pi_cache, "http://berghome.ts.glvortex.net:11434/"
-            )
-
-        models = json.loads((pi_cache / "agent" / "models.json").read_text())
-        provider = models["providers"]["llama"]
-        self.assertEqual(
-            provider["baseUrl"], "http://berghome.ts.glvortex.net:11434/v1"
-        )
-        self.assertEqual(provider["api"], "openai-completions")
-        self.assertEqual(provider["apiKey"], "llama")
-        self.assertFalse(provider["compat"]["supportsDeveloperRole"])
-        self.assertFalse(provider["compat"]["supportsReasoningEffort"])
-        self.assertEqual(
-            [model["id"] for model in provider["models"]],
-            ["qwen3-coder", "qwen3.6", "gemma4"],
-        )
-        self.assertEqual(provider["models"][0]["contextWindow"], 32768)
-        self.assertEqual(provider["models"][0]["maxTokens"], 8192)
-
-        settings = json.loads(
-            (pi_cache / "agent" / "settings.json").read_text()
-        )
-        self.assertEqual(settings["defaultProvider"], "llama")
-        self.assertEqual(settings["defaultModel"], "qwen3-coder")
-
-        worker = (pi_cache / "agent" / "agents" / "worker.md").read_text()
-        self.assertIn("model: llama/qwen3-coder", worker)
-
-    def test_preserves_existing_pi_models_json_providers(self):
-        """Should merge the llama provider without deleting existing providers."""
-        pi_cache = Path(self.tmpdir) / ".pi-cache"
-        agent_dir = pi_cache / "agent"
-        agent_dir.mkdir(parents=True)
-        (agent_dir / "models.json").write_text(
-            json.dumps({"providers": {"custom": {"baseUrl": "https://x"}}})
-        )
-
-        with mock.patch(
-            "_jolo.setup._fetch_llama_model_ids",
-            return_value=["qwen3.6-small"],
-        ):
-            setup._write_pi_llama_config(pi_cache, "http://llama:11434")
-
-        models = json.loads((agent_dir / "models.json").read_text())
-        self.assertIn("custom", models["providers"])
-        self.assertIn("llama", models["providers"])
-
-    def test_setup_credential_cache_strong_primary_with_llama_worker(self):
-        """Default config: strong model is primary, llama runs as a worker subagent."""
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-
-        env = {"LLAMA_HOST": "http://llama:11434"}
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, env, clear=True):
-                with mock.patch(
-                    "_jolo.setup._fetch_llama_model_ids",
-                    return_value=["qwen3.6"],
-                ):
-                    jolo.setup_credential_cache(ws)
-
-        agent = home / ".pi" / "agent"
-        settings = json.loads((agent / "settings.json").read_text())
-        # strong primary from DEFAULT_CONFIG["pi_primary_model"] — the
-        # subscription, not the metered gateway
-        self.assertEqual(settings["defaultProvider"], "openai-codex")
-        self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
-        # llama is the worker, not the primary
-        self.assertIn(
-            "llama",
-            json.loads((agent / "models.json").read_text())["providers"],
-        )
-        self.assertIn(
-            "model: llama/qwen3.6",
-            (agent / "agents" / "worker.md").read_text(),
-        )
-
-    def test_setup_credential_cache_falls_back_to_llama_primary(self):
-        """Empty pi_primary_model -> llama becomes the primary again."""
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-
-        env = {"LLAMA_HOST": "http://llama:11434"}
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, env, clear=True):
-                with mock.patch(
-                    "_jolo.setup._fetch_llama_model_ids",
-                    return_value=["qwen3.6"],
-                ):
-                    jolo.setup_credential_cache(ws, {"pi_primary_model": ""})
-
-        settings = json.loads(
-            (home / ".pi" / "agent" / "settings.json").read_text()
-        )
-        self.assertEqual(settings["defaultProvider"], "llama")
-        self.assertEqual(settings["defaultModel"], "qwen3.6")
-
-    def test_setup_credential_cache_trusts_workspace_without_llama(self):
-        """Pi trusts the project folder even when LLAMA_HOST is unset."""
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                jolo.setup_credential_cache(ws)
-
-        trust = json.loads((home / ".pi" / "agent" / "trust.json").read_text())
-        self.assertIs(trust["/workspaces/project"], True)
 
     def test_npm_command_goes_to_project_settings(self):
         """npmCommand is an image fact: pnpm in the container, not on the host."""
@@ -1063,31 +944,6 @@ class TestPiLlamaConfig(unittest.TestCase):
         self.assertEqual(project_settings["theme"], "gruvbox-light")
         self.assertEqual(project_settings["npmCommand"], ["pnpm"])
 
-    def test_setup_does_not_write_host_pi_settings(self):
-        """settings.json is host-owned. jolo writes only project scope.
-
-        pi_primary_model is set to "" to isolate this from the unrelated,
-        pre-existing set-if-unset defaultProvider/defaultModel seeding in
-        _write_pi_primary, which legitimately still writes host settings.json.
-        """
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        agent_dir = home / ".pi" / "agent"
-        agent_dir.mkdir(parents=True)
-        (agent_dir / "settings.json").write_text(
-            json.dumps({"packages": ["npm:host-owned"], "theme": "mine"})
-        )
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                setup.setup_credential_cache(ws, {"pi_primary_model": ""})
-
-        settings = json.loads((agent_dir / "settings.json").read_text())
-        self.assertEqual(
-            settings, {"packages": ["npm:host-owned"], "theme": "mine"}
-        )
-
     def test_setup_does_not_write_pi_delegation(self):
         """delegation.md is a host preference; jolo must not write it."""
         ws = Path(self.tmpdir) / "project"
@@ -1113,51 +969,26 @@ class TestPiLlamaConfig(unittest.TestCase):
         extensions = home / ".pi" / "agent" / "extensions"
         self.assertFalse((extensions / "pi-official-subagent.ts").exists())
 
-    def test_setup_credential_cache_seeds_pi_pnpm_workspace_policy(self):
-        """Pi's managed extension workspace denies ast-grep's musl-broken build."""
+    def test_jolo_writes_nothing_under_pi_agent(self):
+        """The ownership contract: pi config is the host's, and ~/.pi is
+        already mounted. jolo's only pi write is npmCommand, and that goes to
+        the workspace's .pi/settings.json — never into the shared mount.
+        """
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
         home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
+        agent_dir = home / ".pi" / "agent"
+        agent_dir.mkdir(parents=True)
 
         with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                jolo.setup_credential_cache(ws)
+            setup.setup_credential_cache(ws)
 
-        workspace = home / ".pi" / "agent" / "npm" / "pnpm-workspace.yaml"
-        self.assertEqual(
-            workspace.read_text(),
-            "allowBuilds:\n  '@ast-grep/cli': false\n",
-        )
-
-    def test_setup_credential_cache_preserves_pi_pnpm_workspace_metadata(self):
-        """Existing pnpm workspace policy survives, but ast-grep is forced off."""
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        npm_dir = home / ".pi" / "agent" / "npm"
-        npm_dir.mkdir(parents=True)
-        (npm_dir / "pnpm-workspace.yaml").write_text(
-            "allowBuilds:\n"
-            "  '@ast-grep/cli': true\n"
-            "  '@google/genai': false\n"
-            "  protobufjs: false\n"
-            "minimumReleaseAgeExclude:\n"
-            "  - pi-web-access@0.15.0\n"
-        )
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                jolo.setup_credential_cache(ws)
-
-        workspace = (
-            home / ".pi" / "agent" / "npm" / "pnpm-workspace.yaml"
-        ).read_text()
-        self.assertIn("  '@ast-grep/cli': false\n", workspace)
-        self.assertIn("  '@google/genai': false\n", workspace)
-        self.assertIn("  protobufjs: false\n", workspace)
-        self.assertIn("minimumReleaseAgeExclude:\n", workspace)
-        self.assertIn("  - pi-web-access@0.15.0\n", workspace)
+        written = {
+            str(p.relative_to(agent_dir))
+            for p in agent_dir.rglob("*")
+            if p.is_file()
+        }
+        self.assertEqual(written, set())
 
 
 class TestPatchJsonWithJq(unittest.TestCase):
@@ -2469,108 +2300,6 @@ class TestContainerEnvKeys(unittest.TestCase):
         )
 
 
-class TestPiGatewayConfig(unittest.TestCase):
-    """pi provider routes the cloud primary through the host LiteLLM gateway."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-
-    def test_writes_gateway_provider_with_virtual_key(self):
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/gemini-3.1-pro",
-            "pi_gateway_model": "gemini-3.1-pro",
-        }
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(
-                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
-            ):
-                jolo.setup_credential_cache(ws, cfg)
-        models = json.loads(
-            (home / ".pi" / "agent" / "models.json").read_text()
-        )
-        gw = models["providers"]["gateway"]
-        self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
-        # env-var reference, never the literal: models.json is shared across
-        # containers, so each resolves its own project-scoped key
-        self.assertEqual(gw["apiKey"], "$LITELLM_VIRTUAL_KEY")
-        self.assertNotIn(
-            "sk-proj", (home / ".pi" / "agent" / "models.json").read_text()
-        )
-        self.assertEqual(gw["models"][0]["id"], "gemini-3.1-pro")
-
-    def test_preserves_copied_gateway_models(self):
-        ws = Path(self.tmpdir) / "project_copy"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        agent = home / ".pi" / "agent"
-        agent.mkdir(parents=True)
-        (agent / "models.json").write_text(
-            json.dumps(
-                {
-                    "providers": {
-                        "gateway": {
-                            "baseUrl": "http://stale/v1",
-                            "api": "openai-completions",
-                            "apiKey": "sk-stale",
-                            "models": [
-                                {"id": "openrouter/anthropic/claude-opus-4.8"},
-                                {"id": "openrouter/openai/gpt-5.5"},
-                            ],
-                        }
-                    }
-                }
-            )
-        )
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/gemini-3.1-pro",
-            "pi_gateway_model": "gemini-3.1-pro",
-        }
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(
-                os.environ, {"LITELLM_VIRTUAL_KEY": "sk-proj"}, clear=True
-            ):
-                jolo.setup_credential_cache(ws, cfg)
-        gw = json.loads((home / ".pi" / "agent" / "models.json").read_text())[
-            "providers"
-        ]["gateway"]
-        self.assertEqual(gw["baseUrl"], "http://gw:8088/v1")
-        # env-var reference, never the literal: models.json is shared across
-        # containers, so each resolves its own project-scoped key
-        self.assertEqual(gw["apiKey"], "$LITELLM_VIRTUAL_KEY")
-        self.assertEqual(
-            [m["id"] for m in gw["models"]],
-            [
-                "openrouter/anthropic/claude-opus-4.8",
-                "openrouter/openai/gpt-5.5",
-            ],
-        )
-
-    def test_no_gateway_provider_without_virtual_key(self):
-        ws = Path(self.tmpdir) / "project2"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                jolo.setup_credential_cache(ws)
-        models_path = home / ".pi" / "agent" / "models.json"
-        models = (
-            json.loads(models_path.read_text()) if models_path.exists() else {}
-        )
-        self.assertNotIn("gateway", models.get("providers", {}))
-
-
 class TestPiSharedConfig(unittest.TestCase):
     """pi's config is the host's, shared live by every container."""
 
@@ -2606,57 +2335,6 @@ class TestPiSharedConfig(unittest.TestCase):
             (agent / "npm" / "marker").read_text(), "installed-in-container"
         )
 
-    def test_user_chosen_default_model_is_not_reset(self):
-        """Shared config means clobbering here would undo the user's /model."""
-        home = Path(self.tmpdir) / "home"
-        agent = home / ".pi" / "agent"
-        agent.mkdir(parents=True)
-        (agent / "settings.json").write_text(
-            json.dumps(
-                {
-                    "defaultProvider": "openai-codex",
-                    "defaultModel": "gpt-5.6-sol",
-                }
-            )
-        )
-
-        self._run(
-            "project", home, {"pi_primary_model": "gateway/some-other-model"}
-        )
-
-        settings = json.loads((agent / "settings.json").read_text())
-        self.assertEqual(settings["defaultProvider"], "openai-codex")
-        self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
-
-    def test_llama_fallback_also_respects_a_chosen_default(self):
-        """The llama path is the other writer of this setting; same rule."""
-        home = Path(self.tmpdir) / "home"
-        agent = home / ".pi" / "agent"
-        agent.mkdir(parents=True)
-        (agent / "settings.json").write_text(
-            json.dumps(
-                {
-                    "defaultProvider": "openai-codex",
-                    "defaultModel": "gpt-5.6-sol",
-                }
-            )
-        )
-
-        # no strong primary, so llama would otherwise claim the default
-        with mock.patch(
-            "_jolo.setup._fetch_llama_model_ids", return_value=["qwen3.6"]
-        ):
-            self._run(
-                "project",
-                home,
-                {"pi_primary_model": ""},
-                env={"LLAMA_HOST": "http://llama:11434"},
-            )
-
-        settings = json.loads((agent / "settings.json").read_text())
-        self.assertEqual(settings["defaultProvider"], "openai-codex")
-        self.assertEqual(settings["defaultModel"], "gpt-5.6-sol")
-
     def test_creates_per_project_sessions_mount_source(self):
         """podman statfs-aborts the whole run if a mount source is missing."""
         home = Path(self.tmpdir) / "home"
@@ -2665,80 +2343,6 @@ class TestPiSharedConfig(unittest.TestCase):
         ws = self._run("project", home)
 
         self.assertTrue((ws / ".devcontainer" / ".pi-sessions").is_dir())
-
-
-class TestPiCodexWorker(unittest.TestCase):
-    """Pi delegates hard coding to a provider-qualified codex specialist."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-
-    def _run(self, cfg, env):
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-        home = Path(self.tmpdir) / "home"
-        (home / ".pi" / "agent").mkdir(parents=True)
-        with mock.patch("pathlib.Path.home", return_value=home):
-            with mock.patch.dict(os.environ, env, clear=True):
-                jolo.setup_credential_cache(ws, cfg)
-        return home / ".pi" / "agent"
-
-    def test_writes_codex_worker_and_registers_model(self):
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/gemini-3.1-pro",
-            "pi_gateway_model": "gemini-3.1-pro",
-            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
-        }
-        agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
-
-        worker = (agent / "agents" / "codex.md").read_text()
-        self.assertIn("name: codex", worker)
-        self.assertIn("model: gateway/openrouter/openai/gpt-5.6", worker)
-
-        gw = json.loads((agent / "models.json").read_text())["providers"][
-            "gateway"
-        ]
-        self.assertIn(
-            "openrouter/openai/gpt-5.6", [m["id"] for m in gw["models"]]
-        )
-
-    def test_writes_direct_codex_worker_without_gateway(self):
-        cfg = {
-            "pi_codex_model": "openai-codex/gpt-5.6-sol:xhigh",
-        }
-        agent = self._run(cfg, {})
-
-        worker = (agent / "agents" / "codex.md").read_text()
-        self.assertIn("name: codex", worker)
-        self.assertIn("model: openai-codex/gpt-5.6-sol:xhigh", worker)
-
-    def test_no_codex_worker_without_gateway(self):
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
-        }
-        agent = self._run(cfg, {})  # no virtual key -> no gateway
-        self.assertFalse((agent / "agents" / "codex.md").exists())
-
-    def test_codex_model_not_duplicated_when_already_present(self):
-        cfg = {
-            "litellm_base_url": "http://gw:8088",
-            "pi_primary_model": "gateway/openrouter/openai/gpt-5.6",
-            "pi_gateway_model": "openrouter/openai/gpt-5.6",
-            "pi_codex_model": "gateway/openrouter/openai/gpt-5.6",
-        }
-        agent = self._run(cfg, {"LITELLM_VIRTUAL_KEY": "sk-proj"})
-        gw = json.loads((agent / "models.json").read_text())["providers"][
-            "gateway"
-        ]
-        ids = [m["id"] for m in gw["models"]]
-        self.assertEqual(ids.count("openrouter/openai/gpt-5.6"), 1)
 
 
 class TestLitellmGatewayReachable(unittest.TestCase):
