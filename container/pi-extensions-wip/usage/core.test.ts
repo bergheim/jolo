@@ -10,6 +10,14 @@ import path from "node:path";
 const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-usage-core-test-home-"));
 process.env.HOME = fakeHome;
 
+// core.ts's cache lives under os.tmpdir(), which is the real shared /tmp
+// unless TMPDIR says otherwise. os.tmpdir() reads TMPDIR at call time (not
+// at process start) on Linux, so setting it here — before core.ts is
+// imported or fetchAll/cachePathFor is ever called — is enough to keep
+// this run's cache files from leaking into or reading a prior run's.
+const fakeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-usage-core-test-tmp-"));
+process.env.TMPDIR = fakeTmp;
+
 const farFuture = Date.now() + 1000 * 60 * 60 * 24 * 365 * 10; // 10 years out
 
 const authDir = path.join(fakeHome, ".pi", "agent");
@@ -137,8 +145,15 @@ const antigravityThrows = (url: string, init?: RequestInit) => {
   if (url.includes("loadCodeAssist")) throw new Error("network unreachable");
   return defaultFetch(url);
 };
+// Both loadCodeAssist endpoints throw here (the mock matches on the
+// "loadCodeAssist" substring, which both endpoint URLs contain), so
+// discovery exhausts its fallback and requestAntigravity reports the
+// specific missing-projectId reason, not a generic "unreachable".
 const throwResults = await fetchAll(T2, antigravityThrows as unknown as typeof fetch);
-assert.deepEqual(statusOf(throwResults, "antigravity"), { name: "antigravity", stale: "unreachable" });
+assert.deepEqual(statusOf(throwResults, "antigravity"), {
+  name: "antigravity",
+  stale: "missing projectId (try /login again)",
+});
 
 // --- scenario 4: unparseable body (codex) ---
 const codexUnparseable = (url: string, init?: RequestInit) => {
@@ -156,6 +171,92 @@ const allFailed = await fetchAll(T4, allThrow as unknown as typeof fetch);
 assert.equal(allFailed.length, 3);
 for (const entry of allFailed) {
   assert.ok("stale" in entry, `${entry.name} should degrade to a stale marker, not throw`);
+}
+
+const T5 = T4 + 61_000;
+const T6 = T5 + 61_000;
+const T7 = T6 + 61_000;
+const T8 = T7 + 61_000;
+const codexAccountKey = "codex-secret-tokenAAA111".slice(-12);
+
+// --- finding 1: a cache entry with a future `at` must not be immortal ---
+{
+  const primed = await fetchAll(T5, defaultFetch as unknown as typeof fetch);
+  assert.ok("usage" in statusOf(primed, "codex"), "priming fetch should succeed");
+
+  const cacheFile = cachePathFor("codex", codexAccountKey);
+  const entry = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
+  entry.at = T5 + 1000 * 60 * 60 * 24; // a day in the future: clock stepped back, or a copied file
+  fs.writeFileSync(cacheFile, JSON.stringify(entry));
+
+  let refetched = false;
+  const sentinelFetch2 = (url: string) => {
+    if (url.includes("wham/usage")) refetched = true;
+    return defaultFetch(url);
+  };
+  // Same T5: naive `nowMs - at < TTL` is negative here, which the buggy
+  // check treats as "fresh forever". A correct cache must reject it.
+  const afterFutureAt = await fetchAll(T5, sentinelFetch2 as unknown as typeof fetch);
+  assert.ok(refetched, "a future `at` must not pin the cache entry forever");
+  assert.ok("usage" in statusOf(afterFutureAt, "codex"));
+}
+
+// --- finding 2: cached usage must be validated before it reaches callers ---
+{
+  const cacheFile = cachePathFor("codex", codexAccountKey);
+  fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+  fs.writeFileSync(
+    cacheFile,
+    JSON.stringify({ at: T6, usage: { sessionPercent: "9999", weeklyPercent: 10, resetsInSeconds: 100 } }),
+  );
+
+  // age is 0 (well within TTL), so only the shape/type of `usage` is under
+  // test here — a corrupt cache entry must be treated as a miss.
+  const results = await fetchAll(T6, defaultFetch as unknown as typeof fetch);
+  const codex = statusOf(results, "codex");
+  assert.ok("usage" in codex, "a malformed cache entry must fall back to a live fetch");
+  if ("usage" in codex) {
+    assert.equal(typeof codex.usage.sessionPercent, "number");
+  }
+
+  const cacheFile2 = cachePathFor("codex", codexAccountKey);
+  fs.writeFileSync(cacheFile2, JSON.stringify({ at: T6, usage: 7 }));
+  const results2 = await fetchAll(T6, defaultFetch as unknown as typeof fetch);
+  assert.ok("usage" in statusOf(results2, "codex"), "a non-object cached usage must fall back to a live fetch");
+}
+
+// --- finding 3: fetchAll must not throw when a stage outside try/catch throws ---
+{
+  // A fetchImpl resolving to a non-Response makes `!response.ok` throw a
+  // TypeError instead of returning false.
+  const brokenResponseFetch = (url: string) => {
+    if (url.includes("oauth/usage")) return Promise.resolve(undefined as unknown as Response);
+    return defaultFetch(url);
+  };
+  let threw = false;
+  let resultsC: Awaited<ReturnType<typeof fetchAll>> = [];
+  try {
+    resultsC = await fetchAll(T7, brokenResponseFetch as unknown as typeof fetch);
+  } catch {
+    threw = true;
+  }
+  assert.equal(threw, false, "fetchAll must not throw when a fetchImpl resolves to a non-Response");
+  assert.ok("stale" in statusOf(resultsC, "claude"), "claude should degrade to stale, not crash fetchAll");
+}
+
+// --- finding 4: a failing primary loadCodeAssist endpoint must fall back to the mirror ---
+{
+  const mirrorFallbackFetch = (url: string) => {
+    if (url === "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist") {
+      throw new Error("primary endpoint down");
+    }
+    return defaultFetch(url);
+  };
+  const resultsD = await fetchAll(T8, mirrorFallbackFetch as unknown as typeof fetch);
+  assert.ok(
+    "usage" in statusOf(resultsD, "antigravity"),
+    "a primary loadCodeAssist failure must fall back to the sandbox mirror, not abort discovery",
+  );
 }
 
 console.log("core.test.ts PASS");

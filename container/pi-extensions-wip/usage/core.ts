@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,16 +17,31 @@ const CACHE_TTL_MS = 60_000;
 
 // tmpdir, never ~/.pi: that mount is shared live with the host and every
 // other container, and cache churn does not belong in contended space.
+// accountKey is hashed rather than embedded raw: /tmp is world-readable and
+// the key is derived from a live credential's tail characters.
 export function cachePathFor(provider: string, accountKey: string): string {
   const uid = String(process.getuid?.() ?? "nouid");
-  const safe = accountKey.replace(/[^A-Za-z0-9_-]/g, "_");
+  const safe = crypto.createHash("sha256").update(accountKey).digest("hex").slice(0, 16);
   return path.join(os.tmpdir(), "pi-usage", uid, provider, `${safe}.json`);
+}
+
+function isValidUsage(value: unknown): value is Usage {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
+  return (
+    finite(v.sessionPercent) &&
+    finite(v.weeklyPercent) &&
+    (v.resetsInSeconds === null || finite(v.resetsInSeconds))
+  );
 }
 
 function readCache(file: string, nowMs: number): Usage | null {
   try {
     const entry = JSON.parse(fs.readFileSync(file, "utf-8"));
-    return nowMs - entry.at < CACHE_TTL_MS ? entry.usage : null;
+    const age = nowMs - entry.at;
+    if (age < 0 || age >= CACHE_TTL_MS) return null;
+    return isValidUsage(entry.usage) ? entry.usage : null;
   } catch {
     return null;
   }
@@ -34,7 +50,10 @@ function readCache(file: string, nowMs: number): Usage | null {
 function writeCache(file: string, usage: Usage, nowMs: number): void {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ at: nowMs, usage }));
+    // Write-then-rename so a concurrent reader never sees a truncated file.
+    const tmp = `${file}.tmp-${process.pid}-${nowMs}`;
+    fs.writeFileSync(tmp, JSON.stringify({ at: nowMs, usage }));
+    fs.renameSync(tmp, file);
   } catch {
     // Cache is an optimisation; losing it must never break the bar.
   }
@@ -78,17 +97,23 @@ async function discoverGoogleProjectId(
   if (envProjectId) return envProjectId;
 
   for (const endpoint of GOOGLE_LOAD_CODE_ASSIST_ENDPOINTS) {
-    const response = await fetchImpl(endpoint, {
-      method: "POST",
-      headers: googleHeaders(token),
-      body: JSON.stringify({ metadata: googleMetadata() }),
-    });
-    if (!response.ok) continue;
-    const data = await response.json();
-    if (typeof data?.cloudaicompanionProject === "string" && data.cloudaicompanionProject) {
-      return data.cloudaicompanionProject;
+    // A failure on one endpoint (network throw, non-OK, bad JSON) must fall
+    // through to the next mirror rather than aborting discovery entirely.
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: googleHeaders(token),
+        body: JSON.stringify({ metadata: googleMetadata() }),
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (typeof data?.cloudaicompanionProject === "string" && data.cloudaicompanionProject) {
+        return data.cloudaicompanionProject;
+      }
+      if (typeof data?.cloudaicompanionProject?.id === "string") return data.cloudaicompanionProject.id;
+    } catch {
+      continue;
     }
-    if (typeof data?.cloudaicompanionProject?.id === "string") return data.cloudaicompanionProject.id;
   }
   return undefined;
 }
@@ -110,7 +135,7 @@ async function requestClaude(token: string, fetchImpl: typeof fetch): Promise<Re
 
 async function requestAntigravity(token: string, fetchImpl: typeof fetch): Promise<Response> {
   const projectId = await discoverGoogleProjectId(token, fetchImpl);
-  if (!projectId) throw new Error("no project id");
+  if (!projectId) throw new Error("missing projectId (try /login again)");
   return fetchImpl(GOOGLE_QUOTA_ENDPOINT, {
     method: "POST",
     headers: googleHeaders(token, projectId),
@@ -156,11 +181,13 @@ async function fetchOne(
   let response: Response;
   try {
     response = await provider.request(credential.token, fetchImpl);
-  } catch {
-    return { name: provider.name, stale: "unreachable" };
-  }
-  if (!response.ok) {
-    return { name: provider.name, stale: `http ${response.status}` };
+    if (!response.ok) {
+      return { name: provider.name, stale: `http ${response.status}` };
+    }
+  } catch (error) {
+    // Preserve the real reason (e.g. "missing projectId (try /login
+    // again)") instead of flattening every failure into "unreachable".
+    return { name: provider.name, stale: error instanceof Error ? error.message : "unreachable" };
   }
 
   let body: unknown;
@@ -170,7 +197,12 @@ async function fetchOne(
     return { name: provider.name, stale: "unparseable body" };
   }
 
-  const usage = provider.parse(body, nowMs);
+  let usage: Usage | null;
+  try {
+    usage = provider.parse(body, nowMs);
+  } catch {
+    usage = null;
+  }
   if (!usage) return { name: provider.name, stale: "unrecognised payload" };
 
   writeCache(cacheFile, usage, nowMs);
