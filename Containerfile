@@ -136,6 +136,17 @@ RUN addgroup -g $GROUP_ID $USERNAME && \
     chown $USERNAME:$USERNAME /tmp/container-runtime && \
     chmod 700 /tmp/container-runtime
 
+# Nix runs single-user: the Alpine package ships the multi-user layout
+# (NIX_REMOTE=daemon + nixbld group) which needs an OpenRC nix-daemon we do not
+# run. /nix/store and /nix/var must already exist and be owned by the agent
+# user: otherwise `store = auto` falls back to the chroot store under
+# ~/.local/share/nix/root, whose builds need mount namespaces the container
+# lacks. The build sandbox needs those namespaces too, hence sandbox = false.
+RUN mkdir -p /nix/store /nix/var/nix/profiles/per-user/$USERNAME && \
+    chown -R $USERNAME:$USERNAME /nix && \
+    rm -f /etc/profile.d/nix-remote.sh && \
+    printf 'experimental-features = nix-command flakes\nbuild-users-group =\nsandbox = false\n' > /etc/nix/nix.conf
+
 # tmux system config (must be written as root)
 RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
     echo 'set -s set-clipboard on' >> /etc/tmux.conf && \
@@ -170,7 +181,8 @@ ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
-ENV PATH="$PNPM_HOME/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
+ENV PATH="$PNPM_HOME/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$HOME/.nix-profile/bin:$PATH"
+ENV NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # All Node.js global packages in one pnpm install.
 # pnpm gates install-time scripts; allow the ones pi/gemini need (else silently skipped).
