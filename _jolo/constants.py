@@ -251,5 +251,8 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/stash,target=/workspaces/stash,type=bind",
 ]
 
+TAILNET_CONTROL_DIR = "/srv/tailnet"
+TAILNET_CONTROL_MOUNT = "source=/srv/tailnet,target=/srv/tailnet,type=bind"
+
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"

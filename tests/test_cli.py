@@ -370,6 +370,34 @@ class TestPortAllocation(unittest.TestCase):
         for m in config["mounts"]:
             self.assertNotIn(".jolo/skills", m)
 
+    def test_tailnet_control_mount_absent_when_host_dir_missing(self):
+        """The /srv/tailnet mount is optional so jolo still starts elsewhere."""
+        import json
+        from unittest import mock
+
+        with mock.patch("_jolo.container.Path.is_dir", return_value=False):
+            result = jolo.build_devcontainer_json("test")
+
+        config = json.loads(result)
+        self.assertNotIn(
+            "source=/srv/tailnet,target=/srv/tailnet,type=bind",
+            config["mounts"],
+        )
+
+    def test_tailnet_control_mount_present_when_host_dir_exists(self):
+        """When /srv/tailnet exists on the host, expose it to containers."""
+        import json
+        from unittest import mock
+
+        with mock.patch("_jolo.container.Path.is_dir", return_value=True):
+            result = jolo.build_devcontainer_json("test")
+
+        config = json.loads(result)
+        self.assertIn(
+            "source=/srv/tailnet,target=/srv/tailnet,type=bind",
+            config["mounts"],
+        )
+
 
 class TestPodmanSocketForwarding(unittest.TestCase):
     """Cross-container podman access opt-in surfaces in devcontainer.json

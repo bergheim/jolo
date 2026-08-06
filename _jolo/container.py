@@ -63,6 +63,9 @@ def build_devcontainer_json(
 
     mounts = constants.BASE_MOUNTS.copy()
 
+    if Path(constants.TAILNET_CONTROL_DIR).is_dir():
+        mounts.append(constants.TAILNET_CONTROL_MOUNT)
+
     # Skills have one source of truth: the jolo checkout's templates/skills,
     # mounted RW into every container. Edits anywhere are live everywhere
     # and surface in jolo's git status.
