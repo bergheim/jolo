@@ -15,7 +15,9 @@ fi
 
 # Build header with full URL
 header="$project"
-if [ -n "$DEV_HOST" ] && [ -n "$PORT" ]; then
+if [ -n "$JOLO_SITE_URL" ]; then
+    header="$header  ${JOLO_SITE_URL}  (in clipboard)"
+elif [ -n "$DEV_HOST" ] && [ -n "$PORT" ]; then
     header="$header  http://${DEV_HOST}:${PORT}  (in clipboard)"
 elif [ -n "$PORT" ]; then
     header="$header  :$PORT  (in clipboard)"

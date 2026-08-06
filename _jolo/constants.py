@@ -254,5 +254,11 @@ BASE_MOUNTS = [
 TAILNET_CONTROL_DIR = "/srv/tailnet"
 TAILNET_CONTROL_MOUNT = "source=/srv/tailnet,target=/srv/tailnet,type=bind"
 
+# Project sites live under the Headscale MagicDNS base, so each one needs an
+# explicit A record; unknown names do not fall through to public DNS. The
+# value is burial's tailnet address, which holds the wildcard certificate.
+TAILNET_SITE_DOMAIN = "ts.glvortex.net"
+TAILNET_ROUTER_IP = "100.64.0.4"
+
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"

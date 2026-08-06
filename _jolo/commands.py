@@ -12,7 +12,7 @@ from pathlib import Path
 
 import tomllib
 
-from _jolo import constants, registry
+from _jolo import constants, registry, tailnet
 from _jolo.cli import (
     _format_container_display,
     _podman_proxy_pidfile,
@@ -261,6 +261,13 @@ def _setup_container_env(workspace: Path, config: dict) -> None:
     virtual_key = ensure_litellm_project_key(workspace.name, config)
     if virtual_key:
         os.environ["LITELLM_VIRTUAL_KEY"] = virtual_key
+    # Runs before the container starts so the resolved URL reaches
+    # containerEnv via ${localEnv:JOLO_SITE_URL}.
+    port = read_port_from_devcontainer(workspace)
+    if port is not None:
+        site = tailnet.register(workspace.name, port)
+        if site:
+            os.environ["JOLO_SITE_URL"] = site
     setup_credential_cache(workspace)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
@@ -1027,6 +1034,10 @@ def _copy_url_to_clipboard(workspace_dir: Path) -> None:
     """Copy the project's dev server URL to the clipboard via OSC 52."""
     port = read_port_from_devcontainer(workspace_dir)
     if port is None:
+        return
+    site = os.environ.get("JOLO_SITE_URL")
+    if site:
+        clipboard_copy(site)
         return
     hostname = detect_hostname()
     url = f"http://{hostname}:{port}"
@@ -2305,6 +2316,9 @@ def _delete_project(
             print(f"Removed container: {name}")
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
+
+    if tailnet.unregister(git_root.name):
+        print(f"Removed tailnet site: {tailnet.site_host(git_root.name)}")
 
     if purge:
         _purge_dirs(git_root)
