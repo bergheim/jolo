@@ -255,19 +255,16 @@ def run_allowed_mode(args) -> None:
 
 
 def _setup_container_env(workspace: Path, config: dict) -> None:
-    """Set up secrets, credentials, hooks, and Emacs config for a container."""
+    """Everything that must happen before the container starts.
+
+    Secrets, credentials, hooks, Emacs config, and the project's URL.
+    """
     secrets = get_secrets(config)
     os.environ.update(secrets)
     virtual_key = ensure_litellm_project_key(workspace.name, config)
     if virtual_key:
         os.environ["LITELLM_VIRTUAL_KEY"] = virtual_key
-    # Runs before the container starts so the resolved URL reaches
-    # containerEnv via ${localEnv:JOLO_SITE_URL}.
-    port = read_port_from_devcontainer(workspace)
-    if port is not None:
-        site = tailnet.register(workspace.name, port)
-        if site:
-            os.environ["JOLO_SITE_URL"] = site
+    _resolve_site_url(workspace)
     setup_credential_cache(workspace)
     setup_notification_hooks(workspace, config.get("notify_threshold", 60))
     setup_emacs_config(workspace)
@@ -668,6 +665,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
 
     # Remove worktrees
     for wt_path, _ in stale_worktrees:
+        tailnet.unregister(wt_path.name)
         if remove_worktree(git_root, wt_path):
             print(f"Removed worktree: {wt_path.name}")
         else:
@@ -1030,18 +1028,29 @@ def run_doctor_mode(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _copy_url_to_clipboard(workspace_dir: Path) -> None:
-    """Copy the project's dev server URL to the clipboard via OSC 52."""
+def _resolve_site_url(workspace_dir: Path) -> str | None:
+    """Register the project's tailnet site and resolve the URL to reach it.
+
+    Exported as JOLO_SITE_URL so containerEnv picks it up via localEnv
+    before the container starts; every consumer (MOTD, notify, just
+    browse, clipboard) reads it instead of rebuilding the URL itself.
+    Falls back to host:port on hosts with no tailnet control plane.
+    """
     port = read_port_from_devcontainer(workspace_dir)
     if port is None:
-        return
-    site = os.environ.get("JOLO_SITE_URL")
-    if site:
-        clipboard_copy(site)
-        return
-    hostname = detect_hostname()
-    url = f"http://{hostname}:{port}"
-    clipboard_copy(url)
+        return None
+    url = tailnet.register(workspace_dir.name, port)
+    if url is None:
+        url = f"http://{detect_hostname()}:{port}"
+    os.environ["JOLO_SITE_URL"] = url
+    return url
+
+
+def _copy_url_to_clipboard() -> None:
+    """Copy the project's URL to the clipboard via OSC 52."""
+    url = os.environ.get("JOLO_SITE_URL")
+    if url:
+        clipboard_copy(url)
 
 
 GITIGNORE_MARKER = "# Universal .gitignore template"
@@ -1228,7 +1237,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
         )
 
     registry.record(git_root)
-    _copy_url_to_clipboard(git_root)
+    _copy_url_to_clipboard()
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
@@ -1614,7 +1623,7 @@ def run_create_mode(args: argparse.Namespace) -> None:
             'git add . && git diff --cached --quiet || git commit -m "Add dependencies"',
         )
 
-    _copy_url_to_clipboard(project_path)
+    _copy_url_to_clipboard()
 
     if args.prompt:
         print(f"Started {args.agent} in: {project_name}")
@@ -2227,6 +2236,9 @@ def _build_delete_picker_items() -> list[dict]:
 def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
     """Delete a single worktree: stop container, remove worktree."""
     stop_container(wt_path)
+    # Worktrees register a site like any other workspace; without this the
+    # fragments keep a route to a port that gets recycled to another project.
+    tailnet.unregister(wt_path.name)
     if remove_worktree(git_root, wt_path):
         print(f"Deleted worktree: {wt_path.name}")
     else:

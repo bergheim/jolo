@@ -14,7 +14,7 @@ dev-restart:
 # Open in browser
 browse:
     #!/bin/sh
-    u="${JOLO_SITE_URL:-http://$DEV_HOST:$PORT}"
+    u="$JOLO_SITE_URL"
     if [ -n "$WAYLAND_DISPLAY" ]; then
         chromium --ozone-platform=wayland "$u" >/dev/null 2>&1 &
         echo "Opened browser: $u"

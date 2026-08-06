@@ -34,7 +34,6 @@ class TailnetTestCase(unittest.TestCase):
         root = Path(self.tmp.name)
         (root / "caddy").mkdir()
         (root / "headscale").mkdir()
-        (root / "nginx").mkdir()
         (root / tailnet.CADDY_RELPATH).write_text(CADDY_SEED)
         (root / tailnet.RECORDS_RELPATH).write_text(
             json.dumps(RECORDS_SEED, indent=2) + "\n"
@@ -69,16 +68,11 @@ class TestAvailability(TailnetTestCase):
 
 
 class TestRegister(TailnetTestCase):
-    def test_adds_route_and_record(self):
+    def test_adds_route_and_record_pointing_at_the_tls_router(self):
         url = tailnet.register("test4k", 4676)
 
         self.assertEqual(url, "https://test4k.ts.glvortex.net")
         self.assertEqual(tailnet.read_routes()["test4k.ts.glvortex.net"], 4676)
-        self.assertIn("test4k.ts.glvortex.net", self.record_names())
-
-    def test_record_points_at_the_tls_router(self):
-        tailnet.register("test4k", 4676)
-
         record = next(
             r
             for r in tailnet.read_records()
@@ -130,12 +124,6 @@ class TestRegister(TailnetTestCase):
 
         text = (Path(self.tmp.name) / tailnet.CADDY_RELPATH).read_text()
         self.assertTrue(text.startswith("# Generated jolo tailnet project"))
-
-    def test_written_records_stay_valid_json(self):
-        tailnet.register("test4k", 4676)
-
-        raw = (Path(self.tmp.name) / tailnet.RECORDS_RELPATH).read_text()
-        self.assertEqual(len(json.loads(raw)), 3)
 
 
 class TestUnregister(TailnetTestCase):

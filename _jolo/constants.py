@@ -252,7 +252,9 @@ BASE_MOUNTS = [
 ]
 
 TAILNET_CONTROL_DIR = "/srv/tailnet"
-TAILNET_CONTROL_MOUNT = "source=/srv/tailnet,target=/srv/tailnet,type=bind"
+TAILNET_CONTROL_MOUNT = (
+    f"source={TAILNET_CONTROL_DIR},target={TAILNET_CONTROL_DIR},type=bind"
+)
 
 # Project sites live under the Headscale MagicDNS base, so each one needs an
 # explicit A record; unknown names do not fall through to public DNS. The

@@ -47,25 +47,21 @@ def control_dir() -> Path:
     return Path(constants.TAILNET_CONTROL_DIR)
 
 
-def caddy_path() -> Path:
+def _caddy_path() -> Path:
     return control_dir() / CADDY_RELPATH
 
 
-def records_path() -> Path:
+def _records_path() -> Path:
     return control_dir() / RECORDS_RELPATH
 
 
 def is_available() -> bool:
     """True when this host carries the shared control-plane fragments."""
-    return caddy_path().is_file() and records_path().is_file()
+    return _caddy_path().is_file() and _records_path().is_file()
 
 
 def site_host(name: str) -> str:
     return f"{name}.{constants.TAILNET_SITE_DOMAIN}"
-
-
-def site_url(name: str) -> str:
-    return f"https://{site_host(name)}"
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -83,7 +79,7 @@ def _write_atomic(path: Path, text: str) -> None:
 
 def read_routes() -> dict[str, int]:
     """Parse the Caddy fragment into ``{hostname: port}``."""
-    text = caddy_path().read_text()
+    text = _caddy_path().read_text()
     return {
         m.group("host"): int(m.group("port")) for m in _ROUTE.finditer(text)
     }
@@ -94,11 +90,11 @@ def _write_routes(routes: dict[str, int]) -> None:
         f"http://{host} {{\n    reverse_proxy 127.0.0.1:{port}\n}}\n"
         for host, port in sorted(routes.items())
     ]
-    _write_atomic(caddy_path(), CADDY_HEADER + "\n".join(blocks))
+    _write_atomic(_caddy_path(), CADDY_HEADER + "\n".join(blocks))
 
 
 def read_records() -> list[dict]:
-    return json.loads(records_path().read_text())
+    return json.loads(_records_path().read_text())
 
 
 def _write_records(records: list[dict]) -> None:
@@ -107,7 +103,7 @@ def _write_records(records: list[dict]) -> None:
     # sort. No restart is needed on its side.
     ordered = sorted(records, key=lambda r: r.get("name", ""))
     _write_atomic(
-        records_path(), json.dumps(ordered, indent=2, sort_keys=True) + "\n"
+        _records_path(), json.dumps(ordered, indent=2, sort_keys=True) + "\n"
     )
 
 
@@ -144,7 +140,7 @@ def register(name: str, port: int) -> str | None:
         records.append(wanted)
         _write_records(records)
 
-    return site_url(name)
+    return f"https://{host}"
 
 
 def unregister(name: str) -> bool:

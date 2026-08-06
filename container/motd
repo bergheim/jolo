@@ -14,13 +14,14 @@ if [ -n "$branch" ]; then
 fi
 
 # Build header with full URL
+# jolo resolves JOLO_SITE_URL on the host: the tailnet site when the project
+# has one, http://$DEV_HOST:$PORT otherwise. Only containers created before
+# that existed fall through to building it here.
 header="$project"
 if [ -n "$JOLO_SITE_URL" ]; then
     header="$header  ${JOLO_SITE_URL}  (in clipboard)"
-elif [ -n "$DEV_HOST" ] && [ -n "$PORT" ]; then
-    header="$header  http://${DEV_HOST}:${PORT}  (in clipboard)"
 elif [ -n "$PORT" ]; then
-    header="$header  :$PORT  (in clipboard)"
+    header="$header  http://${DEV_HOST:-localhost}:${PORT}  (in clipboard)"
 fi
 
 hint="Run tasks with: just <recipe>"

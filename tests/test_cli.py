@@ -370,33 +370,25 @@ class TestPortAllocation(unittest.TestCase):
         for m in config["mounts"]:
             self.assertNotIn(".jolo/skills", m)
 
-    def test_tailnet_control_mount_absent_when_host_dir_missing(self):
-        """The /srv/tailnet mount is optional so jolo still starts elsewhere."""
+    def test_tailnet_control_mount_follows_the_host_dir(self):
+        """The mount is optional so jolo still starts off the control plane."""
         import json
-        from unittest import mock
 
-        with mock.patch("_jolo.container.Path.is_dir", return_value=False):
-            result = jolo.build_devcontainer_json("test")
+        from _jolo import constants
 
-        config = json.loads(result)
-        self.assertNotIn(
-            "source=/srv/tailnet,target=/srv/tailnet,type=bind",
-            config["mounts"],
-        )
-
-    def test_tailnet_control_mount_present_when_host_dir_exists(self):
-        """When /srv/tailnet exists on the host, expose it to containers."""
-        import json
-        from unittest import mock
-
-        with mock.patch("_jolo.container.Path.is_dir", return_value=True):
-            result = jolo.build_devcontainer_json("test")
-
-        config = json.loads(result)
-        self.assertIn(
-            "source=/srv/tailnet,target=/srv/tailnet,type=bind",
-            config["mounts"],
-        )
+        with tempfile.TemporaryDirectory() as present:
+            for control_dir, expected in ((present, True), ("/nope", False)):
+                with self.subTest(control_dir=control_dir):
+                    with mock.patch.object(
+                        constants, "TAILNET_CONTROL_DIR", control_dir
+                    ):
+                        config = json.loads(
+                            jolo.build_devcontainer_json("test")
+                        )
+                    mounted = (
+                        constants.TAILNET_CONTROL_MOUNT in config["mounts"]
+                    )
+                    self.assertEqual(mounted, expected)
 
 
 class TestPodmanSocketForwarding(unittest.TestCase):
