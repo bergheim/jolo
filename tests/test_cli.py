@@ -370,25 +370,16 @@ class TestPortAllocation(unittest.TestCase):
         for m in config["mounts"]:
             self.assertNotIn(".jolo/skills", m)
 
-    def test_tailnet_control_mount_follows_the_host_dir(self):
-        """The mount is optional so jolo still starts off the control plane."""
+    def test_tailnet_control_dir_is_never_mounted(self):
+        """It holds routing and DNS for every project; containers stay out."""
         import json
 
         from _jolo import constants
 
-        with tempfile.TemporaryDirectory() as present:
-            for control_dir, expected in ((present, True), ("/nope", False)):
-                with self.subTest(control_dir=control_dir):
-                    with mock.patch.object(
-                        constants, "TAILNET_CONTROL_DIR", control_dir
-                    ):
-                        config = json.loads(
-                            jolo.build_devcontainer_json("test")
-                        )
-                    mounted = (
-                        constants.TAILNET_CONTROL_MOUNT in config["mounts"]
-                    )
-                    self.assertEqual(mounted, expected)
+        config = json.loads(jolo.build_devcontainer_json("test"))
+
+        for m in config["mounts"]:
+            self.assertNotIn(constants.TAILNET_CONTROL_DIR, m)
 
 
 class TestPodmanSocketForwarding(unittest.TestCase):
