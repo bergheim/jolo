@@ -59,6 +59,8 @@ RUN apk update && apk add --no-cache \
     ncurses-terminfo \
     ncurses-terminfo-base \
     neovim \
+    nix \
+    nix-dev \
     nodejs \
     nsjail \
     openssh-client \
