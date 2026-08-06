@@ -63,6 +63,9 @@ def build_devcontainer_json(
 
     mounts = constants.BASE_MOUNTS.copy()
 
+    if Path(constants.TAILNET_CONTROL_DIR).is_dir():
+        mounts.append(constants.TAILNET_CONTROL_MOUNT)
+
     # Skills have one source of truth: the jolo checkout's templates/skills,
     # mounted RW into every container. Edits anywhere are live everywhere
     # and surface in jolo's git status.
@@ -139,6 +142,10 @@ def build_devcontainer_json(
             "GH_TOKEN": "${localEnv:GH_TOKEN}",
             "PORT": str(port),
             "DEV_HOST": hostname,
+            # Empty unless this host runs the tailnet control plane and the
+            # project name is a usable DNS label; the MOTD falls back to
+            # host:port when it is.
+            "JOLO_SITE_URL": "${localEnv:JOLO_SITE_URL}",
             "BRAINSTORM_HOST": "0.0.0.0",
             "BRAINSTORM_URL_HOST": hostname,
             "BRAINSTORM_PORT": str(port + 2),
