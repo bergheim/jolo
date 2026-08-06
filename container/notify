@@ -136,7 +136,11 @@ if [ -z "${NOTIFY_PATH:-}" ] && [ -f "$HOME/.notify-path" ]; then
 fi
 
 # Button 1: dev app URL (only for web projects with NOTIFY_APP=1)
-if [ -n "${NOTIFY_APP:-}" ] && [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
+if [ -n "${NOTIFY_APP:-}" ] && [ -n "${JOLO_SITE_URL:-}" ]; then
+    DEV_URL="${JOLO_SITE_URL}${NOTIFY_PATH:-}"
+    CLICK_HEADER="Click: ${DEV_URL}"
+    ACTIONS="view, Open app, ${DEV_URL}"
+elif [ -n "${NOTIFY_APP:-}" ] && [ -n "${DEV_HOST:-}" ] && [ -n "${PORT:-}" ]; then
     DEV_URL="http://${DEV_HOST}:${PORT}${NOTIFY_PATH:-}"
     CLICK_HEADER="Click: ${DEV_URL}"
     ACTIONS="view, Open app, ${DEV_URL}"
