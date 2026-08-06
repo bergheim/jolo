@@ -102,8 +102,13 @@ def read_records() -> list[dict]:
 
 
 def _write_records(records: list[dict]) -> None:
+    # Headscale watches this file and checksums it to decide whether to
+    # reprocess, so the output has to be stable across runs — hence the
+    # sort. No restart is needed on its side.
     ordered = sorted(records, key=lambda r: r.get("name", ""))
-    _write_atomic(records_path(), json.dumps(ordered, indent=2) + "\n")
+    _write_atomic(
+        records_path(), json.dumps(ordered, indent=2, sort_keys=True) + "\n"
+    )
 
 
 def register(name: str, port: int) -> str | None:
