@@ -12,8 +12,8 @@ import subprocess
 import sys
 
 from _jolo import constants, sites
-from _jolo.cli import read_port_from_devcontainer
-from _jolo.commands import pick_project
+from _jolo.cli import find_git_root, read_port_from_devcontainer
+from _jolo.commands import _fzf_pick, pick_project
 from _jolo.container import is_container_running
 
 
@@ -164,12 +164,37 @@ def run_publish_mode(args) -> None:
     )
 
 
+def _pick_published(routes: dict[str, tuple[int, str | None]]) -> str:
+    """Which project to unpublish.
+
+    The generic project picker offers everything jolo knows about, which
+    for unpublishing is noise — only published sites are candidates.
+    """
+    git_root = find_git_root()
+    if git_root is not None:
+        return git_root.name
+
+    names = sorted(_project_name(host) for host in routes)
+    if len(names) == 1:
+        return names[0]
+
+    labels = [f"{name:<24} {sites.public_host(name)}" for name in names]
+    selected = _fzf_pick("Unpublish which site:", labels)
+    if selected is None:
+        sys.exit(0)
+    return names[labels.index(selected)]
+
+
 def run_unpublish_mode(args) -> None:
-    """Remove the current project's public route."""
+    """Remove a published project's public route."""
     _require_control_plane()
 
-    project = pick_project()
-    name = project.name
+    routes = sites.read_public()
+    if not routes:
+        print("Nothing published.")
+        return
+
+    name = _pick_published(routes)
     if sites.unregister_public(name):
         print(f"Unpublished: {sites.public_host(name)}")
     else:

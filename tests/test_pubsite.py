@@ -172,26 +172,73 @@ class TestPublishMode(unittest.TestCase):
 
 
 class TestUnpublishMode(unittest.TestCase):
+    TWO = {
+        "foo.pub.glvortex.net": (4676, None),
+        "bar.pub.glvortex.net": (4100, None),
+    }
+
+    def setUp(self):
+        patcher = mock.patch.object(
+            pubsite.sites, "is_available", return_value=True
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _patch(self, target, attr, value):
+        patcher = mock.patch.object(target, attr, return_value=value)
+        started = patcher.start()
+        self.addCleanup(patcher.stop)
+        return started
+
+    def _run(self, routes, git_root=None, pick=None):
+        """Run unpublish; exposes self.unreg and self.picker for assertions."""
+        self._patch(pubsite.sites, "read_public", routes)
+        self._patch(pubsite, "find_git_root", git_root)
+        self.picker = self._patch(pubsite, "_fzf_pick", pick)
+        self.unreg = self._patch(pubsite.sites, "unregister_public", True)
+        with mock.patch("sys.stdout", new=io.StringIO()) as out:
+            pubsite.run_unpublish_mode(argparse.Namespace(verbose=False))
+        return out.getvalue()
+
     def test_unpublishes_the_current_project(self):
         project = Path("/home/tsb/dev/test4k")
-        with mock.patch.object(
-            pubsite.sites, "is_available", return_value=True
-        ):
-            with mock.patch.object(
-                pubsite, "pick_project", return_value=project
-            ):
-                with mock.patch.object(
-                    pubsite.sites, "unregister_public", return_value=True
-                ) as unreg_pub:
-                    with mock.patch.object(
-                        pubsite.sites, "unregister"
-                    ) as unreg:
-                        pubsite.run_unpublish_mode(
-                            argparse.Namespace(verbose=False)
-                        )
+        self._run({"test4k.pub.glvortex.net": (4676, None)}, git_root=project)
 
-        unreg_pub.assert_called_once_with("test4k")
-        unreg.assert_not_called()
+        self.unreg.assert_called_once_with("test4k")
+        self.picker.assert_not_called()
+
+    def test_does_not_run_full_teardown(self):
+        """unregister clears the private tailnet route too; unpublish must not."""
+        with mock.patch.object(pubsite.sites, "unregister") as full:
+            self._run(
+                {"test4k.pub.glvortex.net": (4676, None)},
+                git_root=Path("/home/tsb/dev/test4k"),
+            )
+
+        full.assert_not_called()
+
+    def test_skips_the_picker_for_a_single_published_site(self):
+        self._run({"foo.pub.glvortex.net": (4676, None)})
+
+        self.unreg.assert_called_once_with("foo")
+        self.picker.assert_not_called()
+
+    def test_picker_offers_only_published_sites(self):
+        """The generic project picker lists everything jolo knows; noise here."""
+        label = f"{'bar':<24} bar.pub.glvortex.net"
+        self._run(self.TWO, pick=label)
+
+        labels = self.picker.call_args[0][1]
+        self.assertEqual(len(labels), 2)
+        for offered in labels:
+            self.assertIn(".pub.glvortex.net", offered)
+        self.unreg.assert_called_once_with("bar")
+
+    def test_says_so_when_nothing_is_published(self):
+        output = self._run({})
+
+        self.assertIn("Nothing published", output)
+        self.unreg.assert_not_called()
 
     def test_exits_when_the_host_has_no_control_plane(self):
         """A host outside the Syncthing share must not claim a project is
@@ -200,13 +247,13 @@ class TestUnpublishMode(unittest.TestCase):
         with mock.patch.object(
             pubsite.sites, "is_available", return_value=False
         ):
-            with mock.patch.object(pubsite, "pick_project") as pick:
+            with mock.patch.object(pubsite.sites, "read_public") as read:
                 with self.assertRaises(SystemExit):
                     pubsite.run_unpublish_mode(
                         argparse.Namespace(verbose=False)
                     )
 
-        pick.assert_not_called()
+        read.assert_not_called()
 
 
 class TestListPublished(unittest.TestCase):
