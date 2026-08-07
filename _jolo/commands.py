@@ -832,6 +832,18 @@ def _is_image_stale(
     )
 
 
+def _public_status_line(project_name: str) -> str | None:
+    """One line describing public exposure, or None when not published."""
+    if not sites.is_available():
+        return None
+    host = sites.public_host(project_name)
+    entry = sites.read_public().get(host)
+    if entry is None:
+        return None
+    auth = "auth" if entry[1] else "NO AUTH"
+    return f"Public:  https://{host} ({auth})"
+
+
 def run_status_mode(args: argparse.Namespace) -> None:
     """Project dashboard: containers, worktrees, ports, disk usage."""
     git_root = pick_project()
@@ -840,6 +852,9 @@ def run_status_mode(args: argparse.Namespace) -> None:
 
     print(f"Project: {project_name}")
     print(f"Root:    {git_root}")
+    public = _public_status_line(project_name)
+    if public:
+        print(public)
     print()
 
     # Containers with uptime

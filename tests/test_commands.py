@@ -957,5 +957,50 @@ class TestPickProject(unittest.TestCase):
         self.assertEqual(result, Path("/home/user/myapp"))
 
 
+class TestStatusPublicLine(unittest.TestCase):
+    def test_public_url_is_reported_when_published(self):
+        from _jolo import commands
+
+        routes = {"test4k.pub.glvortex.net": (4676, "$2a$14$h")}
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value=routes
+            ):
+                line = commands._public_status_line("test4k")
+
+        self.assertEqual(
+            line, "Public:  https://test4k.pub.glvortex.net (auth)"
+        )
+
+    def test_open_publication_is_flagged(self):
+        from _jolo import commands
+
+        routes = {"test4k.pub.glvortex.net": (4676, None)}
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value=routes
+            ):
+                line = commands._public_status_line("test4k")
+
+        self.assertEqual(
+            line, "Public:  https://test4k.pub.glvortex.net (NO AUTH)"
+        )
+
+    def test_nothing_reported_when_not_published(self):
+        from _jolo import commands
+
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value={}
+            ):
+                self.assertIsNone(commands._public_status_line("test4k"))
+
+
 if __name__ == "__main__":
     unittest.main()
