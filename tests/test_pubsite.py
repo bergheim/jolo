@@ -41,7 +41,8 @@ class TestPassword(unittest.TestCase):
 
         cmd = run.call_args[0][0]
         self.assertNotIn("hunter2", " ".join(cmd))
-        self.assertEqual(run.call_args[1]["input"], "hunter2")
+        # Newline-terminated: caddy reads one line and errors "EOF" without it.
+        self.assertEqual(run.call_args[1]["input"], "hunter2\n")
 
     def test_hashing_exits_on_nonzero_returncode(self):
         completed = mock.Mock(returncode=1, stdout="", stderr="boom")

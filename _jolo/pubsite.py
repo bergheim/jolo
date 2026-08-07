@@ -29,7 +29,9 @@ def hash_password(plaintext: str) -> str:
     try:
         result = subprocess.run(
             ["caddy", "hash-password"],
-            input=plaintext,
+            # Trailing newline required: off a terminal, caddy reads one
+            # line from stdin and reports a bare "EOF" without it.
+            input=plaintext + "\n",
             capture_output=True,
             text=True,
         )
