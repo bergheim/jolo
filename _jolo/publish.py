@@ -69,7 +69,7 @@ docs/
 """
 
 
-def run_publish_mode(args) -> None:
+def run_notes_split_mode(args) -> None:
     """Flip the current project into public-notes mode."""
     git_root = cli.find_git_root()
     if git_root is None:

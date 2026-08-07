@@ -2472,10 +2472,10 @@ def main(argv: list[str] | None = None) -> None:
         run_autonomous(args)
         return
 
-    if cmd == "publish":
-        from _jolo.publish import run_publish_mode
+    if cmd == "notes-split":
+        from _jolo.publish import run_notes_split_mode
 
-        run_publish_mode(args)
+        run_notes_split_mode(args)
         return
 
     if cmd == "expose":

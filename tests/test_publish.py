@@ -28,16 +28,18 @@ def _make_outer_repo(root: Path) -> None:
     _run(["git", "commit", "-q", "-m", "init"], cwd=root)
 
 
-class TestPublishArgParsing(unittest.TestCase):
-    def test_publish_command(self):
-        args = jolo.parse_args(["publish"])
-        self.assertEqual(args.command, "publish")
+class TestNotesSpitArgParsing(unittest.TestCase):
+    def test_notes_split_command(self):
+        args = jolo.parse_args(["notes-split"])
+        self.assertEqual(args.command, "notes-split")
         self.assertFalse(args.scrub)
         self.assertFalse(args.dry_run)
         self.assertFalse(args.yes)
 
-    def test_publish_flags(self):
-        args = jolo.parse_args(["publish", "--scrub", "--dry-run", "--yes"])
+    def test_notes_split_flags(self):
+        args = jolo.parse_args(
+            ["notes-split", "--scrub", "--dry-run", "--yes"]
+        )
         self.assertTrue(args.scrub)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.yes)
@@ -172,10 +174,10 @@ class TestHelpers(unittest.TestCase):
             publish.untrack_docs_from_outer(root)
 
 
-class TestPublishSmoke(unittest.TestCase):
-    """End-to-end: publish with --yes on a prepared temp repo, no scrub."""
+class TestNoteSplitSmoke(unittest.TestCase):
+    """End-to-end: notes-split with --yes on a prepared temp repo, no scrub."""
 
-    def test_publish_noscrub_flow(self):
+    def test_notes_split_noscrub_flow(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             _make_outer_repo(root)
@@ -186,8 +188,8 @@ class TestPublishSmoke(unittest.TestCase):
             _run(["git", "add", "docs"], cwd=root)
             _run(["git", "commit", "-q", "-m", "seed docs"], cwd=root)
 
-            # Run publish in the temp root. Simulate `jolo publish --yes`.
-            args = jolo.parse_args(["publish", "--yes"])
+            # Run notes-split in the temp root. Simulate `jolo notes-split --yes`.
+            args = jolo.parse_args(["notes-split", "--yes"])
             old_cwd = Path.cwd()
             env_overrides = {
                 "GIT_AUTHOR_NAME": "Test",
@@ -198,7 +200,7 @@ class TestPublishSmoke(unittest.TestCase):
             try:
                 os.chdir(root)
                 with mock.patch.dict(os.environ, env_overrides, clear=False):
-                    publish.run_publish_mode(args)
+                    publish.run_notes_split_mode(args)
             finally:
                 os.chdir(old_cwd)
 
