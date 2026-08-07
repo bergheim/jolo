@@ -107,7 +107,7 @@ def _write_records(records: list[dict]) -> None:
     )
 
 
-def register(name: str, port: int) -> str | None:
+def register_tailnet(name: str, port: int) -> str | None:
     """Point ``name`` at ``port``, adding or correcting both fragments.
 
     Returns the site URL, or None when this host has no control plane or

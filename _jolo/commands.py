@@ -12,7 +12,7 @@ from pathlib import Path
 
 import tomllib
 
-from _jolo import constants, registry, tailnet
+from _jolo import constants, registry, sites
 from _jolo.cli import (
     _format_container_display,
     _podman_proxy_pidfile,
@@ -665,7 +665,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
 
     # Remove worktrees
     for wt_path, _ in stale_worktrees:
-        tailnet.unregister(wt_path.name)
+        sites.unregister(wt_path.name)
         if remove_worktree(git_root, wt_path):
             print(f"Removed worktree: {wt_path.name}")
         else:
@@ -1039,7 +1039,7 @@ def _resolve_site_url(workspace_dir: Path) -> str | None:
     port = read_port_from_devcontainer(workspace_dir)
     if port is None:
         return None
-    url = tailnet.register(workspace_dir.name, port)
+    url = sites.register_tailnet(workspace_dir.name, port)
     if url is None:
         url = f"http://{detect_hostname()}:{port}"
     os.environ["JOLO_SITE_URL"] = url
@@ -2238,7 +2238,7 @@ def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
     stop_container(wt_path)
     # Worktrees register a site like any other workspace; without this the
     # fragments keep a route to a port that gets recycled to another project.
-    tailnet.unregister(wt_path.name)
+    sites.unregister(wt_path.name)
     if remove_worktree(git_root, wt_path):
         print(f"Deleted worktree: {wt_path.name}")
     else:
@@ -2329,8 +2329,8 @@ def _delete_project(
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
-    if tailnet.unregister(git_root.name):
-        print(f"Removed tailnet site: {tailnet.site_host(git_root.name)}")
+    if sites.unregister(git_root.name):
+        print(f"Removed tailnet site: {sites.site_host(git_root.name)}")
 
     if purge:
         _purge_dirs(git_root)
