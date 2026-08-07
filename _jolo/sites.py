@@ -31,6 +31,16 @@ CADDY_HEADER = (
     "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
 )
 
+PUB_RELPATH = "caddy/jolo-pub-sites.caddy"
+
+PUB_HEADER = (
+    "# Generated jolo public project routes for berghome.\n"
+    "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
+)
+
+# Caddy renamed this directive in 2.8; `basicauth` still works but warns.
+_AUTH_USER = "tsb"
+
 # One DNS label: the intersection of what Caddy, Headscale, and the
 # wildcard certificate all accept. Project directories are free-form, so
 # plenty of legal project names simply cannot become sites.
@@ -39,6 +49,13 @@ _LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 _ROUTE = re.compile(
     r"^http://(?P<host>[^\s{]+)\s*\{\s*"
     r"reverse_proxy\s+127\.0\.0\.1:(?P<port>\d+)\s*\}",
+    re.MULTILINE,
+)
+
+_PUB_ROUTE = re.compile(
+    r"^(?P<host>\S+) \{\n"
+    r"(?:    basic_auth \{\n        \S+ (?P<hash>\S+)\n    \}\n)?"
+    r"    reverse_proxy 127\.0\.0\.1:(?P<port>\d+)\n\}",
     re.MULTILINE,
 )
 
@@ -55,6 +72,10 @@ def _records_path() -> Path:
     return control_dir() / RECORDS_RELPATH
 
 
+def _pub_path() -> Path:
+    return control_dir() / PUB_RELPATH
+
+
 def is_available() -> bool:
     """True when this host carries the shared control-plane fragments."""
     return _caddy_path().is_file() and _records_path().is_file()
@@ -62,6 +83,10 @@ def is_available() -> bool:
 
 def site_host(name: str) -> str:
     return f"{name}.{constants.TAILNET_SITE_DOMAIN}"
+
+
+def public_host(name: str) -> str:
+    return f"{name}.{constants.PUBLIC_SITE_DOMAIN}"
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -143,6 +168,59 @@ def register_tailnet(name: str, port: int) -> str | None:
     return f"https://{host}"
 
 
+def read_public() -> dict[str, tuple[int, str | None]]:
+    """Parse the public fragment into ``{hostname: (port, hash|None)}``.
+
+    Empty when the fragment does not exist yet: a host can serve tailnet
+    sites long before anything is published.
+    """
+    if not _pub_path().is_file():
+        return {}
+    text = _pub_path().read_text()
+    return {
+        m.group("host"): (int(m.group("port")), m.group("hash"))
+        for m in _PUB_ROUTE.finditer(text)
+    }
+
+
+def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
+    blocks = []
+    for host, (port, pw_hash) in sorted(routes.items()):
+        auth = (
+            f"    basic_auth {{\n        {_AUTH_USER} {pw_hash}\n    }}\n"
+            if pw_hash
+            else ""
+        )
+        blocks.append(
+            f"{host} {{\n{auth}    reverse_proxy 127.0.0.1:{port}\n}}\n"
+        )
+    _write_atomic(_pub_path(), PUB_HEADER + "\n".join(blocks))
+
+
+def register_public(name: str, port: int, pw_hash: str | None) -> str | None:
+    """Publish ``name`` at ``port`` on the public domain.
+
+    Returns the site URL, or None when this host has no control plane or
+    the project name cannot be a DNS label.
+    """
+    if not is_available():
+        return None
+    if not _LABEL.match(name):
+        print(
+            f"jolo: skipping public site, {name!r} is not a DNS label",
+            file=sys.stderr,
+        )
+        return None
+
+    host = public_host(name)
+    routes = read_public()
+    if routes.get(host) != (port, pw_hash):
+        routes[host] = (port, pw_hash)
+        _write_public(routes)
+
+    return f"https://{host}"
+
+
 def unregister(name: str) -> bool:
     """Drop ``name`` from both fragments. True if anything was removed."""
     if not is_available():
@@ -161,6 +239,12 @@ def unregister(name: str) -> bool:
     kept = [r for r in records if r.get("name") != host]
     if len(kept) != len(records):
         _write_records(kept)
+        changed = True
+
+    pub = read_public()
+    if public_host(name) in pub:
+        del pub[public_host(name)]
+        _write_public(pub)
         changed = True
 
     return changed
