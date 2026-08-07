@@ -236,7 +236,15 @@ class TestPublicRoutes(SitesTestCase):
     def test_unregister_leaves_other_public_projects(self):
         sites.unregister("demo")
 
+        self.assertNotIn("demo.pub.glvortex.net", sites.read_public())
         self.assertIn("open.pub.glvortex.net", sites.read_public())
+
+    def test_read_public_is_empty_without_a_public_fragment(self):
+        """No `is_available()` guard on the read side: a host that never
+        published anything simply has no file yet."""
+        Path(self.tmp.name, sites.PUB_RELPATH).unlink()
+
+        self.assertEqual(sites.read_public(), {})
 
     def test_unregister_public_leaves_the_tailnet_site_alone(self):
         sites.register_public("testus4k", 4676, "$2a$14$hash")
@@ -246,6 +254,49 @@ class TestPublicRoutes(SitesTestCase):
         self.assertNotIn("testus4k.pub.glvortex.net", sites.read_public())
         self.assertIn("testus4k.ts.glvortex.net", sites.read_routes())
         self.assertIn("testus4k.ts.glvortex.net", self.record_names())
+
+
+class TestSetPortRepointsPublicRoute(SitesTestCase):
+    """`container.set_port` is the single choke point for port changes —
+    it must re-point an existing public route so a recycled port never
+    silently serves a different project to the internet."""
+
+    def _write_devcontainer(self, workspace_dir: Path, port: int) -> None:
+        devc = workspace_dir / ".devcontainer"
+        devc.mkdir(parents=True)
+        (devc / "devcontainer.json").write_text(
+            json.dumps(
+                {
+                    "containerEnv": {"PORT": str(port)},
+                    "runArgs": ["-p", f"{port}:{port}"],
+                },
+                indent=4,
+            )
+            + "\n"
+        )
+
+    def test_port_change_repoints_the_public_route(self):
+        from _jolo import container
+
+        workspace_dir = Path(self.tmp.name) / "workspace" / "demo"
+        self._write_devcontainer(workspace_dir, 4100)
+
+        container.set_port(workspace_dir, 5000)
+
+        self.assertEqual(
+            sites.read_public()["demo.pub.glvortex.net"],
+            (5000, "$2a$14$abcdefghijklmnopqrstuv"),
+        )
+
+    def test_port_change_does_not_publish_an_unpublished_project(self):
+        from _jolo import container
+
+        workspace_dir = Path(self.tmp.name) / "workspace" / "peupeuell"
+        self._write_devcontainer(workspace_dir, 4252)
+
+        container.set_port(workspace_dir, 5000)
+
+        self.assertNotIn("peupeuell.pub.glvortex.net", sites.read_public())
 
 
 class TestOwnership(SitesTestCase):

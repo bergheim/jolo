@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _jolo import constants
+from _jolo import constants, sites
 from _jolo.cli import (
     detect_hostname,
     is_port_available,
@@ -213,7 +213,12 @@ def replace_port_args(run_args: list, new_port: int) -> None:
 
 
 def set_port(workspace_dir: Path, new_port: int) -> None:
-    """Set the project port in devcontainer.json."""
+    """Set the project port in devcontainer.json.
+
+    Also re-points an existing public route: it is refreshed by nothing
+    else, so a stale one would keep serving whatever now runs on the old
+    port to the open internet.
+    """
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
     if not devcontainer_json.exists():
         sys.exit("Error: No .devcontainer/devcontainer.json found.")
@@ -225,6 +230,10 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
     replace_port_args(run_args, new_port)
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
+
+    published = sites.read_public().get(sites.public_host(workspace_dir.name))
+    if published is not None and published[0] != new_port:
+        sites.register_public(workspace_dir.name, new_port, published[1])
 
 
 def reassign_port(workspace_dir: Path) -> int:
