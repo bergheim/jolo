@@ -297,6 +297,16 @@ podman logs --tail 50 <peer>
 jolo expose   # pick/current project -> public at pub.glvortex.net while running
 ```
 
+`jolo publish` gives a project a stable public hostname with basic auth;
+`jolo expose` is the ephemeral one-at-a-time alternative. Both are HOST-side.
+
+```bash
+jolo publish              # https://<name>.pub.glvortex.net, password shown once
+jolo publish --rotate     # new password
+jolo publish --no-auth    # open to the internet, requires typing YES
+jolo unpublish
+```
+
 ## Browser Automation
 
 Use `playwright-cli` for stateful flows and `browser-check` for quick one-shot
