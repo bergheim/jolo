@@ -1,15 +1,18 @@
-"""Per-project HTTPS sites on the tailnet.
+"""Per-project HTTPS sites, on the tailnet and on the open internet.
 
-Two generated fragments under ``/srv/tailnet`` are the whole control plane:
-a Caddy route (berghome serves the app on ``127.0.0.1:$PORT``) and a
+Three generated fragments under ``/srv/tailnet`` are the whole control
+plane: a Caddy route (berghome serves the app on ``127.0.0.1:$PORT``), a
 Headscale ``A`` record (the name resolves to burial, which terminates TLS
-with the wildcard cert and proxies to berghome). Syncthing carries both
-files to those hosts, where systemd path units reload the services — so
-jolo only ever writes files, never needs sudo, SSH, or a host round-trip.
+with the wildcard cert and proxies to berghome), and a public Caddy
+fragment (explicit ``<name>.pub.glvortex.net`` blocks, each with its own
+per-name certificate, reachable from the internet). Syncthing carries all
+three files to those hosts, where systemd path units reload the services —
+so jolo only ever writes files, never needs sudo, SSH, or a host
+round-trip.
 
-Both files are wholly owned by jolo: they are re-rendered from the parsed
-route/record set, which is what keeps repeated ``jolo up`` runs idempotent
-and stops duplicate blocks accumulating.
+All three files are wholly owned by jolo: they are re-rendered from the
+parsed route/record set, which is what keeps repeated ``jolo up`` runs
+idempotent and stops duplicate blocks accumulating.
 """
 
 from __future__ import annotations
@@ -38,12 +41,11 @@ PUB_HEADER = (
     "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
 )
 
-# Caddy renamed this directive in 2.8; `basicauth` still works but warns.
 AUTH_USER = "tsb"
 
-# One DNS label: the intersection of what Caddy, Headscale, and the
-# wildcard certificate all accept. Project directories are free-form, so
-# plenty of legal project names simply cannot become sites.
+# One DNS label: the intersection of what Caddy and Headscale both accept
+# as a hostname. Project directories are free-form, so plenty of legal
+# project names simply cannot become sites.
 _LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
 _ROUTE = re.compile(
@@ -198,6 +200,7 @@ def read_public() -> dict[str, tuple[int, str | None]]:
 def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
     blocks = []
     for host, (port, pw_hash) in sorted(routes.items()):
+        # Caddy renamed this directive in 2.8; `basicauth` still works but warns.
         auth = (
             f"    basic_auth {{\n        {AUTH_USER} {pw_hash}\n    }}\n"
             if pw_hash
