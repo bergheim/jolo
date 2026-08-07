@@ -21,7 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from _jolo import constants
+from _jolo import constants, registry
 
 CADDY_RELPATH = "caddy/jolo-sites.caddy"
 RECORDS_RELPATH = "headscale/jolo-extra-records.json"
@@ -87,6 +87,18 @@ def site_host(name: str) -> str:
 
 def public_host(name: str) -> str:
     return f"{name}.{constants.PUBLIC_SITE_DOMAIN}"
+
+
+def owner_of(name: str) -> Path | None:
+    """The known workspace whose directory name is ``name``, if any.
+
+    Hostnames are global but project directory names are not, so the
+    caller checks this before claiming one.
+    """
+    for path, _last_seen in registry.known_paths():
+        if path.name == name:
+            return path
+    return None
 
 
 def _write_atomic(path: Path, text: str) -> None:

@@ -239,5 +239,20 @@ class TestPublicRoutes(SitesTestCase):
         self.assertIn("open.pub.glvortex.net", sites.read_public())
 
 
+class TestOwnership(SitesTestCase):
+    def test_owner_is_the_registered_workspace_with_that_name(self):
+        paths = [(Path("/home/tsb/dev/test4k"), 1.0)]
+        with mock.patch.object(
+            sites.registry, "known_paths", return_value=paths
+        ):
+            self.assertEqual(
+                sites.owner_of("test4k"), Path("/home/tsb/dev/test4k")
+            )
+
+    def test_owner_is_none_for_an_unknown_name(self):
+        with mock.patch.object(sites.registry, "known_paths", return_value=[]):
+            self.assertIsNone(sites.owner_of("test4k"))
+
+
 if __name__ == "__main__":
     unittest.main()
