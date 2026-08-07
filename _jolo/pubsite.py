@@ -26,12 +26,15 @@ def hash_password(plaintext: str) -> str:
     Passed on stdin, never argv: a password in a command line lands in the
     process list and in shell history.
     """
-    result = subprocess.run(
-        ["caddy", "hash-password"],
-        input=plaintext,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["caddy", "hash-password"],
+            input=plaintext,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        sys.exit("caddy binary not found; cannot hash a password.")
     if result.returncode != 0:
         sys.exit(f"caddy hash-password failed: {result.stderr.strip()}")
     return result.stdout.strip()
@@ -110,6 +113,12 @@ def run_publish_mode(args) -> None:
 
 def run_unpublish_mode(args) -> None:
     """Remove the current project's public route."""
+    if not sites.is_available():
+        sys.exit(
+            f"No tailnet control plane at {sites.control_dir()} — "
+            "publishing only works on the host that serves these sites."
+        )
+
     project = pick_project()
     name = project.name
     if sites.unregister_public(name):

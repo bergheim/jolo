@@ -49,6 +49,11 @@ class TestPassword(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 pubsite.hash_password("hunter2")
 
+    def test_hashing_exits_cleanly_when_caddy_is_missing(self):
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError()):
+            with self.assertRaises(SystemExit):
+                pubsite.hash_password("hunter2")
+
 
 def _args(**kw):
     defaults = {
@@ -156,17 +161,39 @@ class TestPublishMode(unittest.TestCase):
 class TestUnpublishMode(unittest.TestCase):
     def test_unpublishes_the_current_project(self):
         project = Path("/home/tsb/dev/test4k")
-        with mock.patch.object(pubsite, "pick_project", return_value=project):
+        with mock.patch.object(
+            pubsite.sites, "is_available", return_value=True
+        ):
             with mock.patch.object(
-                pubsite.sites, "unregister_public", return_value=True
-            ) as unreg_pub:
-                with mock.patch.object(pubsite.sites, "unregister") as unreg:
+                pubsite, "pick_project", return_value=project
+            ):
+                with mock.patch.object(
+                    pubsite.sites, "unregister_public", return_value=True
+                ) as unreg_pub:
+                    with mock.patch.object(
+                        pubsite.sites, "unregister"
+                    ) as unreg:
+                        pubsite.run_unpublish_mode(
+                            argparse.Namespace(verbose=False)
+                        )
+
+        unreg_pub.assert_called_once_with("test4k")
+        unreg.assert_not_called()
+
+    def test_exits_when_the_host_has_no_control_plane(self):
+        """A host outside the Syncthing share must not claim a project is
+        unpublished when it has no visibility into the public fragment at
+        all — it could be published elsewhere."""
+        with mock.patch.object(
+            pubsite.sites, "is_available", return_value=False
+        ):
+            with mock.patch.object(pubsite, "pick_project") as pick:
+                with self.assertRaises(SystemExit):
                     pubsite.run_unpublish_mode(
                         argparse.Namespace(verbose=False)
                     )
 
-        unreg_pub.assert_called_once_with("test4k")
-        unreg.assert_not_called()
+        pick.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""jolo publish — flip a project to public-notes mode.
+"""jolo notes-split — flip a project to public-notes mode.
 
 Moves docs/PROJECT.org to the repo root, initializes a nested git repo
 inside docs/, updates the outer .gitignore so docs/ is no longer tracked,
@@ -41,7 +41,7 @@ KILL_LIST_GLOBS = [
 ]
 
 # gitignore lines that the scrub workflow may have inserted — superseded
-# by a single `docs/` entry once publish runs.
+# by a single `docs/` entry once notes-split runs.
 LEGACY_SCRUB_LINES = frozenset(
     {
         "docs/MEMORY.org",
@@ -89,7 +89,7 @@ def run_notes_split_mode(args) -> None:
 
     if not docs_dir.exists():
         print(
-            f"ERROR: {docs_dir} does not exist — nothing to publish",
+            f"ERROR: {docs_dir} does not exist — nothing to split",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -97,7 +97,7 @@ def run_notes_split_mode(args) -> None:
     if outer_repo_dirty(git_root):
         print(
             "ERROR: outer repo has uncommitted changes. Commit or stash "
-            "before publishing.",
+            "before splitting.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -120,7 +120,7 @@ def run_notes_split_mode(args) -> None:
             )
             sys.exit(1)
         if not confirm_scrub(args.yes):
-            print("Scrub cancelled; aborting publish.")
+            print("Scrub cancelled; aborting notes-split.")
             return
         backup_dir = backup_docs(docs_dir)
         try:
@@ -134,7 +134,7 @@ def run_notes_split_mode(args) -> None:
     update_outer_gitignore(git_root)
     commit_outer(git_root, scrubbed=args.scrub)
 
-    print("\nPublish complete.")
+    print("\nSplit complete.")
     if args.scrub:
         print(
             "\n⚠ Next step (manual, destructive): force-push the scrubbed "
@@ -180,7 +180,7 @@ def build_plan(git_root: Path, docs_dir: Path, *, scrub: bool) -> dict:
 
 
 def print_plan(plan: dict, *, dry_run: bool) -> None:
-    print(f"Publish project at {plan['git_root']}:")
+    print(f"Split notes for project at {plan['git_root']}:")
     print(f"  - scrub history:        {'yes' if plan['scrub'] else 'no'}")
     if plan["move_project_org"]:
         print("  - move docs/PROJECT.org → PROJECT.org")
@@ -226,7 +226,7 @@ def confirm_scrub(yes_flag: bool) -> bool:
 
 def backup_docs(docs_dir: Path) -> Path:
     """git-filter-repo does a hard reset after rewriting — back docs/ up first."""
-    backup = Path(f"/tmp/jolo-publish-docs-{docs_dir.name}-{_timestamp()}")
+    backup = Path(f"/tmp/jolo-notes-split-docs-{docs_dir.name}-{_timestamp()}")
     shutil.copytree(str(docs_dir), str(backup))
     return backup
 
@@ -307,9 +307,9 @@ def untrack_docs_from_outer(git_root: Path) -> None:
 
     `.gitignore` does not untrack already-tracked files. Without this step,
     a project whose docs/ used to be tracked would keep those files in the
-    outer history after publish — exactly the leak the flip is meant to
-    prevent. `--ignore-unmatch` makes this a no-op if nothing under docs/
-    is currently indexed.
+    outer history after notes-split runs — exactly the leak the flip is
+    meant to prevent. `--ignore-unmatch` makes this a no-op if nothing
+    under docs/ is currently indexed.
     """
     subprocess.run(
         [
@@ -363,9 +363,9 @@ def commit_outer(git_root: Path, *, scrubbed: bool) -> None:
     if diff.returncode == 0:
         return  # nothing to commit
     msg = (
-        "chore(publish): flip to public-notes mode (post-scrub)"
+        "chore(notes-split): flip to public-notes mode (post-scrub)"
         if scrubbed
-        else "chore(publish): flip to public-notes mode"
+        else "chore(notes-split): flip to public-notes mode"
     )
     subprocess.run(
         ["git", "-C", str(git_root), "commit", "-q", "-m", msg], check=True

@@ -2488,7 +2488,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if cmd == "notes-split":
-        from _jolo.publish import run_notes_split_mode
+        from _jolo.notes_split import run_notes_split_mode
 
         run_notes_split_mode(args)
         return
