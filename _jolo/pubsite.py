@@ -14,10 +14,23 @@ import sys
 from _jolo import constants, sites
 from _jolo.cli import read_port_from_devcontainer
 from _jolo.commands import pick_project
+from _jolo.container import is_container_running
 
 
 def generate_password() -> str:
-    return secrets.token_urlsafe(18)
+    """A password you can read over the phone.
+
+    Deliberately weak at roughly 20 bits: two 10-word lists plus four
+    digits. Chosen for typeability over strength, knowing the hostname is
+    public — Caddy's certificates appear in Certificate Transparency logs,
+    so basic auth is the only barrier. Widen the word lists if that trade
+    ever stops being acceptable.
+    """
+    return (
+        f"{secrets.choice(constants.ADJECTIVES)}-"
+        f"{secrets.choice(constants.NOUNS)}-"
+        f"{secrets.randbelow(9000) + 1000}"
+    )
 
 
 def hash_password(plaintext: str) -> str:
@@ -65,8 +78,42 @@ def _confirm_no_auth(name: str) -> None:
         sys.exit("Cancelled.")
 
 
+def _project_name(host: str) -> str:
+    return host.removesuffix(f".{constants.PUBLIC_SITE_DOMAIN}")
+
+
+def run_list_published_mode() -> None:
+    """List every published site, running or not."""
+    _require_control_plane()
+
+    routes = sites.read_public()
+    if not routes:
+        print("Nothing published.")
+        return
+
+    rows = []
+    for host, (port, pw_hash) in sorted(routes.items()):
+        owner = sites.owner_of(_project_name(host))
+        if owner is None:
+            container = "unknown"
+        else:
+            container = "running" if is_container_running(owner) else "stopped"
+        rows.append(
+            (host, str(port), "auth" if pw_hash else "NO AUTH", container)
+        )
+
+    width = max(len(r[0]) for r in rows)
+    print(f"{'HOST':<{width}}  PORT   AUTH      CONTAINER")
+    for host, port, auth, container in rows:
+        print(f"{host:<{width}}  {port:<5}  {auth:<8}  {container}")
+
+
 def run_publish_mode(args) -> None:
     """Publish the current project at <name>.pub.glvortex.net."""
+    if args.list:
+        run_list_published_mode()
+        return
+
     _require_control_plane()
 
     project = pick_project()

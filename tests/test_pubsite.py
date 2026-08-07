@@ -2,6 +2,7 @@
 """Tests for jolo publish / unpublish (public site commands)."""
 
 import argparse
+import io
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -33,6 +34,16 @@ class TestPassword(unittest.TestCase):
             pubsite.generate_password(), pubsite.generate_password()
         )
 
+    def test_password_is_two_words_and_four_digits(self):
+        """Typeable over the phone, from jolo's existing word lists."""
+        from _jolo import constants
+
+        adjective, noun, digits = pubsite.generate_password().split("-")
+
+        self.assertIn(adjective, constants.ADJECTIVES)
+        self.assertIn(noun, constants.NOUNS)
+        self.assertRegex(digits, r"^[1-9]\d{3}$")
+
     def test_hashing_passes_the_secret_on_stdin_not_argv(self):
         """A password in argv leaks to the process list and shell history."""
         completed = mock.Mock(returncode=0, stdout="$2a$14$hash\n", stderr="")
@@ -60,6 +71,7 @@ def _args(**kw):
     defaults = {
         "no_auth": False,
         "rotate": False,
+        "list": False,
         "yes": False,
         "verbose": False,
     }
@@ -195,6 +207,63 @@ class TestUnpublishMode(unittest.TestCase):
                     )
 
         pick.assert_not_called()
+
+
+class TestListPublished(unittest.TestCase):
+    ROUTES = {
+        "foo.pub.glvortex.net": (4676, "$2a$14$h"),
+        "demo.pub.glvortex.net": (4100, None),
+    }
+
+    def _run(self, routes, owner, running=True):
+        with mock.patch.object(
+            pubsite.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                pubsite.sites, "read_public", return_value=routes
+            ):
+                with mock.patch.object(
+                    pubsite.sites, "owner_of", return_value=owner
+                ):
+                    with mock.patch.object(
+                        pubsite, "is_container_running", return_value=running
+                    ):
+                        with mock.patch(
+                            "sys.stdout", new=io.StringIO()
+                        ) as out:
+                            pubsite.run_list_published_mode()
+        return out.getvalue()
+
+    def test_lists_host_port_and_auth_state(self):
+        output = self._run(self.ROUTES, Path("/dev/foo"))
+
+        self.assertIn("foo.pub.glvortex.net", output)
+        self.assertIn("4676", output)
+        self.assertIn("auth", output)
+        self.assertIn("NO AUTH", output)
+
+    def test_reports_container_state(self):
+        self.assertIn(
+            "stopped", self._run(self.ROUTES, Path("/dev/foo"), False)
+        )
+        self.assertIn(
+            "running", self._run(self.ROUTES, Path("/dev/foo"), True)
+        )
+
+    def test_unknown_when_no_workspace_owns_the_name(self):
+        """A published site whose project directory is gone still lists."""
+        self.assertIn("unknown", self._run(self.ROUTES, None))
+
+    def test_says_so_when_nothing_is_published(self):
+        self.assertIn("Nothing published", self._run({}, None))
+
+    def test_list_flag_does_not_publish(self):
+        with mock.patch.object(pubsite, "run_list_published_mode") as lister:
+            with mock.patch.object(pubsite.sites, "register_public") as reg:
+                pubsite.run_publish_mode(_args(list=True))
+
+        lister.assert_called_once()
+        reg.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -747,6 +747,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Generate a new password even if the project is already published",
     )
+    sub_publish.add_argument(
+        "--list",
+        action="store_true",
+        help="List every published site instead of publishing",
+    )
 
     subparsers.add_parser(
         "unpublish",
