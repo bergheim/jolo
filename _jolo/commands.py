@@ -841,7 +841,7 @@ def _public_status_line(project_name: str) -> str | None:
     if not sites.is_available():
         return None
     host = sites.public_host(project_name)
-    entry = sites.read_public().get(host)
+    entry = sites.public_entry(project_name)
     if entry is None:
         return None
     auth = "auth" if entry[1] else "NO AUTH"
@@ -1059,6 +1059,7 @@ def _resolve_site_url(workspace_dir: Path) -> str | None:
     if port is None:
         return None
     url = sites.register_tailnet(workspace_dir.name, port)
+    sites.repoint_public(workspace_dir.name, port)
     if url is None:
         url = f"http://{detect_hostname()}:{port}"
     os.environ["JOLO_SITE_URL"] = url
@@ -2348,7 +2349,7 @@ def _delete_project(
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
-    published = sites.read_public().get(sites.public_host(git_root.name))
+    published = sites.public_entry(git_root.name)
     if sites.unregister(git_root.name):
         print(f"Removed tailnet site: {sites.site_host(git_root.name)}")
         if published is not None:

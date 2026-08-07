@@ -11,7 +11,7 @@ import secrets
 import subprocess
 import sys
 
-from _jolo import sites
+from _jolo import constants, sites
 from _jolo.cli import read_port_from_devcontainer
 from _jolo.commands import pick_project
 
@@ -42,6 +42,14 @@ def hash_password(plaintext: str) -> str:
     return result.stdout.strip()
 
 
+def _require_control_plane() -> None:
+    if not sites.is_available():
+        sys.exit(
+            f"No tailnet control plane at {sites.control_dir()} — "
+            "publishing only works on the host that serves these sites."
+        )
+
+
 def _confirm_no_auth(name: str) -> None:
     print(
         f"{name} will be reachable by anyone on the internet, with no "
@@ -59,11 +67,7 @@ def _confirm_no_auth(name: str) -> None:
 
 def run_publish_mode(args) -> None:
     """Publish the current project at <name>.pub.glvortex.net."""
-    if not sites.is_available():
-        sys.exit(
-            f"No tailnet control plane at {sites.control_dir()} — "
-            "publishing only works on the host that serves these sites."
-        )
+    _require_control_plane()
 
     project = pick_project()
     name = project.name
@@ -97,7 +101,7 @@ def run_publish_mode(args) -> None:
 
     print(f"Published: {url}")
     if password:
-        print(f"Username:  {sites.AUTH_USER}")
+        print(f"Username:  {constants.PUBLIC_AUTH_USER}")
         print(f"Password:  {password}   (shown once)")
     elif args.no_auth:
         print("Auth:      none")
@@ -115,11 +119,7 @@ def run_publish_mode(args) -> None:
 
 def run_unpublish_mode(args) -> None:
     """Remove the current project's public route."""
-    if not sites.is_available():
-        sys.exit(
-            f"No tailnet control plane at {sites.control_dir()} — "
-            "publishing only works on the host that serves these sites."
-        )
+    _require_control_plane()
 
     project = pick_project()
     name = project.name

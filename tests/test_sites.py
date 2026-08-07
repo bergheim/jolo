@@ -299,6 +299,33 @@ class TestSetPortRepointsPublicRoute(SitesTestCase):
         self.assertNotIn("peupeuell.pub.glvortex.net", sites.read_public())
 
 
+class TestResolveSiteUrlRepointsPublicRoute(SitesTestCase):
+    """`commands._resolve_site_url` runs on every container start, so it is
+    the other choke point (besides `jolo port`) that must self-heal a stale
+    public route left over from a port change."""
+
+    def test_repoints_a_published_projects_route(self):
+        from _jolo import commands
+
+        workspace_dir = Path(self.tmp.name) / "workspace" / "demo"
+        devc = workspace_dir / ".devcontainer"
+        devc.mkdir(parents=True)
+        (devc / "devcontainer.json").write_text(
+            json.dumps(
+                {"containerEnv": {"PORT": "5000"}},
+                indent=4,
+            )
+            + "\n"
+        )
+
+        commands._resolve_site_url(workspace_dir)
+
+        self.assertEqual(
+            sites.read_public()["demo.pub.glvortex.net"],
+            (5000, "$2a$14$abcdefghijklmnopqrstuv"),
+        )
+
+
 class TestOwnership(SitesTestCase):
     def test_owner_is_the_registered_workspace_with_that_name(self):
         paths = [(Path("/home/tsb/dev/test4k"), 1.0)]

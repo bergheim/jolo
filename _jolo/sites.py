@@ -41,8 +41,6 @@ PUB_HEADER = (
     "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
 )
 
-AUTH_USER = "tsb"
-
 # One DNS label: the intersection of what Caddy and Headscale both accept
 # as a hostname. Project directories are free-form, so plenty of legal
 # project names simply cannot become sites.
@@ -60,6 +58,17 @@ _PUB_ROUTE = re.compile(
     r"    reverse_proxy 127\.0\.0\.1:(?P<port>\d+)\n\}",
     re.MULTILINE,
 )
+
+
+def _rejected_label(kind: str, name: str) -> bool:
+    """True (having printed a diagnostic) when ``name`` can't be a DNS label."""
+    if _LABEL.match(name):
+        return False
+    print(
+        f"jolo: skipping {kind} site, {name!r} is not a DNS label",
+        file=sys.stderr,
+    )
+    return True
 
 
 def control_dir() -> Path:
@@ -154,11 +163,7 @@ def register_tailnet(name: str, port: int) -> str | None:
     """
     if not is_available():
         return None
-    if not _LABEL.match(name):
-        print(
-            f"jolo: skipping tailnet site, {name!r} is not a DNS label",
-            file=sys.stderr,
-        )
+    if _rejected_label("tailnet", name):
         return None
 
     host = site_host(name)
@@ -202,7 +207,7 @@ def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
     for host, (port, pw_hash) in sorted(routes.items()):
         # Caddy renamed this directive in 2.8; `basicauth` still works but warns.
         auth = (
-            f"    basic_auth {{\n        {AUTH_USER} {pw_hash}\n    }}\n"
+            f"    basic_auth {{\n        {constants.PUBLIC_AUTH_USER} {pw_hash}\n    }}\n"
             if pw_hash
             else ""
         )
@@ -220,11 +225,7 @@ def register_public(name: str, port: int, pw_hash: str | None) -> str | None:
     """
     if not is_available():
         return None
-    if not _LABEL.match(name):
-        print(
-            f"jolo: skipping public site, {name!r} is not a DNS label",
-            file=sys.stderr,
-        )
+    if _rejected_label("public", name):
         return None
 
     host = public_host(name)
@@ -234,6 +235,20 @@ def register_public(name: str, port: int, pw_hash: str | None) -> str | None:
         _write_public(routes)
 
     return f"https://{host}"
+
+
+def public_entry(name: str) -> tuple[int, str | None] | None:
+    """The published (port, password hash) for ``name``, if any."""
+    return read_public().get(public_host(name))
+
+
+def repoint_public(name: str, port: int) -> None:
+    """Move an existing public route to a new port. No-op if not published."""
+    if not is_available():
+        return
+    entry = public_entry(name)
+    if entry is not None and entry[0] != port:
+        register_public(name, port, entry[1])
 
 
 def unregister_public(name: str) -> bool:

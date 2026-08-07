@@ -266,6 +266,7 @@ TAILNET_ROUTER_IP = "100.64.0.4"
 # registrar points *.pub.glvortex.net at berghome; Caddy issues a cert per
 # explicitly-declared name over HTTP-01, so no wildcard cert is needed.
 PUBLIC_SITE_DOMAIN = "pub.glvortex.net"
+PUBLIC_AUTH_USER = "tsb"
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"

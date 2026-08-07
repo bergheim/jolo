@@ -231,9 +231,7 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
 
-    published = sites.read_public().get(sites.public_host(workspace_dir.name))
-    if published is not None and published[0] != new_port:
-        sites.register_public(workspace_dir.name, new_port, published[1])
+    sites.repoint_public(workspace_dir.name, new_port)
 
 
 def reassign_port(workspace_dir: Path) -> int:
