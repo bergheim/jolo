@@ -495,6 +495,34 @@ class TestPruneGlobalImages(unittest.TestCase):
     @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
     @mock.patch("_jolo.commands.list_all_devcontainers")
     @mock.patch("_jolo.commands.remove_container", return_value=True)
+    @mock.patch("builtins.input", return_value="y")
+    @mock.patch("subprocess.run")
+    def test_prune_global_unregisters_orphan_sites(
+        self,
+        mock_run,
+        mock_input,
+        mock_remove_container,
+        mock_list,
+        mock_runtime,
+    ):
+        """An orphan container's workspace dir is gone for good, so any
+        tailnet/public route for it must be dropped too — otherwise the
+        leftover public block keeps serving whatever lands on that port."""
+        mock_list.side_effect = [
+            [("orphan-c", "/gone/project", "running", "img123")],
+            [],
+        ]
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        with mock.patch("_jolo.commands.Path.exists", return_value=False):
+            with mock.patch("_jolo.commands.sites.unregister") as unreg:
+                jolo.run_prune_global_mode()
+
+        unreg.assert_called_once_with("project")
+
+    @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    @mock.patch("_jolo.commands.remove_container", return_value=True)
     @mock.patch("_jolo.commands.remove_image", return_value=True)
     @mock.patch("builtins.input", return_value="y")
     @mock.patch("subprocess.run")

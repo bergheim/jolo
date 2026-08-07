@@ -546,6 +546,10 @@ def run_prune_global_mode() -> None:
         else:
             print(f"Failed to stop: {name}", file=sys.stderr)
 
+    # Workspace dirs are gone for good; drop any tailnet/public route.
+    for _, folder, _ in orphan_containers:
+        sites.unregister(Path(folder).name)
+
     # Remove containers
     for name, _, _ in stopped_containers + orphan_containers:
         if remove_container(name):
@@ -2344,8 +2348,11 @@ def _delete_project(
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
+    published = sites.read_public().get(sites.public_host(git_root.name))
     if sites.unregister(git_root.name):
         print(f"Removed tailnet site: {sites.site_host(git_root.name)}")
+        if published is not None:
+            print(f"Removed public site: {sites.public_host(git_root.name)}")
 
     if purge:
         _purge_dirs(git_root)
