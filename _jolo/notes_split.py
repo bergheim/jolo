@@ -57,12 +57,12 @@ LEGACY_SCRUB_LINES = frozenset(
     }
 )
 
-PUBLISH_GITIGNORE_MARKER = (
+NOTES_SPLIT_GITIGNORE_MARKER = (
     "# Public-notes mode — docs/ is a separate private git repo"
 )
 PUBLISH_GITIGNORE_BLOCK = f"""
 # =============================================================================
-{PUBLISH_GITIGNORE_MARKER}
+{NOTES_SPLIT_GITIGNORE_MARKER}
 # =============================================================================
 
 docs/
@@ -330,7 +330,7 @@ def untrack_docs_from_outer(git_root: Path) -> None:
 def update_outer_gitignore(git_root: Path) -> None:
     gitignore = git_root / ".gitignore"
     existing = gitignore.read_text() if gitignore.exists() else ""
-    if PUBLISH_GITIGNORE_MARKER in existing:
+    if NOTES_SPLIT_GITIGNORE_MARKER in existing:
         return
     kept_lines = [
         line

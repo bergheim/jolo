@@ -73,7 +73,7 @@ class TestHelpers(unittest.TestCase):
             notes_split.update_outer_gitignore(root)
             content = (root / ".gitignore").read_text()
             self.assertIn("docs/", content)
-            self.assertIn(notes_split.PUBLISH_GITIGNORE_MARKER, content)
+            self.assertIn(notes_split.NOTES_SPLIT_GITIGNORE_MARKER, content)
             # Legacy per-file lines removed
             self.assertNotIn("docs/TODO.org", content.replace("# docs/", ""))
             self.assertNotIn(
@@ -211,7 +211,7 @@ class TestNotesSplitSmoke(unittest.TestCase):
             self.assertFalse((docs / "PROJECT.org").exists())
             # outer .gitignore has docs/
             gi = (root / ".gitignore").read_text()
-            self.assertIn(notes_split.PUBLISH_GITIGNORE_MARKER, gi)
+            self.assertIn(notes_split.NOTES_SPLIT_GITIGNORE_MARKER, gi)
             # outer repo has a new commit
             last = _run(
                 ["git", "log", "-1", "--pretty=%s"], cwd=root
