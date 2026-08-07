@@ -2484,6 +2484,18 @@ def main(argv: list[str] | None = None) -> None:
         run_expose_mode(args)
         return
 
+    if cmd == "publish":
+        from _jolo.pubsite import run_publish_mode
+
+        run_publish_mode(args)
+        return
+
+    if cmd == "unpublish":
+        from _jolo.pubsite import run_unpublish_mode
+
+        run_unpublish_mode(args)
+        return
+
     if cmd == "allow":
         run_allow_mode(args)
         return

@@ -731,6 +731,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Expose a project's dev server publicly while running (Ctrl-C to stop)",
     )
 
+    # publish: give this project a public hostname
+    sub_publish = subparsers.add_parser(
+        "publish",
+        parents=[p_verbose],
+        help="Publish this project at <name>.pub.glvortex.net (basic auth by default)",
+    )
+    sub_publish.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Publish without basic auth (requires typed confirmation)",
+    )
+    sub_publish.add_argument(
+        "--rotate",
+        action="store_true",
+        help="Generate a new password even if the project is already published",
+    )
+
+    subparsers.add_parser(
+        "unpublish",
+        parents=[p_verbose],
+        help="Remove this project's public hostname",
+    )
+
     # allow: opt a project into a gated capability
     sub_allow = subparsers.add_parser(
         "allow",
