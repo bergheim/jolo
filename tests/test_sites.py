@@ -238,6 +238,15 @@ class TestPublicRoutes(SitesTestCase):
 
         self.assertIn("open.pub.glvortex.net", sites.read_public())
 
+    def test_unregister_public_leaves_the_tailnet_site_alone(self):
+        sites.register_public("testus4k", 4676, "$2a$14$hash")
+
+        self.assertTrue(sites.unregister_public("testus4k"))
+
+        self.assertNotIn("testus4k.pub.glvortex.net", sites.read_public())
+        self.assertIn("testus4k.ts.glvortex.net", sites.read_routes())
+        self.assertIn("testus4k.ts.glvortex.net", self.record_names())
+
 
 class TestOwnership(SitesTestCase):
     def test_owner_is_the_registered_workspace_with_that_name(self):

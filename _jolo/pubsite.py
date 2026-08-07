@@ -92,7 +92,7 @@ def run_publish_mode(args) -> None:
 
     print(f"Published: {url}")
     if password:
-        print("Username:  tsb")
+        print(f"Username:  {sites.AUTH_USER}")
         print(f"Password:  {password}   (shown once)")
     elif args.no_auth:
         print("Auth:      none")
@@ -112,7 +112,7 @@ def run_unpublish_mode(args) -> None:
     """Remove the current project's public route."""
     project = pick_project()
     name = project.name
-    if sites.unregister(name):
+    if sites.unregister_public(name):
         print(f"Unpublished: {sites.public_host(name)}")
     else:
         print(f"Not published: {sites.public_host(name)}")

@@ -39,7 +39,7 @@ PUB_HEADER = (
 )
 
 # Caddy renamed this directive in 2.8; `basicauth` still works but warns.
-_AUTH_USER = "tsb"
+AUTH_USER = "tsb"
 
 # One DNS label: the intersection of what Caddy, Headscale, and the
 # wildcard certificate all accept. Project directories are free-form, so
@@ -199,7 +199,7 @@ def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
     blocks = []
     for host, (port, pw_hash) in sorted(routes.items()):
         auth = (
-            f"    basic_auth {{\n        {_AUTH_USER} {pw_hash}\n    }}\n"
+            f"    basic_auth {{\n        {AUTH_USER} {pw_hash}\n    }}\n"
             if pw_hash
             else ""
         )
@@ -233,8 +233,22 @@ def register_public(name: str, port: int, pw_hash: str | None) -> str | None:
     return f"https://{host}"
 
 
+def unregister_public(name: str) -> bool:
+    """Drop ``name`` from the public fragment only. True if removed.
+
+    Unpublishing must leave the project's private tailnet site alone;
+    ``unregister`` is the full teardown used when a project goes away.
+    """
+    routes = read_public()
+    if public_host(name) not in routes:
+        return False
+    del routes[public_host(name)]
+    _write_public(routes)
+    return True
+
+
 def unregister(name: str) -> bool:
-    """Drop ``name`` from both fragments. True if anything was removed."""
+    """Drop ``name`` from all three fragments. True if anything was removed."""
     if not is_available():
         return False
 
@@ -253,10 +267,7 @@ def unregister(name: str) -> bool:
         _write_records(kept)
         changed = True
 
-    pub = read_public()
-    if public_host(name) in pub:
-        del pub[public_host(name)]
-        _write_public(pub)
+    if unregister_public(name):
         changed = True
 
     return changed

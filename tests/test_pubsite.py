@@ -43,6 +43,12 @@ class TestPassword(unittest.TestCase):
         self.assertNotIn("hunter2", " ".join(cmd))
         self.assertEqual(run.call_args[1]["input"], "hunter2")
 
+    def test_hashing_exits_on_nonzero_returncode(self):
+        completed = mock.Mock(returncode=1, stdout="", stderr="boom")
+        with mock.patch("subprocess.run", return_value=completed):
+            with self.assertRaises(SystemExit):
+                pubsite.hash_password("hunter2")
+
 
 def _args(**kw):
     defaults = {
@@ -152,11 +158,15 @@ class TestUnpublishMode(unittest.TestCase):
         project = Path("/home/tsb/dev/test4k")
         with mock.patch.object(pubsite, "pick_project", return_value=project):
             with mock.patch.object(
-                pubsite.sites, "unregister", return_value=True
-            ) as unreg:
-                pubsite.run_unpublish_mode(argparse.Namespace(verbose=False))
+                pubsite.sites, "unregister_public", return_value=True
+            ) as unreg_pub:
+                with mock.patch.object(pubsite.sites, "unregister") as unreg:
+                    pubsite.run_unpublish_mode(
+                        argparse.Namespace(verbose=False)
+                    )
 
-        unreg.assert_called_once_with("test4k")
+        unreg_pub.assert_called_once_with("test4k")
+        unreg.assert_not_called()
 
 
 if __name__ == "__main__":
