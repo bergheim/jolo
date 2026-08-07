@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for jolo publish (public-notes mode flip)."""
+"""Tests for jolo notes-split (public-notes mode flip)."""
 
 import os
 import subprocess
@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import jolo
-from _jolo import publish
+from _jolo import notes_split
 
 
 def _run(cmd, cwd=None, check=True):
@@ -28,16 +28,18 @@ def _make_outer_repo(root: Path) -> None:
     _run(["git", "commit", "-q", "-m", "init"], cwd=root)
 
 
-class TestPublishArgParsing(unittest.TestCase):
-    def test_publish_command(self):
-        args = jolo.parse_args(["publish"])
-        self.assertEqual(args.command, "publish")
+class TestNotesSplitArgParsing(unittest.TestCase):
+    def test_notes_split_command(self):
+        args = jolo.parse_args(["notes-split"])
+        self.assertEqual(args.command, "notes-split")
         self.assertFalse(args.scrub)
         self.assertFalse(args.dry_run)
         self.assertFalse(args.yes)
 
-    def test_publish_flags(self):
-        args = jolo.parse_args(["publish", "--scrub", "--dry-run", "--yes"])
+    def test_notes_split_flags(self):
+        args = jolo.parse_args(
+            ["notes-split", "--scrub", "--dry-run", "--yes"]
+        )
         self.assertTrue(args.scrub)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.yes)
@@ -48,14 +50,14 @@ class TestHelpers(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             _make_outer_repo(root)
-            self.assertFalse(publish.outer_repo_dirty(root))
+            self.assertFalse(notes_split.outer_repo_dirty(root))
 
     def test_outer_repo_dirty_on_dirty_repo(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             _make_outer_repo(root)
             (root / "new.txt").write_text("x")
-            self.assertTrue(publish.outer_repo_dirty(root))
+            self.assertTrue(notes_split.outer_repo_dirty(root))
 
     def test_update_outer_gitignore_drops_scrub_lines(self):
         with tempfile.TemporaryDirectory() as td:
@@ -68,10 +70,10 @@ class TestHelpers(unittest.TestCase):
                 "docs/2026-*.org\n"
                 "scratch/\n"
             )
-            publish.update_outer_gitignore(root)
+            notes_split.update_outer_gitignore(root)
             content = (root / ".gitignore").read_text()
             self.assertIn("docs/", content)
-            self.assertIn(publish.PUBLISH_GITIGNORE_MARKER, content)
+            self.assertIn(notes_split.NOTES_SPLIT_GITIGNORE_MARKER, content)
             # Legacy per-file lines removed
             self.assertNotIn("docs/TODO.org", content.replace("# docs/", ""))
             self.assertNotIn(
@@ -85,9 +87,9 @@ class TestHelpers(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / ".gitignore").write_text(".env\n")
-            publish.update_outer_gitignore(root)
+            notes_split.update_outer_gitignore(root)
             first = (root / ".gitignore").read_text()
-            publish.update_outer_gitignore(root)
+            notes_split.update_outer_gitignore(root)
             second = (root / ".gitignore").read_text()
             self.assertEqual(first, second)
 
@@ -97,7 +99,7 @@ class TestHelpers(unittest.TestCase):
             docs = root / "docs"
             docs.mkdir()
             (docs / "PROJECT.org").write_text("# architecture\n")
-            publish.move_project_org(docs, root)
+            notes_split.move_project_org(docs, root)
             self.assertFalse((docs / "PROJECT.org").exists())
             self.assertTrue((root / "PROJECT.org").exists())
 
@@ -106,7 +108,7 @@ class TestHelpers(unittest.TestCase):
             root = Path(td)
             docs = root / "docs"
             docs.mkdir()
-            publish.move_project_org(docs, root)
+            notes_split.move_project_org(docs, root)
             self.assertFalse((root / "PROJECT.org").exists())
 
     def test_move_project_org_skips_on_conflict(self):
@@ -116,7 +118,7 @@ class TestHelpers(unittest.TestCase):
             docs.mkdir()
             (docs / "PROJECT.org").write_text("from docs\n")
             (root / "PROJECT.org").write_text("from root\n")
-            publish.move_project_org(docs, root)
+            notes_split.move_project_org(docs, root)
             self.assertEqual((root / "PROJECT.org").read_text(), "from root\n")
             self.assertTrue((docs / "PROJECT.org").exists())
 
@@ -131,7 +133,7 @@ class TestHelpers(unittest.TestCase):
                 "GIT_COMMITTER_EMAIL": "t@example.com",
             }
             with mock.patch.dict(os.environ, env_overrides, clear=False):
-                publish.init_notes_repo(docs)
+                notes_split.init_notes_repo(docs)
             self.assertTrue((docs / ".git").is_dir())
             log = _run(["git", "log", "--pretty=%s"], cwd=docs).stdout.strip()
             self.assertEqual(log, "initial notes snapshot")
@@ -153,7 +155,7 @@ class TestHelpers(unittest.TestCase):
             _run(["git", "add", "docs/"], cwd=root)
             _run(["git", "commit", "-q", "-m", "add docs"], cwd=root)
 
-            publish.untrack_docs_from_outer(root)
+            notes_split.untrack_docs_from_outer(root)
 
             # Files still exist on disk.
             self.assertTrue((docs / "TODO.org").exists())
@@ -169,13 +171,13 @@ class TestHelpers(unittest.TestCase):
             root = Path(td)
             _make_outer_repo(root)
             # docs/ does not exist yet — command must not error.
-            publish.untrack_docs_from_outer(root)
+            notes_split.untrack_docs_from_outer(root)
 
 
-class TestPublishSmoke(unittest.TestCase):
-    """End-to-end: publish with --yes on a prepared temp repo, no scrub."""
+class TestNotesSplitSmoke(unittest.TestCase):
+    """End-to-end: notes-split with --yes on a prepared temp repo, no scrub."""
 
-    def test_publish_noscrub_flow(self):
+    def test_notes_split_noscrub_flow(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             _make_outer_repo(root)
@@ -186,8 +188,8 @@ class TestPublishSmoke(unittest.TestCase):
             _run(["git", "add", "docs"], cwd=root)
             _run(["git", "commit", "-q", "-m", "seed docs"], cwd=root)
 
-            # Run publish in the temp root. Simulate `jolo publish --yes`.
-            args = jolo.parse_args(["publish", "--yes"])
+            # Run notes-split in the temp root. Simulate `jolo notes-split --yes`.
+            args = jolo.parse_args(["notes-split", "--yes"])
             old_cwd = Path.cwd()
             env_overrides = {
                 "GIT_AUTHOR_NAME": "Test",
@@ -198,7 +200,7 @@ class TestPublishSmoke(unittest.TestCase):
             try:
                 os.chdir(root)
                 with mock.patch.dict(os.environ, env_overrides, clear=False):
-                    publish.run_publish_mode(args)
+                    notes_split.run_notes_split_mode(args)
             finally:
                 os.chdir(old_cwd)
 
@@ -209,7 +211,7 @@ class TestPublishSmoke(unittest.TestCase):
             self.assertFalse((docs / "PROJECT.org").exists())
             # outer .gitignore has docs/
             gi = (root / ".gitignore").read_text()
-            self.assertIn(publish.PUBLISH_GITIGNORE_MARKER, gi)
+            self.assertIn(notes_split.NOTES_SPLIT_GITIGNORE_MARKER, gi)
             # outer repo has a new commit
             last = _run(
                 ["git", "log", "-1", "--pretty=%s"], cwd=root

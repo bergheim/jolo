@@ -495,6 +495,34 @@ class TestPruneGlobalImages(unittest.TestCase):
     @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
     @mock.patch("_jolo.commands.list_all_devcontainers")
     @mock.patch("_jolo.commands.remove_container", return_value=True)
+    @mock.patch("builtins.input", return_value="y")
+    @mock.patch("subprocess.run")
+    def test_prune_global_unregisters_orphan_sites(
+        self,
+        mock_run,
+        mock_input,
+        mock_remove_container,
+        mock_list,
+        mock_runtime,
+    ):
+        """An orphan container's workspace dir is gone for good, so any
+        tailnet/public route for it must be dropped too — otherwise the
+        leftover public block keeps serving whatever lands on that port."""
+        mock_list.side_effect = [
+            [("orphan-c", "/gone/project", "running", "img123")],
+            [],
+        ]
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        with mock.patch("_jolo.commands.Path.exists", return_value=False):
+            with mock.patch("_jolo.commands.sites.unregister") as unreg:
+                jolo.run_prune_global_mode()
+
+        unreg.assert_called_once_with("project")
+
+    @mock.patch("_jolo.commands.get_container_runtime", return_value="podman")
+    @mock.patch("_jolo.commands.list_all_devcontainers")
+    @mock.patch("_jolo.commands.remove_container", return_value=True)
     @mock.patch("_jolo.commands.remove_image", return_value=True)
     @mock.patch("builtins.input", return_value="y")
     @mock.patch("subprocess.run")
@@ -955,6 +983,51 @@ class TestPickProject(unittest.TestCase):
         with mock.patch.object(Path, "exists", return_value=True):
             result = jolo.pick_project()
         self.assertEqual(result, Path("/home/user/myapp"))
+
+
+class TestStatusPublicLine(unittest.TestCase):
+    def test_public_url_is_reported_when_published(self):
+        from _jolo import commands
+
+        routes = {"test4k.pub.glvortex.net": (4676, "$2a$14$h")}
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value=routes
+            ):
+                line = commands._public_status_line("test4k")
+
+        self.assertEqual(
+            line, "Public:  https://test4k.pub.glvortex.net (auth)"
+        )
+
+    def test_open_publication_is_flagged(self):
+        from _jolo import commands
+
+        routes = {"test4k.pub.glvortex.net": (4676, None)}
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value=routes
+            ):
+                line = commands._public_status_line("test4k")
+
+        self.assertEqual(
+            line, "Public:  https://test4k.pub.glvortex.net (NO AUTH)"
+        )
+
+    def test_nothing_reported_when_not_published(self):
+        from _jolo import commands
+
+        with mock.patch.object(
+            commands.sites, "is_available", return_value=True
+        ):
+            with mock.patch.object(
+                commands.sites, "read_public", return_value={}
+            ):
+                self.assertIsNone(commands._public_status_line("test4k"))
 
 
 if __name__ == "__main__":

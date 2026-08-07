@@ -12,7 +12,7 @@ from pathlib import Path
 
 import tomllib
 
-from _jolo import constants, registry, tailnet
+from _jolo import constants, registry, sites
 from _jolo.cli import (
     _format_container_display,
     _podman_proxy_pidfile,
@@ -546,6 +546,10 @@ def run_prune_global_mode() -> None:
         else:
             print(f"Failed to stop: {name}", file=sys.stderr)
 
+    # Workspace dirs are gone for good; drop any tailnet/public route.
+    for _, folder, _ in orphan_containers:
+        sites.unregister(Path(folder).name)
+
     # Remove containers
     for name, _, _ in stopped_containers + orphan_containers:
         if remove_container(name):
@@ -665,7 +669,7 @@ def run_prune_mode(args: argparse.Namespace) -> None:
 
     # Remove worktrees
     for wt_path, _ in stale_worktrees:
-        tailnet.unregister(wt_path.name)
+        sites.unregister(wt_path.name)
         if remove_worktree(git_root, wt_path):
             print(f"Removed worktree: {wt_path.name}")
         else:
@@ -832,6 +836,18 @@ def _is_image_stale(
     )
 
 
+def _public_status_line(project_name: str) -> str | None:
+    """One line describing public exposure, or None when not published."""
+    if not sites.is_available():
+        return None
+    host = sites.public_host(project_name)
+    entry = sites.public_entry(project_name)
+    if entry is None:
+        return None
+    auth = "auth" if entry[1] else "NO AUTH"
+    return f"Public:  https://{host} ({auth})"
+
+
 def run_status_mode(args: argparse.Namespace) -> None:
     """Project dashboard: containers, worktrees, ports, disk usage."""
     git_root = pick_project()
@@ -840,6 +856,9 @@ def run_status_mode(args: argparse.Namespace) -> None:
 
     print(f"Project: {project_name}")
     print(f"Root:    {git_root}")
+    public = _public_status_line(project_name)
+    if public:
+        print(public)
     print()
 
     # Containers with uptime
@@ -1039,7 +1058,8 @@ def _resolve_site_url(workspace_dir: Path) -> str | None:
     port = read_port_from_devcontainer(workspace_dir)
     if port is None:
         return None
-    url = tailnet.register(workspace_dir.name, port)
+    url = sites.register_tailnet(workspace_dir.name, port)
+    sites.repoint_public(workspace_dir.name, port)
     if url is None:
         url = f"http://{detect_hostname()}:{port}"
     os.environ["JOLO_SITE_URL"] = url
@@ -2238,7 +2258,7 @@ def _delete_worktree(wt_path: Path, git_root: Path, yes: bool = False) -> None:
     stop_container(wt_path)
     # Worktrees register a site like any other workspace; without this the
     # fragments keep a route to a port that gets recycled to another project.
-    tailnet.unregister(wt_path.name)
+    sites.unregister(wt_path.name)
     if remove_worktree(git_root, wt_path):
         print(f"Deleted worktree: {wt_path.name}")
     else:
@@ -2329,8 +2349,11 @@ def _delete_project(
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
-    if tailnet.unregister(git_root.name):
-        print(f"Removed tailnet site: {tailnet.site_host(git_root.name)}")
+    published = sites.public_entry(git_root.name)
+    if sites.unregister(git_root.name):
+        print(f"Removed tailnet site: {sites.site_host(git_root.name)}")
+        if published is not None:
+            print(f"Removed public site: {sites.public_host(git_root.name)}")
 
     if purge:
         _purge_dirs(git_root)
@@ -2472,16 +2495,28 @@ def main(argv: list[str] | None = None) -> None:
         run_autonomous(args)
         return
 
-    if cmd == "publish":
-        from _jolo.publish import run_publish_mode
+    if cmd == "notes-split":
+        from _jolo.notes_split import run_notes_split_mode
 
-        run_publish_mode(args)
+        run_notes_split_mode(args)
         return
 
     if cmd == "expose":
         from _jolo.expose import run_expose_mode
 
         run_expose_mode(args)
+        return
+
+    if cmd == "publish":
+        from _jolo.pubsite import run_publish_mode
+
+        run_publish_mode(args)
+        return
+
+    if cmd == "unpublish":
+        from _jolo.pubsite import run_unpublish_mode
+
+        run_unpublish_mode(args)
         return
 
     if cmd == "allow":

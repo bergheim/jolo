@@ -707,18 +707,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Also remove project directories from disk",
     )
 
-    # publish: scrub, dry-run, yes, verbose
-    sub_publish = subparsers.add_parser(
-        "publish",
+    # notes-split: scrub, dry-run, yes, verbose
+    sub_notes_split = subparsers.add_parser(
+        "notes-split",
         parents=[p_verbose, p_yes],
-        help="Flip project to public-notes mode (docs/ as nested private repo)",
+        help="Split docs/ into a nested private repo (public-notes mode)",
     )
-    sub_publish.add_argument(
+    sub_notes_split.add_argument(
         "--scrub",
         action="store_true",
         help="Also run git-filter-repo to remove memory/notes from history (destructive)",
     )
-    sub_publish.add_argument(
+    sub_notes_split.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the plan without making changes",
@@ -729,6 +729,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "expose",
         parents=[p_verbose],
         help="Expose a project's dev server publicly while running (Ctrl-C to stop)",
+    )
+
+    # publish: give this project a public hostname
+    sub_publish = subparsers.add_parser(
+        "publish",
+        parents=[p_verbose],
+        help="Publish this project at <name>.pub.glvortex.net (basic auth by default)",
+    )
+    sub_publish.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Publish without basic auth (requires typed confirmation)",
+    )
+    sub_publish.add_argument(
+        "--rotate",
+        action="store_true",
+        help="Generate a new password even if the project is already published",
+    )
+
+    subparsers.add_parser(
+        "unpublish",
+        parents=[p_verbose],
+        help="Remove this project's public hostname",
     )
 
     # allow: opt a project into a gated capability
