@@ -12,7 +12,11 @@ import subprocess
 import sys
 
 from _jolo import constants, sites
-from _jolo.cli import find_git_root, read_port_from_devcontainer
+from _jolo.cli import (
+    clipboard_copy,
+    find_git_root,
+    read_port_from_devcontainer,
+)
 from _jolo.commands import _fzf_pick, pick_project
 from _jolo.container import is_container_running
 
@@ -20,16 +24,15 @@ from _jolo.container import is_container_running
 def generate_password() -> str:
     """A password you can read over the phone.
 
-    Deliberately weak at roughly 20 bits: two 10-word lists plus four
-    digits. Chosen for typeability over strength, knowing the hostname is
-    public — Caddy's certificates appear in Certificate Transparency logs,
-    so basic auth is the only barrier. Widen the word lists if that trade
-    ever stops being acceptable.
+    Two 10-word lists: 100 combinations, which a script guesses instantly.
+    Chosen for typeability, knowing the hostname is public — Caddy's
+    certificates appear in Certificate Transparency logs — so treat a
+    published site as reachable by anyone who bothers. Widen the word lists
+    or append digits if that trade ever stops being acceptable.
     """
     return (
         f"{secrets.choice(constants.ADJECTIVES)}-"
-        f"{secrets.choice(constants.NOUNS)}-"
-        f"{secrets.randbelow(9000) + 1000}"
+        f"{secrets.choice(constants.NOUNS)}"
     )
 
 
@@ -146,7 +149,8 @@ def run_publish_mode(args) -> None:
     if url is None:
         sys.exit(f"Could not publish {name}.")
 
-    print(f"Published: {url}")
+    clipboard_copy(url)
+    print(f"Published: {url}   (clipboard)")
     if password:
         print(f"Username:  {constants.PUBLIC_AUTH_USER}")
         print(f"Password:  {password}   (shown once)")

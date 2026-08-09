@@ -30,19 +30,19 @@ class TestArgs(unittest.TestCase):
 
 class TestPassword(unittest.TestCase):
     def test_generated_passwords_differ(self):
-        self.assertNotEqual(
-            pubsite.generate_password(), pubsite.generate_password()
+        # Only 100 combinations, so two draws collide 1% of the time.
+        self.assertGreater(
+            len({pubsite.generate_password() for _ in range(50)}), 1
         )
 
-    def test_password_is_two_words_and_four_digits(self):
+    def test_password_is_two_words(self):
         """Typeable over the phone, from jolo's existing word lists."""
         from _jolo import constants
 
-        adjective, noun, digits = pubsite.generate_password().split("-")
+        adjective, noun = pubsite.generate_password().split("-")
 
         self.assertIn(adjective, constants.ADJECTIVES)
         self.assertIn(noun, constants.NOUNS)
-        self.assertRegex(digits, r"^[1-9]\d{3}$")
 
     def test_hashing_passes_the_secret_on_stdin_not_argv(self):
         """A password in argv leaks to the process list and shell history."""
@@ -111,6 +111,15 @@ class TestPublishMode(unittest.TestCase):
             pubsite.run_publish_mode(_args())
 
         reg.assert_called_once_with("test4k", 4676, "$2a$14$h")
+
+    def test_copies_the_published_url_to_the_clipboard(self):
+        with mock.patch.object(
+            pubsite.sites, "register_public", return_value="https://x"
+        ):
+            with mock.patch.object(pubsite, "clipboard_copy") as copy:
+                pubsite.run_publish_mode(_args())
+
+        copy.assert_called_once_with("https://x")
 
     def test_no_auth_requires_typed_confirmation(self):
         with mock.patch("builtins.input", return_value="no"):
