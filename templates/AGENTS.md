@@ -144,7 +144,9 @@ Browsing and screenshots are pre-installed. **NEVER** install a browser,
 on PATH. Use them directly:
 
 - `browser-check <url>` — one-shot: `--screenshot`, `--console`, `--errors`,
-  `--aria` snapshot. The default for quick checks and screenshots.
+  `--aria` snapshot. The default for quick checks and screenshots. `<url>` may
+  be `file://`. For phone-first work add `--width 320,390,430` (one launch, one
+  file per width) and `--overflow`, which exits 1 if the page scrolls sideways.
 - `playwright-cli` — multi-step interactive flows (open, click, fill, snapshot).
 - `fetch-asset <url> <dest>` — download a file (vendored artwork, fonts). Those
   two are page tools and cannot save an arbitrary asset; bare `curl` will write

@@ -321,6 +321,28 @@ browser-check http://localhost:$PORT --aria --interactive --json
 browser-check http://localhost:$PORT --pdf --output scratch/page.pdf
 ```
 
+Phone-first checks. `--width` takes a comma-separated list (or repeats), runs
+each width in its own context from one browser launch, and suffixes the output
+when there is more than one. `--height` defaults to 844 and only applies with
+`--width`. `--overflow` exits 1 if the page scrolls sideways, so it works in a
+hook; elements inside an `overflow-x: auto|scroll` box are not flagged.
+
+```bash
+browser-check http://localhost:$PORT --overflow --width 320,390,430
+browser-check http://localhost:$PORT --screenshot --width 320,390,430 --output scratch/p.png
+# -> scratch/p-320.png, scratch/p-390.png, scratch/p-430.png (one width: verbatim)
+```
+
+`file://` URLs work, and are the normal way to check a static prototype before
+it becomes a page:
+
+```bash
+browser-check file:///tmp/prototype.html --overflow --width 320
+```
+
+With `--json` the per-width results are in `viewports[]` (`width`, `height`,
+`console`, `errors`, `screenshot`, `overflow`), not at the top level.
+
 ```bash
 playwright-cli open http://localhost:$PORT
 playwright-cli snapshot

@@ -132,6 +132,19 @@ browser-check "http://localhost:$PORT" --aria --interactive --json
 browser-check "http://localhost:$PORT" --pdf --output scratch/page.pdf
 ```
 
+Phone-first checks — `--width` runs each width in its own context from one
+launch and suffixes outputs when given more than one; `--overflow` exits 1 if
+the page scrolls sideways (a box with `overflow-x: auto|scroll` is not flagged):
+
+```bash
+browser-check "http://localhost:$PORT" --overflow --width 320,390,430
+browser-check "http://localhost:$PORT" --screenshot --width 320,390,430 --output scratch/p.png
+# -> scratch/p-320.png, scratch/p-390.png, scratch/p-430.png
+browser-check file:///tmp/prototype.html --overflow --width 320   # file:// works
+```
+
+With `--json`, per-width results live in `viewports[]`, not at the top level.
+
 Use `playwright-cli` for stateful flows:
 
 ```bash

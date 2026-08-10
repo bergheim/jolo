@@ -66,6 +66,74 @@ ensure_worktree_excluded() {
     printf '.worktrees/\n' >>"$exclude"
 }
 
+# Paths never shared with a worktree. Envs and build output because installing
+# through the link rewrites the main workspace (pnpm/uv resolve to the real
+# directory, and .venv bakes in an absolute path); .devcontainer because it
+# holds per-worktree container name and $PORT; caches because two branches
+# writing one cache is worse than no cache.
+WT_NO_LINK="node_modules .venv venv .direnv .devcontainer .worktrees .git
+__pycache__ .pytest_cache .ruff_cache .mypy_cache .tox .cache .coverage
+dist build target .next .nuxt .svelte-kit"
+
+wt_skip_path() {
+    for part in $(printf '%s' "$1" | tr '/' ' '); do
+        for skip in $WT_NO_LINK; do
+            [ "$part" = "$skip" ] && return 0
+        done
+    done
+    return 1
+}
+
+# Symlink the main workspace's gitignored paths into a fresh worktree, so it
+# starts with the data, notes and TODO that git never carries over.
+#
+# Each link also needs an exclude entry: gitignore patterns written as "data/"
+# match directories only, and a symlink is not a directory, so without this the
+# links show up as untracked and assert_worktree_clean rejects the worktree on
+# the next `wt sync`/`wt land`. Only the shared info/exclude is consulted for a
+# worktree -- a per-worktree one is ignored -- and an anchored no-slash entry
+# there is a no-op for the main tree, which already ignores these paths.
+link_ignored() {
+    target_wt="$1"
+
+    git_common=$(git -C "$WS" rev-parse --git-common-dir 2>/dev/null) || return 0
+    case "$git_common" in /*) ;; *) git_common="$WS/$git_common" ;; esac
+    exclude="$git_common/info/exclude"
+    mkdir -p "$git_common/info"
+
+    git -C "$WS" ls-files --others --ignored --exclude-standard \
+        --directory --no-empty-directory 2>/dev/null |
+    while IFS= read -r entry; do
+        entry=${entry%/}
+        [ -n "$entry" ] || continue
+        if wt_skip_path "$entry"; then
+            continue
+        fi
+        # Tracked on this branch even though ignored in main: worktree add
+        # already checked it out, do not clobber it. -L catches a dangling link
+        # left by an earlier run, which -e reports as absent.
+        if [ -e "$target_wt/$entry" ] || [ -L "$target_wt/$entry" ]; then
+            continue
+        fi
+
+        # ../ back out of the entry's own depth, then out of .worktrees/<name>.
+        depth=$(printf '%s' "$entry" | tr -cd '/' | wc -c)
+        up=""
+        i=0
+        while [ "$i" -lt $((depth + 2)) ]; do
+            up="$up../"
+            i=$((i + 1))
+        done
+
+        parent=$(dirname "$entry")
+        [ "$parent" = "." ] || mkdir -p "$target_wt/$parent"
+        ln -s "$up$entry" "$target_wt/$entry" || continue
+
+        grep -qxF "/$entry" "$exclude" 2>/dev/null || printf '/%s\n' "$entry" >>"$exclude"
+        echo "linked: $entry -> $up$entry"
+    done
+}
+
 # In a list-windows snapshot (`#{window_id} #{window_name}` per line, $2 above),
 # echo the id of the row whose name equals $1, or nothing. tmux window names
 # aren't unique and `-t "=name"` picks the lowest index, so resolve to id and
@@ -255,6 +323,7 @@ cmd_new() {
         git -C "$WS" worktree add -b "$name" "$wt_path"
     fi
 
+    link_ignored "$wt_path"
     create_window "$name" "$prompt"
     echo "created worktree $name at $wt_path"
 }
@@ -279,6 +348,7 @@ cmd_switch() {
         mkdir -p "$WT_BASE"
         git -C "$WS" worktree prune
         git -C "$WS" worktree add "$wt_path" "$name"
+        link_ignored "$wt_path"
         create_window "$name" ""
     else
         echo "error: no worktree '$name' found" >&2

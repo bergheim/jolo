@@ -202,6 +202,10 @@ Environment and tooling expectations:
   tooling: `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
   (multi-step). NEVER install a browser, puppeteer, playwright, or chromium —
   they are already on PATH.
+- For phone-first work, check the widths in one call:
+  `browser-check <url> --overflow --width 320,390,430` exits 1 and names any
+  element that makes the page scroll sideways. Add `--screenshot` for one image
+  per width. Never hand-roll a Playwright script for this.
 - For accessibility-sensitive web work, run the project a11y recipe when present.
 - Report commands run and any tests you could not run.
 

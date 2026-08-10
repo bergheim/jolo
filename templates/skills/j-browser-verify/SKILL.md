@@ -25,6 +25,9 @@ Use this skill when the user asks to check if the site is running, verify browse
 
 5. Capture screenshot evidence.
 - Default: `browser-check "$URL" --screenshot --output scratch/site-screenshot.png`.
+- Phone-first pages: `browser-check "$URL" --screenshot --width 320,390,430 --output scratch/site.png`
+  writes one file per width, and `browser-check "$URL" --overflow --width 320,390,430`
+  exits 1 naming any element that makes the page scroll sideways.
 - If user asks to verify Playwright specifically, also run:
   - `playwright-cli open "$URL"`
   - `playwright-cli -s=default screenshot --filename scratch/site-screenshot-playwright.png`

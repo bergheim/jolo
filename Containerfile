@@ -153,7 +153,6 @@ RUN echo 'set -g allow-passthrough on' > /etc/tmux.conf && \
     echo 'set -as terminal-features ",*:clipboard:sixel:extkeys"' >> /etc/tmux.conf
 
 # Root-level setup (no script COPYs here — those go after heavy layers to avoid cache busting)
-COPY container/browser-check.js /usr/local/lib/browser-check.js
 RUN ln -s /usr/share/zsh/plugins/fzf/completion.zsh /usr/share/fzf/completion.zsh && \
     wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && \
     chmod +x /usr/local/bin/hadolint && \
@@ -280,6 +279,7 @@ ENV EMACS_CONTAINER=1
 ENV LANG=en_US.UTF-8
 
 # Container scripts (late layer — changes here don't bust pnpm/cargo cache)
+COPY container/browser-check.js /usr/local/lib/browser-check.js
 COPY --chmod=755 container/e container/wt container/motd container/notify container/db container/npm container/npx container/pnpmx container/share container/fetch-asset /usr/local/bin/
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
 RUN mkdir -p $HOME/.config/tmuxinator
