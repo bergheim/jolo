@@ -146,6 +146,10 @@ on PATH. Use them directly:
 - `browser-check <url>` — one-shot: `--screenshot`, `--console`, `--errors`,
   `--aria` snapshot. The default for quick checks and screenshots.
 - `playwright-cli` — multi-step interactive flows (open, click, fill, snapshot).
+- `fetch-asset <url> <dest>` — download a file (vendored artwork, fonts). Those
+  two are page tools and cannot save an arbitrary asset; bare `curl` will write
+  an HTML error page into a `.png` and report success. `fetch-asset` checks the
+  status and the magic bytes, and writes nothing if they disagree.
 - After visible UI changes, screenshot the running app and inspect it before
   committing. Run `just a11y` when present.
 - Use semantic HTML, labeled inputs, keyboard-reachable controls, visible focus
@@ -171,6 +175,6 @@ Read `docs/agent-ops.md` only when needed for:
 
 - Exact org/denote `emacsclient` forms.
 - Browser-check and Playwright command catalogs.
-- Port, notify, share, image, perf, and podman operations.
+- Port, notify, share, asset fetching, image, perf, and podman operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.

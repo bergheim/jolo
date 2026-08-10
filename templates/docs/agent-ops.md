@@ -175,6 +175,30 @@ share .
 share /path/to/file
 ```
 
+## Fetching Assets
+
+`browser-check` and `playwright-cli` render pages; they cannot save an arbitrary
+file. Use `fetch-asset` to vendor artwork, fonts, or any downloaded file:
+
+```bash
+fetch-asset https://example.org/drawing.png public/art/drawing.png
+fetch-asset https://example.org/font.woff2 public/fonts/font.woff2
+```
+
+It sends a real User-Agent with a contact address, follows redirects, creates
+missing parent directories, and prints the path and byte count it wrote.
+
+It exits non-zero and writes nothing when the response is non-2xx, the body is
+empty, or the body does not match the destination extension — the case that
+matters is a site answering with an HTML error page that bare `curl` would
+happily save as a `.png`, leaving an image that renders blank with nothing
+reporting a failure. An existing file at the destination is never clobbered by
+a failed fetch.
+
+Override the User-Agent for a single call with `FETCH_ASSET_UA`. Do not paper
+over a refusal by falling back to raw `curl` — a refusal means the bytes are
+wrong.
+
 ## Image Tooling
 
 Preferred formats: AVIF > WebP > PNG/JPEG.

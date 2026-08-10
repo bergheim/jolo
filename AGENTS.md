@@ -227,7 +227,7 @@ Read `docs/agent-ops.md` only when needed for:
 - Less-common org/denote forms (link, remove-tag, full state list) and helper
   return-plist details.
 - Stash cookbook (literate `:tangle`) note format.
-- Browser-check and Playwright command catalogs.
+- Browser-check, Playwright, and `fetch-asset` command catalogs.
 - jolo command catalog, host-side `jolo expose`, and podman gate operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.

@@ -1,0 +1,108 @@
+#!/bin/sh
+# fetch-asset — download a file to disk, refusing to save an error page.
+#
+# Vendoring third-party artwork with bare curl silently writes HTML error
+# bodies into .png files: the fetch "succeeds", the image renders blank, and
+# nothing complains until someone looks at the page. Status is checked, magic
+# bytes are sniffed against the destination extension, and only then does the
+# file move into place.
+#
+# Usage:
+#   fetch-asset <url> <dest>
+#
+# Environment:
+#   FETCH_ASSET_UA  — override the whole User-Agent string.
+
+set -eu
+
+# A real UA with a contact address, in one place: politeness is a property of
+# the tool rather than of whoever typed the command. Toy agents draw 403s.
+UA=${FETCH_ASSET_UA:-"jolo-fetch-asset/1.0 (+mailto:spammers@glvortex.net)"}
+
+if [ $# -ne 2 ]; then
+    echo "fetch-asset: usage: fetch-asset <url> <dest>" >&2
+    exit 1
+fi
+
+url=$1
+dest=$2
+
+# Binary signatures first: a real PNG can never reach the text branch, while an
+# HTML error page can easily contain an inline <svg>.
+sniff() {
+    _hex=$(od -An -v -tx1 -N16 "$1" | tr -d ' \n')
+    case "$_hex" in
+        89504e470d0a1a0a*) echo png ;;
+        ffd8ff*) echo jpeg ;;
+        474946383761*|474946383961*) echo gif ;;
+        52494646????????57454250*) echo webp ;;
+        ????????66747970617669*) echo avif ;;
+        25504446*) echo pdf ;;
+        0000010000*) echo ico ;;
+        *)
+            _head=$(head -c 512 "$1" | tr -d '\000' | tr '[:upper:]' '[:lower:]')
+            case "$_head" in
+                *'<!doctype html'*|*'<html'*|*'<head'*) echo html ;;
+                *'<svg'*) echo svg ;;
+                *) echo unknown ;;
+            esac
+            ;;
+    esac
+}
+
+ext=$(printf '%s' "${dest##*.}" | tr '[:upper:]' '[:lower:]')
+case "$ext" in
+    png) expected=png ;;
+    jpg | jpeg) expected=jpeg ;;
+    gif) expected=gif ;;
+    webp) expected=webp ;;
+    avif) expected=avif ;;
+    ico) expected=ico ;;
+    pdf) expected=pdf ;;
+    svg) expected=svg ;;
+    *) expected="" ;;
+esac
+
+parent=${dest%/*}
+[ "$parent" = "$dest" ] || mkdir -p "$parent"
+
+# Same directory as the destination, so the final move is atomic.
+tmp=$dest.fetch-asset.$$
+trap 'rm -f "$tmp"' EXIT INT TERM
+
+if ! code=$(curl -sSL -A "$UA" -o "$tmp" -w '%{http_code}' \
+    --max-redirs 10 --retry 2 --connect-timeout 10 --max-time 300 "$url"); then
+    echo "fetch-asset: curl failed for $url" >&2
+    exit 1
+fi
+
+if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+    echo "fetch-asset: HTTP $code from $url" >&2
+    # An excerpt turns a bare 403 into something diagnosable.
+    if [ -s "$tmp" ]; then
+        head -c 200 "$tmp" | tr -d '\000' | tr '\n' ' ' >&2
+        echo >&2
+    fi
+    exit 1
+fi
+
+size=$(($(wc -c < "$tmp")))
+if [ "$size" -eq 0 ]; then
+    echo "fetch-asset: empty body from $url" >&2
+    exit 1
+fi
+
+actual=$(sniff "$tmp")
+if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
+    if [ "$actual" = html ]; then
+        echo "fetch-asset: got an HTML page, not $expected: $url" >&2
+    else
+        echo "fetch-asset: body is $actual, but $dest expects $expected" >&2
+    fi
+    exit 1
+fi
+
+mv "$tmp" "$dest"
+trap - EXIT INT TERM
+
+echo "fetch-asset: wrote $dest ($size bytes, ${actual})"

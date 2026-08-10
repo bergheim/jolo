@@ -332,6 +332,21 @@ playwright-cli close
 
 For advanced flows, write a small Node.js Playwright script.
 
+## Fetching Assets
+
+Both tools above render pages and cannot save an arbitrary file. `fetch-asset`
+downloads one, refusing to leave anything at the destination unless the bytes
+are what the extension claims:
+
+```bash
+fetch-asset https://example.org/drawing.png public/art/drawing.png
+FETCH_ASSET_UA="myproject/2.0 (+mailto:me@example.org)" fetch-asset "$url" out.svg
+```
+
+Non-2xx, an empty body, or an HTML page landing at a binary extension all exit
+non-zero and write nothing — the failure bare `curl` hides by saving a 403 page
+as a `.png` that renders blank. Ships from `container/fetch-asset`.
+
 ## Local Models
 
 `LLAMA_HOST` points to a llama-swap OpenAI-compatible router.
