@@ -202,6 +202,25 @@ and reports `:wrote' only when the buffer was actually modified."
 ;; New: TODO creation and read helpers
 ;; ----------------------------------------------------------------------------
 
+(ert-deftest agent-helpers/tag-changes-log-timestamped-line ()
+  "`add-tag'/`remove-tag' append a timestamped LOGBOOK line when tags
+actually change, and stay silent on idempotent calls."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Foo\n"
+      (bergheim/agent-org-add-tag test-file "TODO Foo" "autonomous")
+      (bergheim/agent-org-add-tag test-file "TODO Foo" "autonomous") ; idempotent
+      (bergheim/agent-org-remove-tag test-file "TODO Foo" "autonomous")
+      (let ((contents (test-agent-helpers--contents test-file)))
+        (should (string-match-p
+                 (concat (regexp-quote "- Tag \"+autonomous\" ")
+                         "\\[[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\]")
+                 contents))
+        (should (string-match-p (regexp-quote "- Tag \"-autonomous\" ") contents))
+        ;; Exactly one add line: the idempotent call logged nothing.
+        (should (= 1 (cl-count-if
+                      (lambda (l) (string-match-p (regexp-quote "- Tag \"+autonomous\"") l))
+                      (split-string contents "\n"))))))))
+
 (ert-deftest agent-helpers/add-todo-appends-entry-with-body-tags-and-id ()
   "`add-todo' appends a top-level entry and returns its stable ID."
   (let ((bergheim/agent-worklog-dir nil))
@@ -218,6 +237,16 @@ and reports `:wrote' only when the buffer was actually modified."
         (should (string-match-p (concat ":ID:[[:space:]]+" (regexp-quote id))
                                 contents))
         (should (string-match-p "Body line" contents))))))
+
+(ert-deftest agent-helpers/add-todo-stamps-created-property ()
+  "`add-todo' stamps `:CREATED:' with an inactive timestamp so agenda
+tooling that filters/groups on CREATED sees agent-created entries."
+  (let ((bergheim/agent-worklog-dir nil))
+    (test-agent-helpers--with-file "* TODO Existing\n"
+      (bergheim/agent-org-add-todo test-file "New task")
+      (should (string-match-p
+               ":CREATED:[[:space:]]+\\[[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\]"
+               (test-agent-helpers--contents test-file))))))
 
 (ert-deftest agent-helpers/add-todo-invalid-input-errors-before-write ()
   "`add-todo' validates heading and tags before mutating the file."
@@ -262,23 +291,61 @@ and reports `:wrote' only when the buffer was actually modified."
       (should (equal (alist-get 'heading by-id) "Read me")))))
 
 ;; ----------------------------------------------------------------------------
-;; New: SESSION_ID auto-assignment on INPROGRESS
+;; Agent/session metadata: LOGBOOK session lines + LAST_AGENT property
 ;; ----------------------------------------------------------------------------
 
-(ert-deftest agent-helpers/session-id-auto-assign-on-inprogress ()
-  "`set-state' with ensure-session-id adds `:SESSION_ID:' on INPROGRESS transition."
+(ert-deftest agent-helpers/set-state-logs-session-line ()
+  "`set-state' with AGENT and SESSION-ID appends a timestamped LOGBOOK
+session line and sets `:LAST_AGENT:'. Multiple sessions accumulate."
   (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil t)
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil
+                                  "claude/claude-fable-5 (high)" "sess-abc-123")
+    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE" nil
+                                  "codex/gpt-5.2" "sess-def-456")
     (let ((contents (test-agent-helpers--contents test-file)))
-      (should (string-match-p "^\\* INPROGRESS Foo" contents))
-      (should (string-match-p ":SESSION_ID:" contents)))))
+      (should (string-match-p
+               (concat (regexp-quote "- Session claude/claude-fable-5 (high) sess-abc-123 ")
+                       "\\[[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\]")
+               contents))
+      (should (string-match-p (regexp-quote "- Session codex/gpt-5.2 sess-def-456")
+                              contents))
+      ;; LAST_AGENT is last-writer-wins.
+      (should (string-match-p ":LAST_AGENT:[[:space:]]+codex/gpt-5\\.2" contents))
+      (should-not (string-match-p ":LAST_AGENT:[[:space:]]+claude" contents)))))
 
-(ert-deftest agent-helpers/session-id-not-added-on-done ()
-  "`set-state' with ensure-session-id does NOT add SESSION_ID on DONE transition."
+(ert-deftest agent-helpers/set-state-no-session-line-without-agent ()
+  "Without AGENT, no session line and no LAST_AGENT are written."
   (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "DONE" nil t)
+    (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
     (let ((contents (test-agent-helpers--contents test-file)))
-      (should-not (string-match-p ":SESSION_ID:" contents)))))
+      (should-not (string-match-p "- Session" contents))
+      (should-not (string-match-p ":LAST_AGENT:" contents)))))
+
+(ert-deftest agent-helpers/set-state-session-line-without-session-id ()
+  "AGENT without SESSION-ID still logs the session line, id omitted."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "DONE" nil "pi/unknown")
+    (should (string-match-p "- Session pi/unknown \\["
+                            (test-agent-helpers--contents test-file)))))
+
+(ert-deftest agent-helpers/set-state-by-id-logs-session-line ()
+  "`set-state-by-id' carries the same AGENT/SESSION-ID metadata."
+  (test-agent-helpers--with-file
+      "* TODO Entry\n:PROPERTIES:\n:ID: zzz-999\n:END:\n"
+    (bergheim/agent-org-set-state-by-id test-file "zzz-999" "INPROGRESS" nil
+                                        "claude/claude-fable-5 (high)" "sess-1")
+    (let ((contents (test-agent-helpers--contents test-file)))
+      (should (string-match-p (regexp-quote "- Session claude/claude-fable-5 (high) sess-1")
+                              contents))
+      (should (string-match-p ":LAST_AGENT:" contents)))))
+
+(ert-deftest agent-helpers/set-state-never-adds-session-id ()
+  "The fabricated :SESSION_ID: property is gone — never written."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil
+                                  "claude/claude-fable-5 (high)" "sess-abc")
+    (should-not (string-match-p ":SESSION_ID:"
+                                (test-agent-helpers--contents test-file)))))
 
 ;; ----------------------------------------------------------------------------
 ;; New: BLOCKED state
@@ -296,30 +363,23 @@ and reports `:wrote' only when the buffer was actually modified."
 ;; ----------------------------------------------------------------------------
 
 (ert-deftest agent-helpers/clock-in-on-inprogress ()
-  "`set-state' with CLOCK starts an org-clock when transitioning to INPROGRESS."
+  "`set-state' always starts an org-clock when transitioning to INPROGRESS."
   (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
     (let ((contents (test-agent-helpers--contents test-file)))
       (should (string-match-p "^\\* INPROGRESS Foo" contents))
       (should (string-match-p ":LOGBOOK:" contents))
       (should (string-match-p "CLOCK:" contents)))))
 
 (ert-deftest agent-helpers/clock-out-on-done ()
-  "`set-state' with CLOCK closes an open clock when transitioning to DONE."
+  "`set-state' always closes an open clock when transitioning to DONE."
   (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
-    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE" nil nil t)
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE")
     (let ((contents (test-agent-helpers--contents test-file)))
       (should (string-match-p "^\\* DONE Foo" contents))
       ;; A closed clock line has the form `CLOCK: [...]--[...] => H:MM'.
       (should (string-match-p "CLOCK:.*=>" contents)))))
-
-(ert-deftest agent-helpers/no-clock-when-disabled ()
-  "Without CLOCK arg, no clock entries are produced."
-  (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
-    (should-not (string-match-p "CLOCK:"
-                                (test-agent-helpers--contents test-file)))))
 
 ;; ----------------------------------------------------------------------------
 ;; Review feedback: no silent clobber of unsaved edits in an open buffer
@@ -378,14 +438,13 @@ The helper matches heading lines only."
 ;; ----------------------------------------------------------------------------
 
 (ert-deftest agent-helpers/clock-out-leaves-clock-on-other-heading-alone ()
-  "Transitioning heading A to DONE with :clock must not stop a clock running
-on heading B."
+  "Transitioning heading A to DONE must not stop a clock running on heading B."
   (test-agent-helpers--with-file
       "* TODO Foo\n* TODO Bar\n"
     ;; Start a clock on Foo.
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS" nil nil t)
-    ;; Transition Bar to DONE with :clock. Foo's clock should survive.
-    (bergheim/agent-org-set-state test-file "TODO Bar" "DONE" nil nil t)
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+    ;; Transition Bar to DONE. Foo's clock should survive.
+    (bergheim/agent-org-set-state test-file "TODO Bar" "DONE")
     (should (org-clocking-p))
     ;; The clock line on Foo must still be open (no `=>' duration yet).
     (let ((contents (test-agent-helpers--contents test-file)))
