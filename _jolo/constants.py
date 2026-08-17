@@ -36,7 +36,8 @@ DEFAULT_CONFIG = {
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
     "pass_path_gemini": ["api/llm/gemini", "api/llm/google"],
-    "agents": ["claude", "gemini", "codex", "pi", "grok"],
+    # pi leads: it is a meta harness that can delegate to the others.
+    "agents": ["pi", "claude", "codex", "grok", "gemini"],
     "agent_commands": {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
         "gemini": "gemini --yolo --no-sandbox",

@@ -2,10 +2,10 @@ name: dev
 startup_window: shell
 windows:
   - emacs: e
+  - pi: pi
   - claude: claude
   - codex: codex
-  - agy: agy
-  - pi: pi
   - grok: grok --no-auto-update
+  - agy: agy
   - dev: just dev
   - shell:
