@@ -4,6 +4,11 @@
 test *args:
     uv run --with pytest pytest tests/ {{args}}
 
+# run the elisp agent-helper tests
+test-el:
+    emacs --batch -Q -l ert -l container/agent-helpers.el \
+        -l tests/test-agent-helpers.el -f ert-run-tests-batch-and-exit
+
 # run tests matching a keyword
 test-k pattern:
     uv run --with pytest pytest tests/ -k '{{pattern}}' -v

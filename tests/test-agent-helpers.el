@@ -765,5 +765,35 @@ and `:wrote' contains only the org file (or is empty on no-op)."
       (should (string-match-p "from agent"
                               (test-agent-helpers--contents test-file))))))
 
+(ert-deftest agent-helpers/noninteractive-errors-instead-of-prompting ()
+  "A prompt we did not anticipate must signal, not hold the daemon."
+  (should-error (bergheim/agent--noninteractive (read-string "who? "))
+                :type 'inhibited-interaction)
+  (should-error (bergheim/agent--noninteractive (y-or-n-p "really? "))
+                :type 'inhibited-interaction))
+
+(ert-deftest agent-helpers/noninteractive-does-not-leak-to-interactive-emacs ()
+  "The guard is scoped to the agent call; the user keeps their prompts."
+  (should-not inhibit-interaction)
+  (should (bergheim/agent--noninteractive inhibit-interaction))
+  (should-not inhibit-interaction))
+
+(ert-deftest agent-helpers/stale-buffer-with-unsaved-edits-errors ()
+  "Unsaved edits under a changed file: error loudly, never prompt or clobber."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (with-current-buffer (find-file-noselect test-file t)
+      (goto-char (point-max))
+      (insert "* TODO Unsaved human edit\n"))
+    (with-temp-file test-file
+      (insert test-agent-helpers--keyword-header)
+      (insert "* TODO Foo\nchanged on disk\n"))
+    (let ((prompted nil))
+      (cl-letf (((symbol-function 'read-event)
+                 (lambda (&rest _) (setq prompted t) ?n)))
+        (should-error (bergheim/agent-org-add-note test-file "Foo" "from agent")))
+      (should-not prompted)
+      (should (string-match-p "changed on disk"
+                              (test-agent-helpers--contents test-file))))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here

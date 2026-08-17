@@ -77,7 +77,8 @@ so the calling helper's already-completed org edit is not rolled back.
 ;;
 ;; `ask-user-about-supersession-threat' is NOT y-or-n-p. It uses `read-event'
 ;; for "changed on disk; really edit the buffer? (y, n, r)". An unanswered
-;; prompt holds the emacsclient socket, so every later -e piles up behind it.
+;; prompt holds the emacsclient socket, so every later -e piles up behind it
+;; — including evals from every other container sharing the daemon.
 
 (defun bergheim/agent--ask-supersession (fn)
   "Non-interactive stand-in for `ask-user-about-supersession-threat'.
@@ -90,16 +91,28 @@ Never prompt — emacsclient --eval cannot answer a minibuffer."
     (revert-buffer t t t)
     nil)))
 
-(defmacro bergheim/agent--without-file-prompts (&rest body)
-  "Evaluate BODY with file-lock and supersession prompts disabled.
-Supersession reverts a clean buffer or errors. Locks are stolen.
-y/n prompts still need their own bind (see `--with-quiet-buffer')."
+(defmacro bergheim/agent--noninteractive (&rest body)
+  "Evaluate BODY with every prompt an agent could hit disabled.
+
+Prompts we can answer correctly get a non-interactive answer: supersession
+reverts a clean buffer or errors, locks are stolen, symlinks are followed.
+Every other minibuffer read signals `inhibited-interaction' instead of
+waiting — a hung emacsclient blocks the whole daemon, so a loud error is
+always the better failure and tells us what to fix here.
+
+Bound only for the dynamic extent of an agent call: interactive Emacs
+keeps its prompts."
   (declare (indent 0) (debug t))
   `(cl-letf (((symbol-function 'ask-user-about-supersession-threat)
               #'bergheim/agent--ask-supersession)
              ((symbol-function 'ask-user-about-lock)
               (lambda (&rest _) t)))
-     ,@body))
+     (let ((inhibit-interaction t)
+           (vc-follow-symlinks t)
+           (create-lockfiles nil)
+           (large-file-warning-threshold nil)
+           (find-file-suppress-same-file-warnings t))
+       ,@body)))
 
 (defmacro bergheim/agent-org--with-file (file &rest body)
   "Visit FILE safely for an agent edit. If FILE is already open in an Emacs
@@ -109,7 +122,7 @@ modified the buffer. Errors on concurrent external modification before save."
   (declare (indent 1) (debug t))
   (let ((path (make-symbol "path"))
         (existing (make-symbol "existing")))
-    `(bergheim/agent--without-file-prompts
+    `(bergheim/agent--noninteractive
        (let* ((,path ,file)
               (,existing (get-file-buffer ,path)))
          (when (and ,existing (buffer-modified-p ,existing))
@@ -740,28 +753,24 @@ Safe for emacsclient --eval."
 (defmacro bergheim/agent-org--with-quiet-buffer (abs-file &rest body)
   "Visit ABS-FILE and run BODY without interactive prompts.
 
-Suppresses the \"File is read-only on disk; make buffer read-only too?\"
-prompt from `find-file-noselect-1', plus any other y/n or yes/no prompts
-that would block an autonomous call. Also replaces the supersession
-`read-event' prompt (not a y-or-n-p) so a stale visiting buffer cannot
-hold the emacsclient socket.
+NOWARN drops the read-only, large-file and reread questions
+`find-file-noselect' would otherwise ask; `--noninteractive' turns
+anything else into an error rather than a stalled socket.
 
 Also reverts the buffer from disk when safe (unmodified + stale modtime):
 if the host daemon already had this org file open from an earlier session,
 selection must reflect edits made outside Emacs (git checkout, other
-tooling) and marks must not save stale contents back over newer work."
+tooling) and marks must not save stale contents back over newer work.
+A stale buffer carrying unsaved edits errors instead."
   (declare (indent 1))
-  `(bergheim/agent--without-file-prompts
-     (cl-letf (((symbol-function 'y-or-n-p) #'ignore)
-               ((symbol-function 'yes-or-no-p) #'ignore))
-       (let ((inhibit-message t)
-             (find-file-suppress-same-file-warnings t))
-         (with-current-buffer (find-file-noselect ,abs-file)
-           (when (and (not (buffer-modified-p))
-                      (not (verify-visited-file-modtime)))
-             (revert-buffer t t t))
-           (let ((inhibit-read-only t))
-             ,@body))))))
+  `(bergheim/agent--noninteractive
+     (let ((inhibit-message t))
+       (with-current-buffer (find-file-noselect ,abs-file t)
+         (when (and (not (buffer-modified-p))
+                    (not (verify-visited-file-modtime)))
+           (revert-buffer t t t))
+         (let ((inhibit-read-only t))
+           ,@body)))))
 
 (defconst bergheim/agent-org--drawer-regexp
   "^[[:space:]]*:[A-Za-z][A-Za-z_-]*:[[:space:]]*\n\\(?:.\\|\n\\)*?^[[:space:]]*:END:[[:space:]]*$"
