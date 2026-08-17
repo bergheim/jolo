@@ -194,6 +194,10 @@ Environment and tooling expectations:
   interactive Emacs commands.
 - Host Emacs config lives at `~/.config/emacs`; `.devcontainer/.emacs-config/`
   is only a container copy.
+- Agent homes (`~/.pi`, `~/.grok`) are host-owned and live-bound into every
+  container, so one login covers all projects; only per-project state
+  (sessions, worktrees) is shadowed on top. codex and gemini still use the
+  older copy-in-at-create pattern and have not been migrated.
 
 ## Verification
 
