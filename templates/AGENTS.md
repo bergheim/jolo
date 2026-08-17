@@ -67,8 +67,10 @@ catalogs live in `docs/agent-ops.md`.
 - Use `WAITING` for a person and `BLOCKED` for a system.
 
 Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
-keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
-returns a plist. Re-read every path in `:wrote` before any later edit.
+keywords. Include `$(agent-meta --elisp)` as the AGENT/SESSION-ID args so the
+transition is attributed; never hand-type a model name. Every
+`bergheim/agent-org-*` and `bergheim/agent-denote-*` helper returns a plist.
+Re-read every path in `:wrote` before any later edit.
 
 `:autonomous:` TODOs may only be tagged after per-item user agreement. Tag only
 when all criteria hold:

@@ -1,0 +1,54 @@
+#!/bin/sh
+# agent-meta — emit the calling agent's identity: "tool/model (effort)" plus
+# the vendor session id.
+#
+# The org helpers record who worked a TODO (LOGBOOK session lines,
+# :LAST_AGENT:), but the Emacs daemon cannot see the calling agent's process
+# environment — so the caller resolves its own identity here and passes it
+# along. Never hand-type a model name; substitute this script's output.
+#
+# Usage:
+#   agent-meta          — two lines: AGENT then SESSION (empty when unknown)
+#   agent-meta --elisp  — splice form for emacsclient: "AGENT" "SESSION"
+#                         (session becomes nil when unknown), e.g.
+#     emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \
+#       \"Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
+#
+# Environment:
+#   AGENT_META_NAME / AGENT_META_SESSION — explicit override for harnesses
+#   without built-in detection (codex, pi, ...). Wins over detection.
+
+set -eu
+
+agent="" session=""
+
+if [ -n "${AGENT_META_NAME:-}" ]; then
+    agent=$AGENT_META_NAME
+    session=${AGENT_META_SESSION:-}
+elif [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    session=$CLAUDE_CODE_SESSION_ID
+    model=""
+    # The model id is only recorded in the session transcript; the project
+    # dir segment is unknown here, so glob. Newest "model" field wins.
+    for f in "$HOME"/.claude/projects/*/"$session".jsonl; do
+        [ -f "$f" ] || continue
+        model=$(tail -c 100000 "$f" | grep -o '"model": *"[^"]*"' | tail -1 |
+            cut -d'"' -f4) || true
+    done
+    agent="claude/${model:-unknown}${CLAUDE_EFFORT:+ ($CLAUDE_EFFORT)}"
+else
+    agent="unknown"
+fi
+
+case "${1:-}" in
+--elisp)
+    if [ -n "$session" ]; then
+        printf '"%s" "%s"\n' "$agent" "$session"
+    else
+        printf '"%s" nil\n' "$agent"
+    fi
+    ;;
+*)
+    printf '%s\n%s\n' "$agent" "$session"
+    ;;
+esac

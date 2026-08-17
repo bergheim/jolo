@@ -15,8 +15,8 @@ Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`.
 
 Public arglists:
 
-- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
-- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE AGENT SESSION-ID`
+- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE AGENT SESSION-ID`
 - `bergheim/agent-org-ensure-id FILE HEADING-RE`
 - `bergheim/agent-org-add-note FILE HEADING-RE NOTE`
 - `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
@@ -48,10 +48,20 @@ Transition by ID:
 emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
 ```
 
-Track time on transition:
+Record who is working (state transitions clock automatically; `agent-meta`
+resolves the calling agent's model/effort and vendor session id — never
+hand-type them). AGENT lands as a LOGBOOK session line plus `:LAST_AGENT:`:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
+emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
+```
+
+Backfill metadata on a legacy TODO file (idempotent; derives `:CREATED:`
+from git history, `:ID:` timestamps, then the stash worklog, else stamps
+the 1970 epoch marker meaning unknown; strips obsolete `:SESSION_ID:`):
+
+```bash
+org-backfill docs/TODO.org
 ```
 
 Remove the `autonomous` tag:

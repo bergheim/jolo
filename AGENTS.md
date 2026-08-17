@@ -129,10 +129,12 @@ when all criteria hold:
 Add/remove the tag only with `bergheim/agent-org-add-tag` /
 `bergheim/agent-org-remove-tag`.
 
-Daily org forms (full state list and remove-tag in `docs/agent-ops.md`):
+Daily org forms (full state list and remove-tag in `docs/agent-ops.md`).
+`$(agent-meta --elisp)` resolves your model/effort and session id so the
+transition is attributed in the LOGBOOK — always include it on set-state:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS")'
+emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
 emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
 emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
