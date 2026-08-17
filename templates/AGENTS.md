@@ -63,6 +63,9 @@ catalogs live in `docs/agent-ops.md`.
 `docs/TODO.org` is the source of truth.
 
 - Before starting work, check for an existing TODO.
+- Ad-hoc work with no heading still needs a paper trail: `agent-org-add-todo`
+  when you start, `DONE` when you land. That feeds the worklog. Untracked
+  landings leave no trace.
 - When starting a tracked task, mark it `INPROGRESS` with the org helper.
 - Mark completed work `DONE` immediately, not at session end.
 - Mark obsolete work `CANCELLED` with a reason.
@@ -113,11 +116,21 @@ Helper examples are in `docs/agent-ops.md`.
 | Run tests | `just test` |
 | Watch tests | `just test-watch` |
 | Add dependency | `just add NAME` |
-| Manage worktrees | `just wt` |
+| Manage worktrees | `just wt` (`help`, `new`, `sync`, `land --rm`) |
 | Run performance probe | `just perf` |
 
 ## Git
 
+**`just wt` is the worktree CLI — faster and safer than hand-rolling.** It
+already implements every rule in this section. Do not re-derive it from
+`/usr/local/bin/wt`; `just wt help` is the menu.
+
+- Start: `just wt new <name>`. Keep current: `just wt sync`.
+- Finish: **`just wt land <name> --rm`** from the main tree (the branch you
+  want to merge into, usually `main`). Rebases, fast-forwards one commit or
+  `--no-ff` merges several, pushes if a remote exists, then removes
+  worktree, branch, and tmux window. Merging plus `wt delete` by hand is
+  that same path, slower and less safe.
 - Default workflow: create a feature branch, commit meaningful progress, and
   push if a remote exists unless the user says not to.
 - Branch names: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
@@ -125,7 +138,11 @@ Helper examples are in `docs/agent-ops.md`.
 - Keep history rebased and linear.
 - Merge feature branches into `main`, not into each other.
 - Use merge commits for multi-commit branches; fast-forward single-commit
-  branches.
+  branches. `wt land` picks the right one by commit count.
+- After a merge, the branch and its worktree must go — a leftover merged
+  branch is read as unfinished work. `wt land --rm` does this; `just wt
+  delete <name>` is only for abandoning unmerged work. Confirm
+  `git rev-list --count main..<branch>` is 0 first, or ask.
 - Never use `git reset --hard`, `git checkout --`, or `git commit --no-verify`
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
@@ -184,6 +201,7 @@ on PATH. Use them directly:
 
 Read `docs/agent-ops.md` only when needed for:
 
+- Worktree catalog (`just wt help`; do not reverse-engineer `/usr/local/bin/wt`).
 - Exact org/denote `emacsclient` forms.
 - Browser-check and Playwright command catalogs.
 - Port, notify, share, asset fetching, image, perf, and podman operations.
