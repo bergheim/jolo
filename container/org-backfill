@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""org-backfill — one-time metadata backfill for org TODO files.
+
+Stamps :CREATED: on every entry carrying a TODO keyword, derived from, in
+order: the first git commit that introduced the heading title, the :ID:
+timestamp, the earliest stash-worklog mention of the heading, else the
+1970 epoch marker meaning "unknown". Entries without an :ID: get one in
+the same shape agent-org-add-todo generates. Also deletes obsolete
+:SESSION_ID: lines. Idempotent — run once per repo, commit the result,
+and let the validating test keep new entries honest.
+
+Usage: org-backfill [--worklog PATH] [FILE ...]   (default: docs/TODO.org)
+"""
+
+import re
+import secrets
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+DEFAULT_KEYWORDS = {
+    "TODO",
+    "PROJ",
+    "INPROGRESS",
+    "NEXT",
+    "WAITING",
+    "BLOCKED",
+    "SOMEDAY",
+    "DONE",
+    "CANCELLED",
+    "OBSOLETE",
+    "BUG",
+    "FIXED",
+    "IGNORED",
+}
+
+EPOCH = datetime(1970, 1, 1)
+HEADING_RE = re.compile(r"^(\*+)\s+([A-Z]+)(\s+|$)")
+ID_TS_RE = re.compile(r":ID:\s+(\d{8}T\d{6})")
+
+
+def org_stamp(dt: datetime) -> str:
+    return dt.strftime("[%Y-%m-%d %a %H:%M]")
+
+
+def file_keywords(lines: list[str]) -> set[str]:
+    keywords = set(DEFAULT_KEYWORDS)
+    for line in lines:
+        m = re.match(r"^#\+(?:SEQ_)?TODO:\s+(.*)", line)
+        if m:
+            for word in m.group(1).split():
+                word = re.sub(r"\(.*?\)$", "", word)
+                if word and word != "|":
+                    keywords.add(word)
+    return keywords
+
+
+def heading_title(line: str) -> str:
+    title = HEADING_RE.sub("", line).strip()
+    return re.sub(r"\s+:[\w:@#%]+:\s*$", "", title).strip()
+
+
+def git_first_commit_dt(path: Path, title: str) -> datetime | None:
+    if not title:
+        return None
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(path.parent),
+            "log",
+            "--reverse",
+            "--format=%at",
+            "-S",
+            title,
+            "--",
+            path.name,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    epochs = result.stdout.split()
+    if result.returncode != 0 or not epochs:
+        return None
+    return datetime.fromtimestamp(int(epochs[0]), tz=timezone.utc)
+
+
+def id_dt(entry: list[str]) -> datetime | None:
+    for line in entry:
+        m = ID_TS_RE.search(line)
+        if m:
+            return datetime.strptime(m.group(1), "%Y%m%dT%H%M%S")
+    return None
+
+
+def default_worklog() -> Path | None:
+    for candidate in (
+        Path("/workspaces/stash/worklog.org"),
+        Path.home() / "stash" / "worklog.org",
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def project_name(path: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return Path(result.stdout.strip()).name
+    parent = path.resolve().parent
+    return parent.parent.name if parent.name == "docs" else parent.name
+
+
+WORKLOG_HEADING_RE = re.compile(
+    r"^\* \[([0-9]{4}-[0-9]{2}-[0-9]{2} [A-Za-z]+ [0-9]{2}:[0-9]{2})\] "
+    r"\[([^]]+)\] \S+\s+(.+?)\s*$"
+)
+
+
+def worklog_earliest(worklog: Path | None) -> dict[tuple[str, str], datetime]:
+    earliest: dict[tuple[str, str], datetime] = {}
+    if worklog is None or not worklog.is_file():
+        return earliest
+    for line in worklog.read_text().splitlines():
+        m = WORKLOG_HEADING_RE.match(line)
+        if not m:
+            continue
+        dt = datetime.strptime(m.group(1), "%Y-%m-%d %a %H:%M")
+        key = (m.group(2), m.group(3))
+        if key not in earliest or dt < earliest[key]:
+            earliest[key] = dt
+    return earliest
+
+
+def entry_bounds(lines: list[str], start: int) -> int:
+    for i in range(start + 1, len(lines)):
+        if lines[i].startswith("*"):
+            return i
+    return len(lines)
+
+
+def backfill(
+    path: Path, worklog_dates: dict[tuple[str, str], datetime]
+) -> bool:
+    lines = path.read_text().splitlines(keepends=True)
+    before = "".join(lines)
+    lines = [ln for ln in lines if not re.match(r"^\s*:SESSION_ID:", ln)]
+    keywords = file_keywords(lines)
+    project = project_name(path)
+
+    i = 0
+    while i < len(lines):
+        m = HEADING_RE.match(lines[i])
+        if not m or m.group(2) not in keywords:
+            i += 1
+            continue
+        end = entry_bounds(lines, i)
+        entry = lines[i:end]
+        has_created = any(re.match(r"^\s*:CREATED:", ln) for ln in entry)
+        has_id = any(re.match(r"^\s*:ID:", ln) for ln in entry)
+        if has_created and has_id:
+            i = end
+            continue
+        title = heading_title(lines[i])
+        dt = (
+            git_first_commit_dt(path.resolve(), title)
+            or id_dt(entry)
+            or worklog_dates.get((project, title))
+            or EPOCH
+        )
+        additions = []
+        if not has_id:
+            additions.append(
+                f":ID: {dt.strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(3)}\n"
+            )
+        if not has_created:
+            additions.append(f":CREATED:  {org_stamp(dt)}\n")
+        drawer_end = next(
+            (
+                j
+                for j in range(i + 1, end)
+                if re.match(r"^\s*:END:", lines[j])
+                and any(
+                    re.match(r"^\s*:PROPERTIES:", ln)
+                    for ln in lines[i + 1 : j]
+                )
+            ),
+            None,
+        )
+        if drawer_end is not None:
+            lines[drawer_end:drawer_end] = additions
+        else:
+            # New drawer goes after the heading and any planning line.
+            at = i + 1
+            while at < end and re.match(
+                r"^\s*(SCHEDULED:|DEADLINE:|CLOSED:)", lines[at]
+            ):
+                at += 1
+            lines[at:at] = [":PROPERTIES:\n", *additions, ":END:\n"]
+        i = end
+
+    after = "".join(lines)
+    if after != before:
+        path.write_text(after)
+        return True
+    return False
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    worklog = default_worklog()
+    if args and args[0] == "--worklog":
+        worklog = Path(args[1])
+        args = args[2:]
+    targets = [Path(a) for a in args] or [Path("docs/TODO.org")]
+    worklog_dates = worklog_earliest(worklog)
+    for target in targets:
+        if not target.is_file():
+            print(f"org-backfill: no such file: {target}", file=sys.stderr)
+            return 1
+        changed = backfill(target, worklog_dates)
+        print(f"{target}: {'updated' if changed else 'already complete'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

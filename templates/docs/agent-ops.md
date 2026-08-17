@@ -13,8 +13,8 @@ emacsclient -e '(apropos-internal "^bergheim/agent-")'
 
 Public arglists:
 
-- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
-- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE ENSURE-SESSION-ID CLOCK`
+- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE AGENT SESSION-ID`
+- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE AGENT SESSION-ID`
 - `bergheim/agent-org-ensure-id FILE HEADING-RE`
 - `bergheim/agent-org-add-note FILE HEADING-RE NOTE`
 - `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
@@ -33,7 +33,7 @@ emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text
 emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
 emacsclient -e '(bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading")'
 emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading" "INPROGRESS" nil t t)'
+emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
 emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
