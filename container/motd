@@ -58,3 +58,10 @@ elif [ -z "$LITELLM_VIRTUAL_KEY" ]; then
     gum style --foreground 3 \
         "⚠ LITELLM_VIRTUAL_KEY unset — no gateway key minted (gateway down at create?); recreate once reachable"
 fi
+
+# Grok Build auth lives in the host-shared ~/.grok, so one device-code login
+# covers every container. Absent means grok falls back to XAI_API_KEY or nothing.
+if [ ! -f "$HOME/.grok/auth.json" ] && [ -z "$XAI_API_KEY" ]; then
+    gum style --foreground 3 \
+        "⚠ grok not signed in — run 'grok login --device-auth' once; it persists to the host for every project"
+fi

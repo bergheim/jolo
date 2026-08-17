@@ -250,6 +250,19 @@ RUN manifest="$(curl -fsSL https://antigravity-cli-auto-updater-974169037036.us-
     rm -f /tmp/agy.tar.gz /tmp/antigravity && \
     agy --version
 
+# Grok Build (grok): xAI's official coding agent. Unlike agy this is a
+# static-pie binary, so it runs on musl with no glibc layer. The upstream
+# installer is avoided on purpose: it parks the binary in ~/.grok/downloads and
+# only symlinks into PATH, and ~/.grok is bind-mounted from the host at runtime,
+# which would leave a dangling link. Resolve the stable channel pointer instead
+# and fetch the artifact directly. No checksum is published upstream, so unlike
+# agy there is nothing to verify against. Final 'grok --version' gates a
+# working install.
+RUN v="$(curl -fsSL https://x.ai/cli/stable)" && \
+    curl -fsSL -o $HOME/.local/bin/grok "https://x.ai/cli/grok-${v}-linux-x86_64" && \
+    chmod +x $HOME/.local/bin/grok && \
+    grok --version
+
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
 RUN git config --global init.defaultBranch main
 RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
@@ -257,7 +270,7 @@ RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
     cd / && rm -rf /tmp/pre-commit-repo /tmp/pre-commit-hooks.yaml
 
 # Config (changes often — keep on its own layer)
-RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.pi && \
+RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.pi $HOME/.grok && \
     mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \

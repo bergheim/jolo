@@ -350,6 +350,28 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertEqual(config["postStartCommand"], "scripts/pg-init")
 
+    def test_grok_config_shared_sessions_and_worktrees_per_project(self):
+        """One host ~/.grok for auth and config; sessions and worktrees are
+        shadowed per project so worktree bulk never leaks across projects."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        mounts = json.loads(result)["mounts"]
+        grok = [m for m in mounts if ".grok" in m]
+        self.assertEqual(len(grok), 3)
+
+        shared = [m for m in grok if m.endswith("/.grok,type=bind")]
+        self.assertEqual(len(shared), 1)
+        self.assertIn("source=${localEnv:HOME}/.grok,", shared[0])
+
+        for nested in ("sessions", "worktrees"):
+            entry = next(
+                m for m in grok if m.endswith(f"/.grok/{nested},type=bind")
+            )
+            self.assertIn(
+                f"localWorkspaceFolder}}/.devcontainer/.grok-{nested}", entry
+            )
+
     def test_skills_mounted_from_jolo_checkout(self):
         """Skills have one source of truth: the checkout's templates/skills,
         bind-mounted into every container. No per-project copies."""

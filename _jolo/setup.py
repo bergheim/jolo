@@ -418,6 +418,15 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         parents=True, exist_ok=True
     )
 
+    # grok follows the same rule as pi: shared host config, per-project sessions
+    # and worktrees nested over it. Same both-ends-must-exist constraint.
+    grok_home = home / ".grok"
+    for nested in ("sessions", "worktrees"):
+        (grok_home / nested).mkdir(parents=True, exist_ok=True)
+        (workspace_dir / ".devcontainer" / f".grok-{nested}").mkdir(
+            parents=True, exist_ok=True
+        )
+
     _write_pi_project_settings(workspace_dir)
 
 

@@ -36,12 +36,17 @@ DEFAULT_CONFIG = {
     "pass_path_anthropic": "api/llm/anthropic",
     "pass_path_openai": "api/llm/openai",
     "pass_path_gemini": ["api/llm/gemini", "api/llm/google"],
-    "agents": ["claude", "gemini", "codex", "pi"],
+    # pi leads: it is a meta harness that can delegate to the others.
+    "agents": ["pi", "claude", "codex", "grok", "gemini"],
     "agent_commands": {
         "claude": "env -u ANTHROPIC_API_KEY claude --dangerously-skip-permissions",
         "gemini": "gemini --yolo --no-sandbox",
         "codex": "codex --dangerously-bypass-approvals-and-sandbox",
         "pi": "env -u ANTHROPIC_API_KEY pi --append-system-prompt @$HOME/.pi/agent/delegation.md",
+        # --no-auto-update per launch, not via config.toml: that file is the
+        # host's and shared, and the host may want auto-update. The image owns
+        # the binary version here.
+        "grok": "grok --always-approve --no-auto-update",
     },
     # LiteLLM control-plane gateway base URL. Default empty; load_config()
     # populates it from the host env LITELLM_HOST (e.g. http://<tailnet-host>:8088),
@@ -228,6 +233,14 @@ BASE_MOUNTS = [
     # per-project spend attribution.
     "source=${localEnv:HOME}/.pi,target=/home/${localEnv:USER}/.pi,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.pi-sessions,target=/home/${localEnv:USER}/.pi/agent/sessions,type=bind",
+    # grok (Grok Build): same rule as pi — one host config shared everywhere, so
+    # the xAI login and config.toml are live in every container. Sessions are
+    # per-project like pi's. Worktrees too, and for a second reason: `grok du`
+    # measures session worktrees in hundreds of GB, and they are keyed by cwd,
+    # so sharing them across projects would be a disk disaster.
+    "source=${localEnv:HOME}/.grok,target=/home/${localEnv:USER}/.grok,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.grok-sessions,target=/home/${localEnv:USER}/.grok/sessions,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.grok-worktrees,target=/home/${localEnv:USER}/.grok/worktrees,type=bind",
     "source=${localEnv:HOME}/.zshrc,target=/home/${localEnv:USER}/.zshrc,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
