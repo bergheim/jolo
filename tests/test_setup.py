@@ -2342,6 +2342,19 @@ class TestPiSharedConfig(unittest.TestCase):
 
         self.assertTrue((ws / ".devcontainer" / ".pi-sessions").is_dir())
 
+    def test_creates_grok_nested_mount_endpoints(self):
+        """Both ends of grok's nested mounts must exist, host side included."""
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+
+        ws = self._run("project", home)
+
+        for nested in ("sessions", "worktrees"):
+            self.assertTrue((home / ".grok" / nested).is_dir())
+            self.assertTrue(
+                (ws / ".devcontainer" / f".grok-{nested}").is_dir()
+            )
+
 
 class TestLitellmGatewayReachable(unittest.TestCase):
     """litellm_gateway_reachable degrades gracefully on any network error."""

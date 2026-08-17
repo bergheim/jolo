@@ -6,5 +6,6 @@ windows:
   - codex: codex
   - agy: agy
   - pi: pi
+  - grok: grok --no-auto-update
   - dev: just dev
   - shell:
