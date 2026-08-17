@@ -5,6 +5,12 @@
 (require 'org)
 (require 'org-id)
 
+;; Declared special so the let-bindings below stay dynamic even when this
+;; file is byte- or native-compiled before autorevert/super-save/denote load.
+(defvar auto-revert-mode)
+(defvar super-save-mode)
+(defvar denote-directory)
+
 ;;; Notes auto-commit
 ;;
 ;; Public-notes mode: when a helper edits a file under a `docs/' directory
@@ -284,6 +290,10 @@ last-writer-wins `:LAST_AGENT:' property; full history stays in LOGBOOK."
 AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
+  (when (and agent (not (stringp agent)))
+    (error "AGENT must be a string, got %S — the old ENSURE-SESSION-ID/CLOCK args are gone" agent))
+  (when (and session-id (not (stringp session-id)))
+    (error "SESSION-ID must be a string, got %S" session-id))
   (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
         (org-log-into-drawer "LOGBOOK"))
     (org-todo new-state)
