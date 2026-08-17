@@ -3,7 +3,6 @@
 (require 'cl-lib)
 (require 'json)
 (require 'org)
-(require 'org-clock)
 (require 'org-id)
 
 ;;; Notes auto-commit
@@ -262,34 +261,27 @@ last-writer-wins `:LAST_AGENT:' property; full history stays in LOGBOOK."
               (if session-id (concat " " session-id) "")
               " " (format-time-string "[%Y-%m-%d %a %H:%M]") "\n"))))
 
-(defun bergheim/agent-org--clock-in ()
-  "Clock in on the heading at point, non-interactively."
-  (let ((org-clock-in-resume nil)
-        (org-clock-persist nil))
-    (when (org-clocking-p)
-      (ignore-errors (org-clock-out nil t)))
-    (ignore-errors (org-clock-in))))
-
-(defun bergheim/agent-org--clocking-current-heading-p ()
-  "Non-nil when the active org clock is on the heading at point."
-  (and (org-clocking-p)
-       (markerp org-clock-hd-marker)
-       (marker-buffer org-clock-hd-marker)
-       (eq (current-buffer) (marker-buffer org-clock-hd-marker))
-       (save-excursion
-         (org-back-to-heading t)
-         (= (point) (marker-position org-clock-hd-marker)))))
-
-(defun bergheim/agent-org--clock-out ()
-  "Clock out only if the active clock is on the heading at point.
-Leaves clocks running on other headings alone."
-  (when (bergheim/agent-org--clocking-current-heading-p)
-    (ignore-errors (org-clock-out nil t))))
+;;; Durations
+;;
+;; Agents do not clock. `org-clock' keeps one marker per Emacs process, and
+;; every agent in a container shares one daemon, so clocking in on B first
+;; clocks out of A — writing A's closing timestamp into A's buffer, outside
+;; the `--with-file' that owns it. That buffer is then modified-but-unsaved
+;; and every later helper call on A fails with "buffer has unsaved changes".
+;; Not a race: emacsclient is single-threaded, so it reproduces every time.
+;; It is a side effect on a file the call never opened.
+;;
+;; The intervals survive anyway. `org-todo' logs a timestamped state line for
+;; every transition (INPROGRESS carries `!' in the host keyword set), so a
+;; heading's spans are last INPROGRESS -> next other state, and the same pairs
+;; land in the stash worklog for cross-project sums. Compute when asked; a
+;; heading abandoned at INPROGRESS then reads as open since T rather than
+;; being billed the whole gap, which is what writing a closing CLOCK line at
+;; exit time would do.
 
 (defun bergheim/agent-org--apply-state (new-state note agent session-id)
   "At point-on-heading, apply NEW-STATE. Optionally attach NOTE and, when
-AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'. Always clocks
-in on INPROGRESS and out on every other state.
+AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
   (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
@@ -299,13 +291,6 @@ Returns the prior state (string or nil), so callers can log transitions."
       (unless (equal actual-state new-state)
         (error "State change blocked: %s -> %s (got %s)"
                old-state new-state actual-state))
-      ;; Inverse rule, not a list: any state that is not INPROGRESS stops the
-      ;; clock. A list goes stale — the old one named BLOCKED, which no keyword
-      ;; set defines, and missed WAITING, so a task parked for the user kept
-      ;; accruing time until something else clocked in.
-      (if (equal new-state "INPROGRESS")
-          (bergheim/agent-org--clock-in)
-        (bergheim/agent-org--clock-out))
       (when agent
         (bergheim/agent-org--log-session-line agent session-id))
       ;; If a NOTE was requested but org-todo's state-change config did not
@@ -340,7 +325,6 @@ SIGNED-TAGS is a list like (\"+autonomous\" \"-blocked\")."
                                           &optional note agent session-id)
   "Transition the UNIQUE TODO matching HEADING-RE in FILE to NEW-STATE.
 Errors if HEADING-RE matches zero or multiple headings.
-Always clocks in on INPROGRESS and out on every other state.
 
 Optional args:
 - NOTE: attach a state-transition log note

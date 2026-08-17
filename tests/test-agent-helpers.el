@@ -13,13 +13,19 @@
 (require 'json)
 
 (defvar test-agent-helpers--keyword-header
-  "#+TODO: TODO(t) PROJ(p) NEXT(n) INPROGRESS(i) WAITING(w) SOMEDAY(s) | DONE(d) CANCELLED(c) OBSOLETE(o)\n\n"
+  "#+TODO: TODO(t) PROJ(p) NEXT(n) INPROGRESS(i!) WAITING(w) SOMEDAY(s) | DONE(d!) CANCELLED(c) OBSOLETE(o)\n\n"
   "TODO keyword declaration used by test fixtures.
 
 Mirrors the keyword set the host Emacs config defines, so a state that does
 not exist in real projects cannot pass here. It previously declared
 BLOCKED(b), which made a state agents were told to use look supported while
-every real call failed.")
+every real call failed.
+
+INPROGRESS and DONE keep a logging flag because durations are read from the
+logged state lines and need both endpoints. Production uses `DONE(d@)', which
+timestamps too; the fixture uses `!' to avoid the note machinery. A keyword
+with no flag at all (`TODO(t)', `PROJ(p)') logs nothing, so an INPROGRESS ->
+TODO transition leaves a span with no end — absent, not wrong.")
 
 ;; Tests must never append to the real stash worklog by default. Worklog-specific
 ;; coverage binds this to a temp directory with `test-agent-helpers--with-worklog'.
@@ -27,8 +33,7 @@ every real call failed.")
 
 (defmacro test-agent-helpers--with-file (body-string &rest body)
   "Create a temp org file containing BODY-STRING (prefixed with the keyword
-header), bind its path to `test-file', clock out any running clock, and
-kill the buffer afterward."
+header), bind its path to `test-file', and kill the buffer afterward."
   (declare (indent 1))
   `(let* ((test-file (make-temp-file "agent-helpers-test-" nil ".org"))
           (inhibit-message t))
@@ -38,11 +43,6 @@ kill the buffer afterward."
              (insert test-agent-helpers--keyword-header)
              (insert ,body-string))
            ,@body)
-       ;; Clock-in/out tests may leave an active clock — close it so the
-       ;; buffer-kill below does not trigger org's "Save clock?" machinery
-       ;; which prompts on stdin and errors out in batch mode.
-       (when (and (fboundp 'org-clocking-p) (org-clocking-p))
-         (ignore-errors (org-clock-out nil t)))
        (dolist (buf (buffer-list))
          (when (and (buffer-file-name buf)
                     (string= (file-truename (buffer-file-name buf))
@@ -366,27 +366,30 @@ no keyword set defined it."
                             (test-agent-helpers--contents test-file)))))
 
 ;; ----------------------------------------------------------------------------
-;; New: clock integration
+;; Durations: state lines, not clocks
 ;; ----------------------------------------------------------------------------
 
-(ert-deftest agent-helpers/clock-in-on-inprogress ()
-  "`set-state' always starts an org-clock when transitioning to INPROGRESS."
-  (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
-    (let ((contents (test-agent-helpers--contents test-file)))
-      (should (string-match-p "^\\* INPROGRESS Foo" contents))
-      (should (string-match-p ":LOGBOOK:" contents))
-      (should (string-match-p "CLOCK:" contents)))))
-
-(ert-deftest agent-helpers/clock-out-on-done ()
-  "`set-state' always closes an open clock when transitioning to DONE."
+(ert-deftest agent-helpers/no-clock-lines-written ()
+  "Agents must not clock. org-clock has one marker per Emacs process, so
+clocking in on one heading clocks out of another agent's file, outside the
+`--with-file' that owns it, leaving that buffer unsaved and every later
+helper call on it failing. org-clock is not even loaded any more."
   (test-agent-helpers--with-file "* TODO Foo\n"
     (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
     (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE")
     (let ((contents (test-agent-helpers--contents test-file)))
       (should (string-match-p "^\\* DONE Foo" contents))
-      ;; A closed clock line has the form `CLOCK: [...]--[...] => H:MM'.
-      (should (string-match-p "CLOCK:.*=>" contents)))))
+      (should-not (string-match-p "CLOCK:" contents)))))
+
+(ert-deftest agent-helpers/state-lines-carry-the-interval ()
+  "The span is recoverable without clocks: INPROGRESS and its exit are both
+timestamped in the LOGBOOK, which is what duration reporting reads."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
+    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE")
+    (let ((contents (test-agent-helpers--contents test-file)))
+      (should (string-match-p "State \"INPROGRESS\".*\\[.+\\]" contents))
+      (should (string-match-p "State \"DONE\".*\\[.+\\]" contents)))))
 
 ;; ----------------------------------------------------------------------------
 ;; Review feedback: no silent clobber of unsaved edits in an open buffer
@@ -421,9 +424,10 @@ does not request a log-note through the user's org-log configuration."
   (let ((org-log-done nil)
         (org-todo-log-states nil))
     (test-agent-helpers--with-file "* TODO Foo\n"
-      (bergheim/agent-org-set-state test-file "TODO Foo" "DONE" "Because reasons")
+      ;; CANCELLED carries no logging flag, so org itself requests nothing.
+      (bergheim/agent-org-set-state test-file "TODO Foo" "CANCELLED" "Because reasons")
       (let ((contents (test-agent-helpers--contents test-file)))
-        (should (string-match-p "^\\* DONE Foo" contents))
+        (should (string-match-p "^\\* CANCELLED Foo" contents))
         (should (string-match-p ":LOGBOOK:" contents))
         (should (string-match-p "Because reasons" contents))))))
 
@@ -439,25 +443,6 @@ The helper matches heading lines only."
     (bergheim/agent-org-set-state test-file "TODO Foo" "DONE")
     (should (string-match-p "^\\* DONE Foo"
                             (test-agent-helpers--contents test-file)))))
-
-;; ----------------------------------------------------------------------------
-;; Review feedback: clock-out must target this heading, not any active clock
-;; ----------------------------------------------------------------------------
-
-(ert-deftest agent-helpers/clock-out-leaves-clock-on-other-heading-alone ()
-  "Transitioning heading A to DONE must not stop a clock running on heading B."
-  (test-agent-helpers--with-file
-      "* TODO Foo\n* TODO Bar\n"
-    ;; Start a clock on Foo.
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
-    ;; Transition Bar to DONE. Foo's clock should survive.
-    (bergheim/agent-org-set-state test-file "TODO Bar" "DONE")
-    (should (org-clocking-p))
-    ;; The clock line on Foo must still be open (no `=>' duration yet).
-    (let ((contents (test-agent-helpers--contents test-file)))
-      (should (string-match-p
-               "\\* INPROGRESS Foo\\(.\\|\n\\)*CLOCK: \\[[^]]+\\]\\s-*$"
-               contents)))))
 
 ;;; Notes auto-commit (public-notes mode)
 
