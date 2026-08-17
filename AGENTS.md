@@ -156,6 +156,10 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
   `git worktree list`.
+- Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`. Do not use
+  harness-native worktrees (`grok --worktree`, grok `/fork`, `claude
+  --worktree`, EnterWorktree): they land under `~/.grok` or
+  `.claude/worktrees` and magit cannot switch to them.
 
 ## Commands
 

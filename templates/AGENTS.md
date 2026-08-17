@@ -130,6 +130,10 @@ Helper examples are in `docs/agent-ops.md`.
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
   `git worktree list`.
+- Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`. Do not use
+  harness-native worktrees (`grok --worktree`, grok `/fork`, `claude
+  --worktree`, EnterWorktree): they land under `~/.grok` or
+  `.claude/worktrees` and magit cannot switch to them.
 
 ## Code Quality
 

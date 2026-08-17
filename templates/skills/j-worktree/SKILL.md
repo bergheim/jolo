@@ -8,7 +8,9 @@ disable-model-invocation: true
 
 When the user asks to use / create / spin up a worktree, run the in-container
 `wt` manager — it makes the git worktree AND a tmux window in one step. Do NOT
-hand-roll `git worktree add` or `tmux new-window`.
+hand-roll `git worktree add` or `tmux new-window`. Do NOT use `grok --worktree`,
+grok `/fork` isolation, `claude --worktree`, or EnterWorktree — those are not
+linked worktrees under `.worktrees/` and magit cannot switch to them.
 
 The launched `claude` starts CLEAN, but it is a full checkout: it auto-loads
 `AGENTS.md`/`CLAUDE.md` and SessionStart hooks, and has `docs/TODO.org`,

@@ -2355,6 +2355,24 @@ class TestPiSharedConfig(unittest.TestCase):
                 (ws / ".devcontainer" / f".grok-{nested}").is_dir()
             )
 
+    def test_disables_grok_native_worktree_hints(self):
+        """/fork and /new must not spawn ~/.grok clones; just wt owns worktrees."""
+        home = Path(self.tmpdir) / "home"
+        (home / ".pi" / "agent").mkdir(parents=True)
+        grok_config = home / ".grok" / "config.toml"
+        grok_config.parent.mkdir(parents=True)
+        grok_config.write_text(
+            '[ui]\nyolo = true\n\n[hints]\nfork_worktree_mode = "ask"\n'
+        )
+
+        self._run("project", home)
+
+        text = grok_config.read_text()
+        self.assertIn('fork_worktree_mode = "never"', text)
+        self.assertIn('new_session_worktree_mode = "never"', text)
+        self.assertIn("yolo = true", text)
+        self.assertNotIn('fork_worktree_mode = "ask"', text)
+
 
 class TestLitellmGatewayReachable(unittest.TestCase):
     """litellm_gateway_reachable degrades gracefully on any network error."""
