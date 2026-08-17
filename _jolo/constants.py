@@ -217,7 +217,8 @@ PRECOMMIT_HOOKS = {
 # Base mounts that are always included
 BASE_MOUNTS = [
     # Claude: selective mounts — credentials RW to host (token refresh persists),
-    # settings/statsig from cache (container-specific hook injection)
+    # settings from cache (container-specific hook injection), statsig RO.
+    # statusline.sh is mounted conditionally in container.py.
     "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/${localEnv:USER}/.claude/.credentials.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.claude-cache/settings.json,target=/home/${localEnv:USER}/.claude/settings.json,type=bind",
     "source=${localEnv:HOME}/.claude/statsig,target=/home/${localEnv:USER}/.claude/statsig,type=bind,readonly",
@@ -280,6 +281,9 @@ TAILNET_ROUTER_IP = "100.64.0.4"
 # explicitly-declared name over HTTP-01, so no wildcard cert is needed.
 PUBLIC_SITE_DOMAIN = "pub.glvortex.net"
 PUBLIC_AUTH_USER = "tsb"
+
+# Claude statusline script - only included when the host file exists
+CLAUDE_STATUSLINE_MOUNT = "source=${localEnv:HOME}/.claude/statusline.sh,target=/home/${localEnv:USER}/.claude/statusline.sh,type=bind"
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"

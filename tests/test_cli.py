@@ -392,6 +392,38 @@ class TestPortAllocation(unittest.TestCase):
         for m in config["mounts"]:
             self.assertNotIn(".jolo/skills", m)
 
+    def test_statusline_mounted_when_host_file_exists(self):
+        """The host's statusline.sh binds in live, so edits on either side
+        land in one file. settings.json carries the statusLine key already."""
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            claude = Path(tmp) / ".claude"
+            claude.mkdir()
+            (claude / "statusline.sh").write_text("#!/bin/sh\n")
+            with mock.patch.object(Path, "home", return_value=Path(tmp)):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+        entry = [m for m in config["mounts"] if "statusline.sh" in m]
+        self.assertEqual(len(entry), 1)
+        self.assertIn(
+            "source=${localEnv:HOME}/.claude/statusline.sh,", entry[0]
+        )
+        self.assertIn("type=bind", entry[0])
+        self.assertNotIn("readonly", entry[0])
+
+    def test_statusline_not_mounted_when_host_file_absent(self):
+        """A bind on a missing source fails the rebuild, so no host script
+        must mean no mount — not an empty placeholder file."""
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(Path, "home", return_value=Path(tmp)):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+        for m in config["mounts"]:
+            self.assertNotIn("statusline.sh", m)
+
     def test_tailnet_control_dir_is_never_mounted(self):
         """It holds routing and DNS for every project; containers stay out."""
         import json
