@@ -748,5 +748,22 @@ and `:wrote' contains only the org file (or is empty on no-op)."
             (kill-buffer buf))))
       (delete-directory dir t))))
 
+(ert-deftest agent-helpers/with-file-reverts-stale-visiting-buffer-without-prompt ()
+  "Disk change under a live visiting buffer must not call read-event."
+  (test-agent-helpers--with-file "* TODO Foo\n"
+    (find-file-noselect test-file t)
+    (with-temp-file test-file
+      (insert test-agent-helpers--keyword-header)
+      (insert "* TODO Foo\n"))
+    (let ((prompted nil))
+      (cl-letf (((symbol-function 'read-event)
+                 (lambda (&rest _)
+                   (setq prompted t)
+                   ?n)))
+        (bergheim/agent-org-add-note test-file "Foo" "from agent"))
+      (should-not prompted)
+      (should (string-match-p "from agent"
+                              (test-agent-helpers--contents test-file))))))
+
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here
