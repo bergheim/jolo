@@ -41,6 +41,9 @@ catalogs live in `docs/agent-ops.md`.
   with `:tangle <path> :mkdirp yes` src blocks, not a folder of loose files.
 - Heuristic: Would I want this loaded at session start in an unrelated project?
   If yes, use stash.
+- Stash is `/workspaces/stash` in containers and `~/stash` on the host. Write
+  the container path; use the host path when telling the user to run something
+  themselves.
 - Denote notes are living documents: edit in place as understanding grows; git
   is the history layer. Editing a note (even retitling via denote) never breaks
   backlinks — they resolve by the immutable identifier, not the filename. One
