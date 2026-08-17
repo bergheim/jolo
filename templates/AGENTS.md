@@ -64,7 +64,7 @@ catalogs live in `docs/agent-ops.md`.
 - Mark completed work `DONE` immediately, not at session end.
 - Mark obsolete work `CANCELLED` with a reason.
 - Preserve TODO body text when closing.
-- Use `WAITING` for a person and `BLOCKED` for a system.
+- Use `WAITING` when blocked, on a person or a system.
 
 Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
 keywords. Include `$(agent-meta --elisp)` as the AGENT/SESSION-ID args so the

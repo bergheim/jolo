@@ -91,8 +91,10 @@ Read recent cross-project worklog entries:
 emacsclient -e '(bergheim/agent-worklog-recent 10)'
 ```
 
-States: `TODO`, `NEXT`, `INPROGRESS`, `WAITING`, `BLOCKED`, `DONE`,
-`CANCELLED`.
+States: `TODO`, `PROJ`, `NEXT`, `INPROGRESS`, `WAITING`, `SOMEDAY`, `DONE`,
+`CANCELLED`, `OBSOLETE`. There is no `BLOCKED` — use `WAITING`. A state not in
+this list is rejected by `--apply-state` unless the file declares its own
+`#+TODO:` header.
 
 ## Denote Helpers
 

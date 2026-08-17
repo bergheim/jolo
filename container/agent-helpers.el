@@ -289,7 +289,7 @@ Leaves clocks running on other headings alone."
 (defun bergheim/agent-org--apply-state (new-state note agent session-id)
   "At point-on-heading, apply NEW-STATE. Optionally attach NOTE and, when
 AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'. Always clocks
-in on INPROGRESS and out on DONE/BLOCKED/CANCELLED.
+in on INPROGRESS and out on every other state.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
   (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
@@ -299,11 +299,13 @@ Returns the prior state (string or nil), so callers can log transitions."
       (unless (equal actual-state new-state)
         (error "State change blocked: %s -> %s (got %s)"
                old-state new-state actual-state))
-      (cond
-       ((equal new-state "INPROGRESS")
-        (bergheim/agent-org--clock-in))
-       ((member new-state '("DONE" "BLOCKED" "CANCELLED"))
-        (bergheim/agent-org--clock-out)))
+      ;; Inverse rule, not a list: any state that is not INPROGRESS stops the
+      ;; clock. A list goes stale — the old one named BLOCKED, which no keyword
+      ;; set defines, and missed WAITING, so a task parked for the user kept
+      ;; accruing time until something else clocked in.
+      (if (equal new-state "INPROGRESS")
+          (bergheim/agent-org--clock-in)
+        (bergheim/agent-org--clock-out))
       (when agent
         (bergheim/agent-org--log-session-line agent session-id))
       ;; If a NOTE was requested but org-todo's state-change config did not
@@ -338,7 +340,7 @@ SIGNED-TAGS is a list like (\"+autonomous\" \"-blocked\")."
                                           &optional note agent session-id)
   "Transition the UNIQUE TODO matching HEADING-RE in FILE to NEW-STATE.
 Errors if HEADING-RE matches zero or multiple headings.
-Always clocks in on INPROGRESS and out on DONE/BLOCKED/CANCELLED.
+Always clocks in on INPROGRESS and out on every other state.
 
 Optional args:
 - NOTE: attach a state-transition log note

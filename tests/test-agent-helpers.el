@@ -13,8 +13,13 @@
 (require 'json)
 
 (defvar test-agent-helpers--keyword-header
-  "#+TODO: TODO(t) NEXT(n) INPROGRESS(i) WAITING(w) BLOCKED(b) | DONE(d) CANCELLED(c)\n\n"
-  "TODO keyword declaration used by test fixtures.")
+  "#+TODO: TODO(t) PROJ(p) NEXT(n) INPROGRESS(i) WAITING(w) SOMEDAY(s) | DONE(d) CANCELLED(c) OBSOLETE(o)\n\n"
+  "TODO keyword declaration used by test fixtures.
+
+Mirrors the keyword set the host Emacs config defines, so a state that does
+not exist in real projects cannot pass here. It previously declared
+BLOCKED(b), which made a state agents were told to use look supported while
+every real call failed.")
 
 ;; Tests must never append to the real stash worklog by default. Worklog-specific
 ;; coverage binds this to a temp directory with `test-agent-helpers--with-worklog'.
@@ -348,14 +353,16 @@ session line and sets `:LAST_AGENT:'. Multiple sessions accumulate."
                                 (test-agent-helpers--contents test-file)))))
 
 ;; ----------------------------------------------------------------------------
-;; New: BLOCKED state
+;; Unknown states
 ;; ----------------------------------------------------------------------------
 
-(ert-deftest agent-helpers/blocked-transition ()
-  "Transition to BLOCKED works (keyword recognized via #+TODO: header)."
+(ert-deftest agent-helpers/unknown-state-errors ()
+  "A keyword the file does not declare must fail, not appear to succeed.
+BLOCKED is the live example: AGENTS.md told agents to use it for years while
+no keyword set defined it."
   (test-agent-helpers--with-file "* INPROGRESS Foo\n"
-    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "BLOCKED")
-    (should (string-match-p "^\\* BLOCKED Foo"
+    (should-error (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "BLOCKED"))
+    (should (string-match-p "^\\* INPROGRESS Foo"
                             (test-agent-helpers--contents test-file)))))
 
 ;; ----------------------------------------------------------------------------

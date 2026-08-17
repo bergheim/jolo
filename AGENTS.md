@@ -109,7 +109,7 @@ Where a note goes (stash vs `docs/notes`) and write-once rules are in
 - Mark completed work `DONE` immediately, not at session end.
 - Mark obsolete work `CANCELLED` with a reason.
 - Preserve TODO body text when closing.
-- Use `WAITING` for a person and `BLOCKED` for a system.
+- Use `WAITING` when blocked, on a person or a system.
 
 Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
 keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
