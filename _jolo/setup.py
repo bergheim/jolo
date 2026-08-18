@@ -305,10 +305,18 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # Bake agy (Antigravity CLI) first-run defaults so a fresh container never
     # prompts: light theme, telemetry off (forced — we say no), and onboarding
     # marked done. agy gates the prompts on cache/onboarding.json, NOT on
-    # settings.json, so both files are required.
+    # settings.json, so both files are required. agy ignores gemini's
+    # trustedFolders.json; workspace trust lives in trustedWorkspaces here.
     write_json(
         agy_dir / "settings.json",
-        {"colorScheme": "light", "enableTelemetry": False},
+        {
+            "colorScheme": "light",
+            "enableTelemetry": False,
+            "trustedWorkspaces": [
+                f"/workspaces/{workspace_dir.name}",
+                "/workspaces/stash",
+            ],
+        },
         newline=False,
     )
     (agy_dir / "cache").mkdir(exist_ok=True)

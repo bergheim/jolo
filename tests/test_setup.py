@@ -845,6 +845,19 @@ class TestPersistentCredentialStore(unittest.TestCase):
         self.assertEqual(data["colorScheme"], "light")
         self.assertEqual(data["enableTelemetry"], False)
 
+    def test_trusts_workspace_and_stash(self):
+        """agy ignores gemini's trustedFolders.json — its own
+        trustedWorkspaces must cover the project and stash so no container
+        start hits the folder-trust prompt."""
+        self._run()
+
+        agy_settings = self.cache / "antigravity-cli" / "settings.json"
+        data = json.loads(agy_settings.read_text())
+        self.assertEqual(
+            data["trustedWorkspaces"],
+            [f"/workspaces/{self.ws.name}", "/workspaces/stash"],
+        )
+
     def test_marks_agy_onboarding_complete(self):
         """agy gates its first-run theme/telemetry prompts on
         cache/onboarding.json, not settings.json — so we must mark it done."""
