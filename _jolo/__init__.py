@@ -125,6 +125,5 @@ from _jolo.worktree import (  # noqa: F401
     list_worktrees,
     remove_worktree,
     validate_create_mode,
-    validate_init_mode,
     validate_tree_mode,
 )

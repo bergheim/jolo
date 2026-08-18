@@ -412,11 +412,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--force",
         action="store_true",
         help=(
-            "Retrofit template files that jolo never tracked (no hash "
-            "record). Drops {file}.jolonew alongside existing files so "
-            "you can diff and merge. Use when pulling in new recipes "
-            "like `just perf` for a project created before the current "
-            "template."
+            "Overwrite every syncable template file with the current "
+            "template, including files you edited and files jolo never "
+            "tracked. No {file}.jolonew sidecars are written in this "
+            "mode — git is the only safety net, so commit first. Use "
+            "when pulling in new recipes like `just perf` for a project "
+            "created before the current template."
         ),
     )
 
@@ -595,11 +596,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "down", parents=[p_verbose, p_all], help="Stop the devcontainer"
     )
 
-    # init: prompt, agent, detach, exec, mounts, recreate, verbose
+    # init: prompt, agent, detach, exec, mounts, recreate, yes, verbose
     subparsers.add_parser(
         "init",
-        parents=[p_verbose, p_prompt, p_detach, p_exec, p_mounts, p_recreate],
-        help="Initialize git + devcontainer in current directory",
+        parents=[
+            p_verbose,
+            p_prompt,
+            p_detach,
+            p_exec,
+            p_mounts,
+            p_recreate,
+            p_yes,
+        ],
+        help="Set up jolo in the current directory (git repo or not)",
     )
 
     # prune: all, yes, verbose

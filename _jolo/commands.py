@@ -96,7 +96,6 @@ from _jolo.worktree import (
     list_worktrees,
     remove_worktree,
     validate_create_mode,
-    validate_init_mode,
     validate_tree_mode,
 )
 
@@ -1223,7 +1222,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
         sys.exit(
             f"Error: project is not initialized for jolo "
             f"({TEMPLATE_HASHES_FILE} missing).\n"
-            "Run `jolo up --recreate` to scaffold and start."
+            "Run `jolo init` to set jolo up in this repository."
         )
 
     # Add user-specified mounts to devcontainer.json
@@ -1697,44 +1696,91 @@ def run_clone_mode(args: argparse.Namespace) -> None:
     run_up_mode(args)
 
 
-def run_init_mode(args: argparse.Namespace) -> None:
-    """Run --init mode: initialize git + devcontainer in current directory."""
-    validate_init_mode()
+def _confirm_existing_repo(git_root: Path, yes: bool) -> None:
+    """Get consent before setting jolo up in a repo the user already has.
 
-    project_path = Path.cwd()
+    `init` resolves to the git toplevel, which may be well above the cwd, so
+    the prompt names the directory it actually resolved to. Without a tty
+    there is nobody to ask: fail loudly rather than block on stdin or assume
+    consent."""
+    if yes:
+        return
+    if not sys.stdin.isatty():
+        sys.exit(
+            f"Error: {git_root} is an existing git repository. "
+            "Re-run with --yes to set up jolo there."
+        )
+    try:
+        answer = input(
+            f"Set up jolo in existing repository {git_root}? [y/N] "
+        )
+    except EOFError:
+        answer = ""
+    if answer.strip().lower() != "y":
+        sys.exit("Aborted.")
+
+
+def run_init_mode(args: argparse.Namespace) -> None:
+    """Run init mode: set up jolo in the current directory.
+
+    Works whether or not the directory is already a git repository. Only a
+    repo `init` created itself gets an initial commit — committing on the
+    user's behalf in an existing repo would sweep their uncommitted work
+    into it."""
+    git_root = find_git_root()
+    fresh_repo = git_root is None
+
+    if git_root is not None:
+        if (git_root / TEMPLATE_HASHES_FILE).exists():
+            sys.exit(
+                f"Error: {git_root} is already set up for jolo. "
+                "Use `jolo up` to start it, or `jolo up --recreate` to "
+                "resync the templates."
+            )
+        devcontainer_json = git_root / ".devcontainer" / "devcontainer.json"
+        if devcontainer_json.exists():
+            sys.exit(
+                f"Error: {devcontainer_json} exists but jolo did not create "
+                "it. Move or delete it, then re-run `jolo init`."
+            )
+        _confirm_existing_repo(git_root, getattr(args, "yes", False))
+        os.chdir(git_root)
+        project_path = git_root
+    else:
+        project_path = Path.cwd()
+
     project_name = project_path.name
 
     # Load config
     config = load_config()
 
-    # Initialize git repo
-    cmd = ["git", "init"]
-    verbose_cmd(cmd)
-    result = subprocess.run(cmd, cwd=project_path)
-    if result.returncode != 0:
-        sys.exit("Error: Failed to initialize git repository")
+    if fresh_repo:
+        cmd = ["git", "init"]
+        verbose_cmd(cmd)
+        result = subprocess.run(cmd, cwd=project_path)
+        if result.returncode != 0:
+            sys.exit("Error: Failed to initialize git repository")
 
-    if args.recreate:
-        _sync_config(
-            project_name,
-            project_path,
-            config,
-            force=getattr(args, "force", False),
-        )
-    else:
-        scaffold_devcontainer(project_name, project_path, config=config)
-
+    _sync_config(
+        project_name,
+        project_path,
+        config,
+        force=getattr(args, "force", False),
+    )
     _ensure_project_template_files(project_path, project_name)
     ensure_test_gate_script(project_path)
 
-    # Initial commit with all generated files
-    cmd = ["git", "add", "."]
-    verbose_cmd(cmd)
-    subprocess.run(cmd, cwd=project_path)
+    if fresh_repo:
+        # Nothing here predates us, so the generated tree is the first commit.
+        cmd = ["git", "add", "."]
+        verbose_cmd(cmd)
+        subprocess.run(cmd, cwd=project_path)
 
-    cmd = ["git", "commit", "-m", "Initial commit with devcontainer setup"]
-    verbose_cmd(cmd)
-    subprocess.run(cmd, cwd=project_path)
+        cmd = ["git", "commit", "-m", "Initial commit with devcontainer setup"]
+        verbose_cmd(cmd)
+        subprocess.run(cmd, cwd=project_path)
+    else:
+        print("Wrote jolo config and template files — review and commit them.")
 
     print(f"Initialized: {project_path}")
 

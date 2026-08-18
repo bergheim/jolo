@@ -239,7 +239,8 @@ jolo list
 jolo list --all
 jolo attach
 jolo create newproject
-jolo init
+jolo init          # set up jolo here: new dir, or an existing repo (prompts)
+jolo init --yes    # same, no prompt (required when there is no tty)
 jolo tree feature-x
 jolo tree feat --from develop
 jolo spawn 5 -p "implement X"

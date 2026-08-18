@@ -2,6 +2,7 @@
 """Integration tests spanning multiple modules."""
 
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -551,6 +552,135 @@ class TestInitModeIntegration(unittest.TestCase):
                     push_default,
                     f"Expected push default, got: {exec_calls}",
                 )
+
+
+class TestInitInExistingRepo(unittest.TestCase):
+    """`jolo init` sets jolo up in a repo that already exists."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.original_cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+        subprocess.run(["git", "init", "-q"], cwd=self.tmpdir, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "t@example.com"],
+            cwd=self.tmpdir,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=self.tmpdir, check=True
+        )
+        (Path(self.tmpdir) / "README.md").write_text("existing project\n")
+        subprocess.run(["git", "add", "."], cwd=self.tmpdir, check=True)
+        subprocess.run(
+            ["git", "commit", "-qm", "existing"], cwd=self.tmpdir, check=True
+        )
+
+    def tearDown(self):
+        os.chdir(self.original_cwd)
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def _run_init(self, argv):
+        args = jolo.parse_args(argv)
+        with mock.patch.multiple(
+            "_jolo.commands",
+            devcontainer_up=mock.DEFAULT,
+            devcontainer_exec_command=mock.DEFAULT,
+            devcontainer_exec_tmux=mock.DEFAULT,
+            setup_credential_cache=mock.DEFAULT,
+            setup_notification_hooks=mock.DEFAULT,
+            setup_emacs_config=mock.DEFAULT,
+            get_secrets=mock.DEFAULT,
+        ) as mocks:
+            mocks["get_secrets"].return_value = {}
+            mocks["devcontainer_up"].return_value = True
+            jolo.run_init_mode(args)
+
+    def test_init_scaffolds_without_committing(self):
+        """An existing repo gets the config but keeps its own history clean."""
+        before = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=self.tmpdir,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        self._run_init(["init", "-d", "--yes"])
+
+        self.assertTrue(
+            (
+                Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
+            ).exists()
+        )
+        after = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=self.tmpdir,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        self.assertEqual(
+            before, after, "init must not commit in an existing repo"
+        )
+        self.assertIn(
+            ".devcontainer",
+            subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.tmpdir,
+                capture_output=True,
+                text=True,
+            ).stdout,
+        )
+
+    def test_init_leaves_existing_files_alone(self):
+        """Template files the project already has are never clobbered."""
+        agents = Path(self.tmpdir) / "AGENTS.md"
+        agents.write_text("my own rules\n")
+
+        self._run_init(["init", "-d", "--yes"])
+
+        self.assertEqual(agents.read_text(), "my own rules\n")
+
+    def test_init_refuses_a_foreign_devcontainer(self):
+        """A devcontainer.json jolo did not write is not ours to overwrite."""
+        dc = Path(self.tmpdir) / ".devcontainer"
+        dc.mkdir()
+        (dc / "devcontainer.json").write_text('{"name": "handrolled"}')
+
+        with self.assertRaises(SystemExit) as ctx:
+            self._run_init(["init", "-d", "--yes"])
+        self.assertIn("jolo did not create it", str(ctx.exception))
+        self.assertEqual(
+            (dc / "devcontainer.json").read_text(), '{"name": "handrolled"}'
+        )
+
+    def test_init_refuses_an_already_jolo_project(self):
+        """Re-running init would silently resync; point at up --recreate."""
+        self._run_init(["init", "-d", "--yes"])
+
+        with self.assertRaises(SystemExit) as ctx:
+            self._run_init(["init", "-d", "--yes"])
+        self.assertIn("already set up for jolo", str(ctx.exception))
+
+    def test_init_needs_consent_for_an_existing_repo(self):
+        """Answering no aborts before anything is written."""
+        with mock.patch("_jolo.commands.sys.stdin.isatty", return_value=True):
+            with mock.patch(
+                "_jolo.commands.input", create=True, return_value="n"
+            ):
+                with self.assertRaises(SystemExit) as ctx:
+                    self._run_init(["init", "-d"])
+        self.assertIn("Aborted", str(ctx.exception))
+        self.assertFalse((Path(self.tmpdir) / ".devcontainer").exists())
+
+    def test_init_fails_loudly_without_a_tty(self):
+        """No tty means nobody to ask — do not block on stdin, do not assume."""
+        with mock.patch("_jolo.commands.sys.stdin.isatty", return_value=False):
+            with self.assertRaises(SystemExit) as ctx:
+                self._run_init(["init", "-d"])
+        self.assertIn("--yes", str(ctx.exception))
+        self.assertFalse((Path(self.tmpdir) / ".devcontainer").exists())
 
 
 if __name__ == "__main__":

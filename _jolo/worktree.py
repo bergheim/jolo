@@ -50,15 +50,6 @@ def validate_create_mode(name: str) -> None:
         sys.exit(f"Error: Directory already exists: {target_dir}")
 
 
-def validate_init_mode() -> None:
-    """Validate that --init mode is NOT being run inside a git repo."""
-    git_root = find_git_root()
-    if git_root is not None:
-        sys.exit(
-            "Error: Already in a git repository. Use jolo without --init."
-        )
-
-
 def list_worktrees(git_root: Path) -> list[tuple[Path, str, str]]:
     """List git worktrees for a repository.
 
