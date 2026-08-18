@@ -173,6 +173,9 @@ services:
 `just wt` is the only worktree interface. Do not read `/usr/local/bin/wt`
 to reverse-engineer it — `just wt help` is the catalog.
 
+`wt new` creates the tmux window detached. `--switch` (or `-s`) focuses it;
+`wt <name>` also switches.
+
 `wt land` (must run from the main tree, both trees clean):
 
 - rebases `<name>` onto the main tree's current branch (usually `main`)

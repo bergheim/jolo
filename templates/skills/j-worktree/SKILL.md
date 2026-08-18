@@ -39,8 +39,9 @@ changes in the main tree, they are NOT in the worktree. Commit them first (or
 `--from` the right ref), or tell the user the worktree won't see them.
 
 Result: worktree at `.worktrees/<name>` on new branch `<name>`, tmux window
-`wt-<name>` in the `dev` session with `claude` running. Tell the user the window
-name and that `C-b w` (or its number) jumps to it.
+`wt-<name>` in the `dev` session with `claude` running. The new window stays in
+the background — jump with `wt <name>`, or pass `--switch` (`-s`) to focus it.
+Tell the user the window name.
 
 ## Finish (when asked to land / merge / ship the worktree)
 

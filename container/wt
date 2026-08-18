@@ -21,7 +21,7 @@ usage() {
 Usage: wt <command> [options]
 
 Commands:
-  new <name> [--from <ref>] [-p <prompt>]   Create worktree + tmux window
+  new <name> [--from <ref>] [-p <prompt>] [--switch]   Create worktree + tmux window (detached; --switch focuses it)
   <name>                                     Switch to worktree window
   list, ls                                   List worktree windows
   sync [<name>]                              Rebase <name> on main's branch (defaults to current worktree if cwd is one; fzf picks otherwise)
@@ -278,18 +278,28 @@ resolve_target_branch() {
     printf '%s\n' "$target"
 }
 
-# Open a window for the worktree in the current session. new-window auto-selects
-# it (no -d), so callers land in the new window without a separate switch.
+# Open a window for the worktree in the current session.
+# select=1 makes it current; anything else (including empty) uses -d so the
+# caller stays put. wt new stays detached; wt <name> selects.
 create_window() {
     name="$1"
     prompt="$2"
+    select="$3"
     wt_path="$WT_BASE/$name"
     win=$(window_name "$name")
 
-    if [ -n "$prompt" ]; then
-        tmux new-window -n "$win" -c "$wt_path" "claude $prompt"
+    if [ "$select" = "1" ]; then
+        dflag=""
     else
-        tmux new-window -n "$win" -c "$wt_path"
+        dflag="-d"
+    fi
+
+    if [ -n "$prompt" ]; then
+        # shellcheck disable=SC2086 # dflag is empty or -d
+        tmux new-window $dflag -n "$win" -c "$wt_path" "claude $prompt"
+    else
+        # shellcheck disable=SC2086 # dflag is empty or -d
+        tmux new-window $dflag -n "$win" -c "$wt_path"
     fi
 }
 
@@ -298,6 +308,7 @@ cmd_new() {
     name=""
     from_ref=""
     prompt=""
+    select=0
     while [ $# -gt 0 ]; do
         case "$1" in
             --from)
@@ -307,6 +318,9 @@ cmd_new() {
             -p)
                 shift
                 prompt="$1"
+                ;;
+            --switch|-s)
+                select=1
                 ;;
             *)
                 [ -z "$name" ] && name="$1"
@@ -342,7 +356,7 @@ cmd_new() {
     fi
 
     link_ignored "$wt_path"
-    create_window "$name" "$prompt"
+    create_window "$name" "$prompt" "$select"
     echo "created worktree $name at $wt_path"
 }
 
@@ -356,7 +370,7 @@ cmd_switch() {
     if [ -n "$wid" ]; then
         tmux select-window -t "$wid"
     elif [ -d "$wt_path" ]; then
-        create_window "$name" ""
+        create_window "$name" "" 1
     elif branch_exists "$name"; then
         # Dir gone (e.g. a pre-persistence worktree nuked on container rebuild)
         # but the branch survived in $WS/.git. Re-materialize it from the branch,
@@ -367,7 +381,7 @@ cmd_switch() {
         git -C "$WS" worktree prune
         git -C "$WS" worktree add "$wt_path" "$name"
         link_ignored "$wt_path"
-        create_window "$name" ""
+        create_window "$name" "" 1
     else
         echo "error: no worktree '$name' found" >&2
         exit 1
