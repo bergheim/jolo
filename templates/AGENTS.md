@@ -49,6 +49,9 @@ catalogs live in `docs/agent-ops.md`.
   backlinks — they resolve by the immutable identifier, not the filename. One
   note = one topic. Create a new note only for a genuinely new topic, and link
   it. Prefer refining/consolidating over spawning near-duplicates.
+- Never hard-wrap prose in notes or TODO bodies: one line per paragraph.
+  Emacs soft-wraps on read, and the helpers unfill what you pass. Hard newlines
+  are for structure only — headings, list items, table rows, src blocks.
 - To link notes, always use `bergheim/agent-denote-link`; never hand-write
   `[[denote:ID]]` or a bare id (denote derives backlinks only from links its own
   API emits, so a typed id never registers).

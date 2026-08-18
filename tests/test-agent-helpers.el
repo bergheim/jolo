@@ -261,18 +261,31 @@ tooling that filters/groups on CREATED sees agent-created entries."
       (should (equal (test-agent-helpers--contents test-file) before)))))
 
 (ert-deftest agent-helpers/list-todos-returns-json-for-every-todo-keyword ()
-  "`list-todos' returns JSON objects in file order for TODO-keyword headings."
+  "`list-todos' writes JSON objects in file order for TODO-keyword headings."
   (test-agent-helpers--with-file
       "* TODO First  :autonomous:\n* Plain heading\n* DONE Closed\n* NEXT Later  :alpha:\n"
-    (let ((items (test-agent-helpers--json-read
-                  (bergheim/agent-org-list-todos test-file))))
+    (let* ((res (bergheim/agent-org-list-todos test-file))
+           (items (test-agent-helpers--json-read
+                   (with-temp-buffer
+                     (insert-file-contents (plist-get res :path))
+                     (buffer-string)))))
+      (should (equal (plist-get res :wrote) (list (plist-get res :path))))
+      (should (= (plist-get res :count) 3))
       (should (= (length items) 3))
+      (should (integerp (alist-get 'line (nth 0 items))))
       (should (equal (alist-get 'state (nth 0 items)) "TODO"))
       (should (equal (alist-get 'heading (nth 0 items)) "First"))
       (should (eq (alist-get 'autonomous (nth 0 items)) t))
       (should (equal (alist-get 'state (nth 1 items)) "DONE"))
       (should-not (alist-get 'autonomous (nth 1 items)))
       (should (equal (alist-get 'tags (nth 2 items)) '("alpha"))))))
+
+(ert-deftest agent-helpers/list-todos-filters-by-state ()
+  "STATES keeps only the named keywords, so a long log can skip the DONE bulk."
+  (test-agent-helpers--with-file
+      "* TODO First\n* DONE Closed\n* NEXT Later\n"
+    (let ((res (bergheim/agent-org-list-todos test-file '("TODO" "NEXT"))))
+      (should (= (plist-get res :count) 2)))))
 
 (ert-deftest agent-helpers/get-entry-returns-body-with-drawers-removed ()
   "`get-entry' returns a JSON object for a heading regexp or ID lookup."
@@ -771,6 +784,66 @@ and `:wrote' contains only the org file (or is empty on no-op)."
       (should-not prompted)
       (should (string-match-p "changed on disk"
                               (test-agent-helpers--contents test-file))))))
+
+;;; Prose unfilling
+
+(ert-deftest test-unfill-joins-a-wrapped-paragraph ()
+  (should (equal (bergheim/agent-notes-unfill
+                  "Review of the perf-host stack against the 2026 tooling\nlandscape, plus what actually works.")
+                 "Review of the perf-host stack against the 2026 tooling landscape, plus what actually works.")))
+
+(ert-deftest test-unfill-keeps-paragraph-breaks ()
+  (should (equal (bergheim/agent-notes-unfill "one\ntwo\n\nthree\nfour")
+                 "one two\n\nthree four")))
+
+(ert-deftest test-unfill-folds-list-continuations-into-their-item ()
+  (should (equal (bergheim/agent-notes-unfill
+                  "- RUM is the biggest\n  gap here.\n- Tracing is\n  second.")
+                 "- RUM is the biggest gap here.\n- Tracing is second.")))
+
+(ert-deftest test-unfill-keeps-structure-on-its-own-line ()
+  (dolist (case '(("* Heading\nProse under it." . "* Heading\nProse under it.")
+                  ("| a | b |\n| c | d |" . "| a | b |\n| c | d |")
+                  (":PROPERTIES:\n:ID: abc\n:END:" . ":PROPERTIES:\n:ID: abc\n:END:")
+                  (": literal one\n: literal two" . ": literal one\n: literal two")
+                  ("#+caption: x\n#+name: y" . "#+caption: x\n#+name: y")))
+    (should (equal (bergheim/agent-notes-unfill (car case)) (cdr case)))))
+
+(ert-deftest test-unfill-passes-blocks-through-verbatim ()
+  (let ((src "#+begin_src sh\n  one \\\n  two\n#+end_src"))
+    (should (equal (bergheim/agent-notes-unfill src) src)))
+  ;; A nested block must not end the outer one early.
+  (let ((nested "#+begin_quote\n#+begin_src sh\nls\n#+end_src\nstill\nquoted\n#+end_quote"))
+    (should (equal (bergheim/agent-notes-unfill nested) nested))))
+
+(ert-deftest test-unfill-respects-explicit-line-breaks ()
+  (should (equal (bergheim/agent-notes-unfill "first line\\\\\nsecond line")
+                 "first line\\\\\nsecond line")))
+
+(ert-deftest test-unfill-does-not-inject-a-space-into-a-split-link ()
+  (should (equal (bergheim/agent-notes-unfill "see [[https://example.com/a\nvery/long][here]] now")
+                 "see [[https://example.com/avery/long][here]] now")))
+
+(ert-deftest test-unfill-is-a-no-op-on-already-unfilled-prose ()
+  (let ((text "One long single line that nobody wrapped.\n\n- and a bullet"))
+    (should (equal (bergheim/agent-notes-unfill text) text))))
+
+(ert-deftest test-denote-create-unfills-the-body ()
+  (let* ((dir (make-temp-file "denote-unfill-" t))
+         (res (bergheim/agent-denote-create
+               dir "Wrapped body" '("test")
+               "This paragraph was hard-wrapped\nby a well-meaning agent."))
+         (contents (with-temp-buffer
+                     (insert-file-contents (plist-get res :path))
+                     (buffer-string))))
+    (should (string-match-p "hard-wrapped by a well-meaning" contents))))
+
+(ert-deftest test-add-todo-unfills-the-body ()
+  (test-agent-helpers--with-file ""
+    (bergheim/agent-org-add-todo test-file "Wrapped todo"
+                                 "Body text that an agent\nwrapped at eighty.")
+    (should (string-match-p "an agent wrapped at eighty"
+                            (test-agent-helpers--contents test-file)))))
 
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here

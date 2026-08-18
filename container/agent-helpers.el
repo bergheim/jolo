@@ -198,6 +198,78 @@ subsequent Edit."
       (write-region entry nil path 'append 'silent)
       path)))
 
+;;; Prose unfilling
+;;
+;; Agents hard-wrap prose at ~80 columns out of habit. Notes are read with
+;; `visual-line-mode', so those breaks buy nothing and cost real edits: a
+;; reworded sentence reflows every following line into the diff. Bodies are
+;; unfilled on the way in, so no agent can persist a wrapped paragraph.
+;;
+;; Conservative by construction: when a line is not plainly prose, its newline
+;; is kept. Only a continuation of a paragraph or a list item folds upward.
+
+(defconst bergheim/agent-notes--list-item-re
+  "\\`[ \t]*\\(?:[-+][ \t]\\|[ \t]\\*[ \t]\\|[0-9]+[.)][ \t]\\)"
+  "List items. Keep the newline, but fold their wrapped continuations in.
+A `*' bullet must be indented; at column zero it is a heading.")
+
+(defconst bergheim/agent-notes--structural-re
+  "\\`\\(?:\\*+[ \t]\\|[ \t]*[:|#]\\)"
+  "Headings, drawers, property and fixed-width lines, tables, keywords.
+These keep their newline and nothing folds into them.")
+
+(defun bergheim/agent-notes--block-name (line prefix)
+  "Return the block name when LINE opens or closes with PREFIX, else nil."
+  (let ((s (downcase (string-trim-left line))))
+    (when (string-prefix-p prefix s)
+      (or (car (split-string (substring s (length prefix)))) ""))))
+
+(defun bergheim/agent-notes--open-link-p (s)
+  "Non-nil when S ends inside an unclosed Org link, where a space would corrupt."
+  (let ((opens 0) (closes 0) (i 0))
+    (while (setq i (string-search "[[" s i)) (setq opens (1+ opens) i (+ i 2)))
+    (setq i 0)
+    (while (setq i (string-search "]]" s i)) (setq closes (1+ closes) i (+ i 2)))
+    (> opens closes)))
+
+(defun bergheim/agent-notes-unfill (text)
+  "Join hard-wrapped prose lines in TEXT, leaving Org structure intact.
+Paragraphs and list items collapse to one line each. Blank lines, headings,
+tables, drawers, fixed-width lines, `#+' keywords, explicit `\\\\' breaks and
+everything inside a `#+begin_'/`#+end_' block are passed through untouched."
+  (if (not (stringp text))
+      text
+    (let ((blocks nil) (out nil) (joinable nil))
+      (dolist (line (split-string (string-replace "\r" "" text) "\n"))
+        (let ((trimmed (string-trim-left line))
+              (name nil))
+          (cond
+           (blocks
+            (push line out)
+            (cond
+             ((setq name (bergheim/agent-notes--block-name line "#+begin_"))
+              (push name blocks))
+             ((equal (car blocks) (bergheim/agent-notes--block-name line "#+end_"))
+              (pop blocks))))
+           ((setq name (bergheim/agent-notes--block-name line "#+begin_"))
+            (push name blocks) (push line out) (setq joinable nil))
+           ((string-empty-p trimmed)
+            (push line out) (setq joinable nil))
+           ((string-match-p bergheim/agent-notes--list-item-re line)
+            (push line out) (setq joinable t))
+           ((string-match-p bergheim/agent-notes--structural-re line)
+            (push line out) (setq joinable nil))
+           (joinable
+            (let ((prev (string-trim-right (car out))))
+              (setcar out (concat prev
+                                  (if (bergheim/agent-notes--open-link-p prev) "" " ")
+                                  trimmed))))
+           (t (push line out) (setq joinable t)))
+          ;; An explicit Org line break ends the paragraph as far as we care.
+          (when (string-suffix-p "\\\\" (string-trim-right line))
+            (setq joinable nil))))
+      (string-join (nreverse out) "\n"))))
+
 ;;; Heading selectors
 
 (defun bergheim/agent-org--strip (s)
@@ -269,17 +341,31 @@ last-writer-wins `:LAST_AGENT:' property; full history stays in LOGBOOK."
 
 ;;; Durations
 ;;
-;; Agents do not clock. `org-clock' keeps one marker per Emacs process and
-;; every agent shares one daemon, so clocking in on B clocks out of A —
-;; writing into A's buffer outside the `--with-file' that owns it and leaving
-;; it modified-but-unsaved, which fails every later helper call on A.
-;; Spans come from the timestamped state lines `org-todo' already logs.
+;; Agents do not clock. `org-clock' keeps one marker per Emacs process, and
+;; every agent in a container shares one daemon, so clocking in on B first
+;; clocks out of A — writing A's closing timestamp into A's buffer, outside
+;; the `--with-file' that owns it. That buffer is then modified-but-unsaved
+;; and every later helper call on A fails with "buffer has unsaved changes".
+;; Not a race: emacsclient is single-threaded, so it reproduces every time.
+;; It is a side effect on a file the call never opened.
+;;
+;; The intervals survive anyway. `org-todo' logs a timestamped state line for
+;; every transition (INPROGRESS carries `!' in the host keyword set), so a
+;; heading's spans are last INPROGRESS -> next other state, and the same pairs
+;; land in the stash worklog for cross-project sums. Compute when asked; a
+;; heading abandoned at INPROGRESS then reads as open since T rather than
+;; being billed the whole gap, which is what writing a closing CLOCK line at
+;; exit time would do.
 
 (defun bergheim/agent-org--apply-state (new-state note agent session-id)
   "At point-on-heading, apply NEW-STATE. Optionally attach NOTE and, when
 AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
+  (when (and agent (not (stringp agent)))
+    (error "AGENT must be a string, got %S — the old ENSURE-SESSION-ID/CLOCK args are gone" agent))
+  (when (and session-id (not (stringp session-id)))
+    (error "SESSION-ID must be a string, got %S" session-id))
   (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
         (org-log-into-drawer "LOGBOOK"))
     (org-todo new-state)
@@ -427,7 +513,7 @@ Returns a plist with `:wrote' (list of modified paths) and `:heading'."
         (when (get-buffer "*Org Note*")
           (with-current-buffer "*Org Note*"
             (goto-char (point-max))
-            (insert note)
+            (insert (bergheim/agent-notes-unfill note))
             (org-store-log-note))))
       (setq dirty (buffer-modified-p)))
     (bergheim/agent-notes--maybe-commit
@@ -573,7 +659,7 @@ Safe for emacsclient --eval."
                            (format "#+filetags:   %s\n" tags-str)
                            (format "#+identifier: %s\n" id)
                            "\n"
-                           (if body (concat body "\n") "")))
+                           (if body (concat (bergheim/agent-notes-unfill body) "\n") "")))
           (written nil))
       (while (not written)
         (condition-case nil
@@ -862,20 +948,31 @@ heading. A stable `:ID:' is generated so the entry can later be addressed with
       (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
       (when (and body (not (string-empty-p body)))
         (org-end-of-meta-data t)
-        (insert (string-trim-right body) "\n")))
+        (insert (string-trim-right (bergheim/agent-notes-unfill body)) "\n")))
     (bergheim/agent-notes--maybe-commit file (format "todo: add %s" heading))
     (list :wrote (list (expand-file-name file)) :id id :heading heading :state st)))
 
-(defun bergheim/agent-org-list-todos (org-file)
-  "Return JSON array of every entry carrying a TODO keyword in ORG-FILE."
+(defun bergheim/agent-org-list-todos (org-file &optional states)
+  "Write a JSON array of every entry carrying a TODO keyword in ORG-FILE
+to a temp file; return a plist (:wrote (PATH) :path PATH :count N).
+
+Each array element has `line' (1-based heading line in ORG-FILE, ready for
+sed/Read), `state', `heading', `tags', and `autonomous'. STATES, when
+non-nil, is a list of keyword strings to keep — e.g. (list \"TODO\"
+\"INPROGRESS\") — so callers of a long log can skip the DONE bulk.
+
+The JSON travels through a file, not the reply: emacsclient corrupts
+replies beyond a few KB (server.el chunks at `server-msg-size' and the
+client mis-reassembles, splicing \"*ERROR*: Unknown message\" into
+stdout). The plist stays small enough to be safe."
   (let ((abs (expand-file-name org-file)) (items nil))
     (bergheim/agent-org--with-quiet-buffer abs
       (org-with-wide-buffer
        (org-map-entries
         (lambda ()
           (let ((state (org-get-todo-state)))
-            (when state
-              (push `((position . ,(point))
+            (when (and state (or (null states) (member state states)))
+              (push `((line . ,(line-number-at-pos (point)))
                       (state . ,(substring-no-properties state))
                       (heading . ,(substring-no-properties (org-get-heading t t t t)))
                       (tags . ,(bergheim/agent-org--strip-list (org-get-tags)))
@@ -883,7 +980,10 @@ heading. A stable `:ID:' is generated so the entry can later be addressed with
                                           (bergheim/agent-org--autonomous-eligible-p) t)))
                     items))))
         nil nil)))
-    (json-encode-array (nreverse items))))
+    (let ((path (make-temp-file "agent-org-todos-" nil ".json"))
+          (arr (nreverse items)))
+      (write-region (json-encode-array arr) nil path nil 'silent)
+      (list :wrote (list path) :path path :count (length arr)))))
 
 (defun bergheim/agent-org-get-entry (file locator &optional by-id)
   "Return the entry matching LOCATOR in FILE as a JSON object.

@@ -64,6 +64,12 @@ to register as a backlink; never add reverse links by hand (write-once). Find
 relevant targets first with `agent-denote-find`, then link forward; backlinks
 follow automatically.
 
+Never hard-wrap prose. Note and TODO bodies are one line per paragraph;
+Emacs soft-wraps them on read, and a fixed column only makes every reworded
+sentence reflow into the diff. Hard newlines are for structure alone —
+headings, list items, table rows, src blocks. The helpers unfill bodies on the
+way in, so a wrapped paragraph gets joined rather than stored.
+
 Where a note goes (stash vs `docs/notes`) and write-once rules are in
 [Files and Docs](#files-and-docs); batch and other forms live in
 `docs/agent-ops.md`.
