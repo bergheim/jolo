@@ -32,15 +32,20 @@ Without arguments, rank all open items from git + TODO.
 - Enumerate TODOs with the org helper, not by hand-parsing the file:
 
   ```bash
-  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
+  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "BLOCKED" "WAITING" "SOMEDAY"))'
   ```
 
-  It returns a JSON array; each entry has `position`, `state`, `heading`,
-  `tags`, and `autonomous`. Partition on `state`: **actionable** is `TODO`,
-  `NEXT`, `INPROGRESS`; **parked** is `BLOCKED` and `WAITING` (keep parked out
-  of the ranking, but list them once afterward so the user sees what's parked
-  and why); ignore `DONE`/`CANCELLED`. Only read `docs/TODO.org` directly when
-  you need a specific item's body text for effort/blocker context.
+  It returns a plist `(:path "/tmp/agent-org-todos-….json" :count N)`; Read
+  the file at `:path` for the JSON array (the array goes through a file
+  because emacsclient corrupts large replies). Each entry has `line` (1-based
+  heading line in TODO.org, usable directly with Read/sed), `state`,
+  `heading`, `tags`, and `autonomous`. The second argument filters by state;
+  the filter above skips the `DONE`/`CANCELLED` bulk. Partition on `state`:
+  **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked** is `BLOCKED` and
+  `WAITING` (keep parked out of the ranking, but list them once afterward so
+  the user sees what's parked and why). Only read `docs/TODO.org` directly
+  when you need a specific item's body text for effort/blocker context — the
+  `line` field says where to start reading.
 - Run `git log --oneline -n 10` to see recent momentum (what area was last
   worked on). The wider window than j-save/j-resume's `-n 5` is deliberate:
   this read is for area detection, not a what-shipped recap.
