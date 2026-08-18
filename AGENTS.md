@@ -55,6 +55,8 @@ emacsclient -e '(bergheim/agent-denote-list "docs/notes")'
 emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
 # link notes — the ONLY way to link; never hand-write [[denote:ID]] or a bare id
 emacsclient -e '(bergheim/agent-denote-link "/abs/source.org" (quote ("/abs/target.org")))'
+# cite a note from a TODO (subtree only; does not touch the note)
+emacsclient -e '(bergheim/agent-org-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
 ```
 
 To link one note to another, always call `bergheim/agent-denote-link` — never
@@ -63,6 +65,9 @@ backlinks only from links its own API emits, so a hand-typed id silently fails
 to register as a backlink; never add reverse links by hand (write-once). Find
 relevant targets first with `agent-denote-find`, then link forward; backlinks
 follow automatically.
+
+TODO → note uses `bergheim/agent-org-link-note`. Note → TODO is forbidden. Do
+not put `TODO.org` in `denote-directory`.
 
 Never hard-wrap prose. Note and TODO bodies are one line per paragraph;
 Emacs soft-wraps them on read, and a fixed column only makes every reworded

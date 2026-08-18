@@ -263,7 +263,7 @@ tooling that filters/groups on CREATED sees agent-created entries."
 (ert-deftest agent-helpers/list-todos-returns-json-for-every-todo-keyword ()
   "`list-todos' writes JSON objects in file order for TODO-keyword headings."
   (test-agent-helpers--with-file
-      "* TODO First  :autonomous:\n* Plain heading\n* DONE Closed\n* NEXT Later  :alpha:\n"
+      "* TODO First  :autonomous:\n- [[denote:20260818T120000][Cited]]\n- [[denote:20260818T120000::#foo][Again]]\n- [[denote:20260818T130000][Other]]\n* Plain heading\n* DONE Closed\n* NEXT Later  :alpha:\n"
     (let* ((res (bergheim/agent-org-list-todos test-file))
            (items (test-agent-helpers--json-read
                    (with-temp-buffer
@@ -276,8 +276,11 @@ tooling that filters/groups on CREATED sees agent-created entries."
       (should (equal (alist-get 'state (nth 0 items)) "TODO"))
       (should (equal (alist-get 'heading (nth 0 items)) "First"))
       (should (eq (alist-get 'autonomous (nth 0 items)) t))
+      (should (equal (alist-get 'notes (nth 0 items))
+                     '("20260818T120000" "20260818T130000")))
       (should (equal (alist-get 'state (nth 1 items)) "DONE"))
       (should-not (alist-get 'autonomous (nth 1 items)))
+      (should-not (alist-get 'notes (nth 1 items)))
       (should (equal (alist-get 'tags (nth 2 items)) '("alpha"))))))
 
 (ert-deftest agent-helpers/list-todos-filters-by-state ()
@@ -286,6 +289,43 @@ tooling that filters/groups on CREATED sees agent-created entries."
       "* TODO First\n* DONE Closed\n* NEXT Later\n"
     (let ((res (bergheim/agent-org-list-todos test-file '("TODO" "NEXT"))))
       (should (= (plist-get res :count) 2)))))
+
+(ert-deftest agent-helpers/link-note-inserts-denote-link-into-todo ()
+  "`link-note' cites a note from a TODO subtree and is idempotent."
+  (skip-unless (require 'denote nil t))
+  (let ((dir (make-temp-file "agent-link-note-" t)))
+    (unwind-protect
+        (let* ((note (bergheim/agent-denote-create
+                      dir "Cited note" '("kind" "topic")))
+               (note-path (plist-get note :path))
+               (note-id (plist-get note :id)))
+          (test-agent-helpers--with-file "* TODO First\n"
+            (let ((res (bergheim/agent-org-link-note test-file "First" note-path)))
+              (should (= (plist-get res :added) 1))
+              (should (equal (plist-get res :id) note-id))
+              (should (equal (plist-get res :heading) "First"))
+              (should (equal (plist-get res :wrote)
+                             (list (expand-file-name test-file))))
+              (should (string-match-p (concat "denote:" (regexp-quote note-id))
+                                      (test-agent-helpers--contents test-file))))
+            (let ((again (bergheim/agent-org-link-note test-file "First" note-path)))
+              (should (= (plist-get again :added) 0))
+              (should-not (plist-get again :wrote)))
+            (let* ((listed (bergheim/agent-org-list-todos test-file '("TODO")))
+                   (items (test-agent-helpers--json-read
+                           (with-temp-buffer
+                             (insert-file-contents (plist-get listed :path))
+                             (buffer-string)))))
+              (should (equal (alist-get 'notes (car items)) (list note-id))))))
+      (dolist (buf (buffer-list))
+        (let ((path (buffer-file-name buf)))
+          (when (and path
+                     (string-prefix-p (file-truename dir)
+                                      (file-truename path)))
+            (with-current-buffer buf
+              (set-buffer-modified-p nil))
+            (kill-buffer buf))))
+      (delete-directory dir t))))
 
 (ert-deftest agent-helpers/get-entry-returns-body-with-drawers-removed ()
   "`get-entry' returns a JSON object for a heading regexp or ID lookup."

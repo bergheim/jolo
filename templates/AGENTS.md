@@ -55,6 +55,8 @@ catalogs live in `docs/agent-ops.md`.
 - To link notes, always use `bergheim/agent-denote-link`; never hand-write
   `[[denote:ID]]` or a bare id (denote derives backlinks only from links its own
   API emits, so a typed id never registers).
+- TODO → note uses `bergheim/agent-org-link-note`. Note → TODO is forbidden.
+  Do not put `TODO.org` in `denote-directory`.
 - New custom `.org` files under `docs/` must use denote filenames:
   `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`.
 - Fixed files such as `docs/PROJECT.org` and `docs/TODO.org` are exceptions.

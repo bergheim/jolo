@@ -20,7 +20,8 @@ Public arglists:
 - `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
 - `bergheim/agent-org-remove-tag FILE HEADING-RE TAG`
 - `bergheim/agent-org-add-todo FILE HEADING &optional BODY TAGS STATE`
-- `bergheim/agent-org-list-todos ORG-FILE`
+- `bergheim/agent-org-link-note ORG-FILE LOCATOR NOTE-PATH &optional BY-ID`
+- `bergheim/agent-org-list-todos ORG-FILE &optional STATES`
 - `bergheim/agent-org-get-entry FILE LOCATOR &optional BY-ID`
 - `bergheim/agent-org-autonomous-select ORG-FILE`
 - `bergheim/agent-org-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
@@ -37,6 +38,7 @@ emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\"
 emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
+emacsclient -e '(bergheim/agent-org-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
 emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
 emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "TODO Heading")'
 emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "abc-def-123" t)'

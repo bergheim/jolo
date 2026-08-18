@@ -22,7 +22,8 @@ Public arglists:
 - `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
 - `bergheim/agent-org-remove-tag FILE HEADING-RE TAG`
 - `bergheim/agent-org-add-todo FILE HEADING &optional BODY TAGS STATE`
-- `bergheim/agent-org-list-todos ORG-FILE`
+- `bergheim/agent-org-link-note ORG-FILE LOCATOR NOTE-PATH &optional BY-ID`
+- `bergheim/agent-org-list-todos ORG-FILE &optional STATES`
 - `bergheim/agent-org-get-entry FILE LOCATOR &optional BY-ID`
 - `bergheim/agent-org-autonomous-select ORG-FILE`
 - `bergheim/agent-org-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
@@ -76,8 +77,15 @@ Add a new top-level TODO. Optional args are body, tags, then state:
 emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
 ```
 
-List TODO headings, or read one full entry without hand-parsing org text. Both
-return JSON strings:
+Cite a note from a TODO. Subtree-only, idempotent, does not touch the note.
+Note → TODO is forbidden; do not put `TODO.org` in `denote-directory`.
+
+```bash
+emacsclient -e '(bergheim/agent-org-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
+```
+
+List TODO headings (`:path` JSON file; each entry has `notes` = denote ids
+cited from that heading), or read one full entry:
 
 ```bash
 emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'

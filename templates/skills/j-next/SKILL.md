@@ -1,96 +1,65 @@
 ---
 name: j-next
-description: Prioritize open TODO items by effort and impact, recommend what to work on next. Add the `full` keyword to also weigh project notes and stash context.
+description: Prioritize open TODO items by effort and impact, recommend what to work on next. Optional sentence narrows scope (e.g. "big tasks", "gym screen").
 disable-model-invocation: true
 ---
 
 # /j-next
 
-Recommend what to work on next from the open task list. By default this is fast:
-it reads only git and `docs/TODO.org`. The `full` keyword additionally weighs
-project notes and stash context to sharpen estimates and catch hidden blockers.
+Recommend what to work on next. Fast: git + `docs/TODO.org` headings. A note
+is read only when a ranked TODO already cites it.
 
 ## Arguments
 
-`/j-next [full] [focus]`
+`/j-next [sentence]`
 
-- `full` — optional leading keyword. When present, after the fast ranking also
-  scan `docs/notes/` and (for shared-tooling focus) `/workspaces/stash/notes` to
-  refine effort/impact and surface blockers the TODO list alone won't show
-  (step 1b). Without it, rank from git + TODO only.
-- `[focus]` — optional keyword(s) or short phrase to narrow scope (e.g.,
-  `jolo skills`, `emacs`, `security`, `perf grafana`). When given, rank only
-  TODOs that match the focus or are direct prerequisites for that focused work.
-  Anything after a leading `full` is treated as focus.
-
-Without arguments, rank all open items from git + TODO.
+The sentence is optional and interpreted, not tokenized. Examples: `gym screen`,
+`big tasks`, `trust, not chrome`, `perf hub`. Without one, rank all open items.
 
 ## Instructions
 
-### 1. Gather context (always)
+Do not call advisor. Do not read `docs/PROJECT.org`. Do not scan `docs/notes`
+or stash notes. Do not list every open TODO's body.
 
-- Enumerate TODOs with the org helper, not by hand-parsing the file:
-
-  ```bash
-  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "WAITING" "SOMEDAY"))'
-  ```
-
-  It returns a plist `(:path "/tmp/agent-org-todos-….json" :count N)`; Read
-  the file at `:path` for the JSON array (the array goes through a file
-  because emacsclient corrupts large replies). Each entry has `line` (1-based
-  heading line in TODO.org, usable directly with Read/sed), `state`,
-  `heading`, `tags`, and `autonomous`. The second argument filters by state;
-  the filter above skips the `DONE`/`CANCELLED` bulk. Partition on `state`:
-  **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked** is `WAITING`
-  (keep parked out of the ranking, but list them once afterward so the user
-  sees what's parked and why). Only read `docs/TODO.org` directly
-  when you need a specific item's body text for effort/blocker context — the
-  `line` field says where to start reading.
-- Run `git log --oneline -n 10` to see recent momentum (what area was last
-  worked on). The wider window than j-save/j-resume's `-n 5` is deliberate:
-  this read is for area detection, not a what-shipped recap.
-- The `autonomous` field marks items that are agent-runnable unattended
-  (`jolo autonomous`) — surface these in the `Auto` column of the table.
-- If a focus argument is given, split it into useful keywords and match against
-  TODO titles, TODO body text, tags, referenced branch names, and recent commit
-  subjects.
-
-### 1b. Enrich from notes (only if `full` given)
-
-Skip this entire step unless `full` was passed. Otherwise:
-
-- Scan `docs/notes/` for decision/research/gotcha notes that change an item's
-  effort, impact, or reveal a blocker not recorded in the TODO. Read only the
-  bodies of clearly relevant notes.
-- If the focus (or the highest-ranked items) touch shared tooling or workflow
-  (Emacs, org-mode, denote, devcontainers, agent behavior, host integration, or
-  global perf services), also skim relevant stash note filenames in
-  `/workspaces/stash/notes`.
+### 1. Gather
 
 ```bash
-emacsclient -e '(bergheim/agent-denote-list "docs/notes" 15)'
+emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "WAITING" "SOMEDAY"))'
+git log --oneline -n 10
+git worktree list
 ```
 
-### 2. Assess each actionable item
+`list-todos` returns `(:path "/tmp/agent-org-todos-….json" :count N)`. Read
+that file. Each entry has `line`, `state`, `heading`, `tags`, `notes` (denote
+ids linked from that entry), and `autonomous`.
 
-For each item, estimate:
+Partition on `state`: **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked**
+is `WAITING` / `BLOCKED` (list after the table, do not rank). Skip `SOMEDAY` in
+the table.
 
-- **Effort**: small (< 1 hour), medium (1-4 hours), large (4+ hours)
-- **Impact**: how much it improves the project
-- **Momentum**: is it in the same area as recent work (lower context-switch cost)
+If a sentence was given, interpret it (effort, area, audience) and drop
+unrelated actionable items unless they block the focused work. Keyword-splitting
+is wrong: `big tasks` means large-effort items, not headings that contain
+"big". Say "no open TODOs match this focus" when that is true, then recommend
+the nearest useful prerequisite if one exists.
 
-Base effort estimates on what you can see in the codebase — check if referenced
-branches, files, or partial work already exist. An `INPROGRESS` item is usually
-the strongest candidate: finishing started work beats opening a new front.
+### 2. Rank
 
-If a focus argument was given, exclude unrelated items from the ranked table
-unless they block the focused work. Say "no open TODOs match this focus" when
-that is true, then recommend the nearest useful prerequisite if one exists.
+From headings first. Read **at most three bodies** (use `line`): the
+`INPROGRESS` item if any, then whatever the sentence points at, then the likely
+recommendation. Read a cited note only for those same items, and only via
+`notes` (resolve `docs/notes/<id>--*.org`) — not a folder scan.
 
-### 3. Present the list
+Estimate effort (small < 1h, medium 1–4h, large 4h+), impact, and momentum
+against the last 10 commits. If a heading names a branch, check that branch
+exists before calling it partial work. An `INPROGRESS` item is usually the
+strongest candidate; finishing started work beats opening a new front, unless
+what remains is a multi-session project and a small item on the same surface
+is clearly better — say so.
 
-Print a ranked table, ordered from least effort to most effort. Mark
-autonomous-eligible items in the `Auto` column:
+### 3. Present
+
+Table is **top 8**, INPROGRESS first, then least effort to most:
 
 ```
 Effort   Auto   Item                                    Notes
@@ -100,24 +69,18 @@ medium          Add Y support                           Needs research
 large           Rework Z                                Touches 5+ files
 ```
 
-If any `INPROGRESS` items exist, list them first regardless of effort.
-After the table, list any `WAITING` items in one line each with what
-they're waiting on.
-
-After the table, recommend one item to start with and briefly explain why
-(effort/impact/momentum tradeoff). If a focus argument was given, make the
-recommendation within that scope.
+`autonomous` marks `jolo autonomous` eligibility. After the table, one line
+per parked item and what it is waiting on. Then recommend one item and why.
+If a sentence was given, recommend within that scope.
 
 ### 4. Offer to start
 
-Ask if the user wants to begin working on the recommended item. If the
-recommended item is autonomous-eligible, mention it can be dispatched
-unattended via `jolo autonomous`.
+Ask if the user wants to begin. Mention `jolo autonomous` only when the
+recommended item is autonomous-eligible.
 
 ## Rules
 
 - Read-only: do not modify any files
-- Be honest about effort — don't underestimate to make items look appealing
-- If a TODO references a branch, check if it still exists before claiming partial work
-- Never rank `WAITING` items as startable
-- If TODO.org is missing or empty, say so and suggest creating one
+- Be honest about effort
+- Never rank `WAITING` / `BLOCKED` / `SOMEDAY` as startable
+- If `TODO.org` is missing or empty, say so and suggest creating one
