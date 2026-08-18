@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import jolo
+from tests.cwd import tracked_tmpdir
 
 
 class TestArgumentParsing(unittest.TestCase):
@@ -105,14 +106,7 @@ class TestGitDetection(unittest.TestCase):
     """Test git repository detection."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_find_git_root_at_root(self):
         """Should find git root when at repo root."""

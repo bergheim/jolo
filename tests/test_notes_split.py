@@ -190,19 +190,16 @@ class TestNotesSplitSmoke(unittest.TestCase):
 
             # Run notes-split in the temp root. Simulate `jolo notes-split --yes`.
             args = jolo.parse_args(["notes-split", "--yes"])
-            old_cwd = Path.cwd()
             env_overrides = {
                 "GIT_AUTHOR_NAME": "Test",
                 "GIT_AUTHOR_EMAIL": "t@example.com",
                 "GIT_COMMITTER_NAME": "Test",
                 "GIT_COMMITTER_EMAIL": "t@example.com",
             }
-            try:
-                os.chdir(root)
-                with mock.patch.dict(os.environ, env_overrides, clear=False):
-                    notes_split.run_notes_split_mode(args)
-            finally:
-                os.chdir(old_cwd)
+            self.addCleanup(os.chdir, os.getcwd())
+            os.chdir(root)
+            with mock.patch.dict(os.environ, env_overrides, clear=False):
+                notes_split.run_notes_split_mode(args)
 
             # docs/.git exists
             self.assertTrue((docs / ".git").is_dir())

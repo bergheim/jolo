@@ -9,20 +9,14 @@ from pathlib import Path
 from unittest import mock
 
 import jolo
+from tests.cwd import tracked_tmpdir
 
 
 class TestSyncDevcontainer(unittest.TestCase):
     """Test --sync functionality."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_sync_overwrites_existing_devcontainer(self):
         """--sync should regenerate .devcontainer even if it exists."""

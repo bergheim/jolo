@@ -2,13 +2,13 @@
 """Tests for `jolo autonomous` — TODO-driven task dispatcher."""
 
 import os
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import jolo
 from _jolo import autonomous
+from tests.cwd import isolate_cwd
 
 
 class TestAutonomousArgParsing(unittest.TestCase):
@@ -160,17 +160,9 @@ class TestGetAutonomousItems(unittest.TestCase):
     """Emacsclient-backed selection returns parsed items."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
         (Path(self.tmpdir) / "docs").mkdir()
         (Path(self.tmpdir) / "docs" / "TODO.org").write_text("* TODO x\n")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def test_invokes_emacsclient_with_select_function(self):
         with mock.patch("_jolo.autonomous.subprocess.run") as mock_run:
@@ -270,18 +262,10 @@ class TestRunAutonomousIntegration(unittest.TestCase):
     """End-to-end orchestrator (mocked emacsclient + subprocess)."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
         (Path(self.tmpdir) / ".git").mkdir()
         (Path(self.tmpdir) / "docs").mkdir()
         (Path(self.tmpdir) / "docs" / "TODO.org").write_text("* TODO x\n")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _make_args(self, **overrides):
         import argparse
@@ -465,18 +449,10 @@ class TestRunAutonomousSurfacesEmacsClientError(unittest.TestCase):
     """Setup errors (daemon down, helper missing) must fail loud."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
         (Path(self.tmpdir) / ".git").mkdir()
         (Path(self.tmpdir) / "docs").mkdir()
         (Path(self.tmpdir) / "docs" / "TODO.org").write_text("* TODO x\n")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _make_args(self):
         import argparse
@@ -503,8 +479,7 @@ class TestRunAutonomousLoadsConfigFromGitRoot(unittest.TestCase):
     """`.jolo.toml` at the repo root must be honored when run from subdirs."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
+        self.tmpdir = isolate_cwd(self)
         root = Path(self.tmpdir)
         (root / ".git").mkdir()
         (root / "docs").mkdir()
@@ -512,12 +487,6 @@ class TestRunAutonomousLoadsConfigFromGitRoot(unittest.TestCase):
         (root / ".jolo.toml").write_text('agents = ["codex"]\n')
         (root / "subdir").mkdir()
         os.chdir(root / "subdir")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _make_args(self):
         import argparse
@@ -573,20 +542,13 @@ class TestRunAutonomousFromSubdir(unittest.TestCase):
     """`jolo autonomous` run from a subdirectory resolves to the git root."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
+        self.tmpdir = isolate_cwd(self)
         root = Path(self.tmpdir)
         (root / ".git").mkdir()
         (root / "docs").mkdir()
         (root / "docs" / "TODO.org").write_text("* TODO x :autonomous:\n")
         (root / "subdir").mkdir()
         os.chdir(root / "subdir")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _make_args(self, **overrides):
         import argparse

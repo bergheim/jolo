@@ -1,29 +1,20 @@
 #!/usr/bin/env python3
 """Integration tests spanning multiple modules."""
 
-import os
 import subprocess
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import jolo
+from tests.cwd import isolate_cwd
 
 
 class TestCreateModeFlavorIntegration(unittest.TestCase):
     """Integration tests for run_create_mode() flavor handling."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
 
     def _mock_devcontainer_calls(self):
         """Create mocks for devcontainer commands."""
@@ -490,15 +481,7 @@ class TestInitModeIntegration(unittest.TestCase):
     """Integration tests for run_init_mode()."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
 
     def test_init_installs_test_hooks(self):
         """init should install pre-commit hooks and set test defaults."""
@@ -558,9 +541,7 @@ class TestInitInExistingRepo(unittest.TestCase):
     """`jolo init` sets jolo up in a repo that already exists."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
         subprocess.run(["git", "init", "-q"], cwd=self.tmpdir, check=True)
         subprocess.run(
             ["git", "config", "user.email", "t@example.com"],
@@ -575,12 +556,6 @@ class TestInitInExistingRepo(unittest.TestCase):
         subprocess.run(
             ["git", "commit", "-qm", "existing"], cwd=self.tmpdir, check=True
         )
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _run_init(self, argv):
         args = jolo.parse_args(argv)

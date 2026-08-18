@@ -12,20 +12,14 @@ from unittest import mock
 import _jolo.setup as setup
 import jolo
 from _jolo.commands import GITIGNORE_MARKER
+from tests.cwd import tracked_tmpdir
 
 
 class TestTemplateSystem(unittest.TestCase):
     """Test .devcontainer template scaffolding."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_scaffold_devcontainer_creates_directory(self):
         """Should create .devcontainer directory."""
@@ -218,14 +212,7 @@ class TestAddUserMounts(unittest.TestCase):
     """Test add_user_mounts() function."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_add_user_mounts_to_devcontainer_json(self):
         """Mount should be added to mounts array in JSON."""
@@ -315,14 +302,7 @@ class TestCopyUserFiles(unittest.TestCase):
     """Test copy_user_files() function."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_file_copied_to_correct_location(self):
         """File should be copied to target location."""
@@ -1937,15 +1917,8 @@ class TestLighthouseRunIntegration(unittest.TestCase):
     script together for web flavors and neither for non-web."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
+        self.tmpdir = tracked_tmpdir(self)
         self.project = Path(self.tmpdir)
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def test_typescript_web_gets_script_and_recipe(self):
         (self.project / "package.json").write_text('{"name":"x"}')
@@ -1981,17 +1954,10 @@ class TestEnsureGitignore(unittest.TestCase):
     JOLO_LINE = ".devcontainer/.claude-cache/"
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
+        self.tmpdir = tracked_tmpdir(self)
         self.project = Path(self.tmpdir)
-        self.original_cwd = os.getcwd()
         (self.project / "package.json").write_text('{"name":"x"}')
         (self.project / "tsconfig.json").write_text("{}")
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _run(self):
         from _jolo.commands import _ensure_project_template_files
@@ -2034,10 +2000,9 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
     """Project-tree backfill is gated behind `--recreate`."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
+        self.tmpdir = tracked_tmpdir(self)
         self.project = Path(self.tmpdir)
         (self.project / ".git").mkdir()
-        self.original_cwd = os.getcwd()
         for patch in (
             mock.patch(
                 "_jolo.commands.find_git_root", return_value=self.project
@@ -2064,12 +2029,6 @@ class TestRunUpGatesProjectMutation(unittest.TestCase):
         self.test_gate = self.enterContext(
             mock.patch("_jolo.commands.ensure_test_gate_script")
         )
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _args(self, *, recreate):
         return argparse.Namespace(

@@ -8,20 +8,14 @@ from pathlib import Path
 from unittest import mock
 
 import jolo
+from tests.cwd import isolate_cwd, tracked_tmpdir
 
 
 class TestConfigLoading(unittest.TestCase):
     """Test TOML configuration loading."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_load_config_returns_defaults_when_no_files(self):
         """Should return default config when no config files exist."""
@@ -590,15 +584,7 @@ class TestCloneMode(unittest.TestCase):
     """Test clone functionality."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-        os.chdir(self.tmpdir)
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = isolate_cwd(self)
 
     def test_infer_repo_name(self):
         """Should infer repo name from common URL formats."""
@@ -653,18 +639,11 @@ class TestExecMode(unittest.TestCase):
     """Test exec command behavior."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
+        self.tmpdir = tracked_tmpdir(self)
         self.git_root = Path(self.tmpdir) / "myproject"
         self.git_root.mkdir()
         (self.git_root / ".git").mkdir()
         os.chdir(self.git_root)
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     def test_exec_calls_devcontainer_exec(self, mock_exec):
@@ -709,19 +688,12 @@ class TestRunPortMode(unittest.TestCase):
     """Test run_port_mode command handler."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
+        self.tmpdir = tracked_tmpdir(self)
         self.ws = Path(self.tmpdir) / "project"
         self.ws.mkdir()
         (self.ws / ".git").mkdir()
         (self.ws / ".devcontainer").mkdir()
         os.chdir(self.ws)
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
 
     def _write_config(self, config):
         import json

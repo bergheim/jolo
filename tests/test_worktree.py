@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 import jolo
+from tests.cwd import tracked_tmpdir
 
 
 class TestWorktreePaths(unittest.TestCase):
@@ -30,14 +31,7 @@ class TestModeValidation(unittest.TestCase):
     """Test validation for different modes."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_tree_mode_requires_git_repo(self):
         """--tree should fail if not in git repo."""
@@ -94,14 +88,7 @@ class TestWorktreeDevcontainer(unittest.TestCase):
     """Test worktree-specific devcontainer configuration."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_add_git_mount_to_devcontainer(self):
         """Should add mount for main repo .git directory."""
@@ -150,14 +137,7 @@ class TestListWorktrees(unittest.TestCase):
     """Test worktree listing functionality."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_list_worktrees_empty_on_non_git(self):
         """Should return empty list for non-git directory."""
@@ -232,8 +212,7 @@ class TestBranchExists(unittest.TestCase):
     """Test branch existence checking."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
+        self.tmpdir = tracked_tmpdir(self)
         # Set up a git repo with a commit
         subprocess.run(["git", "init"], cwd=self.tmpdir, capture_output=True)
         subprocess.run(
@@ -256,12 +235,6 @@ class TestBranchExists(unittest.TestCase):
             capture_output=True,
         )
 
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-
     def test_branch_exists_for_existing_branch(self):
         """Should return True for existing branch."""
         result = jolo.branch_exists(Path(self.tmpdir), "master")
@@ -277,14 +250,7 @@ class TestFindStaleWorktrees(unittest.TestCase):
     """Test stale worktree detection."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.original_cwd = os.getcwd()
-
-    def tearDown(self):
-        os.chdir(self.original_cwd)
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tracked_tmpdir(self)
 
     def test_find_stale_worktrees_returns_empty_for_fresh_repo(self):
         """Should return empty list when no stale worktrees."""
