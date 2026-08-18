@@ -32,7 +32,7 @@ Without arguments, rank all open items from git + TODO.
 - Enumerate TODOs with the org helper, not by hand-parsing the file:
 
   ```bash
-  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "BLOCKED" "WAITING" "SOMEDAY"))'
+  emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "WAITING" "SOMEDAY"))'
   ```
 
   It returns a plist `(:path "/tmp/agent-org-todos-….json" :count N)`; Read
@@ -41,9 +41,9 @@ Without arguments, rank all open items from git + TODO.
   heading line in TODO.org, usable directly with Read/sed), `state`,
   `heading`, `tags`, and `autonomous`. The second argument filters by state;
   the filter above skips the `DONE`/`CANCELLED` bulk. Partition on `state`:
-  **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked** is `BLOCKED` and
-  `WAITING` (keep parked out of the ranking, but list them once afterward so
-  the user sees what's parked and why). Only read `docs/TODO.org` directly
+  **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked** is `WAITING`
+  (keep parked out of the ranking, but list them once afterward so the user
+  sees what's parked and why). Only read `docs/TODO.org` directly
   when you need a specific item's body text for effort/blocker context — the
   `line` field says where to start reading.
 - Run `git log --oneline -n 10` to see recent momentum (what area was last
@@ -101,7 +101,7 @@ large           Rework Z                                Touches 5+ files
 ```
 
 If any `INPROGRESS` items exist, list them first regardless of effort.
-After the table, list any `BLOCKED`/`WAITING` items in one line each with what
+After the table, list any `WAITING` items in one line each with what
 they're waiting on.
 
 After the table, recommend one item to start with and briefly explain why
@@ -119,5 +119,5 @@ unattended via `jolo autonomous`.
 - Read-only: do not modify any files
 - Be honest about effort — don't underestimate to make items look appealing
 - If a TODO references a branch, check if it still exists before claiming partial work
-- Never rank `BLOCKED`/`WAITING` items as startable
+- Never rank `WAITING` items as startable
 - If TODO.org is missing or empty, say so and suggest creating one

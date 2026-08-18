@@ -269,31 +269,17 @@ last-writer-wins `:LAST_AGENT:' property; full history stays in LOGBOOK."
 
 ;;; Durations
 ;;
-;; Agents do not clock. `org-clock' keeps one marker per Emacs process, and
-;; every agent in a container shares one daemon, so clocking in on B first
-;; clocks out of A — writing A's closing timestamp into A's buffer, outside
-;; the `--with-file' that owns it. That buffer is then modified-but-unsaved
-;; and every later helper call on A fails with "buffer has unsaved changes".
-;; Not a race: emacsclient is single-threaded, so it reproduces every time.
-;; It is a side effect on a file the call never opened.
-;;
-;; The intervals survive anyway. `org-todo' logs a timestamped state line for
-;; every transition (INPROGRESS carries `!' in the host keyword set), so a
-;; heading's spans are last INPROGRESS -> next other state, and the same pairs
-;; land in the stash worklog for cross-project sums. Compute when asked; a
-;; heading abandoned at INPROGRESS then reads as open since T rather than
-;; being billed the whole gap, which is what writing a closing CLOCK line at
-;; exit time would do.
+;; Agents do not clock. `org-clock' keeps one marker per Emacs process and
+;; every agent shares one daemon, so clocking in on B clocks out of A —
+;; writing into A's buffer outside the `--with-file' that owns it and leaving
+;; it modified-but-unsaved, which fails every later helper call on A.
+;; Spans come from the timestamped state lines `org-todo' already logs.
 
 (defun bergheim/agent-org--apply-state (new-state note agent session-id)
   "At point-on-heading, apply NEW-STATE. Optionally attach NOTE and, when
 AGENT is non-nil, a LOGBOOK session line plus `:LAST_AGENT:'.
 Notes always land in the :LOGBOOK: drawer regardless of user config.
 Returns the prior state (string or nil), so callers can log transitions."
-  (when (and agent (not (stringp agent)))
-    (error "AGENT must be a string, got %S — the old ENSURE-SESSION-ID/CLOCK args are gone" agent))
-  (when (and session-id (not (stringp session-id)))
-    (error "SESSION-ID must be a string, got %S" session-id))
   (let ((old-state (bergheim/agent-org--strip (org-get-todo-state)))
         (org-log-into-drawer "LOGBOOK"))
     (org-todo new-state)

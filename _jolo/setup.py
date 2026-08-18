@@ -174,6 +174,13 @@ def _upsert_toml_table_keys(
     return "\n".join(lines[: start + 1] + new_section + lines[end:]) + "\n"
 
 
+def _write_if_changed(path: Path, content: str) -> None:
+    """Write only on a real change. ~/.grok and ~/.codex are host-owned and
+    shared across every project, so a no-op rewrite is churn on the host."""
+    if not path.exists() or path.read_text() != content:
+        path.write_text(content)
+
+
 def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
     if any(
         re.match(rf"^{re.escape(key)}\s*=", line.strip())
@@ -402,15 +409,14 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
     # Trust the container workspace
     if codex_config_path.exists():
-        project_name = workspace_dir.name
-        container_path = f"/workspaces/{project_name}"
-        config = codex_config_path.read_text()
-        section = f'[projects."{container_path}"]'
-        if section not in config:
-            config = (
-                config.rstrip() + f'\n\n{section}\ntrust_level = "trusted"\n'
-            )
-            codex_config_path.write_text(config)
+        _write_if_changed(
+            codex_config_path,
+            _upsert_toml_table_keys(
+                codex_config_path.read_text(),
+                f'projects."/workspaces/{workspace_dir.name}"',
+                {"trust_level": "trusted"},
+            ),
+        )
 
     try:
         # We need the aggregated MCP config
@@ -466,7 +472,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # Native grok worktrees are standalone clones under ~/.grok — magit cannot
     # switch to them. Force /new and /fork onto just wt (.worktrees/).
     grok_config = grok_home / "config.toml"
-    grok_config.write_text(
+    _write_if_changed(
+        grok_config,
         _upsert_toml_table_keys(
             grok_config.read_text() if grok_config.exists() else "",
             "hints",
@@ -474,7 +481,7 @@ def setup_credential_cache(workspace_dir: Path) -> None:
                 "new_session_worktree_mode": "never",
                 "fork_worktree_mode": "never",
             },
-        )
+        ),
     )
 
     _write_pi_project_settings(workspace_dir)

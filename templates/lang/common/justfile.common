@@ -35,7 +35,7 @@ db *args="start":
 share TARGET=".":
     @cd "{{invocation_directory()}}" && share {{TARGET}}
 
-# Manage git worktrees: list / new <name> / land <name> / rm <name> / main
+# worktree manager (in-container): wt new, wt sync, wt land --rm, wt rm
 wt *args:
     @wt {{args}}
 

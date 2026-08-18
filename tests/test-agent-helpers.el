@@ -17,15 +17,9 @@
   "TODO keyword declaration used by test fixtures.
 
 Mirrors the keyword set the host Emacs config defines, so a state that does
-not exist in real projects cannot pass here. It previously declared
-BLOCKED(b), which made a state agents were told to use look supported while
-every real call failed.
-
-INPROGRESS and DONE keep a logging flag because durations are read from the
-logged state lines and need both endpoints. Production uses `DONE(d@)', which
-timestamps too; the fixture uses `!' to avoid the note machinery. A keyword
-with no flag at all (`TODO(t)', `PROJ(p)') logs nothing, so an INPROGRESS ->
-TODO transition leaves a span with no end — absent, not wrong.")
+not exist in real projects cannot pass here. INPROGRESS and DONE carry `!'
+because durations are read from the logged state lines and need both
+endpoints; production uses `DONE(d@)', and `!' avoids the note machinery.")
 
 ;; Tests must never append to the real stash worklog by default. Worklog-specific
 ;; coverage binds this to a temp directory with `test-agent-helpers--with-worklog'.
@@ -369,25 +363,16 @@ no keyword set defined it."
 ;; Durations: state lines, not clocks
 ;; ----------------------------------------------------------------------------
 
-(ert-deftest agent-helpers/no-clock-lines-written ()
-  "Agents must not clock. org-clock has one marker per Emacs process, so
-clocking in on one heading clocks out of another agent's file, outside the
-`--with-file' that owns it, leaving that buffer unsaved and every later
-helper call on it failing. org-clock is not even loaded any more."
+(ert-deftest agent-helpers/state-lines-carry-the-interval ()
+  "Agents must not clock: one org-clock marker per daemon means clocking in
+on one heading writes into another agent's file. The span is recoverable
+anyway — INPROGRESS and its exit are both timestamped in the LOGBOOK."
   (test-agent-helpers--with-file "* TODO Foo\n"
     (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
     (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE")
     (let ((contents (test-agent-helpers--contents test-file)))
       (should (string-match-p "^\\* DONE Foo" contents))
-      (should-not (string-match-p "CLOCK:" contents)))))
-
-(ert-deftest agent-helpers/state-lines-carry-the-interval ()
-  "The span is recoverable without clocks: INPROGRESS and its exit are both
-timestamped in the LOGBOOK, which is what duration reporting reads."
-  (test-agent-helpers--with-file "* TODO Foo\n"
-    (bergheim/agent-org-set-state test-file "TODO Foo" "INPROGRESS")
-    (bergheim/agent-org-set-state test-file "INPROGRESS Foo" "DONE")
-    (let ((contents (test-agent-helpers--contents test-file)))
+      (should-not (string-match-p "CLOCK:" contents))
       (should (string-match-p "State \"INPROGRESS\".*\\[.+\\]" contents))
       (should (string-match-p "State \"DONE\".*\\[.+\\]" contents)))))
 

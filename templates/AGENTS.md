@@ -140,9 +140,8 @@ already implements every rule in this section. Do not re-derive it from
 - Use merge commits for multi-commit branches; fast-forward single-commit
   branches. `wt land` picks the right one by commit count.
 - After a merge, the branch and its worktree must go — a leftover merged
-  branch is read as unfinished work. `wt land --rm` does this; `just wt
-  delete <name>` is only for abandoning unmerged work. Confirm
-  `git rev-list --count main..<branch>` is 0 first, or ask.
+  branch is read as unfinished work. `just wt delete <name>` is only for
+  abandoning unmerged work.
 - Never use `git reset --hard`, `git checkout --`, or `git commit --no-verify`
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
