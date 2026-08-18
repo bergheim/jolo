@@ -106,6 +106,40 @@ just wt
 
 `dev.log` is a tee of the dev server output.
 
+## Git and Worktrees
+
+`just wt` is the only worktree interface. Do not read `/usr/local/bin/wt`
+to reverse-engineer it — `just wt help` is the catalog.
+
+```bash
+just wt help
+just wt new <name> [-p <prompt>] [--from <ref>]   # create + tmux window
+just wt ls                                        # list windows
+just wt sync [<name>]                             # rebase worktree on main's branch
+just wt land [<name>] --rm                        # from main tree: rebase, merge, push, delete
+just wt delete [<name>]                           # abandon unmerged work only
+just wt prune                                     # stale refs
+```
+
+`wt land` (must run from the main tree, both trees clean):
+
+- rebases `<name>` onto the main tree's current branch (usually `main`)
+- 1 commit → `--ff-only`; several → `--no-ff`; 0 → already up to date
+- pushes the target if `origin` exists
+- `--rm` then runs `wt delete` (worktree + branch + tmux window)
+
+`wt delete` / `wt rm` takes the worktree directory name under `.worktrees/`
+(same name `wt new` used for the branch). It force-removes the worktree,
+deletes that branch, and closes the tmux window. Uncommitted changes
+prompt. Use only to abandon; landing already deletes via `--rm`.
+
+Detect checkout type:
+
+```bash
+test -f .git && echo "worktree" || echo "main repo"
+```
+
+
 ## Pre-commit Linters
 
 | Files | Linter | Hook repo |

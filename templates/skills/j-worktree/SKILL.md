@@ -8,7 +8,9 @@ disable-model-invocation: true
 
 When the user asks to use / create / spin up a worktree, run the in-container
 `wt` manager — it makes the git worktree AND a tmux window in one step. Do NOT
-hand-roll `git worktree add` or `tmux new-window`.
+hand-roll `git worktree add` or `tmux new-window`. Do NOT use `grok --worktree`,
+grok `/fork` isolation, `claude --worktree`, or EnterWorktree — those are not
+linked worktrees under `.worktrees/` and magit cannot switch to them.
 
 The launched `claude` starts CLEAN, but it is a full checkout: it auto-loads
 `AGENTS.md`/`CLAUDE.md` and SessionStart hooks, and has `docs/TODO.org`,
@@ -40,12 +42,16 @@ Result: worktree at `.worktrees/<name>` on new branch `<name>`, tmux window
 `wt-<name>` in the `dev` session with `claude` running. Tell the user the window
 name and that `C-b w` (or its number) jumps to it.
 
-## Related wt commands (mention, don't run unprompted)
+## Finish (when asked to land / merge / ship the worktree)
+
+From the main tree: `just wt land <name> --rm`. Do not hand-roll rebase +
+merge + `wt delete`. Catalog: `just wt help` (do not read `/usr/local/bin/wt`).
+
+Other commands (mention; don't run unprompted while creating):
 
 - `just wt ls` — list worktree windows
 - `just wt sync [name]` — rebase the worktree on main's branch
-- `just wt land [name] [--rm]` — merge it back into the current branch
-- `just wt rm [name]` — remove worktree + branch + window
+- `just wt delete [name]` — abandon unmerged work only
 
 Worktrees live under `$WORKSPACE/.worktrees/` (bind-mounted, survives container
 rebuilds). This is the jolo way — prefer it over `using-git-worktrees` here.

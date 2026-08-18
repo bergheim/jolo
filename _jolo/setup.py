@@ -145,6 +145,35 @@ def merge_mcp_configs(target_config: dict, mcp_templates_dir: Path) -> dict:
     return target_config
 
 
+def _upsert_toml_table_keys(
+    content: str, table: str, updates: dict[str, str]
+) -> str:
+    """Set string keys in [table], creating the table if needed."""
+    lines = content.splitlines()
+    header = f"[{table}]"
+    try:
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == header)
+    except StopIteration:
+        block = [header] + [f'{k} = "{v}"' for k, v in updates.items()]
+        body = content.rstrip()
+        prefix = f"{body}\n\n" if body else ""
+        return prefix + "\n".join(block) + "\n"
+
+    end = start + 1
+    while end < len(lines) and not lines[end].strip().startswith("["):
+        end += 1
+    remaining = dict(updates)
+    new_section = []
+    for ln in lines[start + 1 : end]:
+        m = re.match(r"^\s*([A-Za-z0-9_]+)\s*=", ln)
+        if m and m.group(1) in remaining:
+            new_section.append(f'{m.group(1)} = "{remaining.pop(m.group(1))}"')
+        else:
+            new_section.append(ln)
+    new_section.extend(f'{k} = "{v}"' for k, v in remaining.items())
+    return "\n".join(lines[: start + 1] + new_section + lines[end:]) + "\n"
+
+
 def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
     if any(
         re.match(rf"^{re.escape(key)}\s*=", line.strip())
@@ -426,6 +455,19 @@ def setup_credential_cache(workspace_dir: Path) -> None:
         (workspace_dir / ".devcontainer" / f".grok-{nested}").mkdir(
             parents=True, exist_ok=True
         )
+    # Native grok worktrees are standalone clones under ~/.grok — magit cannot
+    # switch to them. Force /new and /fork onto just wt (.worktrees/).
+    grok_config = grok_home / "config.toml"
+    grok_config.write_text(
+        _upsert_toml_table_keys(
+            grok_config.read_text() if grok_config.exists() else "",
+            "hints",
+            {
+                "new_session_worktree_mode": "never",
+                "fork_worktree_mode": "never",
+            },
+        )
+    )
 
     _write_pi_project_settings(workspace_dir)
 

@@ -108,6 +108,9 @@ Where a note goes (stash vs `docs/notes`) and write-once rules are in
 `docs/TODO.org` is the active work log and source of truth.
 
 - Before starting work, check for an existing TODO.
+- Ad-hoc work with no heading still needs a paper trail: `agent-org-add-todo`
+  when you start, `DONE` when you land. That feeds the worklog. Untracked
+  landings leave no trace.
 - When starting a tracked task, mark it `INPROGRESS` with the org helper.
 - Mark completed work `DONE` immediately, not at session end.
 - Mark obsolete work `CANCELLED` with a reason.
@@ -144,6 +147,16 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 
 ## Git
 
+**`just wt` is the worktree CLI — faster and safer than hand-rolling.** It
+already implements every rule in this section. Do not re-derive it from
+`/usr/local/bin/wt`; `just wt help` is the menu.
+
+- Start: `just wt new <name>`. Keep current: `just wt sync`.
+- Finish: **`just wt land <name> --rm`** from the main tree (the branch you
+  want to merge into, usually `main`). Rebases, fast-forwards one commit or
+  `--no-ff` merges several, pushes if a remote exists, then removes
+  worktree, branch, and tmux window. Merging plus `wt delete` by hand is
+  that same path, slower and less safe.
 - Default workflow: create a feature branch, commit meaningful progress, and
   push if a remote exists unless the user says not to.
 - Branch names: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
@@ -151,11 +164,19 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 - Keep history rebased and linear.
 - Merge feature branches into `main`, not into each other.
 - Use merge commits for multi-commit branches; fast-forward single-commit
-  branches.
+  branches. `wt land` picks the right one by commit count.
+- After a merge, the branch and its worktree must go — a leftover merged
+  branch is read as unfinished work. `wt land --rm` does this; `just wt
+  delete <name>` is only for abandoning unmerged work. Confirm
+  `git rev-list --count main..<branch>` is 0 first, or ask.
 - Never use `git reset --hard`, `git checkout --`, or `git commit --no-verify`
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
   `git worktree list`.
+- Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`. Do not use
+  harness-native worktrees (`grok --worktree`, grok `/fork`, `claude
+  --worktree`, EnterWorktree): they land under `~/.grok` or
+  `.claude/worktrees` and magit cannot switch to them.
 
 ## Commands
 
@@ -169,6 +190,7 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 | Launch project | `jolo up` |
 | Launch detached | `jolo up -d` |
 | Create worktree container | `jolo tree <slug>` |
+| Land a worktree | `just wt land <name> --rm` (from the main tree) |
 | Dispatch autonomous TODOs | `jolo autonomous --dry-run` first |
 
 System Python is externally managed on Alpine; use `uv` or the just recipes for
@@ -241,6 +263,7 @@ Read `docs/agent-ops.md` only when needed for:
   return-plist details.
 - Stash cookbook (literate `:tangle`) note format.
 - Browser-check, Playwright, and `fetch-asset` command catalogs.
+- Worktree catalog (`just wt help`; do not reverse-engineer `/usr/local/bin/wt`).
 - jolo command catalog, host-side `jolo expose`, and podman gate operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.
