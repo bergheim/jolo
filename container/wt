@@ -110,27 +110,45 @@ link_ignored() {
             continue
         fi
         # Tracked on this branch even though ignored in main: worktree add
-        # already checked it out, do not clobber it. -L catches a dangling link
-        # left by an earlier run, which -e reports as absent.
-        if [ -e "$target_wt/$entry" ] || [ -L "$target_wt/$entry" ]; then
+        # already checked it out, do not clobber it.
+        if [ -e "$target_wt/$entry" ]; then
             continue
         fi
+        # A dangling link is one we wrote and got wrong, or one whose target
+        # went away. Replace it -- skipping would leave the worktree broken
+        # for good, since every later run sees it and bails here too.
+        if [ -L "$target_wt/$entry" ]; then
+            rm -f "$target_wt/$entry"
+        fi
 
-        # ../ back out of the entry's own depth, then out of .worktrees/<name>.
+        # ../ back out of the entry's own depth, then out of the worktree's
+        # own path under $WS. That is two levels for .worktrees/<name> but
+        # three for a slashed branch like feat/foo, so count, do not assume.
         depth=$(printf '%s' "$entry" | tr -cd '/' | wc -c)
+        rel_wt=${target_wt#"${WS%/}/"}
+        case "$rel_wt" in
+            /*) wt_depth=0 ;;  # outside $WS: fall back to an absolute target
+            *) wt_depth=$(printf '%s/' "$rel_wt" | tr -cd '/' | wc -c) ;;
+        esac
         up=""
-        i=0
-        while [ "$i" -lt $((depth + 2)) ]; do
-            up="$up../"
-            i=$((i + 1))
-        done
+        if [ "$wt_depth" -eq 0 ]; then
+            up="${WS%/}/"
+            entry_target="$up$entry"
+        else
+            i=0
+            while [ "$i" -lt $((depth + wt_depth)) ]; do
+                up="$up../"
+                i=$((i + 1))
+            done
+            entry_target="$up$entry"
+        fi
 
         parent=$(dirname "$entry")
         [ "$parent" = "." ] || mkdir -p "$target_wt/$parent"
-        ln -s "$up$entry" "$target_wt/$entry" || continue
+        ln -s "$entry_target" "$target_wt/$entry" || continue
 
         grep -qxF "/$entry" "$exclude" 2>/dev/null || printf '/%s\n' "$entry" >>"$exclude"
-        echo "linked: $entry -> $up$entry"
+        echo "linked: $entry -> $entry_target"
     done
 }
 

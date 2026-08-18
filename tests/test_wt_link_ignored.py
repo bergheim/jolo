@@ -155,6 +155,44 @@ class LinkIgnoredTest(unittest.TestCase):
             "self-referential link created inside the main tree",
         )
 
+    def test_slashed_branch_name_gets_the_extra_level(self):
+        """`wt new feat/foo` nests one level deeper than .worktrees/<name>."""
+        nested = self.repo / ".worktrees" / "feat" / "foo"
+        self.git("worktree", "add", "-q", str(nested), "-b", "feat/foo")
+        script = f'WS="{self.repo}"\n{link_ignored_lib()}\nlink_ignored "{nested}"\n'
+        result = subprocess.run(
+            ["sh", "-c", script], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        self.assertEqual(
+            (nested / "data").readlink().as_posix(), "../../../data"
+        )
+        self.assertEqual(
+            (nested / "docs" / "notes").readlink().as_posix(),
+            "../../../../docs/notes",
+        )
+        self.assertEqual(
+            (nested / "data" / "catalog.jsonl").read_text(), "row\n"
+        )
+        self.assertEqual(
+            (nested / "docs" / "TODO.org").read_text(), "* TODO thing\n"
+        )
+
+    def test_replaces_a_dangling_link(self):
+        """Skipping a broken link would strand the worktree permanently."""
+        (self.wt / "data").symlink_to("../../../data")
+        self.assertFalse((self.wt / "data").exists())
+
+        self.link()
+
+        self.assertEqual(
+            (self.wt / "data").readlink().as_posix(), "../../data"
+        )
+        self.assertEqual(
+            (self.wt / "data" / "catalog.jsonl").read_text(), "row\n"
+        )
+
     def test_does_not_clobber_a_path_tracked_on_the_branch(self):
         (self.wt / "data").mkdir()
         (self.wt / "data" / "branch-owned.txt").write_text("mine\n")
