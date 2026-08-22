@@ -2507,6 +2507,30 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
             "display", (home / ".claude" / "history.jsonl").read_text()
         )
 
+    def test_caveman_mounted_from_host(self):
+        """Hooks reference ~/.caveman/bin by absolute path.
+
+        The path has to resolve identically inside the container, or every
+        agent hook dies with "not found" — which is what happened to every
+        generated devcontainer that never had caveman installed by hand.
+        """
+        self.assertIn(
+            "source=${localEnv:HOME}/.caveman,"
+            "target=/home/${localEnv:USER}/.caveman,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_caveman_dir_created_when_host_has_none(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".caveman").is_dir())
+
     def test_claude_home_created_when_host_has_none(self):
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()

@@ -238,6 +238,11 @@ BASE_MOUNTS = [
     # (onboarding, model choice) follows into every container, and its
     # projects{} map is keyed by absolute path.
     "source=${localEnv:HOME}/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind",
+    # caveman: harness-bound like .pi and .grok. The Go binaries live in
+    # ~/.caveman/bin and every agent's hooks reference them by absolute path,
+    # so the host path has to resolve identically inside the container or the
+    # hooks die with "not found". State (ccr.db, caveman.db) rides along.
+    "source=${localEnv:HOME}/.caveman,target=/home/${localEnv:USER}/.caveman,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.gemini-cache,target=/home/${localEnv:USER}/.gemini,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer/.codex-cache,target=/home/${localEnv:USER}/.codex,type=bind",
     # pi: one host config shared by every container, so packages/themes/agents

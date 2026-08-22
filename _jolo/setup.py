@@ -237,6 +237,12 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
     # MCP servers and the trust flag go straight into the host file, keyed by
     # the container path, so they do not touch any host project's entry.
+    # caveman is mounted whole from the host so its binaries resolve at the
+    # same absolute path agents' hooks were written with. Only the directory
+    # is guaranteed; a host without caveman gets an empty one and the hooks
+    # degrade instead of failing the rebuild.
+    (home / ".caveman").mkdir(parents=True, exist_ok=True)
+
     # Bind source must exist or podman statfs fails the rebuild on a host
     # that has never run Claude.
     claude_json = home / ".claude.json"
