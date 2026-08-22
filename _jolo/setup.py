@@ -232,27 +232,30 @@ def setup_credential_cache(workspace_dir: Path) -> None:
 
     # MCP servers and the trust flag go straight into the host file, keyed by
     # the container path, so they do not touch any host project's entry.
+    # Bind source must exist or podman statfs fails the rebuild on a host
+    # that has never run Claude.
     claude_json = home / ".claude.json"
-    if claude_json.exists():
-        try:
-            claude_config = json.loads(claude_json.read_text())
-            project_name = workspace_dir.name
-            container_path = f"/workspaces/{project_name}"
+    if not claude_json.exists():
+        claude_json.write_text("{}")
 
-            claude_config["effortCalloutV2Dismissed"] = True
+    try:
+        claude_config = json.loads(claude_json.read_text())
+        container_path = f"/workspaces/{workspace_dir.name}"
 
-            project_entry = claude_config.setdefault(
-                "projects", {}
-            ).setdefault(container_path, {})
-            project_entry["hasTrustDialogAccepted"] = True
-            merge_mcp_configs(project_entry, mcp_templates)
+        claude_config["effortCalloutV2Dismissed"] = True
 
-            write_json(claude_json, claude_config, newline=False)
-        except Exception as e:
-            print(
-                f"Warning: Failed to inject MCP configs into .claude.json: {e}",
-                file=sys.stderr,
-            )
+        project_entry = claude_config.setdefault("projects", {}).setdefault(
+            container_path, {}
+        )
+        project_entry["hasTrustDialogAccepted"] = True
+        merge_mcp_configs(project_entry, mcp_templates)
+
+        write_json(claude_json, claude_config, newline=False)
+    except Exception as e:
+        print(
+            f"Warning: Failed to inject MCP configs into .claude.json: {e}",
+            file=sys.stderr,
+        )
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"

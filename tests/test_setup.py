@@ -2456,6 +2456,61 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
         cache = ws / ".devcontainer" / ".claude-cache"
         self.assertFalse((cache / "settings.json").exists())
 
+    def test_claude_json_created_when_host_has_none(self):
+        """Podman statfs fails the rebuild if a bind source is missing.
+
+        ~/.claude.json is mounted unconditionally, so a host that has never
+        run Claude must still get a valid file.
+        """
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        claude_json = home / ".claude.json"
+        self.assertTrue(claude_json.exists())
+        config = json.loads(claude_json.read_text())
+        self.assertIn("/workspaces/project", config["projects"])
+
+    def test_claude_home_created_when_host_has_none(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".claude").is_dir())
+
+    def test_host_claude_json_entries_preserved(self):
+        """Injection must not drop unrelated host projects or global keys."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+        (home / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "numStartups": 42,
+                    "projects": {"/home/tsb/other": {"lastCost": 1.5}},
+                }
+            )
+        )
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        config = json.loads((home / ".claude.json").read_text())
+        self.assertEqual(config["numStartups"], 42)
+        self.assertEqual(
+            config["projects"]["/home/tsb/other"]["lastCost"], 1.5
+        )
+        self.assertIn("/workspaces/project", config["projects"])
+
     def test_bind_sources_are_created(self):
         """Podman fails the rebuild when a bind source is absent."""
         ws = Path(self.tmpdir) / "project"
