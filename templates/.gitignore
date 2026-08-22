@@ -509,8 +509,8 @@ mlruns/
 # devcontainer / jolo specific
 # =============================================================================
 
-.devcontainer/.claude-cache/
-.devcontainer/.claude.json
+.devcontainer/.claude-sessions/
+.devcontainer/.claude-history.jsonl
 .devcontainer/.gemini-cache/
 .devcontainer/.codex-cache/
 .devcontainer/.pi-sessions/
