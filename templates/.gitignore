@@ -511,6 +511,9 @@ mlruns/
 
 .devcontainer/.claude-sessions/
 .devcontainer/.claude-history.jsonl
+# Pre-2026-08 layout; kept so upgrading projects stay covered.
+.devcontainer/.claude-cache/
+.devcontainer/.claude.json
 .devcontainer/.gemini-cache/
 .devcontainer/.codex-cache/
 .devcontainer/.pi-sessions/

@@ -221,6 +221,11 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # the bind sources; podman fails the rebuild if they are absent.
     claude_dir = home / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
+    # The per-project shadows below nest inside that dir bind, so their
+    # targets must exist on the host too. Podman creates a missing target as
+    # a directory, which would be fatal for the history file.
+    (claude_dir / "sessions").mkdir(exist_ok=True)
+    (claude_dir / "history.jsonl").touch(exist_ok=True)
 
     devcontainer_dir = workspace_dir / ".devcontainer"
     devcontainer_dir.mkdir(parents=True, exist_ok=True)

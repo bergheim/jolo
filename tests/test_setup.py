@@ -2475,6 +2475,38 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
         config = json.loads(claude_json.read_text())
         self.assertIn("/workspaces/project", config["projects"])
 
+    def test_host_overlay_targets_are_created(self):
+        """Nested binds need their targets to exist inside the parent bind.
+
+        ~/.claude/sessions and ~/.claude/history.jsonl are shadowed per
+        project, so they must exist on the host. Podman creates a missing
+        target as a directory, which would make history.jsonl a dir.
+        """
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".claude" / "sessions").is_dir())
+        self.assertTrue((home / ".claude" / "history.jsonl").is_file())
+
+    def test_existing_host_history_not_truncated(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "history.jsonl").write_text('{"display":"x"}\n')
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertIn(
+            "display", (home / ".claude" / "history.jsonl").read_text()
+        )
+
     def test_claude_home_created_when_host_has_none(self):
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
