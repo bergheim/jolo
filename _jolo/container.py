@@ -18,6 +18,21 @@ from _jolo.cli import (
     verbose_cmd,
 )
 
+# Host CLI locations we will bind onto ~/.local/bin/caveman (already on PATH).
+# Skip the pnpm shim: it hardcodes a host store path and dies in the container.
+_CAVEMAN_CLI_RELS = ("local/bin/caveman", ".local/bin/caveman")
+
+
+def caveman_cli_mount(home: Path | None = None) -> str | None:
+    root = home if home is not None else Path.home()
+    for rel in _CAVEMAN_CLI_RELS:
+        if (root / rel).is_file():
+            return (
+                f"source=${{localEnv:HOME}}/{rel},"
+                f"target=/home/${{localEnv:USER}}/.local/bin/caveman,type=bind"
+            )
+    return None
+
 
 def build_devcontainer_json(
     project_name: str,
@@ -52,6 +67,7 @@ def build_devcontainer_json(
     """
     if port is None:
         port = random_port()
+    assert isinstance(port, int)
 
     if base_image is None:
         base_image = constants.DEFAULT_CONFIG["base_image"]
@@ -62,6 +78,9 @@ def build_devcontainer_json(
     hostname = detect_hostname()
 
     mounts = constants.BASE_MOUNTS.copy()
+    cli = caveman_cli_mount()
+    if cli:
+        mounts.append(cli)
 
     # Skills have one source of truth: the jolo checkout's templates/skills,
     # mounted RW into every container. Edits anywhere are live everywhere
@@ -222,7 +241,10 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
     devcontainer_json = workspace_dir / ".devcontainer" / "devcontainer.json"
     if not devcontainer_json.exists():
         sys.exit("Error: No .devcontainer/devcontainer.json found.")
-    config = json.loads(devcontainer_json.read_text())
+    try:
+        config = json.loads(devcontainer_json.read_text())
+    except json.JSONDecodeError as exc:
+        sys.exit(f"Error: invalid .devcontainer/devcontainer.json: {exc}")
 
     config.setdefault("containerEnv", {})["PORT"] = str(new_port)
 
