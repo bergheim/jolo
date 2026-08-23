@@ -202,6 +202,7 @@ RUN pnpm add -g \
     @google/gemini-cli \
     @earendil-works/pi-coding-agent \
     pi-acp \
+    @caveman-ai/cli \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \

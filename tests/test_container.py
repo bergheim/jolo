@@ -584,40 +584,5 @@ class TestReassignPort(unittest.TestCase):
         self.assertEqual(result, 4003)
 
 
-class TestCavemanCliMount(unittest.TestCase):
-    def test_binds_host_local_bin(self):
-        from _jolo.container import caveman_cli_mount
-
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            cli = home / "local" / "bin" / "caveman"
-            cli.parent.mkdir(parents=True)
-            cli.write_text("#!/bin/sh\n")
-            cli.chmod(0o755)
-            mount = caveman_cli_mount(home)
-        self.assertIsNotNone(mount)
-        assert mount is not None
-        self.assertIn("source=${localEnv:HOME}/local/bin/caveman,", mount)
-        self.assertIn(
-            "target=/home/${localEnv:USER}/.local/bin/caveman,type=bind", mount
-        )
-
-    def test_absent_on_host_is_omitted(self):
-        from _jolo.container import caveman_cli_mount
-
-        with tempfile.TemporaryDirectory() as tmp:
-            self.assertIsNone(caveman_cli_mount(Path(tmp)))
-
-    def test_skips_pnpm_shim(self):
-        from _jolo.container import caveman_cli_mount
-
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            shim = home / ".local" / "share" / "pnpm" / "bin" / "caveman"
-            shim.parent.mkdir(parents=True)
-            shim.write_text("#!/bin/sh\n")
-            self.assertIsNone(caveman_cli_mount(home))
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -18,21 +18,6 @@ from _jolo.cli import (
     verbose_cmd,
 )
 
-# Host CLI locations we will bind onto ~/.local/bin/caveman (already on PATH).
-# Skip the pnpm shim: it hardcodes a host store path and dies in the container.
-_CAVEMAN_CLI_RELS = ("local/bin/caveman", ".local/bin/caveman")
-
-
-def caveman_cli_mount(home: Path | None = None) -> str | None:
-    root = home if home is not None else Path.home()
-    for rel in _CAVEMAN_CLI_RELS:
-        if (root / rel).is_file():
-            return (
-                f"source=${{localEnv:HOME}}/{rel},"
-                f"target=/home/${{localEnv:USER}}/.local/bin/caveman,type=bind"
-            )
-    return None
-
 
 def build_devcontainer_json(
     project_name: str,
@@ -78,9 +63,6 @@ def build_devcontainer_json(
     hostname = detect_hostname()
 
     mounts = constants.BASE_MOUNTS.copy()
-    cli = caveman_cli_mount()
-    if cli:
-        mounts.append(cli)
 
     # Skills have one source of truth: the jolo checkout's templates/skills,
     # mounted RW into every container. Edits anywhere are live everywhere

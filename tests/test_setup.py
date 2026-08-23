@@ -2531,6 +2531,10 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
 
         self.assertTrue((home / ".caveman").is_dir())
 
+    def test_caveman_cli_is_in_the_image(self):
+        cf = Path(constants.__file__).resolve().parents[1] / "Containerfile"
+        self.assertIn("@caveman-ai/cli", cf.read_text())
+
     def test_claude_home_created_when_host_has_none(self):
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
