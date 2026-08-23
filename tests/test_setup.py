@@ -2520,6 +2520,13 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
             constants.BASE_MOUNTS,
         )
 
+    def test_caveman_cloud_mounted_from_host(self):
+        self.assertIn(
+            "source=${localEnv:HOME}/.caveman-cloud,"
+            "target=/home/${localEnv:USER}/.caveman-cloud,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
     def test_caveman_dir_created_when_host_has_none(self):
         ws = Path(self.tmpdir) / "project"
         ws.mkdir()
@@ -2530,6 +2537,7 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
             jolo.setup_credential_cache(ws)
 
         self.assertTrue((home / ".caveman").is_dir())
+        self.assertTrue((home / ".caveman-cloud").is_dir())
 
     def test_caveman_cli_is_in_the_image(self):
         cf = Path(constants.__file__).resolve().parents[1] / "Containerfile"
