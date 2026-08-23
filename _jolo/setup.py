@@ -243,6 +243,7 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     # degrade instead of failing the rebuild.
     (home / ".caveman").mkdir(parents=True, exist_ok=True)
     (home / ".caveman-cloud").mkdir(parents=True, exist_ok=True)
+    (home / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
 
     # Bind source must exist or podman statfs fails the rebuild on a host
     # that has never run Claude.

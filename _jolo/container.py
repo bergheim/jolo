@@ -64,14 +64,19 @@ def build_devcontainer_json(
 
     mounts = constants.BASE_MOUNTS.copy()
 
-    # Skills have one source of truth: the jolo checkout's templates/skills,
-    # mounted RW into every container. Edits anywhere are live everywhere
-    # and surface in jolo's git status.
+    # Host skills and jolo templates bind as siblings. entrypoint.sh unions
+    # them into ~/.agents/skills (jolo wins on name clash). Do not bind the
+    # union path itself — that was the overlay that hid the host tree.
     skills_src = (
         Path(__file__).resolve().parent.parent / "templates" / "skills"
     )
     mounts.append(
-        f"source={skills_src},target=/home/${{localEnv:USER}}/.agents/skills,type=bind"
+        "source=${localEnv:HOME}/.agents/skills,"
+        "target=/home/${localEnv:USER}/.agents/host-skills,type=bind"
+    )
+    mounts.append(
+        f"source={skills_src},"
+        f"target=/home/${{localEnv:USER}}/.agents/jolo-skills,type=bind"
     )
 
     if os.environ.get("WAYLAND_DISPLAY"):

@@ -37,9 +37,8 @@ create, up, down, attach, tree (worktrees), spawn (parallel agents), destroy, pr
 - =.devcontainer/devcontainer.json= — container config with agent credentials
 - =AGENTS.md= / =CLAUDE.md= — agent instructions
 - =.pre-commit-config.yaml= — language-appropriate linting
-- Skills (=templates/skills/=) — reusable agent workflows, bind-mounted from
-  the jolo checkout into every container at =~/.agents/skills= (single source
-  of truth, git-tracked here; edits from any container are live everywhere)
+- Skills: host =~/.agents/skills= plus =templates/skills/=, unioned at
+  =~/.agents/skills= (jolo wins on name clash)
 - Language-specific scaffolds (Go, Python, TypeScript, Rust, Elixir)
 
 ** Credential Flow

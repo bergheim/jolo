@@ -2538,6 +2538,7 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
 
         self.assertTrue((home / ".caveman").is_dir())
         self.assertTrue((home / ".caveman-cloud").is_dir())
+        self.assertTrue((home / ".agents" / "skills").is_dir())
 
     def test_caveman_cli_is_in_the_image(self):
         cf = Path(constants.__file__).resolve().parents[1] / "Containerfile"

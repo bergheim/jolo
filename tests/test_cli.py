@@ -373,24 +373,31 @@ class TestPortAllocation(unittest.TestCase):
             )
 
     def test_skills_mounted_from_jolo_checkout(self):
-        """Skills have one source of truth: the checkout's templates/skills,
-        bind-mounted into every container. No per-project copies."""
+        """Host skills and jolo templates bind as siblings; union is not a mount."""
         import json
 
         import _jolo.container as container
 
         result = jolo.build_devcontainer_json("test")
-        config = json.loads(result)
-        skills_mounts = [m for m in config["mounts"] if ".agents/skills" in m]
-        self.assertEqual(len(skills_mounts), 1)
+        mounts = json.loads(result)["mounts"]
         expected_src = (
             Path(container.__file__).resolve().parent.parent
             / "templates"
             / "skills"
         )
-        self.assertIn(f"source={expected_src},", skills_mounts[0])
-        for m in config["mounts"]:
+        self.assertIn(
+            "source=${localEnv:HOME}/.agents/skills,"
+            "target=/home/${localEnv:USER}/.agents/host-skills,type=bind",
+            mounts,
+        )
+        self.assertIn(
+            f"source={expected_src},"
+            f"target=/home/${{localEnv:USER}}/.agents/jolo-skills,type=bind",
+            mounts,
+        )
+        for m in mounts:
             self.assertNotIn(".jolo/skills", m)
+            self.assertFalse(m.endswith("/.agents/skills,type=bind"), m)
 
     def test_statusline_needs_no_mount_of_its_own(self):
         """statusline.sh rides in on the ~/.claude dir bind.

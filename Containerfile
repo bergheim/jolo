@@ -300,7 +300,7 @@ RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
 COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
 RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh && \
-    mkdir -p $HOME/.claude && \
+    mkdir -p $HOME/.claude $HOME/.agents && \
     ln -sfn $HOME/.agents/skills $HOME/.claude/skills && \
     curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \
         https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh && \

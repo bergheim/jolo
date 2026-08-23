@@ -43,7 +43,7 @@ if [ -d "$skills_dir" ]; then
     skill_count=$(find "$skills_dir" -name SKILL.md 2>/dev/null | wc -l)
     if [ "$skill_count" -gt "${JOLO_SKILL_WARN:-40}" ]; then
         gum style --foreground 3 \
-            "⚠ $skill_count skills in ~/.agents/skills — shared with all containers; review/commit templates/skills in the jolo checkout"
+            "⚠ $skill_count skills in ~/.agents/skills — host + jolo templates union; review/commit templates/skills in the jolo checkout"
     fi
 fi
 
