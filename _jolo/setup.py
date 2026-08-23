@@ -206,8 +206,9 @@ def _ensure_top_level_toml_key(toml_content: str, key: str, value: str) -> str:
 def setup_credential_cache(workspace_dir: Path) -> None:
     """Stage AI credentials for container use.
 
-    Claude: .credentials.json is mounted RW from the host (token refreshes
-    persist). Only settings.json is copied (for notification hook injection).
+    Claude: ~/.claude and ~/.claude.json are mounted whole from the host;
+    jolo copies nothing and only creates bind sources. Notification hooks go
+    to project-level .claude/settings.json (see setup_notification_hooks).
     Gemini/Codex: fully copied to .devcontainer cache dirs.
     Pi: ~/.pi is mounted directly from the host; jolo writes nothing there.
     """
@@ -215,49 +216,57 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     templates_dir = Path(__file__).resolve().parent.parent / "templates"
     mcp_templates = templates_dir / "mcp"
 
-    # Claude credentials
-    claude_cache = workspace_dir / ".devcontainer" / ".claude-cache"
-    if claude_cache.exists():
-        clear_directory_contents(claude_cache)
-    else:
-        claude_cache.mkdir(parents=True)
-
-    # .credentials.json is mounted RW directly from the host (token refreshes persist).
-    # Only copy settings.json (we inject notification hooks into it).
+    # Claude: ~/.claude and ~/.claude.json are bound whole from the host, so
+    # nothing is copied and no host-absolute path is rewritten. Only create
+    # the bind sources; podman fails the rebuild if they are absent.
     claude_dir = home / ".claude"
-    # Bind sources for the container; podman fails the rebuild if they are absent.
-    (claude_dir / "statsig").mkdir(parents=True, exist_ok=True)
-    (claude_dir / "plugins").mkdir(parents=True, exist_ok=True)
-    settings_src = claude_dir / "settings.json"
-    if settings_src.exists():
-        shutil.copy2(settings_src, claude_cache / "settings.json")
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    # The per-project shadows below nest inside that dir bind, so their
+    # targets must exist on the host too. Podman creates a missing target as
+    # a directory, which would be fatal for the history file.
+    (claude_dir / "sessions").mkdir(exist_ok=True)
+    (claude_dir / "history.jsonl").touch(exist_ok=True)
 
-    claude_json_src = home / ".claude.json"
-    claude_json_dst = workspace_dir / ".devcontainer" / ".claude.json"
-    if claude_json_src.exists():
-        shutil.copy2(claude_json_src, claude_json_dst)
+    devcontainer_dir = workspace_dir / ".devcontainer"
+    devcontainer_dir.mkdir(parents=True, exist_ok=True)
+    # Per-project shadows over the shared dir. sessions/ is the peer registry,
+    # reaped by local PID liveness, so sharing it would have each container
+    # collect the others' live records. history.jsonl is one flat file.
+    (devcontainer_dir / ".claude-sessions").mkdir(exist_ok=True)
+    (devcontainer_dir / ".claude-history.jsonl").touch(exist_ok=True)
 
-        # Inject MCP servers into the copied .claude.json
-        try:
-            claude_config = json.loads(claude_json_dst.read_text())
-            project_name = workspace_dir.name
-            container_path = f"/workspaces/{project_name}"
+    # MCP servers and the trust flag go straight into the host file, keyed by
+    # the container path, so they do not touch any host project's entry.
+    # caveman is mounted whole from the host so its binaries resolve at the
+    # same absolute path agents' hooks were written with. Only the directory
+    # is guaranteed; a host without caveman gets an empty one and the hooks
+    # degrade instead of failing the rebuild.
+    (home / ".caveman").mkdir(parents=True, exist_ok=True)
 
-            claude_config["effortCalloutV2Dismissed"] = True
+    # Bind source must exist or podman statfs fails the rebuild on a host
+    # that has never run Claude.
+    claude_json = home / ".claude.json"
+    if not claude_json.exists():
+        claude_json.write_text("{}")
 
-            # Inject into the specific project's entry
-            project_entry = claude_config.setdefault(
-                "projects", {}
-            ).setdefault(container_path, {})
-            project_entry["hasTrustDialogAccepted"] = True
-            merge_mcp_configs(project_entry, mcp_templates)
+    try:
+        claude_config = json.loads(claude_json.read_text())
+        container_path = f"/workspaces/{workspace_dir.name}"
 
-            write_json(claude_json_dst, claude_config, newline=False)
-        except Exception as e:
-            print(
-                f"Warning: Failed to inject MCP configs into .claude.json: {e}",
-                file=sys.stderr,
-            )
+        claude_config["effortCalloutV2Dismissed"] = True
+
+        project_entry = claude_config.setdefault("projects", {}).setdefault(
+            container_path, {}
+        )
+        project_entry["hasTrustDialogAccepted"] = True
+        merge_mcp_configs(project_entry, mcp_templates)
+
+        write_json(claude_json, claude_config, newline=False)
+    except Exception as e:
+        print(
+            f"Warning: Failed to inject MCP configs into .claude.json: {e}",
+            file=sys.stderr,
+        )
 
     # Gemini credentials
     gemini_cache = workspace_dir / ".devcontainer" / ".gemini-cache"
@@ -514,16 +523,19 @@ def _load_json_safe(path: Path) -> dict:
 def setup_notification_hooks(
     workspace_dir: Path, notify_threshold: int = 60
 ) -> None:
-    """Inject agent completion notification hooks into cached settings files.
+    """Inject agent completion notification hooks.
 
     Adds hooks that call notify when agents finish.
     Merges with existing hooks (does not overwrite).
-    Must be called after setup_credential_cache() so the cache dirs exist.
+    Claude hooks go to the project's .claude/settings.json, since ~/.claude is
+    shared with the host and `notify` is container-only. Gemini still uses its
+    .devcontainer cache, so this must run after setup_credential_cache().
     """
-    # Claude: inject SessionEnd hook into .claude-cache/settings.json
-    claude_settings_path = (
-        workspace_dir / ".devcontainer" / ".claude-cache" / "settings.json"
-    )
+    # Claude: project-level settings, not the user-level file. ~/.claude is
+    # shared with the host now, and `notify` only exists inside the container,
+    # so a hook there would fail on every host turn. Claude merges project
+    # settings over user settings, so this lands the same either way.
+    claude_settings_path = workspace_dir / ".claude" / "settings.json"
     settings = _load_json_safe(claude_settings_path)
 
     hooks = settings.setdefault("hooks", {})

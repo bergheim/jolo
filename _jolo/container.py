@@ -73,12 +73,6 @@ def build_devcontainer_json(
         f"source={skills_src},target=/home/${{localEnv:USER}}/.agents/skills,type=bind"
     )
 
-    # Claude's statusline script, live from the host. Conditional because a
-    # bind fails the rebuild when the source is absent, and an empty
-    # placeholder file would be a broken script rather than no statusline.
-    if (Path.home() / ".claude" / "statusline.sh").exists():
-        mounts.append(constants.CLAUDE_STATUSLINE_MOUNT)
-
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(constants.WAYLAND_MOUNT)
 

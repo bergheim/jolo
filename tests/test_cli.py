@@ -392,9 +392,12 @@ class TestPortAllocation(unittest.TestCase):
         for m in config["mounts"]:
             self.assertNotIn(".jolo/skills", m)
 
-    def test_statusline_mounted_when_host_file_exists(self):
-        """The host's statusline.sh binds in live, so edits on either side
-        land in one file. settings.json carries the statusLine key already."""
+    def test_statusline_needs_no_mount_of_its_own(self):
+        """statusline.sh rides in on the ~/.claude dir bind.
+
+        It used to be a conditional file mount; the dir bind covers it, and a
+        file bind would break rename(2) against it anyway.
+        """
         import json
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -404,25 +407,12 @@ class TestPortAllocation(unittest.TestCase):
             with mock.patch.object(Path, "home", return_value=Path(tmp)):
                 config = json.loads(jolo.build_devcontainer_json("test"))
 
-        entry = [m for m in config["mounts"] if "statusline.sh" in m]
-        self.assertEqual(len(entry), 1)
+        self.assertFalse([m for m in config["mounts"] if "statusline.sh" in m])
         self.assertIn(
-            "source=${localEnv:HOME}/.claude/statusline.sh,", entry[0]
+            "source=${localEnv:HOME}/.claude,"
+            "target=/home/${localEnv:USER}/.claude,type=bind",
+            config["mounts"],
         )
-        self.assertIn("type=bind", entry[0])
-        self.assertNotIn("readonly", entry[0])
-
-    def test_statusline_not_mounted_when_host_file_absent(self):
-        """A bind on a missing source fails the rebuild, so no host script
-        must mean no mount — not an empty placeholder file."""
-        import json
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(Path, "home", return_value=Path(tmp)):
-                config = json.loads(jolo.build_devcontainer_json("test"))
-
-        for m in config["mounts"]:
-            self.assertNotIn("statusline.sh", m)
 
     def test_tailnet_control_dir_is_never_mounted(self):
         """It holds routing and DNS for every project; containers stay out."""

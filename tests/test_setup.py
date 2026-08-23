@@ -11,6 +11,7 @@ from unittest import mock
 
 import _jolo.setup as setup
 import jolo
+from _jolo import constants
 from _jolo.commands import GITIGNORE_MARKER
 
 
@@ -409,18 +410,20 @@ class TestNotificationHooks(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def _workspace(self):
-        """Create workspace with cache dirs mimicking post-credential-setup state."""
+        """Create workspace mimicking post-credential-setup state.
+
+        Claude hooks are project-level now; only Gemini still uses a
+        .devcontainer cache dir.
+        """
         ws = Path(self.tmpdir) / "project"
-        (ws / ".devcontainer" / ".claude-cache").mkdir(parents=True)
+        (ws / ".claude").mkdir(parents=True)
         (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
         return ws
 
     def test_claude_session_end_hook_injected(self):
         """Should inject SessionEnd hook into Claude settings."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -450,9 +453,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_merges_with_existing_hooks(self):
         """Should not clobber existing hooks in settings."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         existing = {
             "hooks": {
                 "SessionEnd": [
@@ -473,9 +474,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_idempotent_no_duplicates(self):
         """Running twice should not add duplicate hooks."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -487,9 +486,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_creates_settings_if_missing(self):
         """Should create settings.json if it doesn't exist."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         # Don't create the file — it shouldn't exist yet
 
         jolo.setup_notification_hooks(ws)
@@ -506,9 +503,7 @@ class TestNotificationHooks(unittest.TestCase):
 
         jolo.setup_notification_hooks(ws)
 
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         gemini_settings = (
             ws / ".devcontainer" / ".gemini-cache" / "settings.json"
         )
@@ -555,9 +550,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_corrupt_json_does_not_crash(self):
         """Should handle corrupt/empty settings.json gracefully."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("not valid json{{{")
 
         # Should not raise
@@ -583,9 +576,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_threshold_default_is_60(self):
         """Default notify_threshold should be 60 seconds."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws)
@@ -598,9 +589,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_threshold_custom_value(self):
         """Custom notify_threshold should be used."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws, notify_threshold=120)
@@ -613,9 +602,7 @@ class TestNotificationHooks(unittest.TestCase):
     def test_threshold_update_replaces_existing(self):
         """Calling setup_notification_hooks again with different threshold should update the hook."""
         ws = self._workspace()
-        claude_settings = (
-            ws / ".devcontainer" / ".claude-cache" / "settings.json"
-        )
+        claude_settings = ws / ".claude" / "settings.json"
         claude_settings.write_text("{}")
 
         jolo.setup_notification_hooks(ws, notify_threshold=60)
@@ -664,23 +651,6 @@ class TestCredentialMountStrategy(unittest.TestCase):
         cache = ws / ".devcontainer" / ".claude-cache"
         self.assertFalse((cache / ".credentials.json").exists())
 
-    def test_settings_still_copied_to_cache(self):
-        """setup_credential_cache() should still copy settings.json for hook injection."""
-        ws = Path(self.tmpdir) / "project"
-        ws.mkdir()
-
-        home = Path(self.tmpdir) / "home"
-        claude_dir = home / ".claude"
-        claude_dir.mkdir(parents=True)
-        (claude_dir / "settings.json").write_text('{"theme": "dark"}')
-
-        with mock.patch("pathlib.Path.home", return_value=home):
-            jolo.setup_credential_cache(ws)
-
-        cache = ws / ".devcontainer" / ".claude-cache"
-        self.assertTrue((cache / "settings.json").exists())
-        self.assertIn("dark", (cache / "settings.json").read_text())
-
     def test_codex_reasoning_effort_default_injected(self):
         """setup_credential_cache() should inject model_reasoning_effort when missing."""
         ws = Path(self.tmpdir) / "project"
@@ -723,38 +693,6 @@ class TestCredentialMountStrategy(unittest.TestCase):
         content = codex_config.read_text()
         self.assertIn('model_reasoning_effort = "xhigh"', content)
         self.assertEqual(content.count("model_reasoning_effort"), 1)
-
-    def test_base_mounts_has_selective_claude_mounts(self):
-        """BASE_MOUNTS should have individual file mounts, not a directory mount."""
-        from _jolo.constants import BASE_MOUNTS
-
-        claude_mounts = [
-            m
-            for m in BASE_MOUNTS
-            if ".claude" in m and ".claude.json" not in m
-        ]
-
-        # Should have credentials (RW from host), settings (from cache), statsig (RO from host)
-        cred_mounts = [m for m in claude_mounts if ".credentials.json" in m]
-        settings_mounts = [m for m in claude_mounts if "settings.json" in m]
-        statsig_mounts = [m for m in claude_mounts if "statsig" in m]
-
-        self.assertEqual(len(cred_mounts), 1)
-        self.assertNotIn("readonly", cred_mounts[0])
-
-        self.assertEqual(len(settings_mounts), 1)
-        self.assertIn(".claude-cache/settings.json", settings_mounts[0])
-
-        self.assertEqual(len(statsig_mounts), 1)
-        self.assertIn("readonly", statsig_mounts[0])
-
-        # Should NOT have the old directory mount
-        dir_mounts = [
-            m
-            for m in claude_mounts
-            if m.endswith("type=bind") and ".claude,target" in m
-        ]
-        self.assertEqual(len(dir_mounts), 0)
 
 
 class TestPersistentCredentialStore(unittest.TestCase):
@@ -1978,7 +1916,7 @@ class TestLighthouseRunIntegration(unittest.TestCase):
 class TestEnsureGitignore(unittest.TestCase):
     """`_ensure_gitignore` concats the template once, marker-guarded."""
 
-    JOLO_LINE = ".devcontainer/.claude-cache/"
+    JOLO_LINE = ".devcontainer/.claude-sessions/"
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -2416,3 +2354,283 @@ class TestLitellmGatewayReachable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestClaudeMountCollapse(unittest.TestCase):
+    """Claude config is one host dir bind; only namespace-unsafe state is shadowed.
+
+    Rationale: file binds make rename(2) fail with EBUSY, and copying the host
+    settings.json leaked host-absolute paths into containers. Share everything
+    Claude keys by path on disk; shadow only what the container's namespace
+    makes non-unique.
+    """
+
+    def _claude_mounts(self):
+        return [m for m in constants.BASE_MOUNTS if ".claude" in m]
+
+    def test_claude_home_is_a_single_host_dir_bind(self):
+        """~/.claude mounts whole from the host, not file-by-file."""
+        self.assertIn(
+            "source=${localEnv:HOME}/.claude,"
+            "target=/home/${localEnv:USER}/.claude,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_no_per_file_claude_mounts_remain(self):
+        """Individual files under ~/.claude must not be bound separately.
+
+        A file bind cannot be replaced by rename, so any tool using the
+        write-tmp-then-rename idiom fails against it.
+        """
+        for leaf in (
+            ".credentials.json",
+            "settings.json",
+            "statsig",
+            "plugins",
+            "statusline.sh",
+        ):
+            self.assertFalse(
+                any(f"/.claude/{leaf}," in m for m in constants.BASE_MOUNTS),
+                f"~/.claude/{leaf} should be covered by the ~/.claude dir bind",
+            )
+
+    def test_sessions_is_shadowed_per_project(self):
+        """sessions/ is PID-keyed and reaped by local PID liveness.
+
+        Containers have their own PID namespace, so a shared sessions/ makes
+        each container garbage-collect the others' live peer records.
+        """
+        self.assertIn(
+            "source=${localWorkspaceFolder}/.devcontainer/.claude-sessions,"
+            "target=/home/${localEnv:USER}/.claude/sessions,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_history_is_shadowed_per_project(self):
+        """history.jsonl is one flat file; its project field is internal only."""
+        self.assertIn(
+            "source=${localWorkspaceFolder}/.devcontainer/.claude-history.jsonl,"
+            "target=/home/${localEnv:USER}/.claude/history.jsonl,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_claude_json_comes_from_host(self):
+        """~/.claude.json sits outside ~/.claude and carries global state."""
+        self.assertIn(
+            "source=${localEnv:HOME}/.claude.json,"
+            "target=/home/${localEnv:USER}/.claude.json,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_statusline_mount_constant_is_gone(self):
+        """statusline.sh is covered by the dir bind; the conditional is dead."""
+        self.assertFalse(hasattr(constants, "CLAUDE_STATUSLINE_MOUNT"))
+
+
+class TestClaudeSettingsNotCopied(unittest.TestCase):
+    """setup_credential_cache must not copy the host settings.json.
+
+    The copy is what leaked host-absolute hook paths (host npm prefix vs
+    container pnpm store) into containers, silently breaking every hook.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_settings_json_is_not_copied(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        claude_dir = home / ".claude"
+        claude_dir.mkdir(parents=True)
+        (claude_dir / "settings.json").write_text('{"theme": "dark"}')
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        cache = ws / ".devcontainer" / ".claude-cache"
+        self.assertFalse((cache / "settings.json").exists())
+
+    def test_claude_json_created_when_host_has_none(self):
+        """Podman statfs fails the rebuild if a bind source is missing.
+
+        ~/.claude.json is mounted unconditionally, so a host that has never
+        run Claude must still get a valid file.
+        """
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        claude_json = home / ".claude.json"
+        self.assertTrue(claude_json.exists())
+        config = json.loads(claude_json.read_text())
+        self.assertIn("/workspaces/project", config["projects"])
+
+    def test_host_overlay_targets_are_created(self):
+        """Nested binds need their targets to exist inside the parent bind.
+
+        ~/.claude/sessions and ~/.claude/history.jsonl are shadowed per
+        project, so they must exist on the host. Podman creates a missing
+        target as a directory, which would make history.jsonl a dir.
+        """
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".claude" / "sessions").is_dir())
+        self.assertTrue((home / ".claude" / "history.jsonl").is_file())
+
+    def test_existing_host_history_not_truncated(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "history.jsonl").write_text('{"display":"x"}\n')
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertIn(
+            "display", (home / ".claude" / "history.jsonl").read_text()
+        )
+
+    def test_caveman_mounted_from_host(self):
+        """Hooks reference ~/.caveman/bin by absolute path.
+
+        The path has to resolve identically inside the container, or every
+        agent hook dies with "not found" — which is what happened to every
+        generated devcontainer that never had caveman installed by hand.
+        """
+        self.assertIn(
+            "source=${localEnv:HOME}/.caveman,"
+            "target=/home/${localEnv:USER}/.caveman,type=bind",
+            constants.BASE_MOUNTS,
+        )
+
+    def test_caveman_dir_created_when_host_has_none(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".caveman").is_dir())
+
+    def test_claude_home_created_when_host_has_none(self):
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".claude").is_dir())
+
+    def test_host_claude_json_entries_preserved(self):
+        """Injection must not drop unrelated host projects or global keys."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        home.mkdir()
+        (home / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "numStartups": 42,
+                    "projects": {"/home/tsb/other": {"lastCost": 1.5}},
+                }
+            )
+        )
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        config = json.loads((home / ".claude.json").read_text())
+        self.assertEqual(config["numStartups"], 42)
+        self.assertEqual(
+            config["projects"]["/home/tsb/other"]["lastCost"], 1.5
+        )
+        self.assertIn("/workspaces/project", config["projects"])
+
+    def test_bind_sources_are_created(self):
+        """Podman fails the rebuild when a bind source is absent."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+        home = Path(self.tmpdir) / "home"
+        (home / ".claude").mkdir(parents=True)
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        dc = ws / ".devcontainer"
+        self.assertTrue((dc / ".claude-sessions").is_dir())
+        self.assertTrue((dc / ".claude-history.jsonl").is_file())
+
+
+class TestNotifyHooksAreProjectLevel(unittest.TestCase):
+    """Notify hooks belong in the project, not in the shared user settings.
+
+    `notify` is a container-only command (/usr/local/bin/notify). Injecting it
+    into the now-shared ~/.claude/settings.json would make every host Claude
+    session run a hook that does not exist there.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_claude_hooks_land_in_project_settings(self):
+        ws = Path(self.tmpdir) / "project"
+        (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
+
+        jolo.setup_notification_hooks(ws)
+
+        project_settings = ws / ".claude" / "settings.json"
+        self.assertTrue(project_settings.exists())
+        settings = json.loads(project_settings.read_text())
+        cmd = settings["hooks"]["SessionEnd"][0]["hooks"][0]["command"]
+        self.assertIn("AGENT=claude", cmd)
+
+    def test_claude_cache_settings_untouched(self):
+        ws = Path(self.tmpdir) / "project"
+        (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
+
+        jolo.setup_notification_hooks(ws)
+
+        cache_settings = (
+            ws / ".devcontainer" / ".claude-cache" / "settings.json"
+        )
+        self.assertFalse(cache_settings.exists())
+
+    def test_existing_project_settings_preserved(self):
+        ws = Path(self.tmpdir) / "project"
+        (ws / ".devcontainer" / ".gemini-cache").mkdir(parents=True)
+        (ws / ".claude").mkdir(parents=True)
+        (ws / ".claude" / "settings.json").write_text(
+            json.dumps({"permissions": {"allow": ["Bash(ls:*)"]}})
+        )
+
+        jolo.setup_notification_hooks(ws)
+
+        settings = json.loads((ws / ".claude" / "settings.json").read_text())
+        self.assertEqual(settings["permissions"]["allow"], ["Bash(ls:*)"])
+        self.assertIn("SessionEnd", settings["hooks"])
