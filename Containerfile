@@ -180,7 +180,7 @@ ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
 
 # pnpm for all Node.js global packages
 ENV PNPM_HOME=$HOME/.local/share/pnpm
-ENV PATH="$PNPM_HOME/bin:$HOME/.caveman/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$HOME/.nix-profile/bin:$PATH"
+ENV PATH="$PNPM_HOME/bin:$HOME/.bun/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$HOME/.nix-profile/bin:$PATH"
 ENV NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # All Node.js global packages in one pnpm install.
@@ -202,7 +202,6 @@ RUN pnpm add -g \
     @google/gemini-cli \
     @earendil-works/pi-coding-agent \
     pi-acp \
-    @caveman-ai/cli \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
