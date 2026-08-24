@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import tomllib
+
 try:
     import argcomplete
 except ImportError:
@@ -402,6 +404,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Copy file to workspace before start (repeatable)",
     )
 
+    p_name = argparse.ArgumentParser(add_help=False)
+    p_name.add_argument(
+        "--name",
+        dest="container_name",
+        metavar="NAME",
+        help=(
+            "Container name (persisted as name in .jolo.toml). "
+            "Use --recreate to apply to an existing container."
+        ),
+    )
+
     p_recreate = argparse.ArgumentParser(add_help=False)
     p_recreate.add_argument(
         "--recreate",
@@ -456,6 +469,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prefix=None,
         all=False,
         recreate=False,
+        container_name=None,
         force=False,
         detach=False,
         shell=False,
@@ -482,6 +496,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             p_exec,
             p_mounts,
             p_recreate,
+            p_name,
         ],
         help="Start devcontainer in current project",
     )
@@ -607,6 +622,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             p_mounts,
             p_recreate,
             p_yes,
+            p_name,
         ],
         help="Set up jolo in the current directory (git repo or not)",
     )
@@ -850,13 +866,65 @@ def slugify_prompt(prompt: str, max_len: int = 50) -> str:
     return slug or "research"
 
 
-def get_container_name(project_path: str, worktree_name: str | None) -> str:
-    """Generate container name from project path and optional worktree name."""
-    project_name = Path(project_path.rstrip("/")).name.lower()
+_CONTAINER_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
+_TOML_NAME_LINE = re.compile(r"^name\s*=.*$", re.MULTILINE)
 
+
+def get_container_name(
+    project_path: str,
+    worktree_name: str | None = None,
+    name: str | None = None,
+) -> str:
+    """OCI container name from a project path, optional override, and worktree.
+
+    Dirname is the project id. Leading ``._-`` are stripped so ``.pi`` becomes
+    ``pi``. ``name`` (or ``name`` in ``.jolo.toml``) wins when set.
+    """
+    root = Path(project_path.rstrip("/"))
+    if name is None:
+        toml_path = root / ".jolo.toml"
+        if toml_path.is_file():
+            try:
+                parsed = tomllib.loads(toml_path.read_text())
+            except tomllib.TOMLDecodeError:
+                parsed = {}
+            raw = parsed.get("name")
+            if isinstance(raw, str) and raw:
+                name = raw
+    if name:
+        slug = name.lower()
+        source = name
+    else:
+        source = root.name
+        slug = source.lower().lstrip("._-")
+    if not slug or not _CONTAINER_NAME.fullmatch(slug):
+        raise ValueError(f"invalid container name {source!r}")
     if worktree_name:
-        return f"{project_name}-{worktree_name}"
-    return project_name
+        slug = f"{slug}-{worktree_name}"
+        if not _CONTAINER_NAME.fullmatch(slug):
+            raise ValueError(f"invalid container name {slug!r}")
+    return slug
+
+
+def write_container_name(project_dir: Path, name: str) -> str:
+    """Persist a container-name override in ``.jolo.toml`` and return the slug."""
+    slug = name.lower()
+    if not _CONTAINER_NAME.fullmatch(slug):
+        raise ValueError(f"invalid container name {name!r}")
+    path = project_dir / ".jolo.toml"
+    line = f'name = "{slug}"'
+    if path.exists():
+        text = path.read_text()
+        if _TOML_NAME_LINE.search(text):
+            text = _TOML_NAME_LINE.sub(line, text, count=1)
+            if not text.endswith("\n"):
+                text += "\n"
+        else:
+            text = text.rstrip() + "\n" + line + "\n"
+    else:
+        text = line + "\n"
+    path.write_text(text)
+    return slug
 
 
 def _format_container_display(workspace_folder: str) -> str:

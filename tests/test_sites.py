@@ -325,6 +325,21 @@ class TestResolveSiteUrlRepointsPublicRoute(SitesTestCase):
             (5000, "$2a$14$abcdefghijklmnopqrstuv"),
         )
 
+    def test_hidden_dir_registers_slug(self):
+        from _jolo import commands
+
+        workspace_dir = Path(self.tmp.name) / "workspace" / ".pi"
+        devc = workspace_dir / ".devcontainer"
+        devc.mkdir(parents=True)
+        (devc / "devcontainer.json").write_text(
+            json.dumps({"containerEnv": {"PORT": "4324"}}, indent=4) + "\n"
+        )
+
+        url = commands._resolve_site_url(workspace_dir)
+
+        self.assertEqual(url, "https://pi.ts.glvortex.net")
+        self.assertEqual(sites.read_routes()["pi.ts.glvortex.net"], 4324)
+
 
 class TestOwnership(SitesTestCase):
     def test_owner_is_the_registered_workspace_with_that_name(self):
@@ -339,6 +354,14 @@ class TestOwnership(SitesTestCase):
     def test_owner_is_none_for_an_unknown_name(self):
         with mock.patch.object(sites.registry, "known_paths", return_value=[]):
             self.assertIsNone(sites.owner_of("test4k"))
+
+    def test_owner_matches_slugged_hidden_dir(self):
+        path = Path(self.tmp.name) / ".pi"
+        path.mkdir()
+        with mock.patch.object(
+            sites.registry, "known_paths", return_value=[(path, 1.0)]
+        ):
+            self.assertEqual(sites.owner_of("pi"), path)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ from _jolo.cli import (
     detect_hostname,
     find_git_root,
     generate_random_name,
+    get_container_name,
     is_podman_allowed,
     is_podman_proxy_running,
     is_port_available,
@@ -35,6 +36,7 @@ from _jolo.cli import (
     slugify_prompt,
     verbose_cmd,
     verbose_print,
+    write_container_name,
 )
 from _jolo.container import (
     devcontainer_exec_command,
@@ -170,6 +172,23 @@ def _fzf_pick(header: str, labels: list[str]) -> str | None:
         return result.stdout.rstrip("\n")
     except KeyboardInterrupt:
         return None
+
+
+def _persist_container_name(path: Path, args: argparse.Namespace) -> None:
+    supplied = getattr(args, "container_name", None)
+    if not supplied:
+        return
+    try:
+        write_container_name(path, supplied)
+    except ValueError as e:
+        sys.exit(f"Error: {e}")
+
+
+def _site_name(workspace_dir: Path) -> str:
+    try:
+        return get_container_name(str(workspace_dir))
+    except ValueError as e:
+        sys.exit(f"Error: {e}")
 
 
 def _sync_config(
@@ -855,7 +874,7 @@ def run_status_mode(args: argparse.Namespace) -> None:
 
     print(f"Project: {project_name}")
     print(f"Root:    {git_root}")
-    public = _public_status_line(project_name)
+    public = _public_status_line(_site_name(git_root))
     if public:
         print(public)
     print()
@@ -1057,8 +1076,9 @@ def _resolve_site_url(workspace_dir: Path) -> str | None:
     port = read_port_from_devcontainer(workspace_dir)
     if port is None:
         return None
-    url = sites.register_tailnet(workspace_dir.name, port)
-    sites.repoint_public(workspace_dir.name, port)
+    site = _site_name(workspace_dir)
+    url = sites.register_tailnet(site, port)
+    sites.repoint_public(site, port)
     if url is None:
         url = f"http://{detect_hostname()}:{port}"
     os.environ["JOLO_SITE_URL"] = url
@@ -1204,6 +1224,7 @@ def run_up_mode(args: argparse.Namespace) -> None:
 
     os.chdir(git_root)
     project_name = git_root.name
+    _persist_container_name(git_root, args)
 
     # Load config
     config = load_config()
@@ -1750,6 +1771,7 @@ def run_init_mode(args: argparse.Namespace) -> None:
         project_path = Path.cwd()
 
     project_name = project_path.name
+    _persist_container_name(project_path, args)
 
     # Load config
     config = load_config()
@@ -2395,11 +2417,12 @@ def _delete_project(
         else:
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
-    published = sites.public_entry(git_root.name)
-    if sites.unregister(git_root.name):
-        print(f"Removed tailnet site: {sites.site_host(git_root.name)}")
+    site = _site_name(git_root)
+    published = sites.public_entry(site)
+    if sites.unregister(site):
+        print(f"Removed tailnet site: {sites.site_host(site)}")
         if published is not None:
-            print(f"Removed public site: {sites.public_host(git_root.name)}")
+            print(f"Removed public site: {sites.public_host(site)}")
 
     if purge:
         _purge_dirs(git_root)

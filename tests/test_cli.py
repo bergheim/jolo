@@ -183,6 +183,71 @@ class TestContainerNaming(unittest.TestCase):
         name = jolo.get_container_name("/home/user/MyProject", None)
         self.assertEqual(name, "myproject")
 
+    def test_strips_leading_dot(self):
+        self.assertEqual(jolo.get_container_name("/home/user/.pi"), "pi")
+
+    def test_strips_leading_hyphen_and_underscore(self):
+        self.assertEqual(jolo.get_container_name("/tmp/_foo"), "foo")
+        self.assertEqual(jolo.get_container_name("/tmp/-bar"), "bar")
+
+    def test_hidden_dir_worktree(self):
+        self.assertEqual(
+            jolo.get_container_name("/home/user/.pi", "phone-omemo"),
+            "pi-phone-omemo",
+        )
+
+    def test_name_override(self):
+        self.assertEqual(
+            jolo.get_container_name("/home/user/.pi", name="agent-pi"),
+            "agent-pi",
+        )
+
+    def test_toml_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / ".pi"
+            root.mkdir()
+            (root / ".jolo.toml").write_text('name = "agent-pi"\n')
+            self.assertEqual(jolo.get_container_name(str(root)), "agent-pi")
+
+    def test_rejects_empty_after_strip(self):
+        with self.assertRaises(ValueError):
+            jolo.get_container_name("/tmp/...")
+
+    def test_rejects_invalid_override(self):
+        with self.assertRaises(ValueError):
+            jolo.get_container_name("/tmp/ok", name=".pi")
+
+    def test_write_container_name_creates_and_replaces(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(jolo.write_container_name(root, "Pi"), "pi")
+            self.assertEqual(
+                (root / ".jolo.toml").read_text(), 'name = "pi"\n'
+            )
+            (root / ".jolo.toml").write_text(
+                'notify_threshold = 20\nname = "old"\n'
+            )
+            jolo.write_container_name(root, "new-name")
+            self.assertEqual(
+                (root / ".jolo.toml").read_text(),
+                'notify_threshold = 20\nname = "new-name"\n',
+            )
+            self.assertEqual(jolo.get_container_name(str(root)), "new-name")
+
+    def test_up_name_flag(self):
+        args = jolo.parse_args(["up", "--name", "pi"])
+        self.assertEqual(args.container_name, "pi")
+
+    def test_hidden_dir_workspace_stays_dirname(self):
+        import json
+
+        config = json.loads(jolo.build_devcontainer_json(".pi", port=4324))
+        self.assertEqual(config["workspaceFolder"], "/workspaces/.pi")
+        self.assertEqual(config["containerEnv"]["PROJECT"], ".pi")
+        args = config["runArgs"]
+        self.assertEqual(args[args.index("--name") + 1], "pi")
+        self.assertEqual(args[args.index("--hostname") + 1], "pi")
+
 
 class TestVerboseMode(unittest.TestCase):
     """Test --verbose functionality."""

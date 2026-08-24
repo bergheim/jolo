@@ -30,6 +30,7 @@ from _jolo.cli import (  # noqa: F401
     stop_podman_proxy,
     verbose_cmd,
     verbose_print,
+    write_container_name,
 )
 from _jolo.commands import (  # noqa: F401
     ensure_research_repo,

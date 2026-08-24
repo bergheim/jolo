@@ -12,6 +12,7 @@ from pathlib import Path
 from _jolo import constants, sites
 from _jolo.cli import (
     detect_hostname,
+    get_container_name,
     is_port_available,
     random_port,
     read_port_from_devcontainer,
@@ -27,6 +28,7 @@ def build_devcontainer_json(
     has_web: bool = False,
     cross_container: bool = False,
     post_start_command: str | None = None,
+    container_name: str | None = None,
 ) -> str:
     """Build devcontainer.json content dynamically.
 
@@ -34,7 +36,7 @@ def build_devcontainer_json(
     Auto-detects Tailscale hostname for DEV_HOST.
 
     Args:
-        project_name: Name of the project/container
+        project_name: Directory basename; used for workspaceFolder and PROJECT
         port: Port number for dev servers (random in 4000-5000 if not specified)
         cross_container: Bind-mount the host's per-project gate dir
             (``~/.config/jolo/podman-runtime/<project>/``) into
@@ -59,6 +61,9 @@ def build_devcontainer_json(
 
     if remote_user is None:
         remote_user = os.environ.get("USER", "dev")
+
+    if container_name is None:
+        container_name = get_container_name(project_name)
 
     hostname = detect_hostname()
 
@@ -110,9 +115,9 @@ def build_devcontainer_json(
         "runArgs": [
             "--init",
             "--hostname",
-            project_name,
+            container_name,
             "--name",
-            project_name,
+            container_name,
             "--add-host",
             f"{socket.gethostname()}:host-gateway",
             *[
@@ -292,7 +297,7 @@ def devcontainer_up(
         # lost track (e.g. after podman system prune)
         runtime = get_container_runtime()
         if runtime:
-            container_name = workspace_dir.name
+            container_name = get_container_name(str(workspace_dir))
             subprocess.run(
                 [runtime, "rm", "-f", container_name],
                 capture_output=True,

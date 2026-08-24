@@ -25,6 +25,7 @@ import tempfile
 from pathlib import Path
 
 from _jolo import constants, registry
+from _jolo.cli import get_container_name
 
 CADDY_RELPATH = "caddy/jolo-sites.caddy"
 RECORDS_RELPATH = "headscale/jolo-extra-records.json"
@@ -107,8 +108,12 @@ def owner_of(name: str) -> Path | None:
     caller checks this before claiming one.
     """
     for path, _last_seen in registry.known_paths():
-        if path.name == name:
-            return path
+        try:
+            if get_container_name(str(path)) == name:
+                return path
+        except ValueError:
+            if path.name == name:
+                return path
     return None
 
 

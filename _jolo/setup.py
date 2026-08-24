@@ -14,6 +14,7 @@ from pathlib import Path
 from . import constants
 from .cli import (
     detect_flavors,
+    get_container_name,
     read_port_from_devcontainer,
     verbose_print,
 )
@@ -1225,6 +1226,7 @@ def scaffold_devcontainer(
         remote_user=os.environ.get("USER", "dev"),
         has_web=has_web,
         cross_container=cross_container,
+        container_name=get_container_name(str(target_dir)),
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
@@ -1284,6 +1286,7 @@ def sync_devcontainer(
         has_web=has_web,
         cross_container=cross_container,
         post_start_command=post_start_command,
+        container_name=get_container_name(str(target_dir)),
     )
     (devcontainer_dir / "devcontainer.json").write_text(json_content)
 
