@@ -203,6 +203,7 @@ RUN pnpm add -g \
     @earendil-works/pi-coding-agent \
     pi-acp \
     @caveman-ai/cli \
+    @anthropic-ai/claude-agent-sdk \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
