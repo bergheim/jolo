@@ -163,6 +163,19 @@ class TestSyncDevcontainer(unittest.TestCase):
         self.assertIs(new_content["overrideCommand"], False)
         self.assertIn("--init", new_content["runArgs"])
 
+    def test_entrypoint_exposes_skill_union_to_claude(self):
+        """Claude should read the same skill union as the other agents."""
+        entrypoint = (
+            Path(__file__).resolve().parents[1] / "container" / "entrypoint.sh"
+        ).read_text()
+
+        union_ready = 'mv "$_tmp" "$_union_skills"'
+        claude_link = 'ln -sfn "$_union_skills" "$HOME/.claude/skills"'
+        self.assertIn(claude_link, entrypoint)
+        self.assertLess(
+            entrypoint.index(union_ready), entrypoint.index(claude_link)
+        )
+
 
 class TestContainerRuntime(unittest.TestCase):
     """Test container runtime detection."""

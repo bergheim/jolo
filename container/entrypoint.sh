@@ -37,8 +37,7 @@ if [ -d "$_host_skills" ] && [ -d "$_jolo_skills" ]; then
         if [ -n "$_shadowed" ]; then
             echo "skills: jolo overrides$_shadowed"
         fi
-        # Do not ln onto ~/.claude/skills: the host dir bind is a real
-        # directory, and ln -sfn cannot overwrite it — set -e would kill PID 1.
+        ln -sfn "$_union_skills" "$HOME/.claude/skills"
     fi
 fi
 
