@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import urllib.error
@@ -474,6 +475,12 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     (workspace_dir / ".devcontainer" / ".pi-sessions").mkdir(
         parents=True, exist_ok=True
     )
+
+    # rpiv-advisor keeps its config under XDG rather than ~/.pi, so the bind
+    # in BASE_MOUNTS has no other creator. Podman aborts the whole run on a
+    # missing bind source, so a host that has never run the advisor could not
+    # start a container at all until this existed.
+    (home / ".config" / "rpiv-advisor").mkdir(parents=True, exist_ok=True)
 
     # grok follows the same rule as pi: shared host config, per-project sessions
     # and worktrees nested over it. Same both-ends-must-exist constraint.
@@ -1415,8 +1422,13 @@ def _save_litellm_key_store(store: dict) -> None:
 def _litellm_generate_key(
     base_url: str, master_key: str, project_name: str, config: dict
 ) -> str | None:
+    # Host-qualified: LiteLLM enforces globally unique aliases, and the key
+    # cache is per host, so two machines running the same project name raced
+    # for one alias — the loser got HTTP 400 and launched with no cloud key.
+    # Existing keys are never re-minted (the cache short-circuits), so only
+    # new mints take the qualified form.
     body = {
-        "key_alias": f"jolo-{project_name}",
+        "key_alias": f"jolo-{socket.gethostname()}-{project_name}",
         "max_budget": config.get("litellm_key_max_budget"),
         "budget_duration": config.get("litellm_key_budget_duration"),
         "metadata": {"project": project_name, "source": "jolo"},
@@ -1436,6 +1448,21 @@ def _litellm_generate_key(
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        # The gateway answered, so this is a rejected request, not an outage.
+        # Its body carries the reason (duplicate alias, budget, bad master key)
+        # and is worth far more than the bare status line.
+        detail = ""
+        try:
+            detail = e.read().decode()[:300].strip()
+        except Exception:
+            pass
+        print(
+            f"Warning: LiteLLM rejected the key mint for {project_name}: "
+            f"HTTP {e.code}{': ' + detail if detail else ''}",
+            file=sys.stderr,
+        )
+        return None
     except (
         OSError,
         TimeoutError,

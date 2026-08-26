@@ -415,6 +415,74 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertEqual(config["postStartCommand"], "scripts/pg-init")
 
+    def test_missing_host_source_is_dropped_not_fatal(self):
+        """Podman refuses the whole run on a missing bind source, so an
+        absent optional dotfile must cost its own mount, not the container."""
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / ".gitconfig").write_text("[user]\n")
+            with mock.patch.object(Path, "home", return_value=home):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+        mounts = config["mounts"]
+        # The one host file that exists survives...
+        self.assertTrue(any(".gitconfig" in m for m in mounts))
+        # ...while its absent neighbours are dropped rather than emitted.
+        for absent in (".tmux.conf", ".zshrc", ".config/gh", "pubring.kbx"):
+            self.assertFalse(
+                any(absent in m for m in mounts),
+                f"{absent} is missing on this host and must not be mounted",
+            )
+
+    def test_jolo_owned_dirs_are_created_not_dropped(self):
+        """devcontainer.json is rendered before setup_credential_cache runs,
+        so a fresh host must gain these dirs here — dropping them would
+        silently unshare agent config instead of failing loudly."""
+        import json
+
+        from _jolo import constants
+
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            with mock.patch.object(Path, "home", return_value=home):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+            for rel in constants.HOST_OWNED_MOUNT_DIRS:
+                self.assertTrue(
+                    (home / rel).is_dir(), f"{rel} should have been created"
+                )
+
+        for rel in ("/.pi,", "/.grok,", "/stash,"):
+            self.assertTrue(
+                any(rel in m for m in config["mounts"]),
+                f"mount for {rel} must survive on a fresh host",
+            )
+
+    def test_workspace_folder_mounts_survive_missing_home(self):
+        """${localWorkspaceFolder} sources are created later in setup, so the
+        drop pass must never judge them against the host filesystem."""
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(Path, "home", return_value=Path(tmp)):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+        workspace_mounts = [
+            m for m in config["mounts"] if "${localWorkspaceFolder}" in m
+        ]
+        self.assertTrue(workspace_mounts)
+        for expected in (
+            ".claude-sessions",
+            ".pi-sessions",
+            ".emacs-config",
+        ):
+            self.assertTrue(
+                any(expected in m for m in workspace_mounts),
+                f"{expected} must survive a host with no matching paths",
+            )
+
     def test_tailnet_control_dir_is_never_mounted(self):
         """It holds routing and DNS for every project; containers stay out."""
         import json

@@ -289,6 +289,26 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/stash,target=/workspaces/stash,type=bind",
 ]
 
+# Host paths jolo owns, relative to $HOME, that BASE_MOUNTS binds as
+# directories. They are created at render time rather than only in
+# setup_credential_cache, because the devcontainer.json is written before
+# setup runs — without this, a fresh host would render with these mounts
+# dropped and quietly lose shared agent config instead of gaining it.
+# Files are deliberately absent: a directory auto-created at ~/.gitconfig
+# would be a silently broken config, so missing files are dropped instead.
+HOST_OWNED_MOUNT_DIRS = (
+    ".claude",
+    ".caveman",
+    ".caveman-cloud",
+    ".agents/skills",
+    ".pi",
+    ".grok",
+    ".cache/jolo/elpaca",
+    ".cache/jolo/tree-sitter",
+    ".config/rpiv-advisor",
+    "stash",
+)
+
 # Host-side only. Containers never see this: it holds the routing and DNS
 # control plane for every project, so a single container could rewrite all
 # of them.

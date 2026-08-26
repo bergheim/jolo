@@ -20,6 +20,71 @@ from _jolo.cli import (
 )
 
 
+def _mount_source(mount: str) -> str | None:
+    """Return the ``source=`` value of a devcontainer mount string."""
+    for field in mount.split(","):
+        key, _, value = field.partition("=")
+        if key.strip() == "source":
+            return value
+    return None
+
+
+def _resolve_host_source(source: str) -> Path | None:
+    """Expand a mount source to a host path, or None if it is not one.
+
+    ``${localWorkspaceFolder}`` sources are jolo-managed and created later in
+    setup, so they are deliberately not resolvable here — the caller must
+    leave them alone rather than judge them missing.
+    """
+    if "${localWorkspaceFolder}" in source:
+        return None
+    expanded = source.replace("${localEnv:HOME}", str(Path.home()))
+    for var in ("XDG_RUNTIME_DIR", "WAYLAND_DISPLAY", "USER"):
+        placeholder = "${localEnv:" + var + "}"
+        if placeholder in expanded:
+            value = os.environ.get(var)
+            if not value:
+                return None
+            expanded = expanded.replace(placeholder, value)
+    if "${" in expanded or not expanded.startswith("/"):
+        return None
+    return Path(expanded)
+
+
+def _drop_missing_host_mounts(mounts: list[str]) -> list[str]:
+    """Drop mounts whose host source does not exist, warning for each.
+
+    Podman refuses the whole run when a bind source is missing (``statfs
+    ...: no such file or directory``), so one absent optional dotfile —
+    ``.gitconfig``, ``.tmux.conf``, an XDG config dir an agent has not
+    created yet — took the container down with it. Dropping the mount
+    degrades that one integration instead.
+
+    Only ``HOST_OWNED_MOUNT_DIRS`` are created; everything else is dropped.
+    Half of BASE_MOUNTS are files, and a directory auto-created at
+    ``~/.gitconfig`` would give the container a silently broken git config.
+    """
+    owned = {Path.home() / rel for rel in constants.HOST_OWNED_MOUNT_DIRS}
+    kept = []
+    for mount in mounts:
+        source = _mount_source(mount)
+        resolved = _resolve_host_source(source) if source else None
+        if resolved is not None and resolved in owned:
+            # jolo's own directory: create it rather than drop it. Its kind is
+            # known here, and dropping would silently unshare agent config.
+            resolved.mkdir(parents=True, exist_ok=True)
+            kept.append(mount)
+            continue
+        if resolved is not None and not resolved.exists():
+            print(
+                f"Warning: skipping mount, host path not found: {resolved}",
+                file=sys.stderr,
+            )
+            continue
+        kept.append(mount)
+    return kept
+
+
 def build_devcontainer_json(
     project_name: str,
     port: int | None = None,
@@ -93,10 +158,18 @@ def build_devcontainer_json(
         # inode and a file-bind would go stale. The directory inode
         # survives. Read-only inside the container so an agent can't
         # rm or replace the contents.
+        # Created here rather than left to the drop-if-missing pass: the user
+        # opted into cross-container podman explicitly, so silently dropping
+        # the mount would disable the feature they just asked for.
+        (
+            Path.home() / ".config" / "jolo" / "podman-runtime" / project_name
+        ).mkdir(parents=True, exist_ok=True)
         mounts.append(
             f"source=${{localEnv:HOME}}/.config/jolo/podman-runtime/{project_name},"
             "target=/run/podman,type=bind,readonly"
         )
+
+    mounts = _drop_missing_host_mounts(mounts)
 
     workspace_folder = f"/workspaces/{project_name}"
     config = {

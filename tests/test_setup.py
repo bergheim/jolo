@@ -651,6 +651,22 @@ class TestCredentialMountStrategy(unittest.TestCase):
         cache = ws / ".devcontainer" / ".claude-cache"
         self.assertFalse((cache / ".credentials.json").exists())
 
+    def test_rpiv_advisor_host_dir_created(self):
+        """Its bind source has no other creator, and podman aborts the whole
+        run on a missing one — a host that never ran the advisor could not
+        start any container."""
+        ws = Path(self.tmpdir) / "project"
+        ws.mkdir()
+
+        home = Path(self.tmpdir) / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "settings.json").write_text("{}")
+
+        with mock.patch("pathlib.Path.home", return_value=home):
+            jolo.setup_credential_cache(ws)
+
+        self.assertTrue((home / ".config" / "rpiv-advisor").is_dir())
+
     def test_codex_reasoning_effort_default_injected(self):
         """setup_credential_cache() should inject model_reasoning_effort when missing."""
         ws = Path(self.tmpdir) / "project"
@@ -2147,6 +2163,71 @@ class TestLitellmKeys(unittest.TestCase):
                         "myproj", {"litellm_base_url": "http://gw:8088"}
                     )
         self.assertIsNone(key)
+
+    def test_key_alias_is_host_qualified(self):
+        """LiteLLM aliases are globally unique but the key cache is per host,
+        so an unqualified alias made two machines race for one project name —
+        the loser got HTTP 400 and no cloud key."""
+        captured = {}
+
+        class FakeResp:
+            def __enter__(self_):
+                return self_
+
+            def __exit__(self_, *a):
+                return False
+
+            def read(self_):
+                return json.dumps({"key": "sk-proj"}).encode()
+
+        def capture(req, timeout=0):
+            captured["body"] = json.loads(req.data.decode())
+            return FakeResp()
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("socket.gethostname", return_value="tux"):
+                    with mock.patch("urllib.request.urlopen", capture):
+                        setup.ensure_litellm_project_key(
+                            "myproj", {"litellm_base_url": "http://gw:8088"}
+                        )
+
+        self.assertEqual(captured["body"]["key_alias"], "jolo-tux-myproj")
+        # Project stays clean in metadata — the alias carries the host.
+        self.assertEqual(captured["body"]["metadata"]["project"], "myproj")
+
+    def test_http_error_reports_gateway_response(self):
+        """A 400 means the gateway answered and refused; the reason in its
+        body is what tells a duplicate alias from a dead master key."""
+        import email.message
+        import io
+        import urllib.error
+
+        def raise_http_error(*a, **k):
+            raise urllib.error.HTTPError(
+                "http://gw:8088/key/generate",
+                400,
+                "Bad Request",
+                email.message.Message(),
+                io.BytesIO(b'{"error":{"message":"alias already exists"}}'),
+            )
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            with mock.patch.dict(
+                os.environ, {"LITELLM_MASTER_KEY": "sk-master"}, clear=True
+            ):
+                with mock.patch("urllib.request.urlopen", raise_http_error):
+                    with mock.patch("sys.stderr", new=io.StringIO()) as err:
+                        key = setup.ensure_litellm_project_key(
+                            "myproj", {"litellm_base_url": "http://gw:8088"}
+                        )
+
+        self.assertIsNone(key)
+        message = err.getvalue()
+        self.assertIn("HTTP 400", message)
+        self.assertIn("alias already exists", message)
 
     def test_key_store_is_owner_only(self):
         with mock.patch("pathlib.Path.home", return_value=self.home):
