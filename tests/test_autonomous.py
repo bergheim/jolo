@@ -182,7 +182,7 @@ class TestGetAutonomousItems(unittest.TestCase):
             self.assertEqual(args[0], "emacsclient")
             self.assertIn("-e", args)
             elisp = args[args.index("-e") + 1]
-            self.assertIn("bergheim/agent-org-autonomous-select", elisp)
+            self.assertIn("bergheim/agent-org-task-autonomous-select", elisp)
 
     def test_emacsclient_failure_raises(self):
         """Failure must surface, not silently look like an empty queue."""
@@ -214,7 +214,7 @@ class TestMarkDispatched(unittest.TestCase):
             self.assertIn("-e", args)
             elisp = args[args.index("-e") + 1]
             self.assertIn(
-                "bergheim/agent-org-autonomous-mark-dispatched", elisp
+                "bergheim/agent-org-task-autonomous-mark-dispatched", elisp
             )
             self.assertIn("2026-04-18T12:00:00Z", elisp)
             self.assertIn("4242", elisp)

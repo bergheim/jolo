@@ -55,7 +55,7 @@ catalogs live in `docs/agent-ops.md`.
 - To link notes, always use `bergheim/agent-denote-link`; never hand-write
   `[[denote:ID]]` or a bare id (denote derives backlinks only from links its own
   API emits, so a typed id never registers).
-- TODO → note uses `bergheim/agent-org-link-note`. Note → TODO is forbidden.
+- TODO → note uses `bergheim/agent-org-entry-link-note`. Note → TODO is forbidden.
   Do not put `TODO.org` in `denote-directory`.
 - New custom `.org` files under `docs/` must use denote filenames:
   `YYYYMMDDTHHMMSS--title-slug__kind_topic.org`.
@@ -68,7 +68,7 @@ catalogs live in `docs/agent-ops.md`.
 `docs/TODO.org` is the source of truth.
 
 - Before starting work, check for an existing TODO.
-- Ad-hoc work with no heading still needs a paper trail: `agent-org-add-todo`
+- Ad-hoc work with no heading still needs a paper trail: `agent-org-task-create`
   when you start, `DONE` when you land. That feeds the worklog. Untracked
   landings leave no trace.
 - When starting a tracked task, mark it `INPROGRESS` with the org helper.
@@ -77,11 +77,10 @@ catalogs live in `docs/agent-ops.md`.
 - Preserve TODO body text when closing.
 - Use `WAITING` when blocked, on a person or a system.
 
-Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
+Use `bergheim/agent-org-task-set-state` for org state changes; never hand-edit TODO
 keywords. Include `$(agent-meta --elisp)` as the AGENT/SESSION-ID args so the
-transition is attributed; never hand-type a model name. Every
-`bergheim/agent-org-*` and `bergheim/agent-denote-*` helper returns a plist.
-Re-read every path in `:wrote` before any later edit.
+transition is attributed; never hand-type a model name. Mutating `bergheim/agent-org-*` and `bergheim/agent-denote-*` helpers return a
+plist with `:wrote`. Re-read every listed path before any later edit.
 
 `:autonomous:` TODOs may only be tagged after per-item user agreement. Tag only
 when all criteria hold:
@@ -94,8 +93,8 @@ when all criteria hold:
 - One branch: fits one branch.
 - Self-contained: heading plus body is enough for a fresh agent.
 
-Add/remove the tag only with `bergheim/agent-org-add-tag` /
-`bergheim/agent-org-remove-tag`.
+Add/remove the tag only with `bergheim/agent-org-entry-add-tag` /
+`bergheim/agent-org-entry-remove-tag`.
 
 Helper examples are in `docs/agent-ops.md`.
 

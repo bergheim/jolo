@@ -56,7 +56,7 @@ emacsclient -e '(bergheim/agent-denote-list "/workspaces/stash/notes" 15)'
 # link notes — the ONLY way to link; never hand-write [[denote:ID]] or a bare id
 emacsclient -e '(bergheim/agent-denote-link "/abs/source.org" (quote ("/abs/target.org")))'
 # cite a note from a TODO (subtree only; does not touch the note)
-emacsclient -e '(bergheim/agent-org-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
+emacsclient -e '(bergheim/agent-org-entry-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
 ```
 
 To link one note to another, always call `bergheim/agent-denote-link` — never
@@ -66,7 +66,7 @@ to register as a backlink; never add reverse links by hand (write-once). Find
 relevant targets first with `agent-denote-find`, then link forward; backlinks
 follow automatically.
 
-TODO → note uses `bergheim/agent-org-link-note`. Note → TODO is forbidden. Do
+TODO → note uses `bergheim/agent-org-entry-link-note`. Note → TODO is forbidden. Do
 not put `TODO.org` in `denote-directory`.
 
 Never hard-wrap prose. Note and TODO bodies are one line per paragraph;
@@ -119,7 +119,7 @@ Where a note goes (stash vs `docs/notes`) and write-once rules are in
 `docs/TODO.org` is the active work log and source of truth.
 
 - Before starting work, check for an existing TODO.
-- Ad-hoc work with no heading still needs a paper trail: `agent-org-add-todo`
+- Ad-hoc work with no heading still needs a paper trail: `agent-org-task-create`
   when you start, `DONE` when you land. That feeds the worklog. Untracked
   landings leave no trace.
 - When starting a tracked task, mark it `INPROGRESS` with the org helper.
@@ -128,9 +128,9 @@ Where a note goes (stash vs `docs/notes`) and write-once rules are in
 - Preserve TODO body text when closing.
 - Use `WAITING` when blocked, on a person or a system.
 
-Use `bergheim/agent-org-set-state` for org state changes; never hand-edit TODO
-keywords. Every `bergheim/agent-org-*` and `bergheim/agent-denote-*` helper
-returns a plist. Re-read every path in `:wrote` before any later edit.
+Use `bergheim/agent-org-task-set-state` for org state changes; never hand-edit TODO
+keywords. Mutating `bergheim/agent-org-*` and `bergheim/agent-denote-*` helpers return a
+plist with `:wrote`. Re-read every listed path before any later edit.
 
 `:autonomous:` TODOs may only be tagged after per-item user agreement. Tag only
 when all criteria hold:
@@ -143,17 +143,17 @@ when all criteria hold:
 - One branch: fits one branch / one `jolo tree -p` run.
 - Self-contained: heading plus body is enough for a fresh agent.
 
-Add/remove the tag only with `bergheim/agent-org-add-tag` /
-`bergheim/agent-org-remove-tag`.
+Add/remove the tag only with `bergheim/agent-org-entry-add-tag` /
+`bergheim/agent-org-entry-remove-tag`.
 
 Daily org forms (full state list and remove-tag in `docs/agent-ops.md`).
 `$(agent-meta --elisp)` resolves your model/effort and session id so the
 transition is attributed in the LOGBOOK — always include it on set-state:
 
 ```bash
-emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
-emacsclient -e '(bergheim/agent-org-add-note "docs/TODO.org" "TODO Heading" "Made progress on X.")'
-emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+emacsclient -e "(bergheim/agent-org-task-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
+emacsclient -e '(bergheim/agent-org-task-add-log "docs/TODO.org" "TODO Heading" "Made progress on X.")'
+emacsclient -e '(bergheim/agent-org-entry-add-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
 
 ## Git

@@ -24,14 +24,14 @@ or stash notes. Do not list every open TODO's body.
 ### 1. Gather
 
 ```bash
-emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "WAITING" "SOMEDAY"))'
+emacsclient -e '(bergheim/agent-org-task-list "docs/TODO.org" (list "TODO" "NEXT" "INPROGRESS" "WAITING" "SOMEDAY"))'
 git log --oneline -n 10
 git worktree list
 ```
 
-`list-todos` returns `(:path "/tmp/agent-org-todos-….json" :count N)`. Read
-that file. Each entry has `line`, `state`, `heading`, `tags`, `notes` (denote
-ids linked from that entry), and `autonomous`.
+`task-list` returns the JSON array directly. Parse the quoted string returned
+by `emacsclient`. Each entry has `line`, `state`, `heading`, `scheduled`,
+`deadline`, `tags`, `notes` (linked denote ids), and `autonomous`.
 
 Partition on `state`: **actionable** is `TODO`, `NEXT`, `INPROGRESS`; **parked**
 is `WAITING` / `BLOCKED` (list after the table, do not rank). Skip `SOMEDAY` in

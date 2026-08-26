@@ -19,8 +19,8 @@ from pathlib import Path
 from _jolo.cli import find_git_root, slugify_prompt
 from _jolo.commands import load_config
 
-ELISP_SELECT_FN = "bergheim/agent-org-autonomous-select"
-ELISP_MARK_FN = "bergheim/agent-org-autonomous-mark-dispatched"
+ELISP_SELECT_FN = "bergheim/agent-org-task-autonomous-select"
+ELISP_MARK_FN = "bergheim/agent-org-task-autonomous-mark-dispatched"
 
 
 def parse_emacsclient_json(raw: str) -> list[dict]:

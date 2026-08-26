@@ -133,7 +133,7 @@ def test_missing_id_is_generated_from_created_stamp(tmp_path):
     todo.write_text(HEADER + "* TODO Task\n")
     run(todo)
     content = todo.read_text()
-    # Same shape agent-org-add-todo produces: UTC stamp + random hex suffix,
+    # Same shape agent-org-task-create produces: UTC stamp + random hex suffix,
     # with the timestamp part matching the (epoch) CREATED fallback.
     assert ":ID: 19700101T000000Z-" in content
     assert content.index(":ID:") < content.index(":CREATED:")

@@ -11,7 +11,7 @@
 #   agent-meta          — two lines: AGENT then SESSION (empty when unknown)
 #   agent-meta --elisp  — splice form for emacsclient: "AGENT" "SESSION"
 #                         (session becomes nil when unknown), e.g.
-#     emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \
+#     emacsclient -e "(bergheim/agent-org-task-set-state \"docs/TODO.org\" \
 #       \"Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
 #
 # Environment:

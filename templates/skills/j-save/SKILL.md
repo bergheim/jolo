@@ -105,7 +105,7 @@ they are important enough that another agent would need them soon.
 ### 3. Update TODO.org
 
 - Add new tasks discovered during the session as `TODO` headings
-- Mark completed tasks as `DONE` using `bergheim/agent-org-set-state`
+- Mark completed tasks as `DONE` using `bergheim/agent-org-task-set-state`
 - Update existing task notes with new information
 - If a focus argument was given, prefer TODO updates connected to that focus.
   Do not churn unrelated TODOs just because they are nearby.

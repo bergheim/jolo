@@ -5,7 +5,7 @@ Stamps :CREATED: on every entry carrying a TODO keyword, derived from, in
 order: the first git commit that introduced the heading title, the :ID:
 timestamp, the earliest stash-worklog mention of the heading, else the
 1970 epoch marker meaning "unknown". Entries without an :ID: get one in
-the same shape agent-org-add-todo generates. Also deletes obsolete
+the same shape agent-org-task-create generates. Also deletes obsolete
 :SESSION_ID: lines. Idempotent — run once per repo, commit the result,
 and let the validating test keep new entries honest.
 

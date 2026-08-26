@@ -15,38 +15,49 @@ Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`.
 
 Public arglists:
 
-- `bergheim/agent-org-set-state FILE HEADING-RE NEW-STATE &optional NOTE AGENT SESSION-ID`
-- `bergheim/agent-org-set-state-by-id FILE ID NEW-STATE &optional NOTE AGENT SESSION-ID`
-- `bergheim/agent-org-ensure-id FILE HEADING-RE`
-- `bergheim/agent-org-add-note FILE HEADING-RE NOTE`
-- `bergheim/agent-org-add-tag FILE HEADING-RE TAG`
-- `bergheim/agent-org-remove-tag FILE HEADING-RE TAG`
-- `bergheim/agent-org-add-todo FILE HEADING &optional BODY TAGS STATE`
-- `bergheim/agent-org-link-note ORG-FILE LOCATOR NOTE-PATH &optional BY-ID`
-- `bergheim/agent-org-list-todos ORG-FILE &optional STATES`
-- `bergheim/agent-org-get-entry FILE LOCATOR &optional BY-ID`
-- `bergheim/agent-org-autonomous-select ORG-FILE`
-- `bergheim/agent-org-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
+- `bergheim/agent-org-task-set-state FILE HEADING-RE NEW-STATE &optional NOTE AGENT SESSION-ID`
+- `bergheim/agent-org-task-set-state-by-id FILE ID NEW-STATE &optional NOTE AGENT SESSION-ID`
+- `bergheim/agent-org-task-schedule FILE LOCATOR DATE &optional BY-ID`
+- `bergheim/agent-org-task-deadline FILE LOCATOR DATE &optional BY-ID`
+- `bergheim/agent-org-entry-ensure-id FILE HEADING-RE`
+- `bergheim/agent-org-task-add-log FILE HEADING-RE NOTE`
+- `bergheim/agent-org-entry-add-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-entry-remove-tag FILE HEADING-RE TAG`
+- `bergheim/agent-org-task-create FILE HEADING &optional BODY TAGS STATE`
+- `bergheim/agent-org-entry-link-note ORG-FILE LOCATOR NOTE-PATH &optional BY-ID`
+- `bergheim/agent-org-task-list ORG-FILE &optional STATES`
+- `bergheim/agent-org-entry-get FILE LOCATOR &optional BY-ID`
+- `bergheim/agent-org-task-autonomous-select ORG-FILE`
+- `bergheim/agent-org-task-autonomous-mark-dispatched ORG-FILE POSITION TIMESTAMP`
 - `bergheim/agent-worklog-recent &optional N`
 
 Set state with a reason (logged as a note):
 
 ```bash
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "DONE" "Resolved by commit abc1234.")'
-emacsclient -e '(bergheim/agent-org-set-state "docs/TODO.org" "TODO Heading text here" "CANCELLED" "No longer relevant because X.")'
+emacsclient -e '(bergheim/agent-org-task-set-state "docs/TODO.org" "TODO Heading text here" "DONE" "Resolved by commit abc1234.")'
+emacsclient -e '(bergheim/agent-org-task-set-state "docs/TODO.org" "TODO Heading text here" "CANCELLED" "No longer relevant because X.")'
 ```
 
 Ensure a stable ID:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading")'
-emacsclient -e '(plist-get (bergheim/agent-org-ensure-id "docs/TODO.org" "TODO Heading") :id)'
+emacsclient -e '(bergheim/agent-org-entry-ensure-id "docs/TODO.org" "TODO Heading")'
+emacsclient -e '(plist-get (bergheim/agent-org-entry-ensure-id "docs/TODO.org" "TODO Heading") :id)'
 ```
 
 Transition by ID:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
+emacsclient -e '(bergheim/agent-org-task-set-state-by-id "docs/TODO.org" "abc-def-123" "DONE")'
+```
+
+Set or clear planning dates. DATE accepts an Org date or relative value; nil
+clears it:
+
+```bash
+emacsclient -e '(bergheim/agent-org-task-schedule "docs/TODO.org" "TODO Heading" "2026-08-25")'
+emacsclient -e '(bergheim/agent-org-task-deadline "docs/TODO.org" "abc-def-123" "2026-08-30" t)'
+emacsclient -e '(bergheim/agent-org-task-schedule "docs/TODO.org" "TODO Heading" nil)'
 ```
 
 Record who is working (`agent-meta` resolves the calling agent's model/effort
@@ -54,7 +65,7 @@ and vendor session id — never hand-type them). AGENT lands as a LOGBOOK
 session line plus `:LAST_AGENT:`:
 
 ```bash
-emacsclient -e "(bergheim/agent-org-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
+emacsclient -e "(bergheim/agent-org-task-set-state \"docs/TODO.org\" \"TODO Heading\" \"INPROGRESS\" nil $(agent-meta --elisp))"
 ```
 
 Backfill metadata on a legacy TODO file (idempotent; derives `:CREATED:`
@@ -68,29 +79,29 @@ org-backfill docs/TODO.org
 Remove the `autonomous` tag:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
+emacsclient -e '(bergheim/agent-org-entry-remove-tag "docs/TODO.org" "TODO Heading" "autonomous")'
 ```
 
 Add a new top-level TODO. Optional args are body, tags, then state:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-add-todo "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
+emacsclient -e '(bergheim/agent-org-task-create "docs/TODO.org" "New task heading" "Body text." (quote ("topic")) "TODO")'
 ```
 
 Cite a note from a TODO. Subtree-only, idempotent, does not touch the note.
 Note → TODO is forbidden; do not put `TODO.org` in `denote-directory`.
 
 ```bash
-emacsclient -e '(bergheim/agent-org-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
+emacsclient -e '(bergheim/agent-org-entry-link-note "docs/TODO.org" "TODO Heading" "/abs/path/to/note.org")'
 ```
 
-List TODO headings (`:path` JSON file; each entry has `notes` = denote ids
-cited from that heading), or read one full entry:
+List tasks (direct JSON; each entry includes `scheduled`, `deadline`, and
+`notes` = cited denote ids), or read one full entry:
 
 ```bash
-emacsclient -e '(bergheim/agent-org-list-todos "docs/TODO.org")'
-emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "TODO Heading")'
-emacsclient -e '(bergheim/agent-org-get-entry "docs/TODO.org" "20260805T105637Z-0e76d6" t)'
+emacsclient -e '(bergheim/agent-org-task-list "docs/TODO.org")'
+emacsclient -e '(bergheim/agent-org-entry-get "docs/TODO.org" "TODO Heading")'
+emacsclient -e '(bergheim/agent-org-entry-get "docs/TODO.org" "20260805T105637Z-0e76d6" t)'
 ```
 
 Read recent cross-project worklog entries:
@@ -112,10 +123,11 @@ Public arglists:
 
 - `bergheim/agent-denote-create DIR TITLE KEYWORDS &optional BODY`
 - `bergheim/agent-denote-find DIR &optional KEYWORDS TITLE-RE`
-- `bergheim/agent-denote-read FILEPATH`
+- `bergheim/agent-denote-get FILEPATH`
+- `bergheim/agent-denote-update FILEPATH &rest CHANGES`
 - `bergheim/agent-denote-list DIR &optional LIMIT`
 - `bergheim/agent-denote-link SOURCE-PATH TARGET-PATHS`
-- `bergheim/agent-denote-get-backlinks FILEPATH`
+- `bergheim/agent-denote-backlinks FILEPATH`
 
 `agent-denote-list` is an index view and returns only `:id`, `:title`, and
 `:keywords`. Use `agent-denote-find` when a file path is needed.
@@ -126,10 +138,12 @@ Filter a find by content query:
 emacsclient -e '(bergheim/agent-denote-find "docs/notes" (quote ("gotcha")) "evil")'
 ```
 
-Read a note by path:
+Read or update a note by path. Update accepts only `:title`, `:keywords`, and
+`:body`; omitted keys remain unchanged:
 
 ```bash
-emacsclient -e '(bergheim/agent-denote-read "/abs/path/to/note.org")'
+emacsclient -e '(bergheim/agent-denote-get "/abs/path/to/note.org")'
+emacsclient -e '(bergheim/agent-denote-update "/abs/path/to/note.org" :title "New title" :keywords (quote ("research")) :body "New body.")'
 ```
 
 Link notes. This is the only sanctioned way to link — never hand-write
@@ -146,7 +160,7 @@ emacsclient -e '(bergheim/agent-denote-link "/abs/path/to/source.org" (quote ("/
 Read backlinks by absolute note path:
 
 ```bash
-emacsclient -e '(bergheim/agent-denote-get-backlinks "/abs/path/to/note.org")'
+emacsclient -e '(bergheim/agent-denote-backlinks "/abs/path/to/note.org")'
 ```
 
 ## Stash Cookbook Notes

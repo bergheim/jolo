@@ -4,7 +4,7 @@ Every entry carrying a TODO keyword must have :ID: and :CREATED: so
 agenda tooling and cross-session correlation work. Best-effort fields
 (:LAST_AGENT:, LOGBOOK session lines) are never required. Fix violations
 with `org-backfill docs/TODO.org` for legacy entries; new entries get
-both stamps from `bergheim/agent-org-add-todo`.
+both stamps from `bergheim/agent-org-task-create`.
 """
 
 import re
