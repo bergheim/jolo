@@ -176,11 +176,11 @@ class TestSyncDevcontainer(unittest.TestCase):
             entrypoint.index(union_ready), entrypoint.index(claude_link)
         )
 
-    def test_entrypoint_sources_stash_profile_jolo(self):
+    def test_entrypoint_sources_stash_profile_container(self):
         entrypoint = (
             Path(__file__).resolve().parents[1] / "container" / "entrypoint.sh"
         ).read_text()
-        self.assertIn(". /workspaces/stash/profile-jolo", entrypoint)
+        self.assertIn(". /workspaces/stash/.profile.container", entrypoint)
 
 
 class TestContainerRuntime(unittest.TestCase):
