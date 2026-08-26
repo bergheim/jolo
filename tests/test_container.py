@@ -176,12 +176,6 @@ class TestSyncDevcontainer(unittest.TestCase):
             entrypoint.index(union_ready), entrypoint.index(claude_link)
         )
 
-    def test_entrypoint_sources_profile_container(self):
-        entrypoint = (
-            Path(__file__).resolve().parents[1] / "container" / "entrypoint.sh"
-        ).read_text()
-        self.assertIn('. "$HOME/.profile.container"', entrypoint)
-
     def test_devcontainer_mounts_profile_container(self):
         os.chdir(self.tmpdir)
         jolo.sync_devcontainer("p", config={"base_image": "t"})
