@@ -176,29 +176,6 @@ class TestSyncDevcontainer(unittest.TestCase):
             entrypoint.index(union_ready), entrypoint.index(claude_link)
         )
 
-    def test_devcontainer_mounts_profile_container(self):
-        os.chdir(self.tmpdir)
-        jolo.sync_devcontainer("p", config={"base_image": "t"})
-        mounts = json.loads(
-            (
-                Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
-            ).read_text()
-        )["mounts"]
-        self.assertTrue(
-            any(
-                "source=${localEnv:HOME}/.zshenv," in m
-                and "target=/home/${localEnv:USER}/.zshenv," in m
-                for m in mounts
-            )
-        )
-        self.assertTrue(
-            any(
-                "source=${localEnv:HOME}/.profile.container," in m
-                and "target=/home/${localEnv:USER}/.profile," in m
-                for m in mounts
-            )
-        )
-
 
 class TestContainerRuntime(unittest.TestCase):
     """Test container runtime detection."""

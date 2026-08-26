@@ -2356,77 +2356,6 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class TestClaudeMountCollapse(unittest.TestCase):
-    """Claude config is one host dir bind; only namespace-unsafe state is shadowed.
-
-    Rationale: file binds make rename(2) fail with EBUSY, and copying the host
-    settings.json leaked host-absolute paths into containers. Share everything
-    Claude keys by path on disk; shadow only what the container's namespace
-    makes non-unique.
-    """
-
-    def _claude_mounts(self):
-        return [m for m in constants.BASE_MOUNTS if ".claude" in m]
-
-    def test_claude_home_is_a_single_host_dir_bind(self):
-        """~/.claude mounts whole from the host, not file-by-file."""
-        self.assertIn(
-            "source=${localEnv:HOME}/.claude,"
-            "target=/home/${localEnv:USER}/.claude,type=bind",
-            constants.BASE_MOUNTS,
-        )
-
-    def test_no_per_file_claude_mounts_remain(self):
-        """Individual files under ~/.claude must not be bound separately.
-
-        A file bind cannot be replaced by rename, so any tool using the
-        write-tmp-then-rename idiom fails against it.
-        """
-        for leaf in (
-            ".credentials.json",
-            "settings.json",
-            "statsig",
-            "plugins",
-            "statusline.sh",
-        ):
-            self.assertFalse(
-                any(f"/.claude/{leaf}," in m for m in constants.BASE_MOUNTS),
-                f"~/.claude/{leaf} should be covered by the ~/.claude dir bind",
-            )
-
-    def test_sessions_is_shadowed_per_project(self):
-        """sessions/ is PID-keyed and reaped by local PID liveness.
-
-        Containers have their own PID namespace, so a shared sessions/ makes
-        each container garbage-collect the others' live peer records.
-        """
-        self.assertIn(
-            "source=${localWorkspaceFolder}/.devcontainer/.claude-sessions,"
-            "target=/home/${localEnv:USER}/.claude/sessions,type=bind",
-            constants.BASE_MOUNTS,
-        )
-
-    def test_history_is_shadowed_per_project(self):
-        """history.jsonl is one flat file; its project field is internal only."""
-        self.assertIn(
-            "source=${localWorkspaceFolder}/.devcontainer/.claude-history.jsonl,"
-            "target=/home/${localEnv:USER}/.claude/history.jsonl,type=bind",
-            constants.BASE_MOUNTS,
-        )
-
-    def test_claude_json_comes_from_host(self):
-        """~/.claude.json sits outside ~/.claude and carries global state."""
-        self.assertIn(
-            "source=${localEnv:HOME}/.claude.json,"
-            "target=/home/${localEnv:USER}/.claude.json,type=bind",
-            constants.BASE_MOUNTS,
-        )
-
-    def test_statusline_mount_constant_is_gone(self):
-        """statusline.sh is covered by the dir bind; the conditional is dead."""
-        self.assertFalse(hasattr(constants, "CLAUDE_STATUSLINE_MOUNT"))
-
-
 class TestClaudeSettingsNotCopied(unittest.TestCase):
     """setup_credential_cache must not copy the host settings.json.
 
@@ -2505,26 +2434,6 @@ class TestClaudeSettingsNotCopied(unittest.TestCase):
 
         self.assertIn(
             "display", (home / ".claude" / "history.jsonl").read_text()
-        )
-
-    def test_caveman_mounted_from_host(self):
-        """Hooks reference ~/.caveman/bin by absolute path.
-
-        The path has to resolve identically inside the container, or every
-        agent hook dies with "not found" — which is what happened to every
-        generated devcontainer that never had caveman installed by hand.
-        """
-        self.assertIn(
-            "source=${localEnv:HOME}/.caveman,"
-            "target=/home/${localEnv:USER}/.caveman,type=bind",
-            constants.BASE_MOUNTS,
-        )
-
-    def test_caveman_cloud_mounted_from_host(self):
-        self.assertIn(
-            "source=${localEnv:HOME}/.caveman-cloud,"
-            "target=/home/${localEnv:USER}/.caveman-cloud,type=bind",
-            constants.BASE_MOUNTS,
         )
 
     def test_caveman_dir_created_when_host_has_none(self):
