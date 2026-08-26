@@ -158,18 +158,22 @@ emacsclient -e '(bergheim/agent-org-add-tag "docs/TODO.org" "TODO Heading" "auto
 
 ## Git
 
-**`just wt` is the worktree CLI — faster and safer than hand-rolling.** It
-already implements every rule in this section. Do not re-derive it from
-`/usr/local/bin/wt`; `just wt help` is the menu.
+Work on the current checkout. Never create a worktree (`just wt new`,
+`jolo tree`, `grok --worktree`, grok `/fork`, `claude --worktree`,
+EnterWorktree) unless the user explicitly asks for one.
 
-- Start: `just wt new <name>`. Keep current: `just wt sync`.
+When they do ask, **`just wt` is the worktree CLI** — do not hand-roll, and
+do not use harness-native worktrees (they land under `~/.grok` or
+`.claude/worktrees` and magit cannot switch to them). `just wt help` is the
+menu. Do not reverse-engineer `/usr/local/bin/wt`.
+
 - Finish: **`just wt land <name> --rm`** from the main tree (the branch you
   want to merge into, usually `main`). Rebases, fast-forwards one commit or
   `--no-ff` merges several, pushes if a remote exists, then removes
   worktree, branch, and tmux window. Merging plus `wt delete` by hand is
   that same path, slower and less safe.
-- Default workflow: create a feature branch, commit meaningful progress, and
-  push if a remote exists unless the user says not to.
+- Default workflow: commit on the current branch and push if a remote exists
+  unless the user says not to.
 - Branch names: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
   `refactor/<slug>`, `test/<slug>`.
 - Keep history rebased and linear.
@@ -183,10 +187,7 @@ already implements every rule in this section. Do not re-derive it from
   unless explicitly requested.
 - In a worktree, do not checkout `main`; find the main tree with
   `git worktree list`.
-- Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`. Do not use
-  harness-native worktrees (`grok --worktree`, grok `/fork`, `claude
-  --worktree`, EnterWorktree): they land under `~/.grok` or
-  `.claude/worktrees` and magit cannot switch to them.
+- Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`.
 
 ## Commands
 

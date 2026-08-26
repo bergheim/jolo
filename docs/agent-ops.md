@@ -170,6 +170,9 @@ services:
 
 ## Git and Worktrees
 
+Do not `just wt new` (or `jolo tree`, or harness `--worktree`) unless the
+user explicitly asked for a worktree. Work on the current checkout.
+
 `just wt` is the only worktree interface. Do not read `/usr/local/bin/wt`
 to reverse-engineer it — `just wt help` is the catalog.
 
