@@ -9,11 +9,11 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 
-# Host+container service URLs. Stash is already mounted; missing file is a no-op.
-if [ -r /workspaces/stash/.profile.container ]; then
+# Host ~/.profile.container is bind-mounted; missing/empty is a no-op.
+if [ -r "$HOME/.profile.container" ]; then
     set -a
     # shellcheck disable=SC1091
-    . /workspaces/stash/.profile.container
+    . "$HOME/.profile.container"
     set +a
 fi
 

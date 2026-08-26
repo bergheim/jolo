@@ -176,11 +176,26 @@ class TestSyncDevcontainer(unittest.TestCase):
             entrypoint.index(union_ready), entrypoint.index(claude_link)
         )
 
-    def test_entrypoint_sources_stash_profile_container(self):
+    def test_entrypoint_sources_profile_container(self):
         entrypoint = (
             Path(__file__).resolve().parents[1] / "container" / "entrypoint.sh"
         ).read_text()
-        self.assertIn(". /workspaces/stash/.profile.container", entrypoint)
+        self.assertIn('. "$HOME/.profile.container"', entrypoint)
+
+    def test_devcontainer_mounts_profile_container(self):
+        os.chdir(self.tmpdir)
+        jolo.sync_devcontainer("p", config={"base_image": "t"})
+        mounts = json.loads(
+            (
+                Path(self.tmpdir) / ".devcontainer" / "devcontainer.json"
+            ).read_text()
+        )["mounts"]
+        self.assertTrue(
+            any(
+                "source=${localEnv:HOME}/.profile.container" in m
+                for m in mounts
+            )
+        )
 
 
 class TestContainerRuntime(unittest.TestCase):

@@ -245,6 +245,8 @@ def setup_credential_cache(workspace_dir: Path) -> None:
     (home / ".caveman").mkdir(parents=True, exist_ok=True)
     (home / ".caveman-cloud").mkdir(parents=True, exist_ok=True)
     (home / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
+    # Bind source; empty until the host fills in service URLs.
+    (home / ".profile.container").touch(exist_ok=True)
 
     # Bind source must exist or podman statfs fails the rebuild on a host
     # that has never run Claude.
