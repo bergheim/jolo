@@ -12,7 +12,7 @@ playwright-extra, or reach for hosted Firecrawl — the endpoint is already ther
 
 ## When to use what
 
-- **Find pages** → `WebSearch` (built-in), or the `search` skill (self-hosted SearXNG)
+- **Find pages** → `WebSearch` (built-in), or the `h-search` skill (self-hosted SearXNG)
   when no search tool exists. Crawl4AI is not a search engine.
 - **Page → text: Crawl4AI is the DEFAULT** (user decision 2026-07-27). It
   returns clean Markdown — better data quality and far fewer context tokens
