@@ -186,7 +186,15 @@ class TestSyncDevcontainer(unittest.TestCase):
         )["mounts"]
         self.assertTrue(
             any(
-                "source=${localEnv:HOME}/.profile.container" in m
+                "source=${localEnv:HOME}/.zshenv," in m
+                and "target=/home/${localEnv:USER}/.zshenv," in m
+                for m in mounts
+            )
+        )
+        self.assertTrue(
+            any(
+                "source=${localEnv:HOME}/.profile.container," in m
+                and "target=/home/${localEnv:USER}/.profile," in m
                 for m in mounts
             )
         )
