@@ -9,6 +9,14 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 
+# Host+container service URLs. Stash is already mounted; missing file is a no-op.
+if [ -r /workspaces/stash/profile-jolo ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . /workspaces/stash/profile-jolo
+    set +a
+fi
+
 # Host ~/.agents/skills + jolo templates/skills. Never wipe ~/.agents/skills
 # if it is still the old templates bind — that deletes the checkout.
 _host_skills="$HOME/.agents/host-skills"
