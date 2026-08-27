@@ -581,6 +581,20 @@ host git config."
       (let ((subjects (test-agent-helpers--git-log docs-dir)))
         (should (equal (car subjects) "test: add TODO"))))))
 
+(ert-deftest agent-helpers/maybe-commit-stages-only-the-file ()
+  "Untracked junk in docs/ must not be swept into the notes commit."
+  (test-agent-helpers--with-notes-repo docs-dir
+    (let ((f (expand-file-name "TODO.org" docs-dir))
+          (junk (expand-file-name "scratch.tmp" docs-dir)))
+      (with-temp-file f (insert "* TODO Foo\n"))
+      (with-temp-file junk (insert "untracked\n"))
+      (bergheim/agent-notes--maybe-commit f "test: add TODO")
+      (should (equal (car (test-agent-helpers--git-log docs-dir)) "test: add TODO"))
+      (let ((default-directory (file-name-as-directory docs-dir)))
+        (with-temp-buffer
+          (call-process "git" nil t nil "status" "--porcelain")
+          (should (string-match-p "\\?\\? scratch\\.tmp" (buffer-string))))))))
+
 (ert-deftest agent-helpers/maybe-commit-noop-without-repo ()
   "`maybe-commit' must be silent when `docs/.git' is absent."
   (let* ((project (make-temp-file "agent-notes-plain-" t))
