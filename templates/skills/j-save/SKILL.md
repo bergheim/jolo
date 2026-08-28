@@ -162,7 +162,7 @@ the lot.
 
 ```bash
 if [ -d docs/.git ]; then
-  (cd docs && git add -A && git commit -m "save: <brief>" 2>/dev/null && git push 2>/dev/null) || true
+  (cd docs && git add -- *.org notes/ && git commit -m "save: <brief>" 2>/dev/null && git push 2>/dev/null) || true
 else
   git add docs/ && git commit -m "save: <brief>"
 fi

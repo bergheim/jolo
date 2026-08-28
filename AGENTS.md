@@ -185,6 +185,7 @@ menu. Do not reverse-engineer `/usr/local/bin/wt`.
   abandoning unmerged work.
 - Never use `git reset --hard`, `git checkout --`, or `git commit --no-verify`
   unless explicitly requested.
+- Never `git add -A` or `git add .`. Stage named paths. `-A` sweeps untracked agent homes, scratch, and `.devcontainer`; `rebase --abort` then deletes them from disk.
 - In a worktree, do not checkout `main`; find the main tree with
   `git worktree list`.
 - Worktrees belong in `$WORKSPACE/.worktrees/` via `just wt`.
