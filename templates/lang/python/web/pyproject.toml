@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-watch", "httpx"]
+dev = ["pytest", "httpx"]
 
 [project.scripts]
 {{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"

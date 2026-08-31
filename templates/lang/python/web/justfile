@@ -1,5 +1,9 @@
 set shell := ["bash", "-eo", "pipefail", "-c"]
 
+# Vendor htmx into static/
+setup:
+    curl -fsSL -o static/htmx.min.js https://unpkg.com/htmx.org@2.0.10/dist/htmx.min.js
+
 # Run the project
 run:
     uv run {{PROJECT_NAME}}

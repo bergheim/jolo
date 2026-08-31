@@ -20,7 +20,7 @@ css-watch:
 
 # Download htmx and build CSS
 setup:
-    curl -fsSL -o static/htmx.min.js https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
+    curl -fsSL -o static/htmx.min.js https://unpkg.com/htmx.org@2.0.10/dist/htmx.min.js
     just css
 
 # Run tests

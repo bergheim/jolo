@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest", "pytest-watch"]
+dev = ["pytest"]
 
 [project.scripts]
 {{PROJECT_NAME}} = "{{PROJECT_NAME_UNDERSCORE}}.main:main"

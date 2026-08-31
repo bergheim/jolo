@@ -104,7 +104,6 @@ RUN apk update && apk add --no-cache \
     musl-locales \
     musl-locales-lang \
     pnpm \
-    typescript \
     # build files for codex-acp
     libcap-dev \
     openssl-dev \
@@ -191,6 +190,7 @@ RUN pnpm add -g \
     @biomejs/biome \
     playwright \
     @playwright/cli \
+    typescript \
     typescript-language-server \
     vscode-langservers-extracted \
     bash-language-server \

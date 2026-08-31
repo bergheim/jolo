@@ -1,7 +1,7 @@
 import { html } from "@elysiajs/html";
 import { staticPlugin } from "@elysiajs/static";
 import { Elysia, t } from "elysia";
-import { Home } from "./pages/home.js";
+import { Home } from "./pages/home";
 
 // Live reload: persist SSE clients across bun --hot reloads
 const g = globalThis as Record<string, unknown>;

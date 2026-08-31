@@ -619,6 +619,7 @@ def get_project_init_commands(
                 ]
             )
             commands.append(["uv", "add", "--dev", "httpx"])
+            commands.append(["just", "setup"])
     elif lang == "typescript":
         commands.append(["bun", "init", "-y"])
         if flavor == "typescript":
@@ -647,6 +648,7 @@ def get_project_init_commands(
         if flavor == "go-web":
             commands.append(["go", "get", "github.com/a-h/templ"])
             commands.append(["templ", "generate"])
+            commands.append(["just", "setup"])
     elif lang == "rust":
         commands.append(["cargo", "init", "--name", project_name])
         if flavor == "rust-web":
