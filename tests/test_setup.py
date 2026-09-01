@@ -93,6 +93,19 @@ class TestTemplateSystem(unittest.TestCase):
         self.assertIn("/workspaces/stash/notes", agents)
         self.assertIn("Would I want this loaded at session start", agents)
 
+    def test_copy_template_files_includes_pa11y_config(self):
+        """Chromium cannot sandbox in the container; pa11y needs the flags."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        setup.copy_template_files(project_dir)
+
+        config = json.loads((project_dir / ".pa11yrc.json").read_text())
+        self.assertEqual(
+            config["chromeLaunchConfig"]["args"],
+            ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        )
+
     def test_copy_template_files_includes_agent_ops_doc(self):
         """Generated projects should get on-demand agent recipes."""
         project_dir = Path(self.tmpdir) / "project"

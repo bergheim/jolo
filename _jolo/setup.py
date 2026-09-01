@@ -1123,6 +1123,7 @@ def copy_template_files(target_dir: Path) -> None:
         ".gitignore",
         ".editorconfig",
         "biome.json",
+        ".pa11yrc.json",
     ]
 
     for filename in template_files:

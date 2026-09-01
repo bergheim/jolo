@@ -1121,7 +1121,7 @@ def _ensure_project_template_files(
     safe to add to an existing repo without clobber risk:
 
     - Static copies: AGENTS.md, CLAUDE.md, GEMINI.md, .gitignore,
-      .editorconfig, biome.json, agent config dirs (.claude, .codex,
+      .editorconfig, biome.json, .pa11yrc.json, agent config dirs (.claude, .codex,
       .gemini, .pi, .playwright), docs/.
     - Generated: MOTD, justfile, justfile.common, perf-rig.toml,
       .envrc (web flavors), .pre-commit-config.yaml.
@@ -1147,6 +1147,7 @@ def _ensure_project_template_files(
         "GEMINI.md",
         ".editorconfig",
         "biome.json",
+        ".pa11yrc.json",
     ):
         src = templates_dir / filename
         dst = project_path / filename

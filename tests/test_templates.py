@@ -928,6 +928,17 @@ class TestPerfRigTemplate(unittest.TestCase):
         self.assertGreaterEqual(data["regression"]["landing"]["p99_ms"], 1000)
 
 
+class TestJustfileA11yRecipe(unittest.TestCase):
+    """The `a11y` recipe points pa11y at the sandbox-disabling config."""
+
+    def test_recipe_uses_pa11y_config(self):
+        content = jolo.get_justfile_common_content("demokrato")
+        self.assertIn(
+            "pa11y --config .pa11yrc.json http://localhost:${PORT} {{args}}",
+            content,
+        )
+
+
 class TestJustfilePerfRecipe(unittest.TestCase):
     """The `perf` recipe appears with the project-specific testbed."""
 

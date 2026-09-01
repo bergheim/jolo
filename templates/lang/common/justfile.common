@@ -25,7 +25,7 @@ browse:
 
 # Run accessibility audit (WCAG 2.2 AA)
 a11y *args:
-    pa11y http://localhost:${PORT} {{args}}
+    pa11y --config .pa11yrc.json http://localhost:${PORT} {{args}}
 
 # Start PostgreSQL (init on first run)
 db *args="start":
