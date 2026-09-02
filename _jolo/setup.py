@@ -1302,6 +1302,23 @@ def sync_devcontainer(
     print("Synced .devcontainer/ with current config")
 
 
+def _pass_show(path: str) -> str:
+    """Read a pass entry. stderr inherited so pinentry can prompt."""
+    try:
+        result = subprocess.run(
+            ["pass", "show", path],
+            stdout=subprocess.PIPE,
+            text=True,
+            timeout=60,
+        )
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        return ""
+    out = result.stdout
+    if result.returncode != 0 or not isinstance(out, str) or not out.strip():
+        return ""
+    return out.splitlines()[0]
+
+
 def get_secrets(config: dict | None = None) -> dict[str, str]:
     """Get API secrets from pass or environment variables."""
     if config is None:
@@ -1324,18 +1341,10 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
             if isinstance(pass_paths, str):
                 pass_paths = [pass_paths]
             for pass_path in pass_paths:
-                try:
-                    result = subprocess.run(
-                        ["pass", "show", pass_path],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if result.returncode == 0:
-                        secrets[key] = result.stdout.strip()
-                        break
-                except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                    pass
+                value = _pass_show(pass_path)
+                if value:
+                    secrets[key] = value
+                    break
 
     # Fallback to environment variables for any missing secrets
     for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"]:
@@ -1364,38 +1373,14 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
     # LiteLLM master key — host-side only, used to mint per-project virtual keys.
     # Never injected into a container.
     if "LITELLM_MASTER_KEY" not in secrets:
-        master = ""
-        if pass_available:
-            try:
-                result = subprocess.run(
-                    ["pass", "show", config["pass_path_litellm_master"]],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    master = result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
+        master = _pass_show(config["pass_path_litellm_master"]) if pass_available else ""
         secrets["LITELLM_MASTER_KEY"] = master or os.environ.get(
             "LITELLM_MASTER_KEY", ""
         )
 
     # Shared Crawl4AI bearer token, injected into containers via containerEnv.
     if "CRAWL4AI_API_TOKEN" not in secrets:
-        token = ""
-        if pass_available:
-            try:
-                result = subprocess.run(
-                    ["pass", "show", config["pass_path_crawl4ai"]],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    token = result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
+        token = _pass_show(config["pass_path_crawl4ai"]) if pass_available else ""
         secrets["CRAWL4AI_API_TOKEN"] = token or os.environ.get(
             "CRAWL4AI_API_TOKEN", ""
         )
