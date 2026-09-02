@@ -187,9 +187,6 @@ def build_devcontainer_json(
         ),
         "runArgs": [
             "--init",
-            # pasta NXDOMAINs MagicDNS; Headscale resolver does not.
-            "--dns",
-            "100.100.100.100",
             "--hostname",
             container_name,
             "--name",
