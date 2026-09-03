@@ -193,6 +193,10 @@ on PATH. Use them directly:
 - Shared, non-reproducible resources live in `/workspaces/stash`.
 - `share <path>` publishes an artifact from stash when a browser-viewable URL is
   useful.
+- A `just publish` recipe, when defined, must build the production site into
+  `dist/`. The host-side `jolo publish` runs it and deploys the result to
+  `https://<name>.pub.glvortex.net`; `jolo preview` (also host-side) proxies
+  the live dev server at `https://<name>.dev.glvortex.net`.
 - Cross-container Podman access is off by default and must be enabled from the
   host. `Cannot connect to Podman ... no such file or directory` is the off state.
 - Host-only operations stay host-only. If a task needs host sudo, Tailscale, DNS,

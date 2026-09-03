@@ -334,14 +334,22 @@ podman logs --tail 50 <peer>
 jolo expose   # pick/current project -> public at pub.glvortex.net while running
 ```
 
-`jolo publish` gives a project a stable public hostname with basic auth;
-`jolo expose` is the ephemeral one-at-a-time alternative. Both are HOST-side.
+`jolo preview` proxies the running dev server at a stable public hostname
+with basic auth (hot reload included); `jolo expose` is the ephemeral
+one-at-a-time alternative. `jolo publish` releases a static production
+build instead: it runs the project's `just publish` recipe in the container
+(contract: output lands in `dist/`), then rsyncs that to the serving host.
+A preview and a release can be live at the same time. All are HOST-side.
 
 ```bash
-jolo publish              # https://<name>.pub.glvortex.net, password shown once
-jolo publish --rotate     # new password
-jolo publish --no-auth    # open to the internet, requires typing YES
-jolo unpublish
+jolo preview              # https://<name>.dev.glvortex.net, password shown once
+jolo preview --rotate     # new password
+jolo preview --no-auth    # open to the internet, requires typing YES
+jolo preview --list
+jolo unpreview
+jolo publish              # just publish -> dist/ -> https://<name>.pub.glvortex.net
+jolo publish --list
+jolo unpublish            # remove the released site from the serving host
 ```
 
 ## Browser Automation

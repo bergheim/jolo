@@ -1,15 +1,24 @@
-"""jolo publish — give a project a stable public hostname.
+"""jolo preview / publish — put a project on the open internet.
 
-Writes one explicit Caddy site block per published project, which is what
-makes per-name HTTP-01 issuance work: no wildcard certificate, no DNS-01.
-Deny-by-default — nothing is published unless this command runs.
+Two modes, two wildcards, both terminated on burial:
+
+- ``jolo preview`` gives the running dev server a public hostname at
+  ``<name>.dev.glvortex.net`` (basic auth by default). It writes a route
+  into the dev Caddy fragment; burial proxies to berghome, hot reload and
+  all. Deny-by-default — nothing is exposed unless this command runs.
+- ``jolo publish`` releases a static build at ``<name>.pub.glvortex.net``:
+  it runs the project's own ``just publish`` recipe in the container
+  (contract: output lands in ``dist/``), then rsyncs that to the serving
+  host. The release outlives the container.
 """
 
 from __future__ import annotations
 
+import os
 import secrets
 import subprocess
 import sys
+from pathlib import Path
 
 from _jolo import constants, sites
 from _jolo.cli import (
@@ -18,7 +27,11 @@ from _jolo.cli import (
     read_port_from_devcontainer,
 )
 from _jolo.commands import _fzf_pick, pick_project
-from _jolo.container import is_container_running
+from _jolo.container import (
+    get_container_for_workspace,
+    get_container_runtime,
+    is_container_running,
+)
 
 
 def generate_password() -> str:
@@ -27,7 +40,7 @@ def generate_password() -> str:
     Two 10-word lists: 100 combinations, which a script guesses instantly.
     Chosen for typeability, knowing the hostname is public — Caddy's
     certificates appear in Certificate Transparency logs — so treat a
-    published site as reachable by anyone who bothers. Widen the word lists
+    previewed site as reachable by anyone who bothers. Widen the word lists
     or append digits if that trade ever stops being acceptable.
     """
     return (
@@ -62,7 +75,7 @@ def _require_control_plane() -> None:
     if not sites.is_available():
         sys.exit(
             f"No tailnet control plane at {sites.control_dir()} — "
-            "publishing only works on the host that serves these sites."
+            "this only works on the host that manages these sites."
         )
 
 
@@ -73,7 +86,7 @@ def _confirm_no_auth(name: str) -> None:
         file=sys.stderr,
     )
     try:
-        answer = input("Type YES to publish without auth: ")
+        answer = input("Type YES to preview without auth: ")
     except (EOFError, KeyboardInterrupt):
         print()
         sys.exit("Cancelled.")
@@ -81,22 +94,22 @@ def _confirm_no_auth(name: str) -> None:
         sys.exit("Cancelled.")
 
 
-def _project_name(host: str) -> str:
-    return host.removesuffix(f".{constants.PUBLIC_SITE_DOMAIN}")
+def _preview_name(host: str) -> str:
+    return host.removesuffix(f".{constants.DEV_SITE_DOMAIN}")
 
 
-def run_list_published_mode() -> None:
-    """List every published site, running or not."""
+def run_list_previews_mode() -> None:
+    """List every preview route, running or not."""
     _require_control_plane()
 
-    routes = sites.read_public()
+    routes = sites.read_previews()
     if not routes:
-        print("Nothing published.")
+        print("No previews.")
         return
 
     rows = []
     for host, (port, pw_hash) in sorted(routes.items()):
-        owner = sites.owner_of(_project_name(host))
+        owner = sites.owner_of(_preview_name(host))
         if owner is None:
             container = "unknown"
         else:
@@ -111,10 +124,10 @@ def run_list_published_mode() -> None:
         print(f"{host:<{width}}  {port:<5}  {auth:<8}  {container}")
 
 
-def run_publish_mode(args) -> None:
-    """Publish the current project at <name>.pub.glvortex.net."""
+def run_preview_mode(args) -> None:
+    """Proxy the current project's dev server at <name>.dev.glvortex.net."""
     if args.list:
-        run_list_published_mode()
+        run_list_previews_mode()
         return
 
     _require_control_plane()
@@ -129,7 +142,7 @@ def run_publish_mode(args) -> None:
     owner = sites.owner_of(name)
     if owner is not None and owner != project:
         sys.exit(
-            f"{sites.public_host(name)} would collide with {owner}. "
+            f"{sites.preview_host(name)} would collide with {owner}. "
             "Rename one of the projects."
         )
 
@@ -138,19 +151,19 @@ def run_publish_mode(args) -> None:
         pw_hash = None
         password = None
     else:
-        existing = sites.read_public().get(sites.public_host(name))
+        existing = sites.read_previews().get(sites.preview_host(name))
         if existing and existing[1] and not args.rotate:
             pw_hash, password = existing[1], None
         else:
             password = generate_password()
             pw_hash = hash_password(password)
 
-    url = sites.register_public(name, port, pw_hash)
+    url = sites.register_preview(name, port, pw_hash)
     if url is None:
-        sys.exit(f"Could not publish {name}.")
+        sys.exit(f"Could not preview {name}.")
 
     clipboard_copy(url)
-    print(f"Published: {url}   (clipboard)")
+    print(f"Preview:   {url}   (clipboard)")
     if password:
         print(f"Username:  {constants.PUBLIC_AUTH_USER}")
         print(f"Password:  {password}   (shown once)")
@@ -160,29 +173,158 @@ def run_publish_mode(args) -> None:
         print("Auth:      unchanged (use --rotate for a new password)")
     print()
     print(
-        "The certificate is issued on first request and takes a few seconds."
-    )
-    print(
-        f"If the dev server rejects the request, add {sites.public_host(name)} "
+        f"If the dev server rejects the request, add {sites.preview_host(name)} "
         "to its allowed hosts."
     )
 
 
-def _pick_published(routes: dict[str, tuple[int, str | None]]) -> str:
-    """Which project to unpublish.
+def _pick_previewed(routes: dict[str, tuple[int, str | None]]) -> str:
+    """Which project to unpreview.
 
     The generic project picker offers everything jolo knows about, which
-    for unpublishing is noise — only published sites are candidates.
+    for unpreviewing is noise — only previewed sites are candidates.
     """
     git_root = find_git_root()
     if git_root is not None:
         return git_root.name
 
-    names = sorted(_project_name(host) for host in routes)
+    names = sorted(_preview_name(host) for host in routes)
     if len(names) == 1:
         return names[0]
 
-    labels = [f"{name:<24} {sites.public_host(name)}" for name in names]
+    labels = [f"{name:<24} {sites.preview_host(name)}" for name in names]
+    selected = _fzf_pick("Unpreview which site:", labels)
+    if selected is None:
+        sys.exit(0)
+    return names[labels.index(selected)]
+
+
+def run_unpreview_mode(args) -> None:
+    """Remove a project's public dev-preview route."""
+    _require_control_plane()
+
+    routes = sites.read_previews()
+    if not routes:
+        print("No previews.")
+        return
+
+    name = _pick_previewed(routes)
+    if sites.unregister_preview(name):
+        print(f"Unpreviewed: {sites.preview_host(name)}")
+    else:
+        print(f"Not previewed: {sites.preview_host(name)}")
+
+
+def _remote_dir(name: str) -> str:
+    return f"{constants.PUBLISH_ROOT}/{sites.publish_host(name)}"
+
+
+def _build_in_container(project: Path) -> None:
+    """Run the project's own build where the toolchain lives."""
+    runtime = get_container_runtime()
+    container = get_container_for_workspace(project)
+    if (
+        runtime is None
+        or container is None
+        or not is_container_running(project)
+    ):
+        sys.exit(f"No running container for {project.name}; jolo up first.")
+
+    result = subprocess.run(
+        [
+            runtime,
+            "exec",
+            "-u",
+            os.environ.get("USER", "dev"),
+            "-w",
+            f"/workspaces/{project.name}",
+            container,
+            "just",
+            "publish",
+        ]
+    )
+    if result.returncode != 0:
+        sys.exit("just publish failed.")
+
+
+def _released_names() -> list[str]:
+    result = subprocess.run(
+        ["ssh", constants.PUBLISH_HOST, "ls", "-1", constants.PUBLISH_ROOT],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        sys.exit(
+            f"Could not list {constants.PUBLISH_HOST}:{constants.PUBLISH_ROOT}: "
+            f"{result.stderr.strip()}"
+        )
+    suffix = f".{constants.PUBLIC_SITE_DOMAIN}"
+    return sorted(
+        line.removesuffix(suffix)
+        for line in result.stdout.split()
+        if line.endswith(suffix)
+    )
+
+
+def run_list_released_mode() -> None:
+    """List every released static site on the serving host."""
+    names = _released_names()
+    if not names:
+        print("Nothing published.")
+        return
+    for name in names:
+        print(f"https://{sites.publish_host(name)}")
+
+
+def run_publish_mode(args) -> None:
+    """Release the current project's static build at <name>.pub.glvortex.net."""
+    if args.list:
+        run_list_released_mode()
+        return
+
+    _require_control_plane()
+
+    project = pick_project()
+    name = project.name
+
+    if not sites.is_dns_label(name):
+        sys.exit(f"{name!r} is not a DNS label; it cannot become a site.")
+
+    owner = sites.owner_of(name)
+    if owner is not None and owner != project:
+        sys.exit(
+            f"{sites.publish_host(name)} would collide with {owner}. "
+            "Rename one of the projects."
+        )
+
+    _build_in_container(project)
+
+    dist = project / "dist"
+    if not dist.is_dir() or not any(dist.iterdir()):
+        sys.exit(f"just publish left nothing in {dist}.")
+
+    dest = f"{constants.PUBLISH_HOST}:{_remote_dir(name)}/"
+    result = subprocess.run(["rsync", "-a", "--delete", f"{dist}/", dest])
+    if result.returncode != 0:
+        sys.exit(f"rsync to {dest} failed.")
+
+    url = f"https://{sites.publish_host(name)}"
+    clipboard_copy(url)
+    print(f"Published: {url}   (clipboard)")
+
+
+def _pick_released() -> str:
+    git_root = find_git_root()
+    if git_root is not None:
+        return git_root.name
+
+    names = _released_names()
+    if not names:
+        sys.exit("Nothing published.")
+    if len(names) == 1:
+        return names[0]
+
+    labels = [f"{name:<24} {sites.publish_host(name)}" for name in names]
     selected = _fzf_pick("Unpublish which site:", labels)
     if selected is None:
         sys.exit(0)
@@ -190,16 +332,21 @@ def _pick_published(routes: dict[str, tuple[int, str | None]]) -> str:
 
 
 def run_unpublish_mode(args) -> None:
-    """Remove a published project's public route."""
+    """Remove a released static site from the serving host."""
     _require_control_plane()
 
-    routes = sites.read_public()
-    if not routes:
-        print("Nothing published.")
-        return
+    name = _pick_released()
+    if not sites.is_dns_label(name):
+        sys.exit(f"{name!r} is not a DNS label; nothing to unpublish.")
 
-    name = _pick_published(routes)
-    if sites.unregister_public(name):
-        print(f"Unpublished: {sites.public_host(name)}")
+    host = sites.publish_host(name)
+    remote = _remote_dir(name)
+    result = subprocess.run(
+        ["ssh", constants.PUBLISH_HOST, f"test -d {remote} && rm -rf {remote}"]
+    )
+    if result.returncode == 0:
+        print(f"Unpublished: {host}")
+    elif result.returncode == 255:
+        sys.exit(f"ssh {constants.PUBLISH_HOST} failed.")
     else:
-        print(f"Not published: {sites.public_host(name)}")
+        print(f"Not published: {host}")

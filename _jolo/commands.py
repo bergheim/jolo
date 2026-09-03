@@ -854,16 +854,16 @@ def _is_image_stale(
     )
 
 
-def _public_status_line(project_name: str) -> str | None:
-    """One line describing public exposure, or None when not published."""
+def _preview_status_line(project_name: str) -> str | None:
+    """One line describing public exposure, or None when not previewed."""
     if not sites.is_available():
         return None
-    host = sites.public_host(project_name)
-    entry = sites.public_entry(project_name)
+    host = sites.preview_host(project_name)
+    entry = sites.preview_entry(project_name)
     if entry is None:
         return None
     auth = "auth" if entry[1] else "NO AUTH"
-    return f"Public:  https://{host} ({auth})"
+    return f"Preview: https://{host} ({auth})"
 
 
 def run_status_mode(args: argparse.Namespace) -> None:
@@ -874,9 +874,9 @@ def run_status_mode(args: argparse.Namespace) -> None:
 
     print(f"Project: {project_name}")
     print(f"Root:    {git_root}")
-    public = _public_status_line(_site_name(git_root))
-    if public:
-        print(public)
+    preview = _preview_status_line(_site_name(git_root))
+    if preview:
+        print(preview)
     print()
 
     # Containers with uptime
@@ -1078,7 +1078,7 @@ def _resolve_site_url(workspace_dir: Path) -> str | None:
         return None
     site = _site_name(workspace_dir)
     url = sites.register_tailnet(site, port)
-    sites.repoint_public(site, port)
+    sites.repoint_preview(site, port)
     if url is None:
         url = f"http://{detect_hostname()}:{port}"
     os.environ["JOLO_SITE_URL"] = url
@@ -2419,11 +2419,11 @@ def _delete_project(
             print(f"Failed to remove container: {name}", file=sys.stderr)
 
     site = _site_name(git_root)
-    published = sites.public_entry(site)
+    previewed = sites.preview_entry(site)
     if sites.unregister(site):
         print(f"Removed tailnet site: {sites.site_host(site)}")
-        if published is not None:
-            print(f"Removed public site: {sites.public_host(site)}")
+        if previewed is not None:
+            print(f"Removed preview site: {sites.preview_host(site)}")
 
     if purge:
         _purge_dirs(git_root)
@@ -2575,6 +2575,18 @@ def main(argv: list[str] | None = None) -> None:
         from _jolo.expose import run_expose_mode
 
         run_expose_mode(args)
+        return
+
+    if cmd == "preview":
+        from _jolo.pubsite import run_preview_mode
+
+        run_preview_mode(args)
+        return
+
+    if cmd == "unpreview":
+        from _jolo.pubsite import run_unpreview_mode
+
+        run_unpreview_mode(args)
         return
 
     if cmd == "publish":

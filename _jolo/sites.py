@@ -3,12 +3,16 @@
 Three generated fragments under ``/srv/tailnet`` are the whole control
 plane: a Caddy route (berghome serves the app on ``127.0.0.1:$PORT``), a
 Headscale ``A`` record (the name resolves to burial, which terminates TLS
-with the wildcard cert and proxies to berghome), and a public Caddy
-fragment (explicit ``<name>.pub.glvortex.net`` blocks, each with its own
-per-name certificate, reachable from the internet). Syncthing carries all
-three files to those hosts, where systemd path units reload the services —
-so jolo only ever writes files, never needs sudo, SSH, or a host
-round-trip.
+with the wildcard cert and proxies to berghome), and a dev-preview Caddy
+fragment (plain-HTTP ``<name>.dev.glvortex.net`` blocks; burial holds the
+wildcard cert and proxies to berghome exactly like the tailnet sites, but
+from the open internet). Syncthing carries all three files to those hosts,
+where systemd path units reload the services — so jolo only ever writes
+files, never needs sudo, SSH, or a host round-trip.
+
+Static releases at ``<name>.pub.glvortex.net`` are not part of this control
+plane: ``jolo publish`` rsyncs build output straight to the serving host
+(see ``pubsite``).
 
 All three files are wholly owned by jolo: they are re-rendered from the
 parsed route/record set, which is what keeps repeated ``jolo up`` runs
@@ -35,10 +39,10 @@ CADDY_HEADER = (
     "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
 )
 
-PUB_RELPATH = "caddy/jolo-pub-sites.caddy"
+DEV_RELPATH = "caddy/jolo-dev-sites.caddy"
 
-PUB_HEADER = (
-    "# Generated jolo public project routes for berghome.\n"
+DEV_HEADER = (
+    "# Generated jolo dev-preview project routes for berghome.\n"
     "# Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.\n"
 )
 
@@ -53,17 +57,21 @@ _ROUTE = re.compile(
     re.MULTILINE,
 )
 
-_PUB_ROUTE = re.compile(
-    r"^(?P<host>\S+) \{\n"
+_DEV_ROUTE = re.compile(
+    r"^http://(?P<host>\S+) \{\n"
     r"(?:    basic_auth \{\n        \S+ (?P<hash>\S+)\n    \}\n)?"
     r"    reverse_proxy 127\.0\.0\.1:(?P<port>\d+)\n\}",
     re.MULTILINE,
 )
 
 
+def is_dns_label(name: str) -> bool:
+    return _LABEL.match(name) is not None
+
+
 def _rejected_label(kind: str, name: str) -> bool:
     """True (having printed a diagnostic) when ``name`` can't be a DNS label."""
-    if _LABEL.match(name):
+    if is_dns_label(name):
         return False
     print(
         f"jolo: skipping {kind} site, {name!r} is not a DNS label",
@@ -84,8 +92,8 @@ def _records_path() -> Path:
     return control_dir() / RECORDS_RELPATH
 
 
-def _pub_path() -> Path:
-    return control_dir() / PUB_RELPATH
+def _dev_path() -> Path:
+    return control_dir() / DEV_RELPATH
 
 
 def is_available() -> bool:
@@ -97,7 +105,11 @@ def site_host(name: str) -> str:
     return f"{name}.{constants.TAILNET_SITE_DOMAIN}"
 
 
-def public_host(name: str) -> str:
+def preview_host(name: str) -> str:
+    return f"{name}.{constants.DEV_SITE_DOMAIN}"
+
+
+def publish_host(name: str) -> str:
     return f"{name}.{constants.PUBLIC_SITE_DOMAIN}"
 
 
@@ -192,22 +204,22 @@ def register_tailnet(name: str, port: int) -> str | None:
     return f"https://{host}"
 
 
-def read_public() -> dict[str, tuple[int, str | None]]:
-    """Parse the public fragment into ``{hostname: (port, hash|None)}``.
+def read_previews() -> dict[str, tuple[int, str | None]]:
+    """Parse the dev fragment into ``{hostname: (port, hash|None)}``.
 
     Empty when the fragment does not exist yet: a host can serve tailnet
-    sites long before anything is published.
+    sites long before anything is previewed.
     """
-    if not _pub_path().is_file():
+    if not _dev_path().is_file():
         return {}
-    text = _pub_path().read_text()
+    text = _dev_path().read_text()
     return {
         m.group("host"): (int(m.group("port")), m.group("hash"))
-        for m in _PUB_ROUTE.finditer(text)
+        for m in _DEV_ROUTE.finditer(text)
     }
 
 
-def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
+def _write_previews(routes: dict[str, tuple[int, str | None]]) -> None:
     blocks = []
     for host, (port, pw_hash) in sorted(routes.items()):
         # Caddy renamed this directive in 2.8; `basicauth` still works but warns.
@@ -217,56 +229,56 @@ def _write_public(routes: dict[str, tuple[int, str | None]]) -> None:
             else ""
         )
         blocks.append(
-            f"{host} {{\n{auth}    reverse_proxy 127.0.0.1:{port}\n}}\n"
+            f"http://{host} {{\n{auth}    reverse_proxy 127.0.0.1:{port}\n}}\n"
         )
-    _write_atomic(_pub_path(), PUB_HEADER + "\n".join(blocks))
+    _write_atomic(_dev_path(), DEV_HEADER + "\n".join(blocks))
 
 
-def register_public(name: str, port: int, pw_hash: str | None) -> str | None:
-    """Publish ``name`` at ``port`` on the public domain.
+def register_preview(name: str, port: int, pw_hash: str | None) -> str | None:
+    """Expose ``name``'s dev server at ``port`` on the dev domain.
 
     Returns the site URL, or None when this host has no control plane or
     the project name cannot be a DNS label.
     """
     if not is_available():
         return None
-    if _rejected_label("public", name):
+    if _rejected_label("preview", name):
         return None
 
-    host = public_host(name)
-    routes = read_public()
+    host = preview_host(name)
+    routes = read_previews()
     if routes.get(host) != (port, pw_hash):
         routes[host] = (port, pw_hash)
-        _write_public(routes)
+        _write_previews(routes)
 
     return f"https://{host}"
 
 
-def public_entry(name: str) -> tuple[int, str | None] | None:
-    """The published (port, password hash) for ``name``, if any."""
-    return read_public().get(public_host(name))
+def preview_entry(name: str) -> tuple[int, str | None] | None:
+    """The previewed (port, password hash) for ``name``, if any."""
+    return read_previews().get(preview_host(name))
 
 
-def repoint_public(name: str, port: int) -> None:
-    """Move an existing public route to a new port. No-op if not published."""
+def repoint_preview(name: str, port: int) -> None:
+    """Move an existing preview route to a new port. No-op if not previewed."""
     if not is_available():
         return
-    entry = public_entry(name)
+    entry = preview_entry(name)
     if entry is not None and entry[0] != port:
-        register_public(name, port, entry[1])
+        register_preview(name, port, entry[1])
 
 
-def unregister_public(name: str) -> bool:
-    """Drop ``name`` from the public fragment only. True if removed.
+def unregister_preview(name: str) -> bool:
+    """Drop ``name`` from the dev fragment only. True if removed.
 
-    Unpublishing must leave the project's private tailnet site alone;
+    Unpreviewing must leave the project's private tailnet site alone;
     ``unregister`` is the full teardown used when a project goes away.
     """
-    routes = read_public()
-    if public_host(name) not in routes:
+    routes = read_previews()
+    if preview_host(name) not in routes:
         return False
-    del routes[public_host(name)]
-    _write_public(routes)
+    del routes[preview_host(name)]
+    _write_previews(routes)
     return True
 
 
@@ -290,7 +302,7 @@ def unregister(name: str) -> bool:
         _write_records(kept)
         changed = True
 
-    if unregister_public(name):
+    if unregister_preview(name):
         changed = True
 
     return changed

@@ -756,32 +756,50 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Expose a project's dev server publicly while running (Ctrl-C to stop)",
     )
 
-    # publish: give this project a public hostname
+    # preview: proxy the running dev server publicly
+    sub_preview = subparsers.add_parser(
+        "preview",
+        parents=[p_verbose],
+        help="Make the dev server public at <name>.dev.glvortex.net (basic auth by default)",
+    )
+    sub_preview.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Preview without basic auth (requires typed confirmation)",
+    )
+    sub_preview.add_argument(
+        "--rotate",
+        action="store_true",
+        help="Generate a new password even if the project is already previewed",
+    )
+    sub_preview.add_argument(
+        "--list",
+        action="store_true",
+        help="List every preview instead of previewing",
+    )
+
+    subparsers.add_parser(
+        "unpreview",
+        parents=[p_verbose],
+        help="Remove this project's public dev preview",
+    )
+
+    # publish: release the static build
     sub_publish = subparsers.add_parser(
         "publish",
         parents=[p_verbose],
-        help="Publish this project at <name>.pub.glvortex.net (basic auth by default)",
-    )
-    sub_publish.add_argument(
-        "--no-auth",
-        action="store_true",
-        help="Publish without basic auth (requires typed confirmation)",
-    )
-    sub_publish.add_argument(
-        "--rotate",
-        action="store_true",
-        help="Generate a new password even if the project is already published",
+        help="Release this project at <name>.pub.glvortex.net (just publish -> dist/ -> rsync)",
     )
     sub_publish.add_argument(
         "--list",
         action="store_true",
-        help="List every published site instead of publishing",
+        help="List every released site instead of publishing",
     )
 
     subparsers.add_parser(
         "unpublish",
         parents=[p_verbose],
-        help="Remove this project's public hostname",
+        help="Remove this project's released site",
     )
 
     # allow: opt a project into a gated capability

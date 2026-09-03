@@ -324,11 +324,15 @@ TAILNET_CONTROL_DIR = "/srv/tailnet"
 TAILNET_SITE_DOMAIN = "ts.glvortex.net"
 TAILNET_ROUTER_IP = "100.64.0.4"
 
-# Public counterpart to the tailnet sites. One wildcard A record at the
-# registrar points *.pub.glvortex.net at berghome; Caddy issues a cert per
-# explicitly-declared name over HTTP-01, so no wildcard cert is needed.
+# Public counterparts to the tailnet sites, both wildcards terminated on
+# burial: *.dev.glvortex.net proxies back to berghome for live dev-server
+# previews (`jolo preview`); *.pub.glvortex.net serves static releases
+# rsynced to PUBLISH_ROOT on PUBLISH_HOST (`jolo publish`).
+DEV_SITE_DOMAIN = "dev.glvortex.net"
 PUBLIC_SITE_DOMAIN = "pub.glvortex.net"
 PUBLIC_AUTH_USER = "tsb"
+PUBLISH_HOST = "burial"
+PUBLISH_ROOT = "/srv/www"
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"

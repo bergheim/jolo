@@ -322,7 +322,7 @@ def set_port(workspace_dir: Path, new_port: int) -> None:
 
     devcontainer_json.write_text(json.dumps(config, indent=4) + "\n")
 
-    sites.repoint_public(workspace_dir.name, new_port)
+    sites.repoint_preview(workspace_dir.name, new_port)
 
 
 def reassign_port(workspace_dir: Path) -> int:
