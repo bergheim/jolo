@@ -344,7 +344,7 @@ A preview and a release can be live at the same time. All are HOST-side.
 ```bash
 jolo preview              # https://<name>.dev.glvortex.net, password shown once
 jolo preview --rotate     # new password
-jolo preview --no-auth    # open to the internet, requires typing YES
+jolo preview --no-auth    # open to the internet, confirms with y
 jolo preview --list
 jolo unpreview
 jolo publish              # just publish -> dist/ -> https://<name>.pub.glvortex.net

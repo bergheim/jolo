@@ -140,7 +140,7 @@ class TestPreviewMode(unittest.TestCase):
         reg.assert_not_called()
 
     def test_no_auth_proceeds_on_yes(self):
-        with mock.patch("builtins.input", return_value="YES"):
+        with mock.patch("builtins.input", return_value="y"):
             with mock.patch.object(
                 pubsite.sites, "register_preview", return_value="https://x"
             ) as reg:

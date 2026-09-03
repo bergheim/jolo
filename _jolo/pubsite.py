@@ -87,11 +87,11 @@ def _confirm_no_auth(name: str) -> None:
         file=sys.stderr,
     )
     try:
-        answer = input("Type YES to preview without auth: ")
+        answer = input("Preview without auth? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         sys.exit("Cancelled.")
-    if answer != "YES":
+    if answer not in ("y", "yes"):
         sys.exit("Cancelled.")
 
 
