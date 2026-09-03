@@ -1373,14 +1373,20 @@ def get_secrets(config: dict | None = None) -> dict[str, str]:
     # LiteLLM master key — host-side only, used to mint per-project virtual keys.
     # Never injected into a container.
     if "LITELLM_MASTER_KEY" not in secrets:
-        master = _pass_show(config["pass_path_litellm_master"]) if pass_available else ""
+        master = (
+            _pass_show(config["pass_path_litellm_master"])
+            if pass_available
+            else ""
+        )
         secrets["LITELLM_MASTER_KEY"] = master or os.environ.get(
             "LITELLM_MASTER_KEY", ""
         )
 
     # Shared Crawl4AI bearer token, injected into containers via containerEnv.
     if "CRAWL4AI_API_TOKEN" not in secrets:
-        token = _pass_show(config["pass_path_crawl4ai"]) if pass_available else ""
+        token = (
+            _pass_show(config["pass_path_crawl4ai"]) if pass_available else ""
+        )
         secrets["CRAWL4AI_API_TOKEN"] = token or os.environ.get(
             "CRAWL4AI_API_TOKEN", ""
         )
