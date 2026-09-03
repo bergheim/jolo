@@ -326,18 +326,9 @@ podman logs --tail 50 <peer>
 
 ## Public Exposure (host-side)
 
-`jolo expose` runs on the HOST, not in a container. It forwards one project's
-`$PORT` to the public host Caddy via a foreground `socat` on loopback slot
-`127.0.0.1:9999`. Deny-by-default, one project at a time, torn down on Ctrl-C.
-
-```sh
-jolo expose   # pick/current project -> public at pub.glvortex.net while running
-```
-
 `jolo preview` proxies the running dev server at a stable public hostname
-with basic auth (hot reload included); `jolo expose` is the ephemeral
-one-at-a-time alternative. `jolo publish` releases a static production
-build instead: it runs the project's `just publish` recipe in the container
+with basic auth (hot reload included). `jolo publish` releases a static
+production build instead: it runs the project's `just publish` recipe in the container
 (contract: output lands in `dist/`), then rsyncs that to the serving host.
 A preview and a release can be live at the same time. All are HOST-side.
 

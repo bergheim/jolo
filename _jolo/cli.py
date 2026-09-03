@@ -1,8 +1,10 @@
 """Utility functions and CLI argument parsing for jolo."""
 
 import argparse
+import base64
 import contextlib
 import fcntl
+import importlib
 import json
 import os
 import random
@@ -13,13 +15,6 @@ import sys
 from pathlib import Path
 
 import tomllib
-
-try:
-    import argcomplete
-except ImportError:
-    pass
-
-import base64
 
 from _jolo import constants
 
@@ -749,13 +744,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Print the plan without making changes",
     )
 
-    # expose: foreground socat forwarding the public Caddy slot to a project
-    subparsers.add_parser(
-        "expose",
-        parents=[p_verbose],
-        help="Expose a project's dev server publicly while running (Ctrl-C to stop)",
-    )
-
     # preview: proxy the running dev server publicly
     sub_preview = subparsers.add_parser(
         "preview",
@@ -834,7 +822,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     if constants.HAVE_ARGCOMPLETE:
-        argcomplete.autocomplete(parser)
+        importlib.import_module("argcomplete").autocomplete(parser)
 
     args = parser.parse_args(argv)
     args._parser = parser

@@ -2571,12 +2571,6 @@ def main(argv: list[str] | None = None) -> None:
         run_notes_split_mode(args)
         return
 
-    if cmd == "expose":
-        from _jolo.expose import run_expose_mode
-
-        run_expose_mode(args)
-        return
-
     if cmd == "preview":
         from _jolo.pubsite import run_preview_mode
 

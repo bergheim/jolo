@@ -260,9 +260,9 @@ Environment and tooling expectations:
   tunnel around it, and record the host-side procedure in
   `/workspaces/stash/notes` via `bergheim/agent-denote-*` — it does not persist
   in container state.
-- `jolo expose` (host-side) publishes one project's `$PORT` publicly via host
-  Caddy; deny-by-default, one project at a time, only while it runs. A container
-  cannot expose itself.
+- `jolo preview` (host-side) publishes a project's `$PORT` at
+  `<name>.dev.glvortex.net`; basic auth is default. A container cannot expose
+  itself.
 - Cross-container Podman access is off by default and must be enabled from the
   host. Treat `Cannot connect to Podman ... no such file or directory` as the
   off state.
@@ -276,7 +276,7 @@ Read `docs/agent-ops.md` only when needed for:
 - Stash cookbook (literate `:tangle`) note format.
 - Browser-check, Playwright, and `fetch-asset` command catalogs.
 - Worktree catalog (`just wt help`; do not reverse-engineer `/usr/local/bin/wt`).
-- jolo command catalog, host-side `jolo expose`, and podman gate operations.
+- jolo command catalog, host-side `jolo preview`, and podman gate operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.
 - Share/notify/perf operational details.
