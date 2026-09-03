@@ -24,6 +24,7 @@ from _jolo import constants, sites
 from _jolo.cli import (
     clipboard_copy,
     find_git_root,
+    get_container_name,
     read_port_from_devcontainer,
 )
 from _jolo.commands import _fzf_pick, pick_project
@@ -98,6 +99,14 @@ def _preview_name(host: str) -> str:
     return host.removesuffix(f".{constants.DEV_SITE_DOMAIN}")
 
 
+def _site_name(project: Path) -> str:
+    """The project's site name, honoring the .jolo.toml name override."""
+    try:
+        return get_container_name(str(project))
+    except ValueError as e:
+        sys.exit(f"Error: {e}")
+
+
 def run_list_previews_mode() -> None:
     """List every preview route, running or not."""
     _require_control_plane()
@@ -133,7 +142,7 @@ def run_preview_mode(args) -> None:
     _require_control_plane()
 
     project = pick_project()
-    name = project.name
+    name = _site_name(project)
 
     port = read_port_from_devcontainer(project)
     if port is None:
@@ -186,7 +195,7 @@ def _pick_previewed(routes: dict[str, tuple[int, str | None]]) -> str:
     """
     git_root = find_git_root()
     if git_root is not None:
-        return git_root.name
+        return _site_name(git_root)
 
     names = sorted(_preview_name(host) for host in routes)
     if len(names) == 1:
@@ -285,7 +294,7 @@ def run_publish_mode(args) -> None:
     _require_control_plane()
 
     project = pick_project()
-    name = project.name
+    name = _site_name(project)
 
     if not sites.is_dns_label(name):
         sys.exit(f"{name!r} is not a DNS label; it cannot become a site.")
@@ -316,7 +325,7 @@ def run_publish_mode(args) -> None:
 def _pick_released() -> str:
     git_root = find_git_root()
     if git_root is not None:
-        return git_root.name
+        return _site_name(git_root)
 
     names = _released_names()
     if not names:

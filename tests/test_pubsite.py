@@ -382,6 +382,23 @@ class TestPublishMode(unittest.TestCase):
             ],
         )
 
+    def test_honors_the_jolo_toml_name_override(self):
+        """A dotted directory name publishes under its .jolo.toml name."""
+        (self.project / ".jolo.toml").write_text('name = "glvortex"\n')
+        with mock.patch.object(
+            pubsite.sites, "owner_of", return_value=self.project
+        ):
+            completed = mock.Mock(returncode=0)
+            with mock.patch.object(
+                pubsite.subprocess, "run", return_value=completed
+            ) as run:
+                pubsite.run_publish_mode(_pub_args())
+
+        self.assertEqual(
+            run.call_args[0][0][-1],
+            "burial:/srv/www/glvortex.pub.glvortex.net/",
+        )
+
     def test_exits_when_the_build_leaves_no_dist(self):
         (self.project / "dist" / "index.html").unlink()
         (self.project / "dist").rmdir()
