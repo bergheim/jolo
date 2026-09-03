@@ -213,9 +213,21 @@ class TestContainerNaming(unittest.TestCase):
         with self.assertRaises(ValueError):
             jolo.get_container_name("/tmp/...")
 
-    def test_rejects_invalid_override(self):
-        with self.assertRaises(ValueError):
-            jolo.get_container_name("/tmp/ok", name=".pi")
+    def test_sanitizes_override(self):
+        self.assertEqual(jolo.get_container_name("/tmp/ok", name=".pi"), "pi")
+
+    def test_sanitizes_to_a_dns_label(self):
+        """Dots and symbols collapse to single dashes: the container name
+        doubles as the site hostname."""
+        self.assertEqual(
+            jolo.get_container_name("/srv/glvortex.net"), "glvortex-net"
+        )
+        self.assertEqual(
+            jolo.get_container_name("/srv/glvortex.$net"), "glvortex-net"
+        )
+        self.assertEqual(
+            jolo.get_container_name("/srv/my_odd  name"), "my-odd-name"
+        )
 
     def test_write_container_name_creates_and_replaces(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -884,8 +884,12 @@ def slugify_prompt(prompt: str, max_len: int = 50) -> str:
     return slug or "research"
 
 
-_CONTAINER_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
 _TOML_NAME_LINE = re.compile(r"^name\s*=.*$", re.MULTILINE)
+
+
+def _slugify_name(name: str) -> str:
+    """Collapse anything outside a-z0-9 into single dashes: a DNS label."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 def get_container_name(
@@ -895,8 +899,10 @@ def get_container_name(
 ) -> str:
     """OCI container name from a project path, optional override, and worktree.
 
-    Dirname is the project id. Leading ``._-`` are stripped so ``.pi`` becomes
-    ``pi``. ``name`` (or ``name`` in ``.jolo.toml``) wins when set.
+    Dirname is the project id; ``name`` (or ``name`` in ``.jolo.toml``) wins
+    when set. Either way the result is sanitized into a DNS label —
+    ``glvortex.net`` becomes ``glvortex-net`` — because this name doubles as
+    the site hostname on the tailnet, dev, and pub domains.
     """
     root = Path(project_path.rstrip("/"))
     if name is None:
@@ -909,25 +915,19 @@ def get_container_name(
             raw = parsed.get("name")
             if isinstance(raw, str) and raw:
                 name = raw
-    if name:
-        slug = name.lower()
-        source = name
-    else:
-        source = root.name
-        slug = source.lower().lstrip("._-")
-    if not slug or not _CONTAINER_NAME.fullmatch(slug):
+    source = name if name else root.name
+    slug = _slugify_name(source)
+    if not slug:
         raise ValueError(f"invalid container name {source!r}")
     if worktree_name:
-        slug = f"{slug}-{worktree_name}"
-        if not _CONTAINER_NAME.fullmatch(slug):
-            raise ValueError(f"invalid container name {slug!r}")
+        slug = _slugify_name(f"{slug}-{worktree_name}")
     return slug
 
 
 def write_container_name(project_dir: Path, name: str) -> str:
     """Persist a container-name override in ``.jolo.toml`` and return the slug."""
-    slug = name.lower()
-    if not _CONTAINER_NAME.fullmatch(slug):
+    slug = _slugify_name(name)
+    if not slug:
         raise ValueError(f"invalid container name {name!r}")
     path = project_dir / ".jolo.toml"
     line = f'name = "{slug}"'

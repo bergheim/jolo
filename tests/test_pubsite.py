@@ -426,8 +426,8 @@ class TestPublishMode(unittest.TestCase):
 
         run.assert_not_called()
 
-    def test_rejects_names_that_are_not_dns_labels(self):
-        bad = Path(self.tmp.name) / "My_Project"
+    def test_rejects_names_that_sanitize_to_nothing(self):
+        bad = Path(self.tmp.name) / "___"
         bad.mkdir()
         with mock.patch.object(pubsite, "pick_project", return_value=bad):
             with mock.patch.object(pubsite.subprocess, "run") as run:
