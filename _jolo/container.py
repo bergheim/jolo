@@ -152,6 +152,9 @@ def build_devcontainer_json(
     if os.environ.get("WAYLAND_DISPLAY"):
         mounts.append(constants.WAYLAND_MOUNT)
 
+    if os.environ.get("SSH_AUTH_SOCK"):
+        mounts.append(constants.SSH_AGENT_MOUNT)
+
     if cross_container:
         # Bind the per-project gate directory, not the socket file: a
         # podman.service restart on the host recreates the socket
@@ -202,6 +205,7 @@ def build_devcontainer_json(
         "mounts": mounts,
         "containerEnv": {
             "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+            "SSH_AUTH_SOCK": "/tmp/container-runtime/ssh-agent",
             "XDG_RUNTIME_DIR": "/tmp/container-runtime",
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/tmp/container-runtime/bus",
             # Provider keys no longer enter the container. pi + first-party

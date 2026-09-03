@@ -287,6 +287,10 @@ BASE_MOUNTS = [
     # shared pi mount and vanishes on recreate. Writable: /advisor edits persist.
     "source=${localEnv:HOME}/.config/rpiv-advisor,target=/home/${localEnv:USER}/.config/rpiv-advisor,type=bind",
     "source=${localEnv:HOME}/stash,target=/workspaces/stash,type=bind",
+    # The invoking user's own host-key trust store, so clones from personal
+    # forges skip the interactive host-key prompt headless agents cannot
+    # answer. Read-only: new hosts get accepted on the host, not in here.
+    "source=${localEnv:HOME}/.ssh/known_hosts,target=/home/${localEnv:USER}/.ssh/known_hosts,type=bind,readonly",
 ]
 
 # Host paths jolo owns, relative to $HOME, that BASE_MOUNTS binds as
@@ -328,3 +332,9 @@ PUBLIC_AUTH_USER = "tsb"
 
 # Wayland mount - only included when WAYLAND_DISPLAY is set
 WAYLAND_MOUNT = "source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/tmp/container-runtime/${localEnv:WAYLAND_DISPLAY},type=bind"
+
+# SSH agent mount - only included when SSH_AUTH_SOCK is set, so git auth
+# uses the invoking user's own host agent and no key material enters the
+# image. ponytail: binds the socket file, so a host agent restart leaves it
+# stale until container recreate — same ceiling as the Wayland socket above.
+SSH_AGENT_MOUNT = "source=${localEnv:SSH_AUTH_SOCK},target=/tmp/container-runtime/ssh-agent,type=bind"

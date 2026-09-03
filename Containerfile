@@ -274,6 +274,7 @@ RUN cd /tmp && git init pre-commit-repo && cd pre-commit-repo && \
 # Config (changes often — keep on its own layer)
 RUN mkdir -p $HOME/.config/emacs $HOME/.claude $HOME/.gemini $HOME/.codex $HOME/.pi $HOME/.grok && \
     mkdir -p $HOME/.gnupg && chmod 700 $HOME/.gnupg && \
+    mkdir -p $HOME/.ssh && chmod 700 $HOME/.ssh && \
     echo "allow-loopback-pinentry" > $HOME/.gnupg/gpg-agent.conf && \
     echo 'set -s set-clipboard on' > $HOME/.tmux.conf && \
     echo 'set -s copy-command "wl-copy"' >> $HOME/.tmux.conf && \
