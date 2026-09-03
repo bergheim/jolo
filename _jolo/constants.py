@@ -324,10 +324,10 @@ TAILNET_CONTROL_DIR = "/srv/tailnet"
 TAILNET_SITE_DOMAIN = "ts.glvortex.net"
 TAILNET_ROUTER_IP = "100.64.0.4"
 
-# Public counterparts to the tailnet sites, both wildcards terminated on
-# burial: *.dev.glvortex.net proxies back to berghome for live dev-server
-# previews (`jolo preview`); *.pub.glvortex.net serves static releases
-# rsynced to PUBLISH_ROOT on PUBLISH_HOST (`jolo publish`).
+# Public counterparts to the tailnet sites. *.dev.glvortex.net resolves to
+# berghome, whose Caddy issues per-name HTTP-01 certs and serves the live
+# dev server (`jolo preview`); *.pub.glvortex.net resolves to burial, which
+# serves static releases rsynced to PUBLISH_ROOT (`jolo publish`).
 DEV_SITE_DOMAIN = "dev.glvortex.net"
 PUBLIC_SITE_DOMAIN = "pub.glvortex.net"
 PUBLIC_AUTH_USER = "tsb"

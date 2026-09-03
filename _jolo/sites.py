@@ -4,15 +4,16 @@ Three generated fragments under ``/srv/tailnet`` are the whole control
 plane: a Caddy route (berghome serves the app on ``127.0.0.1:$PORT``), a
 Headscale ``A`` record (the name resolves to burial, which terminates TLS
 with the wildcard cert and proxies to berghome), and a dev-preview Caddy
-fragment (plain-HTTP ``<name>.dev.glvortex.net`` blocks; burial holds the
-wildcard cert and proxies to berghome exactly like the tailnet sites, but
-from the open internet). Syncthing carries all three files to those hosts,
-where systemd path units reload the services — so jolo only ever writes
-files, never needs sudo, SSH, or a host round-trip.
+fragment (explicit ``<name>.dev.glvortex.net`` blocks; ``*.dev`` resolves
+to berghome itself, whose Caddy issues a per-name certificate over HTTP-01
+and serves the dev server directly — burial is not in this path).
+Syncthing carries all three files to those hosts, where systemd path units
+reload the services — so jolo only ever writes files, never needs sudo,
+SSH, or a host round-trip.
 
-Static releases at ``<name>.pub.glvortex.net`` are not part of this control
-plane: ``jolo publish`` rsyncs build output straight to the serving host
-(see ``pubsite``).
+Static releases at ``<name>.pub.glvortex.net`` are the opposite: burial
+serves them from disk, and ``jolo publish`` rsyncs build output straight
+there (see ``pubsite``), no control-plane fragment involved.
 
 All three files are wholly owned by jolo: they are re-rendered from the
 parsed route/record set, which is what keeps repeated ``jolo up`` runs
@@ -58,7 +59,7 @@ _ROUTE = re.compile(
 )
 
 _DEV_ROUTE = re.compile(
-    r"^http://(?P<host>\S+) \{\n"
+    r"^(?P<host>\S+) \{\n"
     r"(?:    basic_auth \{\n        \S+ (?P<hash>\S+)\n    \}\n)?"
     r"    reverse_proxy 127\.0\.0\.1:(?P<port>\d+)\n\}",
     re.MULTILINE,
@@ -229,7 +230,7 @@ def _write_previews(routes: dict[str, tuple[int, str | None]]) -> None:
             else ""
         )
         blocks.append(
-            f"http://{host} {{\n{auth}    reverse_proxy 127.0.0.1:{port}\n}}\n"
+            f"{host} {{\n{auth}    reverse_proxy 127.0.0.1:{port}\n}}\n"
         )
     _write_atomic(_dev_path(), DEV_HEADER + "\n".join(blocks))
 

@@ -27,14 +27,14 @@ RECORDS_SEED = [
 
 DEV_SEED = """# Generated jolo dev-preview project routes for berghome.
 # Imported from /etc/caddy/Caddyfile via /etc/caddy/conf.d/*.
-http://demo.dev.glvortex.net {
+demo.dev.glvortex.net {
     basic_auth {
         tsb $2a$14$abcdefghijklmnopqrstuv
     }
     reverse_proxy 127.0.0.1:4100
 }
 
-http://open.dev.glvortex.net {
+open.dev.glvortex.net {
     reverse_proxy 127.0.0.1:4200
 }
 """
