@@ -245,6 +245,7 @@ def build_devcontainer_json(
             "PYROSCOPE_HOST": "${localEnv:PYROSCOPE_HOST}",
             "PGHOST": "/tmp",
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
+            "BROWSER": "/usr/local/bin/jolo-open",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",
             "CRAWL4AI_URL": "${localEnv:CRAWL4AI_URL}",
             "CRAWL4AI_API_TOKEN": "${localEnv:CRAWL4AI_API_TOKEN}",

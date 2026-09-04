@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+t=${1:?}
+
+case $t in
+  http://*|https://*)
+    : "${CRAWL4AI_URL:?}"
+    : "${CRAWL4AI_API_TOKEN:?}"
+    jq -n --arg url "$t" '{url:$url,f:"fit"}' \
+    | curl -sS -X POST "$CRAWL4AI_URL/md" \
+        -H "Authorization: Bearer $CRAWL4AI_API_TOKEN" \
+        -H 'Content-Type: application/json' \
+        -d @- \
+    | jq -r 'if .error then "ERROR: \(.error)" elif .success == false then "FAILED" else .markdown end'
+    ;;
+  file://*)
+    cat -- "${t#file://}"
+    ;;
+  *)
+    cat -- "$t"
+    ;;
+esac
