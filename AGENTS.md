@@ -238,9 +238,9 @@ Environment and tooling expectations:
 
 ## Verification
 
-- For code changes, run the narrowest meaningful test first, then broader tests
-  when the risk justifies it.
-- For CLI/template changes, run focused unit tests plus `just test` when feasible.
+- Run focused tests for the files changed. Do not manually run the full suite
+  for isolated low-risk changes; the pre-commit hook already runs it on commit.
+  Run broader tests before committing only when cross-cutting risk justifies it.
 - For visible web changes, screenshot and inspect with the pre-installed browser
   tooling: `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
   (multi-step). NEVER install a browser, puppeteer, playwright, or chromium —
