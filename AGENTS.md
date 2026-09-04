@@ -241,6 +241,8 @@ Environment and tooling expectations:
 - Run focused tests for the files changed. Do not manually run the full suite
   for isolated low-risk changes; the pre-commit hook already runs it on commit.
   Run broader tests before committing only when cross-cutting risk justifies it.
+- Fix owned static environment wiring (host binds, PATH, image contents) at its
+  source; do not add tests that merely assert those wires exist.
 - For visible web changes, screenshot and inspect with the pre-installed browser
   tooling: `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
   (multi-step). NEVER install a browser, puppeteer, playwright, or chromium —
