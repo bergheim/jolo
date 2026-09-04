@@ -5,7 +5,6 @@ FROM alpine:edge
 
 # Skip Playwright's bundled browser - use system Chromium instead
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV CHROME_PATH=/usr/bin/chromium
 
 RUN apk update && apk add --no-cache \
@@ -303,6 +302,8 @@ RUN mkdir -p $HOME/.config/tmuxinator
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
 COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
 RUN chmod +x $HOME/entrypoint.sh $HOME/tmux-layout.sh && \
+# playwright-cli only finds .playwright/cli.config.json at the exact cwd; the global copy covers subdirs and configless projects
+COPY --chown=$USERNAME:$USERNAME templates/.playwright/cli.config.json $HOME/.playwright/cli.config.json
     mkdir -p $HOME/.claude $HOME/.agents && \
     ln -sfn $HOME/.agents/skills $HOME/.claude/skills && \
     curl -fsSL -o $HOME/.zim/zimfw.zsh --create-dirs \

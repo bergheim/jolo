@@ -433,9 +433,7 @@ Examples:
     process.exit(url ? 0 : 1);
   }
 
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-                         process.env.CHROME_PATH ||
-                         '/usr/bin/chromium-browser';
+  const executablePath = process.env.CHROME_PATH || '/usr/bin/chromium-browser';
 
   const widths = parseWidths();
   const height = parseHeight();
