@@ -448,6 +448,21 @@ class TestPortAllocation(unittest.TestCase):
                 f"{absent} is missing on this host and must not be mounted",
             )
 
+    def test_host_local_scripts_are_mounted_when_present(self):
+        """The host tmux config calls helpers from ~/local."""
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / "local").mkdir()
+            with mock.patch.object(Path, "home", return_value=home):
+                config = json.loads(jolo.build_devcontainer_json("test"))
+
+        self.assertIn(
+            "source=${localEnv:HOME}/local,target=/home/${localEnv:USER}/local,type=bind,readonly",
+            config["mounts"],
+        )
+
     def test_jolo_owned_dirs_are_created_not_dropped(self):
         """devcontainer.json is rendered before setup_credential_cache runs,
         so a fresh host must gain these dirs here — dropping them would

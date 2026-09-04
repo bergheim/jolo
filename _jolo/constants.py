@@ -264,6 +264,7 @@ BASE_MOUNTS = [
     "source=${localEnv:HOME}/.profile.container,target=/home/${localEnv:USER}/.profile,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer/.zsh-state,target=/home/${localEnv:USER}/.zsh-state,type=bind",
     "source=${localEnv:HOME}/.tmux.conf,target=/home/${localEnv:USER}/.tmux.conf,type=bind,readonly",
+    "source=${localEnv:HOME}/local,target=/home/${localEnv:USER}/local,type=bind,readonly",
     "source=${localEnv:HOME}/.gitconfig,target=/home/${localEnv:USER}/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.config/tmux,target=/home/${localEnv:USER}/.config/tmux,type=bind,readonly",
     # Emacs: config copied for isolation, packages in container-specific cache
