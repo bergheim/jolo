@@ -197,7 +197,6 @@ RUN pnpm add -g \
     dockerfile-language-server-nodejs \
     pyright \
     @ansible/ansible-language-server \
-    @openai/codex \
     @google/gemini-cli \
     @earendil-works/pi-coding-agent \
     pi-acp \
@@ -263,6 +262,17 @@ RUN v="$(curl -fsSL https://x.ai/cli/stable)" && \
     curl -fsSL -o $HOME/.local/bin/grok "https://x.ai/cli/grok-${v}-linux-x86_64" && \
     chmod +x $HOME/.local/bin/grok && \
     grok --version
+
+# Codex CLI: official musl binary into ~/.local/bin. Do not use
+# chatgpt.com/codex/install.sh — it parks under ~/.codex and only
+# symlinks into PATH; ~/.codex is bind-mounted from .codex-cache
+# at runtime (same trap as grok). Final 'codex --version' gates.
+RUN curl -fsSL -o /tmp/codex.tgz \
+      https://github.com/openai/codex/releases/latest/download/codex-x86_64-unknown-linux-musl.tar.gz && \
+    tar -xzf /tmp/codex.tgz -C /tmp && \
+    install -m755 /tmp/codex-x86_64-unknown-linux-musl $HOME/.local/bin/codex && \
+    rm -f /tmp/codex.tgz /tmp/codex-x86_64-unknown-linux-musl && \
+    $HOME/.local/bin/codex --version
 
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
 RUN git config --global init.defaultBranch main
