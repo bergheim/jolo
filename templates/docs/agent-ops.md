@@ -185,6 +185,7 @@ Use `playwright-cli` for stateful flows:
 
 ```bash
 playwright-cli open "http://localhost:$PORT"
+playwright-cli open file:///tmp/prototype.html   # file:// is allowed
 playwright-cli -s=default snapshot
 playwright-cli -s=default click e12
 playwright-cli -s=default fill e20 "hello"

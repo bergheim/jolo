@@ -106,6 +106,18 @@ class TestTemplateSystem(unittest.TestCase):
             ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
         )
 
+    def test_copy_template_files_includes_playwright_file_access(self):
+        """playwright-cli blocks file:// unless this flag is set."""
+        project_dir = Path(self.tmpdir) / "project"
+        project_dir.mkdir()
+
+        setup.copy_template_files(project_dir)
+
+        config = json.loads(
+            (project_dir / ".playwright" / "cli.config.json").read_text()
+        )
+        self.assertTrue(config["allowUnrestrictedFileAccess"])
+
     def test_copy_template_files_includes_agent_ops_doc(self):
         """Generated projects should get on-demand agent recipes."""
         project_dir = Path(self.tmpdir) / "project"

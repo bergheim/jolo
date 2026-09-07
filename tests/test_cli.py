@@ -387,6 +387,19 @@ class TestPortAllocation(unittest.TestCase):
             config["containerEnv"]["PRE_COMMIT_HOME"], "/opt/pre-commit-cache"
         )
 
+    def test_playwright_file_access_in_container_env(self):
+        """Existing projects keep a flagless playwright-cli config."""
+        import json
+
+        result = jolo.build_devcontainer_json("test")
+        config = json.loads(result)
+        self.assertEqual(
+            config["containerEnv"][
+                "PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS"
+            ],
+            "1",
+        )
+
     def test_term_not_forced_in_container_env(self):
         """TERM should be negotiated by the terminal/tmux chain."""
         import json

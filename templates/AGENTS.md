@@ -178,7 +178,7 @@ on PATH. Use them directly:
   `--aria` snapshot. The default for quick checks and screenshots. `<url>` may
   be `file://`. For phone-first work add `--width 320,390,430` (one launch, one
   file per width) and `--overflow`, which exits 1 if the page scrolls sideways.
-- `playwright-cli` — multi-step interactive flows (open, click, fill, snapshot).
+- `playwright-cli` — multi-step interactive flows (open, click, fill, snapshot). `file://` is allowed (static HTML).
 - `fetch-asset <url> <dest>` — download a file (vendored artwork, fonts). Those
   two are page tools and cannot save an arbitrary asset; bare `curl` will write
   an HTML error page into a `.png` and report success. `fetch-asset` checks the

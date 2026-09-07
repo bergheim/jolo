@@ -381,6 +381,7 @@ With `--json` the per-width results are in `viewports[]` (`width`, `height`,
 
 ```bash
 playwright-cli open http://localhost:$PORT
+playwright-cli open file:///tmp/prototype.html   # file:// is allowed
 playwright-cli snapshot
 playwright-cli click e1
 playwright-cli fill e2 "hello"
