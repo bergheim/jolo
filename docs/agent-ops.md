@@ -9,6 +9,10 @@ Before assuming the helper list is complete, inspect the live Emacs daemon:
 emacsclient -e '(apropos-internal "^bergheim/agent-")'
 ```
 
+In containers every `emacsclient -e` runs with prompts inhibited: a call that
+would ask anything fails with `User interaction while inhibited`. Fix the call;
+nothing is waiting in Emacs.
+
 ## Org Helpers
 
 Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`.

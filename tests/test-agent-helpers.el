@@ -966,3 +966,12 @@ and `:wrote' contains only the org file (or is empty on no-op)."
 
 (provide 'test-agent-helpers)
 ;;; test-agent-helpers.el ends here
+
+(ert-deftest agent-helpers/server-eval-inhibits-prompts ()
+  "A prompt inside a server eval must error, never wait on the minibuffer."
+  (should-error
+   (bergheim/agent--server-eval-noninteractive
+    (lambda (_expr _proc) (yes-or-no-p "hang? ")) nil nil)
+   :type 'inhibited-interaction)
+  (should (= 4 (bergheim/agent--server-eval-noninteractive
+                (lambda (_expr _proc) (+ 2 2)) nil nil))))

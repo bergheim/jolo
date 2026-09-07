@@ -1262,5 +1262,22 @@ is configured or no worklog file exists yet."
           nil nil)))
       (json-encode-array (last (nreverse items) (or n 10))))))
 
+;;; Server evals are never interactive
+;;
+;; emacsclient --eval cannot answer a minibuffer, and one pending prompt
+;; blocks the daemon for every agent in the container. Wrap every server
+;; eval, not just the helpers, so any prompt from any expression signals
+;; `inhibited-interaction' straight back to the client instead of waiting.
+;; Frames opened with emacsclient -t/-c are unaffected: they interact through
+;; the frame, not through `server-eval-and-print'.
+
+(defun bergheim/agent--server-eval-noninteractive (fn expr proc)
+  "Run `server-eval-and-print' FN on EXPR for PROC with prompts inhibited."
+  (bergheim/agent--noninteractive (funcall fn expr proc)))
+
+(when (getenv "EMACS_CONTAINER")
+  (advice-add 'server-eval-and-print :around
+              #'bergheim/agent--server-eval-noninteractive))
+
 (provide 'bergheim-agent-helpers)
 ;;; bergheim-agent-helpers.el ends here
