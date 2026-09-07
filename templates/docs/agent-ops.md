@@ -217,7 +217,7 @@ notify set-path /article/123
 notify set-path /
 ```
 
-Publish artifacts to `share.glvortex.net/share/<project>/`. The upload key
+Publish artifacts to `share.glvortex.net/jolo/<project>/`. The upload key
 can only write that tree, and `unshare` with no target needs a tty:
 
 ```bash

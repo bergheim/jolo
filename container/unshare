@@ -1,7 +1,7 @@
 #!/bin/sh
 # Remove a shared file/dir from burial's public share tree, or the whole
 # project's share with no argument. The forced command on burial validates
-# every path segment and confines the rm to /srv/www/share/<project>/.
+# every path segment and confines the rm to /srv/www/jolo/<project>/.
 
 set -eu
 
@@ -20,21 +20,21 @@ if [ -n "$target" ]; then
         .*|"") echo "unshare: refusing: $name" >&2; exit 1 ;;
     esac
     set -- rm "$project" "$name"
-    label="share/$project/$name"
+    label="jolo/$project/$name"
 else
     # Whole project: only a human at a tty may confirm this.
     if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-        echo "unshare: removing all of share/$project needs a tty; name a target instead" >&2
+        echo "unshare: removing all of jolo/$project needs a tty; name a target instead" >&2
         exit 1
     fi
-    printf 'Remove ALL of share/%s? [y/N] ' "$project" > /dev/tty
+    printf 'Remove ALL of jolo/%s? [y/N] ' "$project" > /dev/tty
     read -r answer < /dev/tty
     case "$answer" in
         y|Y|yes) ;;
         *) echo "unshare: aborted" >&2; exit 1 ;;
     esac
     set -- rm "$project"
-    label="share/$project"
+    label="jolo/$project"
 fi
 
 ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
