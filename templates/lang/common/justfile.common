@@ -31,9 +31,13 @@ a11y *args:
 db *args="start":
     db {{args}}
 
-# Copy a file/dir (defaults to the dir you run this from) to stash; prints/clipboards the tailnet URL
+# Push a file/dir (defaults to the dir you run this from) to share.glvortex.net; prints/clipboards the URL
 share TARGET=".":
     @cd "{{invocation_directory()}}" && share {{TARGET}}
+
+# Remove a shared file/dir from share.glvortex.net; no TARGET removes the whole project share (asks first)
+unshare TARGET="":
+    @cd "{{invocation_directory()}}" && unshare {{TARGET}}
 
 # worktree manager (in-container): wt new, wt sync, wt land --rm, wt rm
 wt *args:

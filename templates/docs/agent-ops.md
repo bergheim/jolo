@@ -217,12 +217,14 @@ notify set-path /article/123
 notify set-path /
 ```
 
-Share artifacts through the host stash:
+Publish artifacts to `share.glvortex.net/share/<project>/`. The upload key
+can only write that tree, and `unshare` with no target needs a tty:
 
 ```bash
 share foo.png
 share .
 share /path/to/file
+unshare foo.png
 ```
 
 ## Fetching Assets
