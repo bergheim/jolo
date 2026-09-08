@@ -9,6 +9,10 @@ Before assuming the helper list is complete, inspect the live Emacs daemon:
 emacsclient -e '(apropos-internal "^bergheim/agent-")'
 ```
 
+In containers every `emacsclient -e` runs with prompts inhibited: a call that
+would ask anything fails with `User interaction while inhibited`. Fix the call;
+nothing is waiting in Emacs.
+
 ## Org Helpers
 
 Daily forms (`set-state`, `add-note`, `add-tag`) are in `AGENTS.md`.
@@ -381,6 +385,7 @@ With `--json` the per-width results are in `viewports[]` (`width`, `height`,
 
 ```bash
 playwright-cli open http://localhost:$PORT
+playwright-cli open file:///tmp/prototype.html   # file:// is allowed
 playwright-cli snapshot
 playwright-cli click e1
 playwright-cli fill e2 "hello"

@@ -245,6 +245,9 @@ def build_devcontainer_json(
             "PYROSCOPE_HOST": "${localEnv:PYROSCOPE_HOST}",
             "PGHOST": "/tmp",
             "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
+            # playwright-cli blocks file:// unless this is set; existing
+            # generated projects keep a flagless .playwright/cli.config.json.
+            "PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS": "1",
             "BROWSER": "/usr/local/bin/jolo-open",
             "KOKORO_URL": "${localEnv:KOKORO_URL}",
             "CRAWL4AI_URL": "${localEnv:CRAWL4AI_URL}",

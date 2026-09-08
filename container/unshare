@@ -1,0 +1,45 @@
+#!/bin/sh
+# Remove a shared file/dir from burial's public share tree, or the whole
+# project's share with no argument. The forced command on burial validates
+# every path segment and confines the rm to /srv/www/jolo/<project>/.
+
+set -eu
+
+target=${1:-}
+project=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+
+key=${SHARE_SSH_KEY:-$HOME/.config/jolo/share-key}
+if [ ! -r "$key" ]; then
+    echo "unshare: no upload key at $key (host: ~/.config/jolo/share-key)" >&2
+    exit 1
+fi
+
+if [ -n "$target" ]; then
+    name=$(basename "$target")
+    case "$name" in
+        .*|"") echo "unshare: refusing: $name" >&2; exit 1 ;;
+    esac
+    set -- rm "$project" "$name"
+    label="jolo/$project/$name"
+else
+    # Whole project: only a human at a tty may confirm this.
+    if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+        echo "unshare: removing all of jolo/$project needs a tty; name a target instead" >&2
+        exit 1
+    fi
+    printf 'Remove ALL of jolo/%s? [y/N] ' "$project" > /dev/tty
+    read -r answer < /dev/tty
+    case "$answer" in
+        y|Y|yes) ;;
+        *) echo "unshare: aborted" >&2; exit 1 ;;
+    esac
+    set -- rm "$project"
+    label="jolo/$project"
+fi
+
+ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+    -p "${SHARE_SSH_PORT:-5022}" \
+    "${SHARE_SSH_USER:-share}@${SHARE_SSH_HOST:-burial.ts.glvortex.net}" \
+    "$@"
+
+echo "removed $label"

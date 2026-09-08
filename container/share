@@ -1,7 +1,8 @@
 #!/bin/sh
-# Copy a file/dir to the host stash and emit a tailnet URL pointing at it.
-# Dotfiles are skipped at every depth, so .git, .env, .devcontainer, etc. never
-# leak into the web-served stash. See the stash share cookbook for host setup.
+# Push a file/dir to burial's public share tree and emit the URL.
+# Transport is tar over ssh to a forced-command key that can only write under
+# /srv/www/jolo/<project>/; see the stash share cookbook for the burial side.
+# Dotfiles are skipped at every depth, so .git, .env, .devcontainer never leak.
 
 set -eu
 
@@ -23,42 +24,30 @@ case "$base" in
     .*) echo "share: refusing to share a dotfile: $base" >&2; exit 1 ;;
 esac
 
-if [ -d /workspaces/stash ]; then
-    stash=/workspaces/stash
-elif [ -d "$HOME/stash" ]; then
-    stash=$HOME/stash
-else
-    echo "share: no stash directory at /workspaces/stash or ~/stash" >&2
-    exit 1
-fi
-
 parent=${abs%/*}
 toplevel=$(git -C "$parent" rev-parse --show-toplevel 2>/dev/null || pwd)
 project=${toplevel##*/}
 
-dst=$stash/share/$project
-mkdir -p "$dst"
-
-if [ -d "$abs" ]; then
-    # Copy the tree minus every dotfile/dot-dir (.git, .env, ...). All remaining
-    # files are writable, so re-runs overwrite in place — no destructive rm.
-    mkdir -p "$dst/$base"
-    ( cd "$abs" && find . -mindepth 1 -name '.*' -prune -o -type f -print |
-        while IFS= read -r f; do
-            cp --parents "$f" "$dst/$base/"
-        done )
-else
-    cp "$abs" "$dst/$base"
+key=${SHARE_SSH_KEY:-$HOME/.config/jolo/share-key}
+if [ ! -r "$key" ]; then
+    echo "share: no upload key at $key (host: ~/.config/jolo/share-key)" >&2
+    exit 1
 fi
 
+tar --exclude='.*' -C "$parent" -cf - "$base" |
+    ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+        -p "${SHARE_SSH_PORT:-5022}" \
+        "${SHARE_SSH_USER:-share}@${SHARE_SSH_HOST:-burial.ts.glvortex.net}" \
+        put "$project" "$base"
+
 if [ -z "${SHARE_BASE_URL:-}" ]; then
-    echo "→ $dst/$base"
-    echo "share: set SHARE_BASE_URL on the host for a tailnet URL" >&2
+    echo "→ jolo/$project/$base"
+    echo "share: set SHARE_BASE_URL on the host for a URL" >&2
     exit 0
 fi
 
-# Directories need a trailing slash to resolve against the host file server.
+# Directories need a trailing slash to resolve against the file server.
 [ -d "$abs" ] && base="$base/"
-url="$SHARE_BASE_URL/$project/$base"
+url="$SHARE_BASE_URL/jolo/$project/$base"
 printf '\033]52;c;%s\033\\' "$(printf '%s' "$url" | base64 -w0)"
 echo "→ $url (clipboard)"

@@ -287,6 +287,9 @@ BASE_MOUNTS = [
     # forges skip the interactive host-key prompt headless agents cannot
     # answer. Read-only: new hosts get accepted on the host, not in here.
     "source=${localEnv:HOME}/.ssh/known_hosts,target=/home/${localEnv:USER}/.ssh/known_hosts,type=bind,readonly",
+    # Upload-only key for `share`/`unshare`: a forced command on burial confines
+    # it to writing under /srv/www/share/<project>/, so it is safe for agents.
+    "source=${localEnv:HOME}/.config/jolo/share-key,target=/home/${localEnv:USER}/.config/jolo/share-key,type=bind,readonly",
 ]
 
 # Host paths jolo owns, relative to $HOME, that BASE_MOUNTS binds as

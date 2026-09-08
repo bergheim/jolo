@@ -185,6 +185,7 @@ Use `playwright-cli` for stateful flows:
 
 ```bash
 playwright-cli open "http://localhost:$PORT"
+playwright-cli open file:///tmp/prototype.html   # file:// is allowed
 playwright-cli -s=default snapshot
 playwright-cli -s=default click e12
 playwright-cli -s=default fill e20 "hello"
@@ -216,12 +217,14 @@ notify set-path /article/123
 notify set-path /
 ```
 
-Share artifacts through the host stash:
+Publish artifacts to `share.glvortex.net/jolo/<project>/`. The upload key
+can only write that tree, and `unshare` with no target needs a tty:
 
 ```bash
 share foo.png
 share .
 share /path/to/file
+unshare foo.png
 ```
 
 ## Fetching Assets
