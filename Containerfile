@@ -268,9 +268,13 @@ RUN v="$(curl -fsSL https://x.ai/cli/stable)" && \
 # at runtime (same trap as grok). Final 'codex --version' gates.
 RUN curl -fsSL -o /tmp/codex.tgz \
       https://github.com/openai/codex/releases/latest/download/codex-x86_64-unknown-linux-musl.tar.gz && \
+    curl -fsSL -o /tmp/codex-host.tgz \
+      https://github.com/openai/codex/releases/latest/download/codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz && \
     tar -xzf /tmp/codex.tgz -C /tmp && \
+    tar -xzf /tmp/codex-host.tgz -C /tmp && \
     install -m755 /tmp/codex-x86_64-unknown-linux-musl $HOME/.local/bin/codex && \
-    rm -f /tmp/codex.tgz /tmp/codex-x86_64-unknown-linux-musl && \
+    install -m755 /tmp/codex-code-mode-host-x86_64-unknown-linux-musl $HOME/.local/bin/codex-code-mode-host && \
+    rm -f /tmp/codex.tgz /tmp/codex-host.tgz /tmp/codex-*-unknown-linux-musl && \
     $HOME/.local/bin/codex --version
 
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
