@@ -157,7 +157,7 @@ test -f .git && echo "worktree" || echo "main repo"
 
 ## Browser Automation
 
-Use `browser-check` for one-shot checks:
+Skill `/j-browser`. Use `browser-check` for one-shot checks:
 
 ```bash
 browser-check "http://localhost:$PORT" --describe --console --errors

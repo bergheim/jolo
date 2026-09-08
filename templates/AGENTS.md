@@ -172,7 +172,7 @@ menu. Do not reverse-engineer `/usr/local/bin/wt`.
 
 Browsing and screenshots are pre-installed. **NEVER** install a browser,
 `puppeteer`, `playwright`, `chromium`, or any screenshot tool — they are already
-on PATH. Use them directly:
+on PATH. Skill: `/j-browser`. Tools:
 
 - `browser-check <url>` — one-shot: `--screenshot`, `--console`, `--errors`,
   `--aria` snapshot. The default for quick checks and screenshots. `<url>` may
