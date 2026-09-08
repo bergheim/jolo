@@ -1,15 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{PROJECT_NAME}}{% endblock %}</title>
-    <script src="/static/htmx.min.js"></script>
-</head>
-<body>
-    <a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
-    <main id="main">
-        {% block content %}{% endblock %}
-    </main>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}{{PROJECT_NAME}}{% endblock %}</title>
+        <script src="/static/htmx.min.js"></script>
+    </head>
+    <body>
+        <a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
+        <main id="main">{% block content %}{% endblock %}</main>
+    </body>
 </html>

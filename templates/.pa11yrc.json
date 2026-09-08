@@ -1,5 +1,5 @@
 {
-  "chromeLaunchConfig": {
-    "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
-  }
+    "chromeLaunchConfig": {
+        "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+    }
 }
