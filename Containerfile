@@ -220,7 +220,6 @@ RUN mkdir -p $HOME/.local/bin && \
     (go install github.com/zricethezav/gitleaks/v8@latest) & pids="$pids $!" && \
     (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
     (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
-    (curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash) & pids="$pids $!" && \
     (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!" && \
     (uv tool install ruff) & pids="$pids $!" && \
     (uv tool install ty) & pids="$pids $!" && \
