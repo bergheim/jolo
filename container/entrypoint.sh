@@ -41,6 +41,9 @@ if [ -d "$_host_skills" ] && [ -d "$_jolo_skills" ]; then
     fi
 fi
 
+# ~/stash works in containers and on the host; docs can use one path.
+ln -sfn /workspaces/stash "$HOME/stash" 2>/dev/null || true
+
 GPG_TTY="$(tty 2>/dev/null || echo "/dev/console")"
 export GPG_TTY
 
