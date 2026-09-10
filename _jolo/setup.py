@@ -1142,7 +1142,6 @@ def copy_template_files(target_dir: Path) -> None:
         ".claude",
         ".codex",
         ".gemini",
-        ".pi",
         ".playwright",
         "docs",
     ]

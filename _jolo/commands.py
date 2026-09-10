@@ -1163,7 +1163,6 @@ def _ensure_project_template_files(
         ".claude",
         ".codex",
         ".gemini",
-        ".pi",
         ".playwright",
         "docs",
     ):
