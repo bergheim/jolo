@@ -11,12 +11,14 @@ import os
 import time
 from pathlib import Path
 
-_REGISTRY_PATH = Path.home() / ".config" / "jolo" / "known-projects.json"
+
+def _registry_path() -> Path:
+    return Path.home() / ".config" / "jolo" / "known-projects.json"
 
 
 def _load_raw() -> dict[str, dict]:
     try:
-        data = json.loads(_REGISTRY_PATH.read_text())
+        data = json.loads(_registry_path().read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
     if not isinstance(data, dict):
@@ -25,10 +27,11 @@ def _load_raw() -> dict[str, dict]:
 
 
 def _atomic_write(data: dict[str, dict]) -> None:
-    _REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = _REGISTRY_PATH.with_suffix(".json.tmp")
+    path = _registry_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=True))
-    os.replace(tmp, _REGISTRY_PATH)
+    os.replace(tmp, path)
 
 
 def record(path: Path) -> None:
