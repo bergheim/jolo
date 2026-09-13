@@ -99,6 +99,9 @@ RUN apk update && apk add --no-cache \
     postgresql-pgvector \
     # Tools that were manually installed in Wolfi
     ansible-lint \
+    # pi-lens prose/spell checkers; without them it reports no file as clean
+    typos \
+    vale \
     mise \
     musl-locales \
     musl-locales-lang \
@@ -206,6 +209,7 @@ RUN pnpm add -g \
     @agentclientprotocol/claude-agent-acp@latest \
     @zed-industries/codex-acp@latest \
     markdownlint-cli \
+    cspell \
     pa11y \
     lighthouse \
     @lhci/cli
@@ -228,7 +232,13 @@ RUN mkdir -p $HOME/.local/bin && \
     (uv tool install open-terminal) & pids="$pids $!" && \
     # apk's ast-grep is ancient (0.28.1); PyPI ships current musllinux wheels
     (uv tool install ast-grep-cli) & pids="$pids $!" && \
+    # pi-lens auto-installs the manylinux opengrep, a PyInstaller bundle that
+    # crashes on musl; a PATH binary named opengrep pre-empts that download
+    (curl -fsSL -o $HOME/.local/bin/opengrep https://github.com/opengrep/opengrep/releases/download/v1.30.0/opengrep_musllinux_x86 && chmod +x $HOME/.local/bin/opengrep) & pids="$pids $!" && \
+    # marksman (markdown LSP) has no apk; the self-contained release runs on musl
+    (mise use -g marksman@latest && ln -sf "$(mise which marksman)" $HOME/.local/bin/marksman) & pids="$pids $!" && \
     for p in $pids; do wait "$p" || exit 1; done && \
+    opengrep --version && marksman --version && \
     curl -fsSL https://claude.ai/install.sh | bash && \
     command -v claude >/dev/null && \
     # browser-check wrapper (resolve playwright's real node_modules at build time)
