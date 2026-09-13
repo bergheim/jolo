@@ -29,10 +29,10 @@ PI_NPM_COMMAND = ["pnpm"]
 
 
 def write_json(
-    path: Path, obj, indent: int | str = 2, newline: bool = True
+    path: Path, obj, indent: int | str = 4, newline: bool = True
 ) -> None:
-    """Write `obj` as JSON to `path`. Defaults match most call sites:
-    2-space indent with a trailing newline. Override per site as needed."""
+    """Write `obj` as JSON to `path`. 4-space indent matches biome.json;
+    trailing newline on. Override per site as needed."""
     text = json.dumps(obj, indent=indent)
     path.write_text(text + "\n" if newline else text)
 
@@ -1531,7 +1531,7 @@ def add_user_mounts(devcontainer_json_path: Path, mounts: list[dict]) -> None:
             mount_str += ",readonly"
         content["mounts"].append(mount_str)
 
-    write_json(devcontainer_json_path, content, indent=4)
+    write_json(devcontainer_json_path, content)
 
 
 def copy_user_files(copies: list[dict], workspace_dir: Path) -> None:
@@ -1587,7 +1587,7 @@ def add_worktree_git_mount(
     git_mount = f"source={main_git_dir},target={main_git_dir},type=bind"
     content["mounts"].append(git_mount)
 
-    write_json(devcontainer_json_path, content, indent=4)
+    write_json(devcontainer_json_path, content)
 
 
 def write_prompt_file(workspace_dir: Path, agent: str, prompt: str) -> None:
