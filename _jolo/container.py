@@ -20,6 +20,35 @@ from _jolo.cli import (
 )
 
 
+def host_timezone(
+    localtime: Path = Path("/etc/localtime"),
+    timezone_file: Path = Path("/etc/timezone"),
+) -> str | None:
+    """IANA timezone of the host, or None if it cannot be named.
+
+    Empty TZ is ignored: musl treats TZ= as UTC and then ignores a
+    mounted /etc/localtime.
+    """
+    env_tz = os.environ.get("TZ")
+    if env_tz:
+        return env_tz
+    try:
+        if localtime.is_symlink():
+            target = os.path.realpath(localtime)
+            _, sep, name = target.partition(f"{os.sep}zoneinfo{os.sep}")
+            if sep and name:
+                return name
+    except OSError:
+        pass
+    try:
+        text = timezone_file.read_text().strip()
+        if text:
+            return text
+    except OSError:
+        pass
+    return None
+
+
 def _mount_source(mount: str) -> str | None:
     """Return the ``source=`` value of a devcontainer mount string."""
     for field in mount.split(","):
@@ -131,6 +160,7 @@ def build_devcontainer_json(
         container_name = get_container_name(project_name)
 
     hostname = detect_hostname()
+    tz = host_timezone()
 
     mounts = constants.BASE_MOUNTS.copy()
 
@@ -226,6 +256,9 @@ def build_devcontainer_json(
             "NANOBANANA_GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}",
             "GH_TOKEN": "${localEnv:GH_TOKEN}",
             "PORT": str(port),
+            # Named TZ for musl. Omit when unknown: TZ= (empty) forces UTC
+            # and ignores the /etc/localtime bind.
+            **({"TZ": tz} if tz else {}),
             "DEV_HOST": hostname,
             # Empty unless this host runs the tailnet control plane and the
             # project name is a usable DNS label; the MOTD falls back to

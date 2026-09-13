@@ -408,6 +408,28 @@ class TestPortAllocation(unittest.TestCase):
         config = json.loads(result)
         self.assertNotIn("TERM", config["containerEnv"])
 
+    def test_tz_follows_host(self):
+        """TZ is the host IANA name, not a hardcoded zone."""
+        import json
+
+        from _jolo import container
+
+        with mock.patch.object(
+            container, "host_timezone", return_value="Pacific/Auckland"
+        ):
+            config = json.loads(jolo.build_devcontainer_json("test"))
+        self.assertEqual(config["containerEnv"]["TZ"], "Pacific/Auckland")
+
+    def test_tz_omitted_when_host_unnamed(self):
+        """Empty TZ= would force musl UTC and ignore /etc/localtime."""
+        import json
+
+        from _jolo import container
+
+        with mock.patch.object(container, "host_timezone", return_value=None):
+            config = json.loads(jolo.build_devcontainer_json("test"))
+        self.assertNotIn("TZ", config["containerEnv"])
+
     def test_llama_host_in_container_env(self):
         """LLAMA_HOST should replace the old Ollama-named variable."""
         import json

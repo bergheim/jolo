@@ -102,6 +102,7 @@ RUN apk update && apk add --no-cache \
     mise \
     musl-locales \
     musl-locales-lang \
+    tzdata \
     pnpm \
     # build files for codex-acp
     libcap-dev \

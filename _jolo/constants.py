@@ -290,6 +290,9 @@ BASE_MOUNTS = [
     # Upload-only key for `share`/`unshare`: a forced command on burial confines
     # it to writing under /srv/www/share/<project>/, so it is safe for agents.
     "source=${localEnv:HOME}/.config/jolo/share-key,target=/home/${localEnv:USER}/.config/jolo/share-key,type=bind,readonly",
+    # Host clock. glibc (agy) reads /etc/localtime; dropped if the host
+    # has none. musl prefers the TZ name injected at generate time.
+    "source=/etc/localtime,target=/etc/localtime,type=bind,readonly",
 ]
 
 # Host paths jolo owns, relative to $HOME, that BASE_MOUNTS binds as

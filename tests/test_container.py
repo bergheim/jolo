@@ -597,5 +597,73 @@ class TestReassignPort(unittest.TestCase):
         self.assertEqual(result, 4003)
 
 
+class TestHostTimezone(unittest.TestCase):
+    """Host IANA timezone detection for generated containerEnv."""
+
+    def test_tz_env_wins(self):
+        from _jolo.container import host_timezone
+
+        with mock.patch.dict(os.environ, {"TZ": "America/Chicago"}):
+            self.assertEqual(host_timezone(), "America/Chicago")
+
+    def test_localtime_symlink(self):
+        from _jolo.container import host_timezone
+
+        with tempfile.TemporaryDirectory() as tmp:
+            zone = (
+                Path(tmp) / "usr" / "share" / "zoneinfo" / "Europe" / "Berlin"
+            )
+            zone.parent.mkdir(parents=True)
+            zone.write_bytes(b"tzif")
+            localtime = Path(tmp) / "etc" / "localtime"
+            localtime.parent.mkdir()
+            localtime.symlink_to(zone)
+            with mock.patch.dict(os.environ, {"TZ": ""}):
+                self.assertEqual(
+                    host_timezone(
+                        localtime=localtime,
+                        timezone_file=Path(tmp) / "missing",
+                    ),
+                    "Europe/Berlin",
+                )
+
+    def test_timezone_file(self):
+        from _jolo.container import host_timezone
+
+        with tempfile.TemporaryDirectory() as tmp:
+            timezone_file = Path(tmp) / "timezone"
+            timezone_file.write_text("Asia/Tokyo\n")
+            with mock.patch.dict(os.environ, {"TZ": ""}):
+                self.assertEqual(
+                    host_timezone(
+                        localtime=Path(tmp) / "missing",
+                        timezone_file=timezone_file,
+                    ),
+                    "Asia/Tokyo",
+                )
+
+    def test_unnamed_when_nothing_to_read(self):
+        from _jolo.container import host_timezone
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"TZ": ""}):
+                self.assertIsNone(
+                    host_timezone(
+                        localtime=Path(tmp) / "missing",
+                        timezone_file=Path(tmp) / "missing",
+                    )
+                )
+
+    def test_localtime_bind_is_in_base_mounts(self):
+        from _jolo import constants
+
+        self.assertTrue(
+            any(
+                "source=/etc/localtime" in m and "readonly" in m
+                for m in constants.BASE_MOUNTS
+            )
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
