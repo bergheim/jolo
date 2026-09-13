@@ -20,6 +20,7 @@ catalogs live in `docs/agent-ops.md`.
   scan `/workspaces/stash/notes`.
 - Check `.git`: file means worktree, directory means main checkout.
 - Treat `scratch/` as gitignored throwaway space, not project code.
+- Skills: `/j-browser` `/j-worktree` (container); `/h-save` `/h-resume` `/h-next` `/h-research` (host).
 
 ## Communication and Planning
 
@@ -172,7 +173,7 @@ menu. Do not reverse-engineer `/usr/local/bin/wt`.
 
 Browsing and screenshots are pre-installed. **NEVER** install a browser,
 `puppeteer`, `playwright`, `chromium`, or any screenshot tool — they are already
-on PATH. Use them directly:
+on PATH. Skill: `/j-browser`. Tools:
 
 - `browser-check <url>` — one-shot: `--screenshot`, `--console`, `--errors`,
   `--aria` snapshot. The default for quick checks and screenshots. `<url>` may
@@ -212,7 +213,7 @@ Read `docs/agent-ops.md` only when needed for:
 
 - Worktree catalog (`just wt help`; do not reverse-engineer `/usr/local/bin/wt`).
 - Exact org/denote `emacsclient` forms.
-- Browser-check and Playwright command catalogs.
+- `/j-browser` and Playwright command catalogs.
 - Port, notify, share, asset fetching, image, perf, and podman operations.
 - Local llama-swap curl examples.
 - Cross-agent review snippets.

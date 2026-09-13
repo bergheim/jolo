@@ -244,7 +244,7 @@ Environment and tooling expectations:
 - Fix owned static environment wiring (host binds, PATH, image contents) at its
   source; do not add tests that merely assert those wires exist.
 - For visible web changes, screenshot and inspect with the pre-installed browser
-  tooling: `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
+  tooling (`/j-browser`): `browser-check <url> --screenshot` (one-shot) or `playwright-cli`
   (multi-step). NEVER install a browser, puppeteer, playwright, or chromium —
   they are already on PATH.
 - For phone-first work, check the widths in one call:

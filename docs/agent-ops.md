@@ -349,7 +349,7 @@ jolo unpublish            # remove the released site from the serving host
 
 ## Browser Automation
 
-Use `playwright-cli` for stateful flows and `browser-check` for quick one-shot
+Skill `/j-browser`. Use `playwright-cli` for stateful flows and `browser-check` for quick one-shot
 audits.
 
 ```bash

@@ -38,7 +38,7 @@ create, up, down, attach, tree (worktrees), spawn (parallel agents), destroy, pr
 - =AGENTS.md= / =CLAUDE.md= — agent instructions
 - =.pre-commit-config.yaml= — language-appropriate linting
 - Skills: host =~/.agents/skills= plus =templates/skills/=, unioned at
-  =~/.agents/skills= (jolo wins on name clash)
+  =~/.agents/skills= (jolo wins on name clash). =templates/skills= is container-only (~j-worktree~, ~j-browser~); generic session/research skills live on the host as ~h-~.
 - Language-specific scaffolds (Go, Python, TypeScript, Rust, Elixir)
 
 ** Credential Flow

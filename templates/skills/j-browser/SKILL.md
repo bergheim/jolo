@@ -1,9 +1,9 @@
 ---
-name: j-browser-verify
+name: j-browser
 description: Browse, screenshot, or visually verify a local web app using the pre-installed browser-check and playwright-cli (never install your own browser). Use when asked to screenshot, browse, open/view a page, check the UI, or confirm the site is running.
 ---
 
-# /j-browser-verify
+# /j-browser
 
 Use this skill when the user asks to check if the site is running, verify browser tooling, or collect browser evidence.
 
