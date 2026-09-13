@@ -220,23 +220,23 @@ RUN cargo install --locked --root $HOME/.local bacon squawk
 RUN mkdir -p $HOME/.local/bin && \
     gem install --user-install --bindir "$HOME/.local/bin" tmuxinator && \
     pids="" && \
-    (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!" && \
-    (go install github.com/air-verse/air@latest) & pids="$pids $!" && \
-    (go install github.com/zricethezav/gitleaks/v8@latest) & pids="$pids $!" && \
-    (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!" && \
-    (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!" && \
-    (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!" && \
-    (uv tool install ruff) & pids="$pids $!" && \
-    (uv tool install ty) & pids="$pids $!" && \
-    (uv tool install pre-commit) & pids="$pids $!" && \
-    (uv tool install open-terminal) & pids="$pids $!" && \
+    { (curl -fsSL -o $HOME/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && chmod +x $HOME/.local/bin/tailwindcss) & pids="$pids $!"; } && \
+    { (go install github.com/air-verse/air@latest) & pids="$pids $!"; } && \
+    { (go install github.com/zricethezav/gitleaks/v8@latest) & pids="$pids $!"; } && \
+    { (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!"; } && \
+    { (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!"; } && \
+    { (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!"; } && \
+    { (uv tool install ruff) & pids="$pids $!"; } && \
+    { (uv tool install ty) & pids="$pids $!"; } && \
+    { (uv tool install pre-commit) & pids="$pids $!"; } && \
+    { (uv tool install open-terminal) & pids="$pids $!"; } && \
     # apk's ast-grep is ancient (0.28.1); PyPI ships current musllinux wheels
-    (uv tool install ast-grep-cli) & pids="$pids $!" && \
+    { (uv tool install ast-grep-cli) & pids="$pids $!"; } && \
     # pi-lens auto-installs the manylinux opengrep, a PyInstaller bundle that
     # crashes on musl; a PATH binary named opengrep pre-empts that download
-    (curl -fsSL -o $HOME/.local/bin/opengrep https://github.com/opengrep/opengrep/releases/download/v1.30.0/opengrep_musllinux_x86 && chmod +x $HOME/.local/bin/opengrep) & pids="$pids $!" && \
+    { (curl -fsSL -o $HOME/.local/bin/opengrep https://github.com/opengrep/opengrep/releases/download/v1.30.0/opengrep_musllinux_x86 && chmod +x $HOME/.local/bin/opengrep) & pids="$pids $!"; } && \
     # marksman (markdown LSP) has no apk; the self-contained release runs on musl
-    (mise use -g marksman@latest && ln -sf "$(mise which marksman)" $HOME/.local/bin/marksman) & pids="$pids $!" && \
+    { (mise use -g marksman@latest && ln -sf "$(mise which marksman)" $HOME/.local/bin/marksman) & pids="$pids $!"; } && \
     for p in $pids; do wait "$p" || exit 1; done && \
     opengrep --version && marksman --version && \
     curl -fsSL https://claude.ai/install.sh | bash && \
