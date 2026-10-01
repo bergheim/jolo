@@ -1422,7 +1422,11 @@ def _litellm_generate_key(
         "key_alias": f"jolo-{socket.gethostname()}-{project_name}",
         "max_budget": config.get("litellm_key_max_budget"),
         "budget_duration": config.get("litellm_key_budget_duration"),
-        "metadata": {"project": project_name, "source": "jolo"},
+        "metadata": {
+            "project": project_name,
+            "source": "jolo",
+            "allowed_passthrough_routes": constants.LITELLM_PASSTHROUGH_ROUTES,
+        },
     }
     models = config.get("litellm_key_models") or []
     if models:

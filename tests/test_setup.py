@@ -2222,6 +2222,10 @@ class TestLitellmKeys(unittest.TestCase):
         self.assertEqual(captured["body"]["key_alias"], "jolo-tux-myproj")
         # Project stays clean in metadata — the alias carries the host.
         self.assertEqual(captured["body"]["metadata"]["project"], "myproj")
+        self.assertEqual(
+            captured["body"]["metadata"]["allowed_passthrough_routes"],
+            ["/openrouter/decisions"],
+        )
 
     def test_http_error_reports_gateway_response(self):
         """A 400 means the gateway answered and refused; the reason in its

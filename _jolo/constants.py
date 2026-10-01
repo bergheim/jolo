@@ -64,6 +64,10 @@ DEFAULT_CONFIG = {
 }
 
 # Port range for dev servers
+# LiteLLM 1.103 403s pass-through routes a virtual key is not granted in its
+# metadata. clanker calls Jev through this one.
+LITELLM_PASSTHROUGH_ROUTES = ["/openrouter/decisions"]
+
 PORT_MIN = 4000
 PORT_MAX = 5000
 WORKTREE_PORTS = 3  # extra ports per container for agent-shell worktrees
