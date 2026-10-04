@@ -1,0 +1,21 @@
+# Herdr server config for jolo containers. The host attaches through
+# herdr-sshd (saved machines, herdr-mirror), so no TUI runs in here.
+onboarding = false
+
+[server]
+# Virtual size while no client is attached; the 120x40 default makes agent
+# TUIs reflow badly on reattach.
+headless_cols = 180
+headless_rows = 50
+
+[terminal]
+# The entrypoint starts the server in the project folder. "follow" would
+# fall back to $HOME whenever a workspace is created without a cwd.
+new_cwd = "current"
+
+[update]
+# The image pins herdr; `just build` updates it.
+version_check = false
+
+[experimental]
+pane_history = false

@@ -333,8 +333,9 @@ COPY --from=herdr --chmod=755 herdr /usr/local/bin/herdr
 RUN file /usr/local/bin/herdr | grep -q static-pie && herdr --version
 COPY --chmod=755 container/e container/wt container/motd container/notify container/db container/npm container/npx container/pnpmx container/share container/unshare container/fetch-asset container/agent-meta container/org-backfill container/jolo-open container/herdr-sshd /usr/local/bin/
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
-RUN mkdir -p $HOME/.config/tmuxinator
+RUN mkdir -p $HOME/.config/tmuxinator $HOME/.config/herdr
 COPY --chown=$USERNAME:$USERNAME container/dev.yml $HOME/.config/tmuxinator/dev.yml
+COPY --chown=$USERNAME:$USERNAME container/herdr.toml $HOME/.config/herdr/config.toml
 COPY --chown=$USERNAME:$USERNAME container/zimrc $HOME/.zimrc
 # playwright-cli only finds .playwright/cli.config.json at the exact cwd; the global copy covers subdirs and configless projects
 COPY --chown=$USERNAME:$USERNAME templates/.playwright/cli.config.json $HOME/.playwright/cli.config.json
