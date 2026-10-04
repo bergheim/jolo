@@ -9,6 +9,14 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 
+# PID 1 starts in / with no SHELL. Give everything launched below what a
+# login in this project gets: the user's login shell and the project folder.
+SHELL=$(getent passwd "$(id -un)" | cut -d: -f7)
+export SHELL="${SHELL:-/bin/sh}"
+if [ -n "${WORKSPACE_FOLDER:-}" ]; then
+    cd "$WORKSPACE_FOLDER"
+fi
+
 # Host ~/.agents/skills + jolo templates/skills. Never wipe ~/.agents/skills
 # if it is still the old templates bind — that deletes the checkout.
 _host_skills="$HOME/.agents/host-skills"
