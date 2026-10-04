@@ -214,7 +214,14 @@ RUN pnpm add -g \
     lighthouse \
     @lhci/cli
 
-RUN cargo install --locked --root $HOME/.local bacon squawk
+RUN cargo install --locked --root $HOME/.local bacon
+
+# squawk: upstream's static musl binary. cargo install compiles a vendored
+# OpenSSL from source (slow, and gcc has segfaulted mid-build there).
+RUN curl -fsSL -o $HOME/.local/bin/squawk \
+      https://github.com/sbdchd/squawk/releases/latest/download/squawk-linux-musl-x64 && \
+    chmod +x $HOME/.local/bin/squawk && \
+    squawk --version
 
 # Downloads and installs (parallel — cached layer, rarely changes)
 RUN mkdir -p $HOME/.local/bin && \
