@@ -62,6 +62,14 @@ if [ -n "$PORT" ]; then
     echo "open-terminal: listening on port $OT_PORT"
 fi
 
+# herdr: start the server here so its panes inherit the container env. If the
+# host's SSH bridge started it instead, it would get sshd's stripped env (no
+# mise/pnpm PATH, no tokens) and agent resume would fail. setsid: herdr
+# reports a server that does not lead its own session as needing a restart.
+if command -v herdr >/dev/null 2>&1; then
+    setsid herdr server >/dev/null 2>&1 &
+fi
+
 if [ "$START_EMACS" = "true" ]; then
     exec emacs --fg-daemon
 else

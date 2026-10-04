@@ -294,6 +294,9 @@ BASE_MOUNTS = [
     # Upload-only key for `share`/`unshare`: a forced command on burial confines
     # it to writing under /srv/www/share/<project>/, so it is safe for agents.
     "source=${localEnv:HOME}/.config/jolo/share-key,target=/home/${localEnv:USER}/.config/jolo/share-key,type=bind,readonly",
+    # Public half of the host's herdr machine key. herdr-sshd authorizes it, so
+    # `herdr machine add jolo-<container>` needs no per-container setup.
+    "source=${localEnv:HOME}/.ssh/jolo_herdr.pub,target=/home/${localEnv:USER}/.config/jolo/herdr.pub,type=bind,readonly",
     # Host clock. glibc (agy) reads /etc/localtime; dropped if the host
     # has none. musl prefers the TZ name injected at generate time.
     "source=/etc/localtime,target=/etc/localtime,type=bind,readonly",

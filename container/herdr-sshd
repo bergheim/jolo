@@ -1,0 +1,31 @@
+#!/bin/sh
+# herdr-sshd: one stdio sshd session for a herdr saved machine. The host's
+# `Host jolo-*` ProxyCommand runs this through `podman exec -i`, so nothing
+# listens on a port. Keys are created on first use: a recreated container
+# needs no setup, and its new host key is not pinned on the host.
+set -eu
+
+d="$HOME/.sshd"
+key="$HOME/.config/jolo/herdr.pub"
+mkdir -p "$d"
+chmod 700 "$d"
+[ -f "$d/host_ed25519" ] || ssh-keygen -q -t ed25519 -N "" -f "$d/host_ed25519" >&2
+if [ ! -f "$key" ]; then
+    echo "herdr-sshd: $key missing; recreate the container after creating ~/.ssh/jolo_herdr on the host" >&2
+    exit 1
+fi
+install -m 600 "$key" "$d/authorized_keys"
+
+# sshd running as this user can only log in as this user.
+exec /usr/sbin/sshd -i -f /dev/null -h "$d/host_ed25519" \
+    -o AuthorizedKeysFile="$d/authorized_keys" \
+    -o PidFile=none \
+    -o PasswordAuthentication=no \
+    -o KbdInteractiveAuthentication=no \
+    -o PermitRootLogin=no \
+    -o AllowAgentForwarding=no \
+    -o AllowTcpForwarding=no \
+    -o AllowStreamLocalForwarding=no \
+    -o X11Forwarding=no \
+    -o PermitTunnel=no \
+    -o LogLevel=ERROR
