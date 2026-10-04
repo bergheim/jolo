@@ -17,6 +17,10 @@ fi
 install -m 600 "$key" "$d/authorized_keys"
 
 # sshd running as this user can only log in as this user.
+# Roamgate reaches the container's herdr sockets via `ssh -L`, a
+# direct-streamlocal channel. sshd only permits those when TCP forwarding
+# is allowed too, so both are `local`. The key already grants a shell as
+# this user, so forwarding into the container adds no access.
 exec /usr/sbin/sshd -i -f /dev/null -h "$d/host_ed25519" \
     -o AuthorizedKeysFile="$d/authorized_keys" \
     -o PidFile=none \
@@ -24,8 +28,8 @@ exec /usr/sbin/sshd -i -f /dev/null -h "$d/host_ed25519" \
     -o KbdInteractiveAuthentication=no \
     -o PermitRootLogin=no \
     -o AllowAgentForwarding=no \
-    -o AllowTcpForwarding=no \
-    -o AllowStreamLocalForwarding=no \
+    -o AllowTcpForwarding=local \
+    -o AllowStreamLocalForwarding=local \
     -o X11Forwarding=no \
     -o PermitTunnel=no \
     -o LogLevel=ERROR
