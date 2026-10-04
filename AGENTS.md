@@ -198,7 +198,7 @@ menu. Do not reverse-engineer `/usr/local/bin/wt`.
 | Run all tests | `just test` |
 | Run matching tests | `just test-k PATTERN` |
 | Verbose tests | `just test-v` |
-| Build image | `podman build -t jolo .` |
+| Build image | `just build` |
 | Launch project | `jolo up` |
 | Launch detached | `jolo up -d` |
 | Create worktree container | `jolo tree <slug>` |

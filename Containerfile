@@ -320,6 +320,9 @@ ENV BROWSER=/usr/local/bin/jolo-open
 
 # Container scripts (late layer — changes here don't bust pnpm/cargo cache)
 COPY container/browser-check.js /usr/local/lib/browser-check.js
+# bergheim/herdr fork, host-built musl static-pie (see `just build`); the SSH bridge execs this exact path
+COPY --from=herdr --chmod=755 herdr /usr/local/bin/herdr
+RUN file /usr/local/bin/herdr | grep -q static-pie && herdr --version
 COPY --chmod=755 container/e container/wt container/motd container/notify container/db container/npm container/npx container/pnpmx container/share container/unshare container/fetch-asset container/agent-meta container/org-backfill container/jolo-open /usr/local/bin/
 COPY --chown=$USERNAME:$USERNAME container/entrypoint.sh container/tmux-layout.sh $HOME/
 RUN mkdir -p $HOME/.config/tmuxinator

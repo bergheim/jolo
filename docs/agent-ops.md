@@ -220,8 +220,7 @@ test -f .git && echo "worktree" || echo "main repo"
 just test
 just test-k "pattern"
 just test-v
-podman build -t jolo .
-podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t jolo .
+just build    # needs ~/stash/bin/herdr (host-built musl)
 ```
 
 Pre-commit setup for new projects:

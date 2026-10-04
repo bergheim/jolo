@@ -42,4 +42,4 @@ wt *args:
 
 # build the container image
 build:
-    podman build --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t jolo .
+    podman build --build-context herdr=$HOME/stash/bin --build-arg USERNAME=$(whoami) --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t jolo .
