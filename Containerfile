@@ -268,32 +268,16 @@ RUN manifest="$(curl -fsSL https://antigravity-cli-auto-updater-974169037036.us-
     rm -f /tmp/agy.tar.gz /tmp/antigravity && \
     agy --version
 
-# Grok Build (grok): xAI's official coding agent. Unlike agy this is a
-# static-pie binary, so it runs on musl with no glibc layer. The upstream
-# installer is avoided on purpose: it parks the binary in ~/.grok/downloads and
-# only symlinks into PATH, and ~/.grok is bind-mounted from the host at runtime,
-# which would leave a dangling link. Resolve the stable channel pointer instead
-# and fetch the artifact directly. No checksum is published upstream, so unlike
-# agy there is nothing to verify against. Final 'grok --version' gates a
-# working install.
 RUN v="$(curl -fsSL https://x.ai/cli/stable)" && \
     curl -fsSL -o $HOME/.local/bin/grok "https://x.ai/cli/grok-${v}-linux-x86_64" && \
     chmod +x $HOME/.local/bin/grok && \
     grok --version
 
-# Codex CLI: official musl binary into ~/.local/bin. Do not use
-# chatgpt.com/codex/install.sh — it parks under ~/.codex and only
-# symlinks into PATH; ~/.codex is bind-mounted from .codex-cache
-# at runtime (same trap as grok). Final 'codex --version' gates.
-RUN curl -fsSL -o /tmp/codex.tgz \
-      https://github.com/openai/codex/releases/latest/download/codex-x86_64-unknown-linux-musl.tar.gz && \
-    curl -fsSL -o /tmp/codex-host.tgz \
-      https://github.com/openai/codex/releases/latest/download/codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz && \
-    tar -xzf /tmp/codex.tgz -C /tmp && \
-    tar -xzf /tmp/codex-host.tgz -C /tmp && \
-    install -m755 /tmp/codex-x86_64-unknown-linux-musl $HOME/.local/bin/codex && \
-    install -m755 /tmp/codex-code-mode-host-x86_64-unknown-linux-musl $HOME/.local/bin/codex-code-mode-host && \
-    rm -f /tmp/codex.tgz /tmp/codex-host.tgz /tmp/codex-*-unknown-linux-musl && \
+RUN mkdir -p $HOME/.local/share/codex && \
+    curl -fsSL https://github.com/openai/codex/releases/latest/download/codex-package-x86_64-unknown-linux-musl.tar.gz \
+      | tar -xz -C $HOME/.local/share/codex && \
+    test -f $HOME/.local/share/codex/codex-package.json && \
+    ln -sf $HOME/.local/share/codex/bin/codex $HOME/.local/bin/codex && \
     $HOME/.local/bin/codex --version
 
 COPY --chown=$USERNAME:$USERNAME container/pre-commit-hooks.yaml /tmp/pre-commit-hooks.yaml
