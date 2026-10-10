@@ -234,12 +234,10 @@ RUN mkdir -p $HOME/.local/bin && \
     { (go install github.com/a-h/templ/cmd/templ@latest) & pids="$pids $!"; } && \
     { (curl -fsSL https://bun.sh/install | bash) & pids="$pids $!"; } && \
     { (curl -fsSL -o $HOME/.local/bin/expert https://github.com/expert-lsp/expert/releases/latest/download/expert_linux_amd64 && chmod +x $HOME/.local/bin/expert) & pids="$pids $!"; } && \
-    { (uv tool install ruff) & pids="$pids $!"; } && \
-    { (uv tool install ty) & pids="$pids $!"; } && \
-    { (uv tool install pre-commit) & pids="$pids $!"; } && \
-    { (uv tool install open-terminal) & pids="$pids $!"; } && \
+    # uv tool installs share one lock; parallel ones time out on slow runners.
     # apk's ast-grep is ancient (0.28.1); PyPI ships current musllinux wheels
-    { (uv tool install ast-grep-cli) & pids="$pids $!"; } && \
+    { (uv tool install ruff && uv tool install ty && uv tool install pre-commit && \
+       uv tool install open-terminal && uv tool install ast-grep-cli) & pids="$pids $!"; } && \
     # pi-lens auto-installs the manylinux opengrep, a PyInstaller bundle that
     # crashes on musl; a PATH binary named opengrep pre-empts that download
     { (curl -fsSL -o $HOME/.local/bin/opengrep https://github.com/opengrep/opengrep/releases/download/v1.30.0/opengrep_musllinux_x86 && chmod +x $HOME/.local/bin/opengrep) & pids="$pids $!"; } && \
