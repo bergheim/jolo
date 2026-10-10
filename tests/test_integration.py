@@ -509,7 +509,12 @@ class TestInitModeIntegration(unittest.TestCase):
             result.returncode = 0
             return result
 
-        with mock.patch("_jolo.commands.subprocess.run", side_effect=mock_run):
+        # The subprocess.run mock is global; DEV_HOST keeps detect_hostname
+        # from parsing its Mock stdout as tailscale JSON.
+        with (
+            mock.patch("_jolo.commands.subprocess.run", side_effect=mock_run),
+            mock.patch.dict(os.environ, {"DEV_HOST": "localhost"}),
+        ):
             with mock.patch.multiple(
                 "_jolo.commands",
                 devcontainer_up=mock.DEFAULT,

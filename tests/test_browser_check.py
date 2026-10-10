@@ -54,6 +54,18 @@ def node_env():
     return env
 
 
+# Playwright ships in the image, not on plain CI runners.
+HAS_PLAYWRIGHT = (
+    subprocess.run(
+        ["node", "-e", "require('playwright')"],
+        env=node_env(),
+        capture_output=True,
+    ).returncode
+    == 0
+)
+
+
+@unittest.skipUnless(HAS_PLAYWRIGHT, "playwright not installed")
 class BrowserCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

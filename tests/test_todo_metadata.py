@@ -10,6 +10,8 @@ both stamps from `bergheim/agent-org-task-create`.
 import re
 from pathlib import Path
 
+import pytest
+
 TODO_ORG = Path(__file__).parent.parent / "docs" / "TODO.org"
 
 KEYWORDS = {
@@ -47,6 +49,8 @@ def todo_entries() -> list[tuple[str, str]]:
     return [(heading, "\n".join(body)) for heading, body in entries]
 
 
+# TODO.org is gitignored, so CI checkouts lack it.
+@pytest.mark.skipif(not TODO_ORG.exists(), reason="no docs/TODO.org")
 def test_every_todo_entry_has_id_and_created():
     missing = []
     for heading, body in todo_entries():
