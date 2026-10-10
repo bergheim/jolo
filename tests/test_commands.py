@@ -985,6 +985,50 @@ class TestPickProject(unittest.TestCase):
         self.assertEqual(result, Path("/home/user/myapp"))
 
 
+class TestPickContainerByName(unittest.TestCase):
+    """Test _pick_container(name) — exact match skips fzf."""
+
+    def setUp(self):
+        from _jolo import commands
+
+        containers = [
+            ("a", "/dev/myapp", "running", "i"),
+            ("b", "/dev/myapp-worktrees/bold-bear", "exited", "i"),
+            ("c", "/dev/other", "running", "i"),
+        ]
+        self.addCleanup(mock.patch.stopall)
+        mock.patch.object(
+            commands, "list_all_devcontainers", return_value=containers
+        ).start()
+        registry = mock.patch.object(commands, "registry").start()
+        registry.known_paths.return_value = []
+        mock.patch.object(Path, "exists", return_value=True).start()
+        mock.patch.object(Path, "resolve", lambda self: self).start()
+        self.fzf = mock.patch.object(commands, "_fzf_pick").start()
+        self.pick = commands._pick_container
+
+    def test_exact_folder_name(self):
+        self.assertEqual(self.pick("myapp"), Path("/dev/myapp"))
+        self.fzf.assert_not_called()
+
+    def test_exact_worktree_label(self):
+        self.assertEqual(
+            self.pick("myapp / bold-bear"),
+            Path("/dev/myapp-worktrees/bold-bear"),
+        )
+        self.fzf.assert_not_called()
+
+    def test_fuzzy_falls_back_to_fzf_query(self):
+        self.fzf.return_value = "other  /dev/other"
+        self.assertEqual(self.pick("oth"), Path("/dev/other"))
+        self.assertEqual(self.fzf.call_args.kwargs["query"], "oth")
+
+    def test_no_match_exits(self):
+        self.fzf.return_value = ""
+        with self.assertRaises(SystemExit):
+            self.pick("nope")
+
+
 class TestStatusPreviewLine(unittest.TestCase):
     def test_public_url_is_reported_when_published(self):
         from _jolo import commands

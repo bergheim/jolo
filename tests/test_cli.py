@@ -78,6 +78,10 @@ class TestArgumentParsing(unittest.TestCase):
         """--recreate can combine with attach."""
         args = jolo.parse_args(["attach", "--recreate"])
         self.assertTrue(args.recreate)
+        self.assertIsNone(args.name)
+
+    def test_attach_accepts_name(self):
+        self.assertEqual(jolo.parse_args(["a", "myapp"]).name, "myapp")
 
 
 class TestGuards(unittest.TestCase):

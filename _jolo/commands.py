@@ -149,8 +149,14 @@ def get_agent_name(
     return agents[index % len(agents)]
 
 
-def _fzf_pick(header: str, labels: list[str]) -> str | None:
-    """Run fzf picker with the given header and labels, return selected line."""
+def _fzf_pick(
+    header: str, labels: list[str], query: str | None = None
+) -> str | None:
+    """Run fzf picker with the given header and labels, return selected line.
+
+    With a query, a single match is returned without showing the menu.
+    """
+    query_args = ["--query", query, "--select-1", "--exit-0"] if query else []
     try:
         result = subprocess.run(
             [
@@ -162,6 +168,7 @@ def _fzf_pick(header: str, labels: list[str]) -> str | None:
                 "--layout",
                 "reverse",
                 "--no-multi",
+                *query_args,
             ],
             input="\n".join(labels),
             capture_output=True,
@@ -718,8 +725,12 @@ def _last_attach_mtime(workspace: Path) -> float:
         return 0.0
 
 
-def _pick_container() -> Path | None:
-    """Show fzf picker for all containers (running, stopped, and known-on-disk)."""
+def _pick_container(name: str | None = None) -> Path | None:
+    """Show fzf picker for all containers (running, stopped, and known-on-disk).
+
+    NAME matching a folder name or label exactly skips the picker; otherwise
+    it prefilters fzf.
+    """
     containers = list_all_devcontainers()
     seen: dict[str, str] = {}
     for _, folder, state, _image_id in containers:
@@ -734,7 +745,15 @@ def _pick_container() -> Path | None:
     if not seen:
         sys.exit("No containers found.")
 
-    if len(seen) == 1:
+    if name:
+        exact = [
+            f
+            for f in seen
+            if name in (Path(f).name, _format_container_display(f))
+        ]
+        if len(exact) == 1:
+            return Path(exact[0])
+    elif len(seen) == 1:
         return Path(next(iter(seen)))
 
     candidates = sorted(
@@ -749,15 +768,17 @@ def _pick_container() -> Path | None:
         marker = "" if state == "running" else f" [{state}]"
         labels.append(f"{label}{marker:<16} {folder}")
 
-    selected = _fzf_pick("Pick a container:", labels)
+    selected = _fzf_pick("Pick a container:", labels, query=name)
     if selected is None:
         return None
+    if not selected:
+        sys.exit(f"No container matching {name!r}.")
     return Path(selected.strip().split()[-1])
 
 
 def run_attach_mode(args: argparse.Namespace) -> None:
     """Run attach mode: pick a container, start if stopped, and attach."""
-    folder = _pick_container()
+    folder = _pick_container(args.name)
     if not folder:
         return
 

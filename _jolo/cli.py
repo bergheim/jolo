@@ -594,11 +594,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     # attach: recreate, verbose
-    subparsers.add_parser(
+    sub_attach = subparsers.add_parser(
         "attach",
         aliases=["a"],
         parents=[p_verbose, p_recreate],
         help="Pick a running container and attach to it",
+    )
+    sub_attach.add_argument(
+        "name",
+        nargs="?",
+        help="Container to attach to (exact name, else prefilters fzf)",
     )
 
     # down: all, verbose
