@@ -13,7 +13,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from _jolo.cli import find_git_root, slugify_prompt
@@ -184,7 +184,7 @@ def run_autonomous(args: argparse.Namespace) -> None:
         return
 
     pairs = assign_agents(items, agents)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     slug_suffix = now.strftime("%Y%m%dT%H%M%S")
     slugs = _unique_slugs(items, suffix=slug_suffix)

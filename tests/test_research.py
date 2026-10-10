@@ -4,13 +4,13 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 
 import jolo
 
-FAKE_DT = datetime(2026, 2, 11, 14, 30, 45, tzinfo=timezone.utc)
+FAKE_DT = datetime(2026, 2, 11, 14, 30, 45, tzinfo=UTC)
 
 
 class TestResearchArgParsing(unittest.TestCase):
@@ -192,7 +192,7 @@ class TestResearchMode(unittest.TestCase):
             },
         }
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -233,7 +233,7 @@ class TestResearchMode(unittest.TestCase):
         self.assertIn("/tmp/research-", exec_cmd)
         self.assertNotIn("/dev/null", exec_cmd)
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -265,7 +265,7 @@ class TestResearchMode(unittest.TestCase):
         self.assertIn("gemini", exec_cmd)
         self.assertIn(" -p ", exec_cmd)
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -304,7 +304,7 @@ class TestResearchMode(unittest.TestCase):
             "--dangerously-bypass-approvals-and-sandbox exec ", exec_cmd
         )
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -335,7 +335,7 @@ class TestResearchMode(unittest.TestCase):
         exec_cmd = mock_exec.call_args[0][1]
         self.assertIn("claude", exec_cmd)
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.devcontainer_up", return_value=True)
     @mock.patch("_jolo.commands.is_container_running", return_value=False)
@@ -369,7 +369,7 @@ class TestResearchMode(unittest.TestCase):
         mock_up.assert_called_once_with(research_home)
         mock_exec.assert_called_once()
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.devcontainer_up")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
@@ -401,7 +401,7 @@ class TestResearchMode(unittest.TestCase):
 
         mock_up.assert_not_called()
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_up", return_value=False)
     @mock.patch("_jolo.commands.is_container_running", return_value=False)
     @mock.patch("_jolo.commands.setup_emacs_config")
@@ -539,7 +539,7 @@ class TestResearchDeep(unittest.TestCase):
             },
         }
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands._setup_container_env")
@@ -575,7 +575,7 @@ class TestResearchDeep(unittest.TestCase):
         self.assertIn("synthesis", exec_cmd)
         self.assertIn("gemini", exec_cmd)
 
-    @mock.patch("datetime.datetime", wraps=datetime)
+    @mock.patch("_jolo.commands.datetime", wraps=datetime)
     @mock.patch("_jolo.commands.devcontainer_exec_command")
     @mock.patch("_jolo.commands.is_container_running", return_value=True)
     @mock.patch("_jolo.commands._setup_container_env")

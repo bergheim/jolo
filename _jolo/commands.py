@@ -8,9 +8,9 @@ import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
-
 import tomllib
+from datetime import UTC, datetime
+from pathlib import Path
 
 from _jolo import constants, registry, sites
 from _jolo.cli import (
@@ -2187,15 +2187,13 @@ def _build_research_agent_cmd(
 
 def run_research_mode(args: argparse.Namespace) -> None:
     """Run research in a persistent container at ~/jolo/research/."""
-    from datetime import datetime, timezone
-
     prompt = _resolve_research_prompt(args)
 
     config = load_config()
     research_home = ensure_research_repo(config)
 
     slug = slugify_prompt(prompt)
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d-%H%M")
 
     _setup_container_env(research_home, config)
     if not is_container_running(research_home):
